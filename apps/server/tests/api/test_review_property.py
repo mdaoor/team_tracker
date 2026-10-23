@@ -27,6 +27,8 @@ async def test_each_row_has_exactly_one_owner(
         )
         assert r.status_code == 201
     pid = {p["handle"]: p["person_id"] for p in (await api.call("GET", "/people")).json()["data"]}
+    for h in HANDLES:  # everyone may open the queue; ownership decides what they see
+        await api.role(h, "manager")
     # random primary line managers (no self loops), possibly none
     for h in HANDLES:
         if rng.random() < 0.7:

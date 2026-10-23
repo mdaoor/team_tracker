@@ -15,6 +15,7 @@ from tt_client import form as tform
 from tt_client.api import ApiError, Unreachable
 from tt_client.config import ClientConfig
 from tt_client.feedback import diff_batches
+from tt_client.login import LoginError, browser_login, check_server, ldap_token
 from tt_client.outbox import Entry, sync
 from tt_client.parser.llm import GatewayTranslator, batch_review, translate_line
 from tt_client.preview import preview_dict
@@ -433,26 +434,51 @@ def pack_cmd(
 
 @app.command("login")
 def login(
-    url: Annotated[str, typer.Option(help="Server URL")],
+    url: Annotated[str, typer.Option(help="Server URL (https://...)")],
     workspace: Annotated[str, typer.Option(help="Workspace slug")],
-    handle: Annotated[str, typer.Option(help="Your @handle")],
+    handle: Annotated[str | None, typer.Option(help="Your @handle (looked up when signing in)")] = None,
     token: Annotated[str | None, typer.Option(help="Personal API token (tt_...)")] = None,
-    ca_bundle: Annotated[str | None, typer.Option(help="PEM CA bundle for internal CAs")] = None,
+    browser: Annotated[bool, typer.Option("--browser", help="Sign in through the web console")] = False,
+    ldap_user: Annotated[
+        str | None, typer.Option("--ldap-user", help="Active Directory account (DOMAIN\\user or UPN)")
+    ] = None,
+    ca_bundle: Annotated[
+        str | None, typer.Option(help="PEM CA bundle for internal CAs (TT_CA_BUNDLE)")
+    ] = None,
     gateway_url: Annotated[str | None, typer.Option(help="LLM gateway URL")] = None,
     time_zone: Annotated[str, typer.Option(help="IANA zone")] = "UTC",
 ) -> None:
-    """Store server settings. Tokens are minted in the web console (Phase 4) or `tt-admin`."""
-    if token is None:
-        token = typer.prompt("Paste your API token", hide_input=True)
+    """Sign in and store server settings. The TLS chain is verified first and cannot be skipped."""
     cfg = ClientConfig.load()
+    ca = ca_bundle or cfg.ca_bundle
+    try:
+        check_server(url, ca)
+        if browser:
+            import webbrowser
+
+            typer.echo("Opening your browser to sign in ...")
+            token, found = browser_login(url, workspace, open_url=webbrowser.open)
+            handle = handle or found
+        elif ldap_user:
+            password = typer.prompt("Directory password", hide_input=True)
+            token, found = ldap_token(url, workspace, ldap_user, password, ca)
+            handle = handle or found
+        elif token is None:
+            token = typer.prompt("Paste your API token", hide_input=True)
+    except LoginError as exc:
+        typer.echo(f"login failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    if not handle:
+        typer.echo("--handle is required when signing in with a token", err=True)
+        raise typer.Exit(2)
     cfg.server_url, cfg.workspace, cfg.handle = (
         url,
         workspace,
         handle if handle.startswith("@") else "@" + handle,
     )
     cfg.token, cfg.ca_bundle, cfg.gateway_url, cfg.time_zone = (
-        token,
-        ca_bundle or cfg.ca_bundle,
+        token or "",
+        ca,
         gateway_url or cfg.gateway_url,
         time_zone,
     )

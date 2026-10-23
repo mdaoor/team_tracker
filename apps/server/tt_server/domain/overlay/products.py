@@ -166,6 +166,10 @@ async def link(
         event_type="product_link.added",
         payload={"after": {"target_type": target_type.value, "target_id": target_id, "role": role.value}},
     )
+    if target_type == TargetType.TEAM:
+        from tt_server.acl.grants import on_team_linked_to_product
+
+        await on_team_linked_to_product(uow, ws, product, target_id)
     if role == ProductLinkRole.DELIVERS and target_type == TargetType.PROJECT:
         await inherit_product_for_project(uow, ws, target_id, product, actor_id=actor_id)
     return row

@@ -22,6 +22,7 @@ class Live:
     slug: str
     token: str
     handle: str = "@mahmoud"
+    manage_token: str = ""
 
     def headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.token}"}
@@ -99,4 +100,6 @@ def live(live_server: str) -> Live:
             )
         tok = c.post("/auth/tokens", headers=h, json={"workspace": slug})
         assert tok.status_code == 201, tok.text
-    return Live(live_server, slug, tok.json()["token"])
+        big = c.post("/auth/tokens", headers=h, json={"workspace": slug, "scopes": ["manage"]})
+        assert big.status_code == 201, big.text
+    return Live(live_server, slug, tok.json()["token"], manage_token=big.json()["token"])

@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Header, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.orm import aliased
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import (
     ApprovalStatus,
@@ -27,6 +28,8 @@ from tt_schema.enums import (
     ValueTypeShape,
 )
 
+from tt_server.acl.visibility import item_visible_for, visible
+from tt_server.api.authz import check, check_item, check_project, needs, needs_review
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import _item, _project, row_dict
@@ -40,6 +43,12 @@ from tt_server.domain.overlay import rollup as rollup_svc
 
 router = APIRouter(prefix="/api/v1/w/{ws}")
 TARGETS = {"work_item": TargetType.WORK_ITEM, "project": TargetType.PROJECT, "product": TargetType.PRODUCT}
+
+
+async def item_ref_for(uow: Uow, item: m.WorkItem) -> Any:
+    from tt_server.acl.context import item_ref
+
+    return await item_ref(uow.session, item)
 
 
 def _begin(uow: Uow, actor: CurrentActor) -> None:
@@ -74,7 +83,7 @@ async def list_dimensions(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     return {"data": [row_dict(r) for r in rows], "next_cursor": None}
 
 
-@router.post("/dimensions", status_code=201, tags=["overlay"])
+@router.post("/dimensions", status_code=201, tags=["overlay"], dependencies=[needs("dimension.admin")])
 async def create_dimension(body: DimensionIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     if await uow.session.scalar(
@@ -146,7 +155,9 @@ async def list_values(ref: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]
     return {"data": [row_dict(r) for r in rows], "next_cursor": None}
 
 
-@router.post("/dimensions/{ref}/values", status_code=201, tags=["overlay"])
+@router.post(
+    "/dimensions/{ref}/values", status_code=201, tags=["overlay"], dependencies=[needs("dimension.admin")]
+)
 async def create_value(ref: str, body: ValueIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     d = await _dimension(uow, actor.ws.id, ref)
@@ -178,7 +189,12 @@ async def create_value(ref: str, body: ValueIn, actor: CurrentActor, uow: Uow) -
     return row_dict(v)
 
 
-@router.post("/dimensions/{ref}/values:bulk", status_code=201, tags=["overlay"])
+@router.post(
+    "/dimensions/{ref}/values:bulk",
+    status_code=201,
+    tags=["overlay"],
+    dependencies=[needs("dimension.admin")],
+)
 async def bulk_values(ref: str, names: list[str], actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     d = await _dimension(uow, actor.ws.id, ref)
@@ -220,7 +236,9 @@ class ValuePatch(BaseModel):
     position: int | None = None
 
 
-@router.patch("/dimensions/{ref}/values/{value_id}", tags=["overlay"])
+@router.patch(
+    "/dimensions/{ref}/values/{value_id}", tags=["overlay"], dependencies=[needs("dimension.admin")]
+)
 async def patch_value(
     ref: str, value_id: str, body: ValuePatch, actor: CurrentActor, uow: Uow
 ) -> dict[str, Any]:
@@ -258,6 +276,21 @@ class ClassifyIn(BaseModel):
     value: str
 
 
+async def _check_target(
+    actor: CurrentActor, uow: Uow, permission: str, target_type: TargetType, target_id: str
+) -> None:
+    if target_type == TargetType.WORK_ITEM:
+        item = await uow.session.get(m.WorkItem, target_id)
+        if item is not None:
+            await check_item(actor, uow, permission, item)
+    elif target_type == TargetType.PROJECT:
+        project = await uow.session.get(m.Project, target_id)
+        if project is not None:
+            await check_project(actor, uow, permission, project)
+    else:
+        check(actor, permission)
+
+
 async def _target_id(uow: Uow, ws_id: str, target_type: TargetType, ref: str) -> str:
     if target_type == TargetType.WORK_ITEM:
         return (await _item(uow, ws_id, ref)).id
@@ -290,6 +323,7 @@ async def classify(body: ClassifyIn, actor: CurrentActor, uow: Uow) -> dict[str,
     if value is None:
         raise ApiError(404, "not_found", f"value {body.value!r} not found in {dim.key}", pointer="/value")
     tid = await _target_id(uow, actor.ws.id, body.target_type, body.target_id)
+    await _check_target(actor, uow, "classification.write", body.target_type, tid)
     row = await classify_svc.classify(
         uow,
         actor.ws,
@@ -326,6 +360,11 @@ async def list_classifications(
             m.Classification.deleted_at.is_(None),
         )
     )
+    if target_type == TargetType.WORK_ITEM:  # only classifications of items the actor can see
+        wi = aliased(m.WorkItem)
+        stmt = stmt.where(
+            m.Classification.target_id.in_(select(wi.id).where(item_visible_for(actor.acl, wi)))
+        )
     if target:
         stmt = stmt.where(
             m.Classification.target_id == await _target_id(uow, actor.ws.id, target_type, target)
@@ -351,6 +390,21 @@ async def confirm_classification(cid: str, actor: CurrentActor, uow: Uow) -> dic
     )
     if c is None:
         raise ApiError(404, "not_found", "classification not found")
+    item = await uow.session.get(m.WorkItem, c.target_id) if c.target_type == TargetType.WORK_ITEM else None
+    if item is not None and await _item(uow, actor.ws.id, item.id):  # invisible => 404
+        assignee = item.assignee_id or item.reporter_id
+        if not (
+            actor.acl.is_line_manager_of(assignee)
+            or actor.acl.can("classification.confirm", await item_ref_for(uow, item))
+        ):
+            raise ApiError(
+                403,
+                "forbidden",
+                "missing permission 'classification.confirm'",
+                details={"permission": "classification.confirm"},
+            )
+    else:
+        check(actor, "classification.confirm")
     await classify_svc.confirm(uow, actor.ws, c, by=actor.person.id)
     await uow.commit()
     return row_dict(c)
@@ -368,6 +422,7 @@ async def delete_classification(cid: str, actor: CurrentActor, uow: Uow) -> Resp
     )
     if c is None:
         raise ApiError(404, "not_found", "classification not found")
+    await _check_target(actor, uow, "classification.write", c.target_type, c.target_id)
     await classify_svc.unclassify(uow, actor.ws, c, by=actor.person.id)
     await uow.commit()
     return Response(status_code=204)
@@ -408,7 +463,7 @@ class StageIn(BaseModel):
     position: int | None = None
 
 
-@router.post("/processes", status_code=201, tags=["overlay"])
+@router.post("/processes", status_code=201, tags=["overlay"], dependencies=[needs("process.admin")])
 async def create_process(body: ProcessIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = m.Process(id=new_id(), workspace_id=actor.ws.id, owner_id=actor.person.id, **body.model_dump())
     uow.session.add(p)
@@ -426,7 +481,9 @@ async def create_process(body: ProcessIn, actor: CurrentActor, uow: Uow) -> dict
     return row_dict(p)
 
 
-@router.post("/processes/{ref}/stages", status_code=201, tags=["overlay"])
+@router.post(
+    "/processes/{ref}/stages", status_code=201, tags=["overlay"], dependencies=[needs("process.admin")]
+)
 async def add_stage(ref: str, body: StageIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     from tt_schema.enums import StageCategory, StateCategory
 
@@ -460,7 +517,9 @@ async def add_stage(ref: str, body: StageIn, actor: CurrentActor, uow: Uow) -> d
 
 @router.get("/processes/{ref}/board", tags=["overlay"])
 async def process_board(ref: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    return await proc.board(uow.session, actor.ws.id, await proc.get_process(uow.session, actor.ws.id, ref))
+    return await proc.board(
+        uow.session, actor.ws.id, await proc.get_process(uow.session, actor.ws.id, ref), acl=actor.acl
+    )
 
 
 class StageMove(BaseModel):
@@ -469,7 +528,9 @@ class StageMove(BaseModel):
     reason: str | None = None
 
 
-@router.put("/items/{id_or_key}/stage", tags=["overlay"])
+@router.put(
+    "/items/{id_or_key}/stage", tags=["overlay"], dependencies=[needs("item.write_overlay", item="id_or_key")]
+)
 async def move_stage(id_or_key: str, body: StageMove, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     item = await _item(uow, actor.ws.id, id_or_key)
@@ -517,7 +578,7 @@ class ProductIn(BaseModel):
     description: str | None = None
 
 
-@router.post("/products", status_code=201, tags=["overlay"])
+@router.post("/products", status_code=201, tags=["overlay"], dependencies=[needs("product.admin")])
 async def create_product(body: ProductIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     p = await products.create_product(
@@ -565,7 +626,7 @@ class ProductPatch(BaseModel):
     description: str | None = None
 
 
-@router.patch("/products/{ref}", tags=["overlay"])
+@router.patch("/products/{ref}", tags=["overlay"], dependencies=[needs("product.admin")])
 async def patch_product(ref: str, body: ProductPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     p = await _product(uow, actor.ws.id, ref)
@@ -585,7 +646,9 @@ class LinkIn(BaseModel):
     weight: float | None = None
 
 
-@router.post("/products/{ref}/links", status_code=201, tags=["overlay"])
+@router.post(
+    "/products/{ref}/links", status_code=201, tags=["overlay"], dependencies=[needs("product.admin")]
+)
 async def link_product(ref: str, body: LinkIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     p = await _product(uow, actor.ws.id, ref)
@@ -619,7 +682,9 @@ class PriorityIn(BaseModel):
     priority: Priority
 
 
-@router.put("/projects/{key}/priority", tags=["overlay"])
+@router.put(
+    "/projects/{key}/priority", tags=["overlay"], dependencies=[needs("item.write_overlay", project="key")]
+)
 async def set_project_priority(key: str, body: PriorityIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     p = await _project(uow, actor.ws.id, key)
@@ -641,7 +706,7 @@ async def set_project_priority(key: str, body: PriorityIn, actor: CurrentActor, 
     }
 
 
-@router.put("/products/{ref}/priority", tags=["overlay"])
+@router.put("/products/{ref}/priority", tags=["overlay"], dependencies=[needs("product.admin")])
 async def set_product_priority(ref: str, body: PriorityIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     p = await _product(uow, actor.ws.id, ref)
@@ -666,7 +731,7 @@ class ObjectiveIn(BaseModel):
     owner_id: str | None = None
 
 
-@router.post("/objectives", status_code=201, tags=["overlay"])
+@router.post("/objectives", status_code=201, tags=["overlay"], dependencies=[needs("objective.write")])
 async def create_objective(body: ObjectiveIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     o = await products.create_objective(
@@ -704,7 +769,12 @@ class KeyResultIn(BaseModel):
     source: str = "manual"
 
 
-@router.post("/objectives/{oid}/key-results", status_code=201, tags=["overlay"])
+@router.post(
+    "/objectives/{oid}/key-results",
+    status_code=201,
+    tags=["overlay"],
+    dependencies=[needs("objective.write")],
+)
 async def add_key_result(oid: str, body: KeyResultIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     o = await uow.session.scalar(
         select(m.Objective).where(m.Objective.id == oid, m.Objective.workspace_id == actor.ws.id)
@@ -727,7 +797,9 @@ async def add_key_result(oid: str, body: KeyResultIn, actor: CurrentActor, uow: 
     return row_dict(kr)
 
 
-@router.patch("/objectives/{oid}/key-results/{kid}", tags=["overlay"])
+@router.patch(
+    "/objectives/{oid}/key-results/{kid}", tags=["overlay"], dependencies=[needs("objective.write")]
+)
 async def update_key_result(
     oid: str, kid: str, current_value: Decimal, actor: CurrentActor, uow: Uow
 ) -> dict[str, Any]:
@@ -789,7 +861,7 @@ async def list_schemes(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     return {"data": [row_dict(r) for r in rows], "next_cursor": None}
 
 
-@router.post("/weight-schemes", status_code=201, tags=["overlay"])
+@router.post("/weight-schemes", status_code=201, tags=["overlay"], dependencies=[needs("weight.set")])
 async def create_scheme(body: SchemeIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     weights.validate_formula(body.formula)
     row = m.WeightScheme(id=new_id(), workspace_id=actor.ws.id, **body.model_dump())
@@ -808,7 +880,7 @@ async def create_scheme(body: SchemeIn, actor: CurrentActor, uow: Uow) -> dict[s
     return row_dict(row)
 
 
-@router.post("/weight-schemes/{sid}/recompute", tags=["overlay"])
+@router.post("/weight-schemes/{sid}/recompute", tags=["overlay"], dependencies=[needs("weight.set")])
 async def recompute_scheme(sid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """Recompute every item (the formula changed, or the scheme is new)."""
     _begin(uow, actor)
@@ -862,7 +934,11 @@ class WeightIn(BaseModel):
     value: Decimal
 
 
-@router.put("/items/{id_or_key}/weights/{scheme}", tags=["overlay"])
+@router.put(
+    "/items/{id_or_key}/weights/{scheme}",
+    tags=["overlay"],
+    dependencies=[needs("weight.set", item="id_or_key")],
+)
 async def override_weight(
     id_or_key: str, scheme: str, body: WeightIn, actor: CurrentActor, uow: Uow
 ) -> dict[str, Any]:
@@ -902,6 +978,7 @@ class RiskIn(BaseModel):
 async def create_risk(body: RiskIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     p = await _project(uow, actor.ws.id, body.project)
+    await check_project(actor, uow, "risk.write", p)
     tid = body.target_id
     if tid and body.target_type == TargetType.WORK_ITEM:
         tid = (await _item(uow, actor.ws.id, tid)).id
@@ -933,6 +1010,7 @@ async def list_risks(
         .join(m.Project, m.Project.id == m.Risk.project_id)
         .where(m.Project.workspace_id == actor.ws.id, m.Risk.deleted_at.is_(None))
     )
+    stmt = visible(stmt, actor.acl, m.Risk)
     if project:
         stmt = stmt.where(func.lower(m.Project.key) == project.lower())
     if open_only:
@@ -944,8 +1022,8 @@ async def list_risks(
     }
 
 
-async def _risk(uow: Uow, ws_id: str, ref: str) -> m.Risk:
-    r = await uow.session.scalar(
+async def _risk(uow: Uow, ws_id: str, ref: str, actor: CurrentActor | None = None) -> m.Risk:
+    stmt = (
         select(m.Risk)
         .join(m.Project, m.Project.id == m.Risk.project_id)
         .where(
@@ -954,8 +1032,13 @@ async def _risk(uow: Uow, ws_id: str, ref: str) -> m.Risk:
             (m.Risk.id == ref) | (m.Risk.key == ref.upper()),
         )
     )
+    if (acl := uow.context.get("acl")) is not None:
+        stmt = visible(stmt, acl, m.Risk)
+    r = await uow.session.scalar(stmt)
     if r is None:
         raise ApiError(404, "not_found", "risk not found")
+    if actor is not None:  # writers need risk.write on the risk's project
+        await check_project(actor, uow, "risk.write", await uow.session.get(m.Project, r.project_id))  # type: ignore[arg-type]
     return r
 
 
@@ -969,7 +1052,7 @@ class RiskPatch(BaseModel):
 
 @router.patch("/risks/{ref}", tags=["overlay"])
 async def patch_risk(ref: str, body: RiskPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    r = await _risk(uow, actor.ws.id, ref)
+    r = await _risk(uow, actor.ws.id, ref, actor)
     data = body.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(r, k, v)
@@ -993,7 +1076,7 @@ class RiskLinkIn(BaseModel):
 @router.post("/risks/{ref}/links", status_code=201, tags=["overlay"])
 async def link_risk(ref: str, body: RiskLinkIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
-    r = await _risk(uow, actor.ws.id, ref)
+    r = await _risk(uow, actor.ws.id, ref, actor)
     item = await _item(uow, actor.ws.id, body.item)
     n = await risks.link_item(uow, actor.ws, r, item, actor_id=actor.person.id)
     await uow.commit()
@@ -1003,7 +1086,7 @@ async def link_risk(ref: str, body: RiskLinkIn, actor: CurrentActor, uow: Uow) -
 @router.delete("/risks/{ref}/links/{item_ref}", tags=["overlay"])
 async def unlink_risk(ref: str, item_ref: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
-    r = await _risk(uow, actor.ws.id, ref)
+    r = await _risk(uow, actor.ws.id, ref, actor)
     item = await _item(uow, actor.ws.id, item_ref)
     n = await risks.unlink_item(uow, actor.ws, r, item, actor_id=actor.person.id)
     await uow.commit()
@@ -1017,7 +1100,7 @@ class ActionIn(BaseModel):
 
 @router.post("/risks/{ref}/actions", status_code=201, tags=["overlay"])
 async def add_risk_action(ref: str, body: ActionIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    r = await _risk(uow, actor.ws.id, ref)
+    r = await _risk(uow, actor.ws.id, ref, actor)
     a = await risks.add_action(
         uow, actor.ws, r, description=body.description, actor_id=actor.person.id, due_date=body.due_date
     )
@@ -1028,7 +1111,7 @@ async def add_risk_action(ref: str, body: ActionIn, actor: CurrentActor, uow: Uo
 @router.post("/risks/{ref}/actions/{aid}/create-item", status_code=201, tags=["overlay"])
 async def action_to_item(ref: str, aid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
-    r = await _risk(uow, actor.ws.id, ref)
+    r = await _risk(uow, actor.ws.id, ref, actor)
     a = await uow.session.scalar(
         select(m.RiskAction).where(m.RiskAction.id == aid, m.RiskAction.risk_id == r.id)
     )
@@ -1074,6 +1157,7 @@ async def list_approvals(
         .join(m.Project, m.Project.id == m.Approval.project_id)
         .where(m.Project.workspace_id == actor.ws.id, m.Approval.deleted_at.is_(None))
     )
+    stmt = visible(stmt, actor.acl, m.Project)
     if status:
         stmt = stmt.where(m.Approval.status == status)
     if mine:
@@ -1099,6 +1183,7 @@ async def decide(aid: str, body: DecisionIn, actor: CurrentActor, uow: Uow) -> d
     )
     if a is None:
         raise ApiError(404, "not_found", "approval not found")
+    await check_project(actor, uow, "approval.decide", await uow.session.get(m.Project, a.project_id))  # type: ignore[arg-type]
     await approvals.decide(
         uow, actor.ws, a, approver_id=actor.person.id, decision=body.decision, comment=body.comment
     )
@@ -1109,7 +1194,7 @@ async def decide(aid: str, body: DecisionIn, actor: CurrentActor, uow: Uow) -> d
 # ------------------------------------------------------------------ review queue
 
 
-@router.get("/review-queue", tags=["review"])
+@router.get("/review-queue", tags=["review"], dependencies=[needs_review()])
 async def review_queue(actor: CurrentActor, uow: Uow, kind: str | None = None) -> dict[str, Any]:
     return {
         "data": await review.list_queue(uow.session, actor.ws.id, actor.person.id, kind),
@@ -1122,7 +1207,7 @@ class ResolveIn(BaseModel):
     choice: dict[str, Any] = Field(default_factory=dict)
 
 
-@router.post("/review-queue/resolve", tags=["review"])
+@router.post("/review-queue/resolve", tags=["review"], dependencies=[needs_review()])
 async def resolve_review(body: ResolveIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     out = await review.resolve(uow, actor.ws, body.ref, body.choice, actor_id=actor.person.id)
@@ -1135,7 +1220,7 @@ class BulkReviewIn(BaseModel):
     action: str = "ignore"
 
 
-@router.post("/review-queue/bulk", tags=["review"])
+@router.post("/review-queue/bulk", tags=["review"], dependencies=[needs_review()])
 async def bulk_review(body: BulkReviewIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     out = await review.bulk(uow, actor.ws, body.refs, body.action, actor_id=actor.person.id)
@@ -1143,7 +1228,7 @@ async def bulk_review(body: BulkReviewIn, actor: CurrentActor, uow: Uow) -> dict
     return out
 
 
-@router.post("/review-queue/confirm-all-suggested", tags=["review"])
+@router.post("/review-queue/confirm-all-suggested", tags=["review"], dependencies=[needs_review()])
 async def confirm_all(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     n = await review.confirm_all_suggested(uow, actor.ws, actor.person.id)
@@ -1170,6 +1255,8 @@ async def bulk_preview(body: BulkEdit, actor: CurrentActor, uow: Uow) -> dict[st
 async def bulk_apply(body: BulkEdit, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _begin(uow, actor)
     targets = await bulk.resolve_targets(uow, actor.ws, ids=body.ids, filt=body.filter)
+    for t in targets:
+        await check_item(actor, uow, "item.write_overlay", t)
     out = await bulk.apply(uow, actor.ws, targets, body.set, actor=actor.person.id)
     await uow.commit()
     return out
@@ -1200,7 +1287,9 @@ def etag_of(item: m.WorkItem) -> str:
     return f'"{item.updated_at.isoformat()}"'
 
 
-@router.patch("/items/{id_or_key}", tags=["overlay"])
+@router.patch(
+    "/items/{id_or_key}", tags=["overlay"], dependencies=[needs("item.write_overlay", item="id_or_key")]
+)
 async def patch_item(
     id_or_key: str,
     body: ItemPatch,

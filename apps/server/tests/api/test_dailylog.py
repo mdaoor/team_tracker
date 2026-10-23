@@ -28,6 +28,13 @@ async def test_build_confirm_review(api: Api, session_factory) -> None:  # type:
     assert (await api.call("GET", "/daily-logs", params={"day": "2026-10-23"})).json()["data"][0][
         "minutes_total"
     ] == 90
+    # a manager who is not the subject's line manager may not review ...
+    await api.role("@sara", "manager")
+    assert (await api.call("POST", f"/daily-logs/{log_id}/review", as_="@sara")).status_code == 403
+    # ... but the line manager can
+    people = {p["handle"]: p["person_id"] for p in (await api.call("GET", "/people")).json()["data"]}
+    line = {"person_id": people["@mahmoud"], "manager_id": people["@sara"], "is_primary": True}
+    assert (await api.call("POST", "/reporting-lines", json=line)).status_code == 201
     assert (await api.call("POST", f"/daily-logs/{log_id}/review", as_="@sara")).json()[
         "status"
     ] == "reviewed"

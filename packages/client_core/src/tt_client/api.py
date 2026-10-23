@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from tt_client.config import ClientConfig
+from tt_client.tls import verify_context
 
 
 class ApiError(Exception):
@@ -24,7 +25,7 @@ class TTApi:
         self.cfg = cfg
         self.http = client or httpx.Client(
             base_url=cfg.server_url.rstrip("/"),
-            verify=cfg.ca_bundle or True,
+            verify=verify_context(cfg.ca_bundle),
             timeout=httpx.Timeout(10.0, connect=3.0),
             headers={"Authorization": f"Bearer {cfg.token}"} if cfg.token else {},
         )

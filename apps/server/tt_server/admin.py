@@ -7,6 +7,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Annotated, Any
 
 import typer
 from sqlalchemy import text
@@ -109,6 +110,50 @@ async def _backfill() -> None:
             )  # derived rows only (mirrors / weights): no domain event applies
     finally:
         await engine.dispose()
+
+
+@app.command("serve")
+def serve(
+    host: Annotated[str, typer.Option(help="Bind address")] = "0.0.0.0",  # noqa: S104
+    port: Annotated[int, typer.Option(help="HTTPS port")] = 8443,
+    certfile: Annotated[Path | None, typer.Option(help="PEM certificate (full chain)")] = None,
+    keyfile: Annotated[Path | None, typer.Option(help="PEM private key")] = None,
+    redirect_port: Annotated[int | None, typer.Option(help="Also redirect plain HTTP from here")] = None,
+) -> None:
+    """Run the API over HTTPS from a PEM cert/key pair (no cert => plain HTTP, dev only)."""
+    import uvicorn
+
+    from tt_server.settings import get_settings
+
+    s = get_settings()
+    cert, key = certfile or s.tls_certfile, keyfile or s.tls_keyfile
+    if bool(cert) != bool(key):
+        raise typer.BadParameter("--certfile and --keyfile must be given together")
+    for p in (cert, key):
+        if p and not Path(p).is_file():
+            raise typer.BadParameter(f"{p}: no such file")
+    config = uvicorn.Config(
+        "tt_server.main:create_app",
+        factory=True,
+        host=host,
+        port=port,
+        ssl_certfile=str(cert) if cert else None,
+        ssl_keyfile=str(key) if key else None,
+    )
+    asyncio.run(_serve(config, host, redirect_port if cert else None, port))
+
+
+async def _serve(config: Any, host: str, redirect_port: int | None, https_port: int) -> None:
+    import uvicorn
+
+    servers = [uvicorn.Server(config)]
+    if redirect_port:
+        from tt_server.tls import redirect_app
+
+        servers.append(
+            uvicorn.Server(uvicorn.Config(redirect_app(https_port), host=host, port=redirect_port))
+        )
+    await asyncio.gather(*(srv.serve() for srv in servers))
 
 
 @seed_app.command("demo")

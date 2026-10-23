@@ -22,6 +22,7 @@ def test_every_model_has_a_table(migrated_url: str) -> None:
         "glossary_entries",
         "translator_rules",
         "translator_feedback",
+        "idp_group_mappings",
     }  # server-owned tables
     assert len(Base.metadata.tables) == len(ALL_MODELS) + len(extras)
     assert extras <= set(Base.metadata.tables)

@@ -430,29 +430,32 @@ async def wip_count(session: AsyncSession, stage_id: str) -> int:
 
 
 async def board(
-    session: AsyncSession, ws_id: str, process: m.Process, now: datetime | None = None
+    session: AsyncSession, ws_id: str, process: m.Process, now: datetime | None = None, acl: Any = None
 ) -> dict[str, Any]:
     now = now or utcnow()
     cols = []
     for st in await stages_of(session, process.id):
-        rows = (
-            await session.execute(
-                select(m.StagePlacement, m.WorkItem, m.Project.key)
-                .join(
-                    m.WorkItem,
-                    (m.StagePlacement.target_type == TargetType.WORK_ITEM)
-                    & (m.WorkItem.id == m.StagePlacement.target_id),
-                )
-                .join(m.Project, m.Project.id == m.WorkItem.project_id)
-                .where(
-                    m.StagePlacement.stage_id == st.id,
-                    m.StagePlacement.exited_at.is_(None),
-                    m.Project.workspace_id == ws_id,
-                    m.WorkItem.deleted_at.is_(None),
-                )
-                .order_by(m.StagePlacement.entered_at)
+        stmt = (
+            select(m.StagePlacement, m.WorkItem, m.Project.key)
+            .join(
+                m.WorkItem,
+                (m.StagePlacement.target_type == TargetType.WORK_ITEM)
+                & (m.WorkItem.id == m.StagePlacement.target_id),
             )
-        ).all()
+            .join(m.Project, m.Project.id == m.WorkItem.project_id)
+            .where(
+                m.StagePlacement.stage_id == st.id,
+                m.StagePlacement.exited_at.is_(None),
+                m.Project.workspace_id == ws_id,
+                m.WorkItem.deleted_at.is_(None),
+            )
+            .order_by(m.StagePlacement.entered_at)
+        )
+        if acl is not None:  # a board only shows cards the viewer may see (Inbox items never appear)
+            from tt_server.acl.visibility import visible
+
+            stmt = visible(stmt, acl, m.WorkItem)
+        rows = (await session.execute(stmt)).all()
         cards = []
         for pl, it, pkey in rows:
             approval = await session.get(m.Approval, pl.approval_id) if pl.approval_id else None

@@ -123,6 +123,9 @@ class Membership(RowBase):
     allocation_pct: Mapped[int | None] = mapped_column(sa.Integer(), nullable=True)
     joined_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     left_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(
+        sa.Text(), nullable=False, default="manual", server_default="manual"
+    )  # manual | idp
 
 
 class ReportingLine(WorkspaceScopedMixin, RowBase):

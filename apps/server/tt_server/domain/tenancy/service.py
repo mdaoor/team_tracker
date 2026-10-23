@@ -17,6 +17,9 @@ from tt_schema.enums import (
     Visibility,
 )
 
+from tt_server.acl.permissions import CONTRIBUTOR, WORKSPACE_ADMIN
+from tt_server.acl.roles import assign as assign_role
+from tt_server.acl.roles import ensure_builtin_roles
 from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
@@ -100,6 +103,8 @@ async def create_workspace(
         )
     await uow.session.flush()
     await ensure_builtin_dimensions(uow.session, ws.id)
+    await ensure_builtin_roles(uow.session)
+    await assign_role(uow.session, ws.id, creator_id, WORKSPACE_ADMIN)
     await ensure_default_process(uow.session, ws.id, creator_id)
     await ensure_default_scheme(uow.session, ws.id)
     emit(
@@ -143,6 +148,7 @@ async def add_member(
         kind=ProjectKind.INBOX,
         visibility=Visibility.PRIVATE,
     )
+    await assign_role(uow.session, ws.id, person.id, CONTRIBUTOR)
     member.inbox_project_id = inbox.id
     emit(
         uow,

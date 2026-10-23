@@ -50,7 +50,7 @@ async def test_workspace_creation_is_dev_only(client) -> None:  # type: ignore[n
 async def test_member_gets_private_inbox(api: Api) -> None:
     projects = (await api.call("GET", "/projects")).json()["data"]
     assert {p["key"] for p in projects} == {"DATA", "WEB"}  # inboxes are not listed
-    inbox = (await api.call("GET", "/projects/INBOX-sara")).json()
+    inbox = (await api.call("GET", "/projects/INBOX-sara", as_="@sara")).json()
     assert inbox["kind"] == "inbox" and inbox["visibility"] == "private"
 
 

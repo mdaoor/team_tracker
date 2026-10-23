@@ -43,6 +43,10 @@ async def resolve_targets(
             )
     else:
         raise ApiError(400, "no_targets", "give ids or a filter")
+    if (acl := uow.context.get("acl")) is not None:
+        from tt_server.acl.visibility import visible
+
+        stmt = visible(stmt, acl, m.WorkItem)
     rows = list((await s.scalars(stmt.order_by(m.WorkItem.key))).all())
     if len(rows) > 1000:
         raise ApiError(400, "too_many", "bulk edits are limited to 1000 items")

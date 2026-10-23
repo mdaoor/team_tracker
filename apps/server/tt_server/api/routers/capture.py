@@ -11,6 +11,8 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from tt_schema.client import ClientBatch
 
+from tt_server.acl.visibility import visible
+from tt_server.api.authz import check, needs
 from tt_server.api.deps import CurrentActor, Uow, get_session_factory
 from tt_server.api.errors import ApiError, error_body
 from tt_server.db import models as m
@@ -20,7 +22,7 @@ from tt_server.domain.capture.ingest import ingest_batch
 router = APIRouter(prefix="/api/v1/w/{ws}")
 
 
-@router.post("/capture/batches", tags=["capture"])
+@router.post("/capture/batches", tags=["capture"], dependencies=[needs("capture.write")])
 async def post_batch(request: Request, actor: CurrentActor) -> JSONResponse:
     """Apply a ClientBatch: 200 applied/deduplicated, 207 if any message failed, 422 on schema violation."""
     try:
@@ -58,10 +60,19 @@ async def post_batch(request: Request, actor: CurrentActor) -> JSONResponse:
 async def list_daily_logs(
     actor: CurrentActor, uow: Uow, day: date | None = None, person: str | None = None
 ) -> dict[str, Any]:
-    stmt = select(m.DailyLog).where(m.DailyLog.workspace_id == actor.ws.id)
-    stmt = stmt.where(
-        m.DailyLog.person_id == actor.person.id if person in (None, "me") else m.DailyLog.person_id == person
-    )
+    stmt = visible(select(m.DailyLog).where(m.DailyLog.workspace_id == actor.ws.id), actor.acl, m.DailyLog)
+    subject = actor.person.id
+    if person not in (None, "me"):
+        subject = (
+            await uow.session.scalar(
+                select(m.WorkspaceMember.person_id).where(
+                    m.WorkspaceMember.workspace_id == actor.ws.id,
+                    (m.WorkspaceMember.handle == person) | (m.WorkspaceMember.person_id == person),
+                )
+            )
+            or ""
+        )
+    stmt = stmt.where(m.DailyLog.person_id == subject)
     if day:
         stmt = stmt.where(m.DailyLog.date == day)
     rows = (await uow.session.scalars(stmt.order_by(m.DailyLog.date.desc()).limit(100))).all()
@@ -81,7 +92,9 @@ async def confirm(log_id: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
 @router.post("/daily-logs/{log_id}/review", tags=["daily-logs"])
 async def review(log_id: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     row = await dailylog.get_for(uow, actor.ws.id, log_id)
-    # TODO(P4-ACL): only the subject's managers may review
+    check(actor, "dailylog.review")
+    if not (actor.acl.is_admin or actor.acl.is_line_manager_of(row.person_id)):
+        raise ApiError(403, "forbidden", "only the subject's line manager may review a daily log")
     await dailylog.review(uow, actor.ws, row, actor.person.id)
     await uow.commit()
     return dailylog.to_dict(row)

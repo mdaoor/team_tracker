@@ -22,6 +22,10 @@ class Api:
     async def call(self, method: str, path: str, as_: str = "@mahmoud", **kw: Any) -> httpx.Response:
         return await self.c.request(method, self.url(path), headers={"X-Debug-Actor": as_}, **kw)
 
+    async def role(self, handle: str, role: str, **scope: str) -> None:
+        r = await self.call("POST", "/role-assignments", json={"handle": handle, "role": role, **scope})
+        assert r.status_code == 201, r.text
+
     async def send(self, as_: str = "@mahmoud", **msg: Any) -> dict[str, Any]:
         body = {
             "workspace": self.slug,

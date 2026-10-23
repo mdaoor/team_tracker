@@ -111,6 +111,11 @@ event_types:
   - jira.imported
   # auth
   - token.created
+  - auth.login
+  - auth.access_requested
+  - idp.groups_applied
+  - idp.synced
+  - idp_mapping.*
 ---
 
 # Event catalogue

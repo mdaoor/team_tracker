@@ -41,3 +41,31 @@ async def build_due_daily_logs(timestamp: int) -> int:
     finally:
         await engine.dispose()
     return built
+
+
+@app.periodic(cron="30 2 * * *")
+@app.task(name="idp.sync_directory", queueing_lock="idp.sync_directory")
+async def sync_directory(timestamp: int) -> int:
+    """Nightly: refresh AD group memberships; people who left a group lose what it granted."""
+    from tt_server.db.uow import UnitOfWork
+    from tt_server.integrations import idp
+    from tt_server.integrations.ldap import ldap_provider_from_settings
+    from tt_server.settings import get_settings
+
+    provider = ldap_provider_from_settings(get_settings())
+    if provider is None:
+        return 0
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    changed = 0
+    try:
+        async with factory() as s:
+            workspaces = (await s.scalars(select(m.Workspace).where(m.Workspace.deleted_at.is_(None)))).all()
+        for ws in workspaces:
+            async with UnitOfWork(factory) as uow:
+                fresh = await uow.session.get(m.Workspace, ws.id)
+                assert fresh is not None  # noqa: S101
+                changed += (await idp.sync_workspace(uow, fresh, provider.lookup_email)).changed
+    finally:
+        await engine.dispose()
+    return changed

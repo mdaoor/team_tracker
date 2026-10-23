@@ -190,7 +190,7 @@ async def unclassify(uow: UnitOfWork, ws: m.Workspace, cls: m.Classification, *,
 
 
 async def confirm(uow: UnitOfWork, ws: m.Workspace, cls: m.Classification, *, by: str) -> m.Classification:
-    """Confirm a suggestion. TODO(P4-ACL): manager role or the assignee's reporting-line manager."""
+    """Confirm a suggestion (the route allows managers and the assignee's line manager)."""
     if not cls.is_confirmed:
         cls.is_confirmed, cls.confirmed_by = True, by
         emit(

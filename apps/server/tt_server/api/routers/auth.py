@@ -11,6 +11,7 @@ from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import EventSource, TargetType
 
+from tt_server.acl.permissions import TOKEN_SCOPES
 from tt_server.api.deps import Uow, _authenticate, hash_token, new_token
 from tt_server.api.errors import ApiError
 from tt_server.db import models as m
@@ -51,6 +52,7 @@ class TokenIn(BaseModel):
     workspace: str
     name: str = "cli"
     expires_in_days: int | None = Field(default=90, ge=1, le=3650)
+    scopes: list[str] = Field(default_factory=lambda: ["capture", "read"])
 
 
 @router.post("/auth/tokens", status_code=201, tags=["auth"])
@@ -72,6 +74,14 @@ async def create_token(
     )
     if member is None:
         raise ApiError(404, "not_found", "workspace not found")
+    bad = [x for x in body.scopes if x not in TOKEN_SCOPES]
+    if bad or not body.scopes:
+        raise ApiError(
+            400,
+            "invalid_scope",
+            f"scopes must be a non-empty subset of {list(TOKEN_SCOPES)}",
+            pointer="/scopes",
+        )
     secret = new_token()
     row = m.ApiToken(
         id=new_id(),
@@ -79,6 +89,7 @@ async def create_token(
         person_id=person.id,
         name=body.name,
         hash=hash_token(secret),
+        scopes=body.scopes,
         expires_at=utcnow() + timedelta(days=body.expires_in_days) if body.expires_in_days else None,
     )
     uow.session.add(row)
@@ -93,4 +104,4 @@ async def create_token(
         source=EventSource.OVERLAY,
     )
     await uow.commit()
-    return {"id": row.id, "token": secret, "expires_at": row.expires_at}
+    return {"id": row.id, "token": secret, "expires_at": row.expires_at, "scopes": body.scopes}

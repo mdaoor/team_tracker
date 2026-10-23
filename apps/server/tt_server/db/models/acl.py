@@ -19,6 +19,18 @@ class Role(RowBase):
     name: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     permissions: Mapped[Any] = mapped_column(JSONB(), nullable=False, default=list)
     workspace_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("workspaces.id"), nullable=True)
+    __table_args__ = (
+        sa.Index(
+            "uq_roles_builtin_key", "key", unique=True, postgresql_where=sa.text("workspace_id IS NULL")
+        ),
+        sa.Index(
+            "uq_roles_workspace_key",
+            "workspace_id",
+            "key",
+            unique=True,
+            postgresql_where=sa.text("workspace_id IS NOT NULL"),
+        ),
+    )
 
 
 class RoleAssignment(RowBase):
@@ -38,6 +50,9 @@ class RoleAssignment(RowBase):
         default=ScopeType.WORKSPACE,
     )
     scope_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    source: Mapped[str] = mapped_column(
+        sa.Text(), nullable=False, default="manual", server_default="manual"
+    )  # manual | idp
 
 
 class AccessGrant(WorkspaceScopedMixin, RowBase):

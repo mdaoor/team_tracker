@@ -27,6 +27,8 @@ from tt_schema.enums import (
     Visibility,
 )
 
+from tt_server.acl.visibility import visible
+from tt_server.api.authz import check_project, needs
 from tt_server.api.deps import CurrentActor, Uow, page
 from tt_server.api.errors import ApiError
 from tt_server.db import models as m
@@ -52,20 +54,29 @@ def row_dict(row: Any, *exclude: str) -> dict[str, Any]:
 
 
 async def _project(uow: Uow, ws_id: str, key: str) -> m.Project:
-    p = await uow.session.scalar(
-        select(m.Project).where(
-            m.Project.workspace_id == ws_id,
-            func.lower(m.Project.key) == key.lower(),
-            m.Project.deleted_at.is_(None),
-        )
+    stmt = select(m.Project).where(
+        m.Project.workspace_id == ws_id,
+        func.lower(m.Project.key) == key.lower(),
+        m.Project.deleted_at.is_(None),
     )
+    if (acl := uow.context.get("acl")) is not None:
+        stmt = visible(stmt, acl, m.Project)  # invisible => 404, never 403 (ADR-0008)
+    p = await uow.session.scalar(stmt)
     if p is None:
         raise ApiError(404, "not_found", "project not found")
     return p
 
 
+async def _project_of(uow: Uow, actor: CurrentActor, project_id: str) -> m.Project:
+    """Load a project the actor can see (404 otherwise) from its id."""
+    p = await uow.session.get(m.Project, project_id)
+    if p is None:
+        raise ApiError(404, "not_found", "project not found")
+    return await _project(uow, actor.ws.id, p.key)
+
+
 async def _item(uow: Uow, ws_id: str, id_or_key: str) -> m.WorkItem:
-    it = await uow.session.scalar(
+    stmt = (
         select(m.WorkItem)
         .join(m.Project, m.Project.id == m.WorkItem.project_id)
         .where(
@@ -74,6 +85,9 @@ async def _item(uow: Uow, ws_id: str, id_or_key: str) -> m.WorkItem:
             (m.WorkItem.id == id_or_key) | (func.lower(m.WorkItem.key) == id_or_key.lower()),
         )
     )
+    if (acl := uow.context.get("acl")) is not None:
+        stmt = visible(stmt, acl, m.WorkItem)
+    it = await uow.session.scalar(stmt)
     if it is None:
         raise ApiError(404, "not_found", "item not found")
     return it
@@ -89,7 +103,7 @@ class MemberIn(BaseModel):
     time_zone: str = "UTC"
 
 
-@router.post("/members", status_code=201, tags=["tenancy"])
+@router.post("/members", status_code=201, tags=["tenancy"], dependencies=[needs("member.write")])
 async def add_member(body: MemberIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     person = await tenancy.get_or_create_person(
         uow, display_name=body.display_name, email=body.email, time_zone=body.time_zone
@@ -134,7 +148,7 @@ class TeamIn(BaseModel):
     description: str | None = None
 
 
-@router.post("/teams", status_code=201, tags=["tenancy"])
+@router.post("/teams", status_code=201, tags=["tenancy"], dependencies=[needs("team.write")])
 async def create_team(body: TeamIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     team = m.Team(id=new_id(), workspace_id=actor.ws.id, **body.model_dump())
     uow.session.add(team)
@@ -168,7 +182,9 @@ class MembershipIn(BaseModel):
     allocation_pct: int | None = Field(default=None, ge=0, le=100)
 
 
-@router.post("/teams/{team_id}/memberships", status_code=201, tags=["tenancy"])
+@router.post(
+    "/teams/{team_id}/memberships", status_code=201, tags=["tenancy"], dependencies=[needs("team.write")]
+)
 async def add_membership(team_id: str, body: MembershipIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     team = await uow.session.scalar(
         select(m.Team).where(m.Team.id == team_id, m.Team.workspace_id == actor.ws.id)
@@ -229,7 +245,9 @@ class ReportingLineIn(BaseModel):
     is_primary: bool = False
 
 
-@router.post("/reporting-lines", status_code=201, tags=["tenancy"])
+@router.post(
+    "/reporting-lines", status_code=201, tags=["tenancy"], dependencies=[needs("reporting_line.write")]
+)
 async def add_reporting_line(body: ReportingLineIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     if (body.scope_type == ScopeType.NONE) != (body.scope_id is None):
         raise ApiError(
@@ -281,7 +299,7 @@ class ContextNoteIn(BaseModel):
     valid_to: date | None = None
 
 
-@router.post("/context-notes", status_code=201, tags=["tenancy"])
+@router.post("/context-notes", status_code=201, tags=["tenancy"], dependencies=[needs("context_note.write")])
 async def create_note(body: ContextNoteIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     row = m.ContextNote(id=new_id(), workspace_id=actor.ws.id, author_id=actor.person.id, **body.model_dump())
     uow.session.add(row)
@@ -328,7 +346,7 @@ class ProjectIn(BaseModel):
     settings: dict[str, Any] = Field(default_factory=dict)
 
 
-@router.post("/projects", status_code=201, tags=["projects"])
+@router.post("/projects", status_code=201, tags=["projects"], dependencies=[needs("project.create")])
 async def create_project(body: ProjectIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await projects.create_project(
         uow,
@@ -347,17 +365,16 @@ async def create_project(body: ProjectIn, actor: CurrentActor, uow: Uow) -> dict
 
 @router.get("/projects", tags=["projects"])
 async def list_projects(actor: CurrentActor, uow: Uow, fields: str | None = None) -> dict[str, Any]:
-    rows = (
-        await uow.session.scalars(
-            select(m.Project)
-            .where(
-                m.Project.workspace_id == actor.ws.id,
-                m.Project.deleted_at.is_(None),
-                m.Project.kind != ProjectKind.INBOX,
-            )
-            .order_by(m.Project.key)
-        )
-    ).all()
+    stmt = visible(
+        select(m.Project).where(
+            m.Project.workspace_id == actor.ws.id,
+            m.Project.deleted_at.is_(None),
+            m.Project.kind != ProjectKind.INBOX,
+        ),
+        actor.acl,
+        m.Project,
+    )
+    rows = (await uow.session.scalars(stmt.order_by(m.Project.key))).all()
     out = []
     for p in rows:
         d = row_dict(p)
@@ -378,7 +395,7 @@ class ProjectPatch(BaseModel):
     aliases: list[str] | None = None
 
 
-@router.patch("/projects/{key}", tags=["projects"])
+@router.patch("/projects/{key}", tags=["projects"], dependencies=[needs("project.write", project="key")])
 async def patch_project(key: str, body: ProjectPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _project(uow, actor.ws.id, key)
     changed = []
@@ -411,7 +428,12 @@ class IterationIn(BaseModel):
     goal: str | None = None
 
 
-@router.post("/projects/{key}/iterations", status_code=201, tags=["projects"])
+@router.post(
+    "/projects/{key}/iterations",
+    status_code=201,
+    tags=["projects"],
+    dependencies=[needs("iteration.write", project="key")],
+)
 async def create_iteration(key: str, body: IterationIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _project(uow, actor.ws.id, key)
     if body.end_date < body.start_date:
@@ -454,6 +476,7 @@ async def iteration_state(
     )
     if it is None:
         raise ApiError(404, "not_found", "iteration not found")
+    await check_project(actor, uow, "iteration.write", await _project_of(uow, actor, it.project_id))
     if body.state not in ITERATION_FLOW[it.state]:
         raise ApiError(409, "invalid_transition", f"cannot go from {it.state.value} to {body.state.value}")
     if body.state == IterationState.ACTIVE:
@@ -494,6 +517,7 @@ async def list_iterations(
         .join(m.Project, m.Project.id == m.Iteration.project_id)
         .where(m.Project.workspace_id == actor.ws.id, m.Iteration.deleted_at.is_(None))
     )
+    stmt = visible(stmt, actor.acl, m.Project)
     if state:
         stmt = stmt.where(m.Iteration.state == state)
     rows = (await uow.session.execute(stmt.order_by(m.Iteration.start_date))).all()
@@ -507,7 +531,12 @@ class MilestoneIn(BaseModel):
     description: str | None = None
 
 
-@router.post("/projects/{key}/milestones", status_code=201, tags=["projects"])
+@router.post(
+    "/projects/{key}/milestones",
+    status_code=201,
+    tags=["projects"],
+    dependencies=[needs("milestone.write", project="key")],
+)
 async def create_milestone(key: str, body: MilestoneIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _project(uow, actor.ws.id, key)
     ms = m.Milestone(id=new_id(), project_id=p.id, **body.model_dump())
@@ -535,6 +564,7 @@ async def list_milestones(
         .join(m.Project, m.Project.id == m.Milestone.project_id)
         .where(m.Project.workspace_id == actor.ws.id, m.Milestone.deleted_at.is_(None))
     )
+    stmt = visible(stmt, actor.acl, m.Project)
     if upcoming:
         today = date.today()
         stmt = stmt.where(
@@ -555,6 +585,7 @@ async def complete_milestone(milestone_id: str, actor: CurrentActor, uow: Uow) -
     )
     if ms is None:
         raise ApiError(404, "not_found", "milestone not found")
+    await check_project(actor, uow, "milestone.write", await _project_of(uow, actor, ms.project_id))
     if ms.approval_id and not await approvals.is_approved(uow.session, ms.approval_id):
         raise ApiError(
             409, "approval_required", "this milestone needs an approved approval before it can complete"
@@ -583,6 +614,7 @@ async def request_milestone_approval(milestone_id: str, actor: CurrentActor, uow
     )
     if ms is None:
         raise ApiError(404, "not_found", "milestone not found")
+    await check_project(actor, uow, "approval.request", await _project_of(uow, actor, ms.project_id))
     if ms.approval_id:
         raise ApiError(409, "approval_exists", "an approval was already requested")
     uow.context["actor_id"] = actor.person.id
@@ -600,7 +632,12 @@ async def request_milestone_approval(milestone_id: str, actor: CurrentActor, uow
     return row_dict(appr)
 
 
-@router.post("/projects/{key}/baselines", status_code=201, tags=["projects"])
+@router.post(
+    "/projects/{key}/baselines",
+    status_code=201,
+    tags=["projects"],
+    dependencies=[needs("project.write", project="key")],
+)
 async def capture_baseline(key: str, name: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _project(uow, actor.ws.id, key)
     rows = (
@@ -650,6 +687,7 @@ class ItemIn(BaseModel):
 @router.post("/items", status_code=201, tags=["items"])
 async def create_item(body: ItemIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _project(uow, actor.ws.id, body.project)
+    await check_project(actor, uow, "item.write_overlay", p)
     parent = await _item(uow, actor.ws.id, body.parent) if body.parent else None
     item = await items.create_item(
         uow,
@@ -736,6 +774,7 @@ async def list_items(
     assignee: str | None = None,
     state_category: str | None = None,
     project: str | None = None,
+    team: str | None = None,
     q: str | None = None,
     fields: str | None = None,
     cursor: str | None = None,
@@ -747,6 +786,7 @@ async def list_items(
         .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
         .where(m.Project.workspace_id == actor.ws.id, m.WorkItem.deleted_at.is_(None))
     )
+    stmt = visible(stmt, actor.acl, m.WorkItem)
     if assignee:
         pid = (
             actor.person.id
@@ -758,6 +798,29 @@ async def list_items(
             )
         )
         stmt = stmt.where(m.WorkItem.assignee_id == pid)
+    if team:  # items of a team and its sub-teams
+        root = await uow.session.scalar(
+            select(m.Team.id).where(
+                m.Team.workspace_id == actor.ws.id, (m.Team.slug == team) | (m.Team.id == team)
+            )
+        )
+        ids = actor.acl.team_descendants(root) if root else set()
+        if root:
+            frontier = {root}
+            while frontier:
+                kids = (
+                    set(
+                        (
+                            await uow.session.scalars(
+                                select(m.Team.id).where(m.Team.parent_team_id.in_(frontier))
+                            )
+                        ).all()
+                    )
+                    - ids
+                )
+                ids |= kids
+                frontier = kids
+        stmt = stmt.where(m.WorkItem.team_id.in_(ids or {""}), m.Project.kind != ProjectKind.INBOX)
     if state_category:
         cats = [StateCategory(c) for c in state_category.split(",")]
         stmt = stmt.where(m.WorkflowState.category.in_(cats))
@@ -785,7 +848,9 @@ class StateIn(BaseModel):
     state: str
 
 
-@router.post("/items/{id_or_key}/state", tags=["items"])
+@router.post(
+    "/items/{id_or_key}/state", tags=["items"], dependencies=[needs("item.write_overlay", item="id_or_key")]
+)
 async def change_state(id_or_key: str, body: StateIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     item = await _item(uow, actor.ws.id, id_or_key)
     proj = await uow.session.get(m.Project, item.project_id)
@@ -816,7 +881,9 @@ class MoveIn(BaseModel):
     parent: str | None = None
 
 
-@router.post("/items/{id_or_key}/move", tags=["items"])
+@router.post(
+    "/items/{id_or_key}/move", tags=["items"], dependencies=[needs("item.write_overlay", item="id_or_key")]
+)
 async def move(id_or_key: str, body: MoveIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     item = await _item(uow, actor.ws.id, id_or_key)
     parent = await _item(uow, actor.ws.id, body.parent) if body.parent else None
@@ -848,7 +915,9 @@ async def list_tags(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     return {"data": [row_dict(r) for r in rows], "next_cursor": None}
 
 
-@router.post("/tags/{tag_id}/merge-into/{other_id}", tags=["items"])
+@router.post(
+    "/tags/{tag_id}/merge-into/{other_id}", tags=["items"], dependencies=[needs("classification.write")]
+)
 async def merge_tags(tag_id: str, other_id: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     src, dst = (await uow.session.get(m.Tag, tag_id), await uow.session.get(m.Tag, other_id))
     if (

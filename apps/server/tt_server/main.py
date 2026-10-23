@@ -9,13 +9,17 @@ from typing import Any
 
 import structlog
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from tt_schema import client_message_json_schema
 
 from tt_server.api.errors import install_error_handlers
-from tt_server.api.routers import auth, capture, client, core, overlay
+from tt_server.api.routers import access, auth, capture, client, core, identity, overlay, webauth
+from tt_server.api.session import CSRF_COOKIE, set_session
 from tt_server.db.session import make_engine, make_session_factory
+from tt_server.integrations.ldap import ldap_provider_from_settings
+from tt_server.integrations.oidc import oidc_provider_from_settings
 from tt_server.logging import configure_logging
 from tt_server.settings import Settings, get_settings
 from tt_server.telemetry import configure_telemetry
@@ -42,9 +46,52 @@ def create_app(
     app.state.settings = settings
     app.state.engine = db_engine
     app.state.session_factory = session_factory or make_session_factory(db_engine)
+    app.state.ldap = ldap_provider_from_settings(settings)
+    app.state.oidc = oidc_provider_from_settings(settings)
     install_error_handlers(app)
-    for r in (auth.router, capture.router, core.router, client.router, overlay.router):
+    for r in (
+        auth.router,
+        webauth.router,
+        identity.router,
+        capture.router,
+        core.router,
+        client.router,
+        overlay.router,
+        access.router,
+    ):
         app.include_router(r)
+
+    @app.middleware("http")
+    async def transport_security(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """HTTP -> HTTPS redirect (health probes excepted) and HSTS on every HTTPS response (§4.6)."""
+        proto = request.url.scheme
+        if settings.trust_forwarded_proto and (fwd := request.headers.get("x-forwarded-proto")):
+            proto = fwd.split(",")[0].strip()
+        if settings.force_https and proto != "https" and request.url.path not in ("/healthz", "/readyz"):
+            target = request.url.replace(scheme="https")
+            if settings.https_port:
+                target = target.replace(netloc=f"{request.url.hostname}:{settings.https_port}")
+            return RedirectResponse(str(target), status_code=308)
+        response = await call_next(request)
+        if proto == "https":
+            response.headers["Strict-Transport-Security"] = (
+                f"max-age={settings.hsts_max_age}; includeSubDomains"
+            )
+        return response
+
+    @app.middleware("http")
+    async def session_refresh(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Sliding 12 h session: re-issue the cookie when a request authenticated by it is getting old."""
+        response = await call_next(request)
+        pid = getattr(request.state, "refresh_session", None)
+        if pid:
+            csrf = request.cookies.get(CSRF_COOKIE)
+            set_session(response, settings, pid, secure=request.url.scheme == "https", csrf=csrf)
+        return response
 
     @app.middleware("http")
     async def request_id(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

@@ -14,7 +14,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import utcnow
 
+from tt_server.acl.context import AclContext, load_context
+from tt_server.acl.permissions import TOKEN_SCOPES
 from tt_server.api.errors import ApiError
+from tt_server.api.session import SLIDE_AFTER_SECONDS, check_csrf, read_session
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 
@@ -47,6 +50,7 @@ class Actor:
     ws: m.Workspace
     member: m.WorkspaceMember
     person: m.Person
+    acl: AclContext
 
     @property
     def handle(self) -> str:
@@ -90,6 +94,14 @@ async def _authenticate(
         person = await session.get(m.Person, member.person_id)
         assert person is not None  # noqa: S101
         return person, None
+    sess = read_session(request, request.app.state.settings)
+    if sess is not None:
+        check_csrf(request)
+        person = await session.get(m.Person, sess[0])
+        if person is not None and person.deleted_at is None:
+            if sess[1] > SLIDE_AFTER_SECONDS:
+                request.state.refresh_session = person.id
+            return person, None
     raise ApiError(401, "unauthorized", "authentication required")
 
 
@@ -106,7 +118,7 @@ async def current_actor(
     )
     if workspace is None:
         raise ApiError(404, "not_found", "workspace not found")
-    person, _ = await _authenticate(request, uow, authorization, x_debug_actor, workspace)
+    person, token = await _authenticate(request, uow, authorization, x_debug_actor, workspace)
     member = await uow.session.scalar(
         select(m.WorkspaceMember).where(
             m.WorkspaceMember.workspace_id == workspace.id,
@@ -116,9 +128,43 @@ async def current_actor(
     )
     if member is None:
         raise ApiError(404, "not_found", "workspace not found")  # 404 for non-members (ADR-0008)
+    scopes = tuple(token.scopes) if token is not None else None
+    acl = await load_context(uow.session, workspace.id, person.id, scopes)
+    if scopes is not None and not scope_allows(
+        scopes, request.method, request.url.path, request.query_params.get("person")
+    ):
+        raise ApiError(403, "insufficient_scope", f"token scopes {list(scopes)} do not allow this request")
     await uow.session.commit()  # end the read transaction: release the connection / savepoint early
     uow.context["actor_id"] = person.id
-    return Actor(workspace, member, person)  # TODO(P4-ACL): permission checks beyond membership
+    uow.context["acl"] = acl
+    return Actor(workspace, member, person, acl)
+
+
+_CAPTURE_PATHS = ("/capture/", "/context-pack")
+_ADMIN_PATHS = ("/role-assignments", "/grants", "/idp/", "/members", "/reporting-lines", "/teams")
+
+
+def scope_allows(scopes: tuple[str, ...], method: str, path: str, person: str | None = None) -> bool:
+    """Token scopes are cumulative: capture < read < manage < admin (Phase 4 §4.5)."""
+    level = max((TOKEN_SCOPES.index(s) for s in scopes if s in TOKEN_SCOPES), default=-1)
+    rel = path.split("/w/", 1)[-1].split("/", 1)[-1] if "/w/" in path else path
+    rel = "/" + rel.lstrip("/")
+    if level >= 3:  # admin: everything the owner may do
+        return True
+    if level == 2:  # manage: ... except administering people, roles, grants and the identity provider
+        return not rel.startswith(_ADMIN_PATHS)
+    if level == 1 and method in ("GET", "HEAD"):
+        return True
+    if level >= 0:
+        if rel.startswith(_CAPTURE_PATHS):
+            return True
+        if rel == "/activities" and method == "GET" and person in (None, "me"):
+            return True
+        if rel.startswith("/daily-logs") and (method == "GET" or rel.endswith("/confirm")):
+            return True
+        if level == 1 and method == "GET":
+            return True
+    return False
 
 
 CurrentActor = Annotated[Actor, Depends(current_actor)]

@@ -28,6 +28,20 @@ services:
       timeout: 3s
       retries: 40
 
+  server-tls:
+    profiles: ["tls"]
+    build: { context: ., dockerfile: apps/server/Dockerfile }
+    command: tt-admin serve --port 8443 --redirect-port 8080
+    environment:
+      TT_DATABASE_URL: postgresql+psycopg://tt:tt@db:5432/tt
+      TT_TLS_CERTFILE: /etc/tt/tls/cert.pem
+      TT_TLS_KEYFILE: /etc/tt/tls/key.pem
+      TT_FORCE_HTTPS: "true"
+      TT_HTTPS_PORT: "8443"
+    ports: ["8443:8443", "8080:8080"]
+    volumes: ["./deploy/tls:/etc/tt/tls:ro"]
+    depends_on: { db: { condition: service_healthy } }
+
   worker:
     build: { context: ., dockerfile: apps/server/Dockerfile }
     command: python -m tt_worker

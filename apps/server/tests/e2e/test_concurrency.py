@@ -12,9 +12,9 @@ from tests.e2e.conftest import Live
 
 async def test_ten_concurrent_moves_leave_one_current_placement(live: Live) -> None:
     base = f"{live.url}/api/v1/w/{live.slug}"
-    async with httpx.AsyncClient(timeout=30, headers=live.headers()) as c:
+    async with httpx.AsyncClient(timeout=30, headers={"Authorization": f"Bearer {live.manage_token}"}) as c:
         created = await c.post(f"{base}/items", json={"title": "contended", "project": "WEB"})
-        assert created.status_code == 201
+        assert created.status_code == 201, created.text
         key = created.json()["key"]
         stages = [
             "idea",

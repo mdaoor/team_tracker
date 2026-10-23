@@ -30,6 +30,7 @@ class ApiToken(WorkspaceScopedMixin, RowBase):
     hash: Mapped[str] = mapped_column(sa.Text(), nullable=False, unique=True)
     last_used_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+    scopes: Mapped[Any] = mapped_column(JSONB(), nullable=False, default=lambda: ["capture", "read"])
 
 
 class ReviewItem(WorkspaceScopedMixin, RowBase):
@@ -79,3 +80,16 @@ class TranslatorFeedback(WorkspaceScopedMixin, RowBase):
     raw: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
     previous: Mapped[Any] = mapped_column(JSONB(), nullable=True)
     corrected: Mapped[Any] = mapped_column(JSONB(), nullable=True)
+
+
+class IdpGroupMapping(WorkspaceScopedMixin, RowBase):
+    """Maps an identity-provider group (AD DN / OIDC group id) to a role and/or a team (Phase 4 §4.6)."""
+
+    __tablename__ = "idp_group_mappings"
+    provider: Mapped[str] = mapped_column(sa.Text(), nullable=False)  # ldap | oidc
+    group: Mapped[str] = mapped_column(sa.Text(), nullable=False)  # DN or id, compared case-insensitively
+    role_key: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    scope_type: Mapped[str] = mapped_column(sa.Text(), nullable=False, default="workspace")
+    scope_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    team_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("teams.id"), nullable=True)
+    __table_args__ = (sa.Index("ix_idp_group_mappings_group", "workspace_id", sa.text('lower("group")')),)

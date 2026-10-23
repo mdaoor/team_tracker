@@ -48,6 +48,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 markers = ["llm: tests that need a real model (opt-in)"]
+filterwarnings = ["ignore:.*is deprecated.*:DeprecationWarning:ldap3.*"]
 testpaths = ["packages", "apps"]
 
 [tool.mypy]
@@ -55,7 +56,7 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["tt_schema.testing.*", "factory.*"]
+module = ["tt_schema.testing.*", "factory.*", "ldap3.*"]
 ignore_errors = true
 ignore_missing_imports = true
 

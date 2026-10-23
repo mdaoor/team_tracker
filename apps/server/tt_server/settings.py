@@ -26,6 +26,35 @@ class Settings(BaseSettings):
     otlp_endpoint: str | None = Field(default=None, description="OTLP endpoint; no exporter when unset.")
     features: Features = Field(default_factory=Features)
 
+    # --- web sessions (Phase 4 §4.5)
+    session_secret: str = Field(default="dev-insecure-session-secret", description="Signs session cookies.")
+    session_ttl_hours: int = 12
+    web_origin: str | None = Field(default=None, description="Allowed redirect target after login.")
+
+    # --- OIDC (Entra ID / ADFS / any provider)
+    oidc_issuer: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: str | None = None
+    oidc_redirect_uri: str | None = None
+    oidc_groups_claim: str = "groups"
+
+    # --- LDAPS to Active Directory (§4.6)
+    ldap_url: str | None = Field(default=None, description="ldaps://dc.example.com:636")
+    ldap_start_tls: bool = False
+    ldap_ca_bundle: str | None = Field(default=None, description="PEM bundle for the domain controllers.")
+    ldap_bind_dn: str | None = None
+    ldap_bind_password: str | None = None
+    ldap_base_dn: str | None = None
+    ldap_workspace: str | None = Field(default=None, description="Workspace slug that LDAP users sign in to.")
+
+    # --- transport (§4.6)
+    tls_certfile: str | None = None
+    tls_keyfile: str | None = None
+    force_https: bool = False
+    https_port: int | None = Field(default=None, description="Public HTTPS port used in redirects.")
+    trust_forwarded_proto: bool = False
+    hsts_max_age: int = 31_536_000
+
     @property
     def psycopg_dsn(self) -> str:
         """Plain libpq DSN (for Procrastinate), derived from the SQLAlchemy URL."""

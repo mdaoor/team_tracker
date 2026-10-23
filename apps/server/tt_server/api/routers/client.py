@@ -10,6 +10,8 @@ from sqlalchemy import func, select
 from tt_schema.base import new_id
 from tt_schema.enums import ActivityStatus, TargetType
 
+from tt_server.acl.visibility import redact_activity, visible
+from tt_server.api.authz import needs
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import row_dict
@@ -75,7 +77,7 @@ async def list_glossary(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     return {"data": [row_dict(r) for r in rows], "next_cursor": None}
 
 
-@router.post("/glossary", status_code=201, tags=["client"])
+@router.post("/glossary", status_code=201, tags=["client"], dependencies=[needs("translator_rule.write")])
 async def create_glossary(body: GlossaryIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     clash = await uow.session.scalar(
         select(m.GlossaryEntry.id).where(
@@ -102,7 +104,7 @@ async def create_glossary(body: GlossaryIn, actor: CurrentActor, uow: Uow) -> di
     return row_dict(row)
 
 
-@router.patch("/glossary/{entry_id}", tags=["client"])
+@router.patch("/glossary/{entry_id}", tags=["client"], dependencies=[needs("translator_rule.write")])
 async def patch_glossary(entry_id: str, body: GlossaryPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     row = await _entry(uow, actor.ws.id, entry_id)
     for k, v in body.model_dump(exclude_none=True).items():
@@ -120,7 +122,9 @@ async def patch_glossary(entry_id: str, body: GlossaryPatch, actor: CurrentActor
     return row_dict(row)
 
 
-@router.delete("/glossary/{entry_id}", status_code=204, tags=["client"])
+@router.delete(
+    "/glossary/{entry_id}", status_code=204, tags=["client"], dependencies=[needs("translator_rule.write")]
+)
 async def delete_glossary(entry_id: str, actor: CurrentActor, uow: Uow) -> Response:
     from tt_schema.base import utcnow
 
@@ -181,7 +185,9 @@ async def list_rules(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     return {"data": [row_dict(r) for r in rows], "next_cursor": None}
 
 
-@router.post("/translator-rules", status_code=201, tags=["client"])
+@router.post(
+    "/translator-rules", status_code=201, tags=["client"], dependencies=[needs("translator_rule.write")]
+)
 async def create_rule(body: RuleIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     if (body.scope_type == "workspace") != (body.scope_id is None):
         raise ApiError(
@@ -206,7 +212,7 @@ async def create_rule(body: RuleIn, actor: CurrentActor, uow: Uow) -> dict[str, 
     return row_dict(row)
 
 
-@router.patch("/translator-rules/{rule_id}", tags=["client"])
+@router.patch("/translator-rules/{rule_id}", tags=["client"], dependencies=[needs("translator_rule.write")])
 async def patch_rule(rule_id: str, body: RulePatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     row = await _rule(uow, actor.ws.id, rule_id)
     for k, v in body.model_dump(exclude_none=True).items():
@@ -224,7 +230,12 @@ async def patch_rule(rule_id: str, body: RulePatch, actor: CurrentActor, uow: Uo
     return row_dict(row)
 
 
-@router.delete("/translator-rules/{rule_id}", status_code=204, tags=["client"])
+@router.delete(
+    "/translator-rules/{rule_id}",
+    status_code=204,
+    tags=["client"],
+    dependencies=[needs("translator_rule.write")],
+)
 async def delete_rule(rule_id: str, actor: CurrentActor, uow: Uow) -> Response:
     from tt_schema.base import utcnow
 
@@ -254,7 +265,7 @@ class FeedbackIn(BaseModel):
     corrected: Any = None
 
 
-@router.post("/capture/feedback", status_code=201, tags=["client"])
+@router.post("/capture/feedback", status_code=201, tags=["client"], dependencies=[needs("capture.write")])
 async def capture_feedback(
     items: list[FeedbackIn], request: Request, actor: CurrentActor, uow: Uow
 ) -> dict[str, Any]:
@@ -300,12 +311,16 @@ async def list_activities(
         .join(m.Project, m.Project.id == m.Activity.project_id)
         .where(m.Activity.person_id == pid, m.Project.workspace_id == actor.ws.id)
     )
+    stmt = visible(stmt, actor.acl, m.Activity)
     if status:
         stmt = stmt.where(m.Activity.status == status)
     rows = (
         await uow.session.execute(stmt.order_by(m.Activity.started_at.desc()).limit(min(limit, 200)))
     ).all()
     return {
-        "data": [{**row_dict(a), "item_key": k, "item_title": t, "project_key": pk} for a, k, t, pk in rows],
+        "data": [
+            {**redact_activity(actor.acl, row_dict(a)), "item_key": k, "item_title": t, "project_key": pk}
+            for a, k, t, pk in rows
+        ],
         "next_cursor": None,
     }
