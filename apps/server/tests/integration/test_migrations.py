@@ -15,7 +15,14 @@ def test_every_model_has_a_table(migrated_url: str) -> None:
     eng.dispose()
     assert len(ALL_MODELS) == 65
     assert {t.name for t in Base.metadata.sorted_tables} <= tables
-    extras = {"project_key_sequences", "api_tokens", "review_items"}  # server-owned tables
+    extras = {
+        "project_key_sequences",
+        "api_tokens",
+        "review_items",
+        "glossary_entries",
+        "translator_rules",
+        "translator_feedback",
+    }  # server-owned tables
     assert len(Base.metadata.tables) == len(ALL_MODELS) + len(extras)
     assert extras <= set(Base.metadata.tables)
 

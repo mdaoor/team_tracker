@@ -43,3 +43,39 @@ class ReviewItem(WorkspaceScopedMixin, RowBase):
     confidence: Mapped[Decimal | None] = mapped_column(sa.Numeric(5, 4), nullable=True)
     status: Mapped[str] = mapped_column(sa.Text(), nullable=False, default="open")
     __table_args__ = (sa.Index("ix_review_items_workspace_status", "workspace_id", "status"),)
+
+
+class GlossaryEntry(WorkspaceScopedMixin, RowBase):
+    """Phrase -> project/item/person mapping published in the ContextPack (replaces settings.glossary)."""
+
+    __tablename__ = "glossary_entries"
+    project_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("projects.id"), nullable=True)
+    phrase: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    resolves_to_type: Mapped[str] = mapped_column(sa.Text(), nullable=False)  # project | item | person
+    resolves_to_id: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    source: Mapped[str] = mapped_column(sa.Text(), nullable=False, default="manual")  # manual | learned
+    hits: Mapped[int] = mapped_column(sa.Integer(), nullable=False, default=0)
+    __table_args__ = (sa.Index("uq_glossary_phrase", "workspace_id", sa.text("lower(phrase)"), unique=True),)
+
+
+class TranslatorRule(WorkspaceScopedMixin, RowBase):
+    """Plain-English rule for the translator, flows into ContextPack.manager_rules."""
+
+    __tablename__ = "translator_rules"
+    scope_type: Mapped[str] = mapped_column(sa.Text(), nullable=False, default="workspace")
+    scope_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    text: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    is_active: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=True)
+    position: Mapped[int] = mapped_column(sa.Integer(), nullable=False, default=0)
+
+
+class TranslatorFeedback(WorkspaceScopedMixin, RowBase):
+    """A reporter's correction of a parsed field (opt-in), kept for evaluation / fine-tuning."""
+
+    __tablename__ = "translator_feedback"
+    person_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=False)
+    client_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    field: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    raw: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    previous: Mapped[Any] = mapped_column(JSONB(), nullable=True)
+    corrected: Mapped[Any] = mapped_column(JSONB(), nullable=True)

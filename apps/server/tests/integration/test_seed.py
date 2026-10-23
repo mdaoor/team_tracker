@@ -74,3 +74,22 @@ async def test_one_current_stage_placement_per_target(
         )
         with pytest.raises(IntegrityError):
             await s.flush()
+
+
+async def test_context_pack_for_mahmoud_in_the_seed(session_factory: async_sessionmaker[AsyncSession]) -> None:
+    """Phase 2 acceptance: all four projects, items sorted by recency, under 30 KB."""
+    import json
+
+    from tt_server.domain.contextpack import build_pack
+
+    await persist_demo(session_factory)
+    async with session_factory() as s:
+        ws = await s.scalar(select(models.Workspace).where(models.Workspace.slug == "acme"))
+        member = await s.scalar(select(models.WorkspaceMember).where(models.WorkspaceMember.handle == "@mahmoud"))
+        assert ws and member
+        pack = await build_pack(s, ws, member)
+    assert {p["key"] for p in pack["projects"]} == {"WEB", "MOB", "DATA", "GOV"}
+    assert len(json.dumps(pack)) < 30_000
+    assert pack["my_open_items"] and all(i["key"] and i["title"] for i in pack["my_open_items"])
+    assert {m["handle"] for m in pack["people"]} >= {"@sara", "@lina"}
+    assert pack["truncated"] is False

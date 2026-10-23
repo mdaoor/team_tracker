@@ -14,6 +14,9 @@ import tt_schema.enums as enums
 from tt_schema import ALL_MODELS
 from tt_schema.client import ClientAction, ClientBatch, ClientMessage, ClientTaskRef
 
+# Fields added on top of the spec by an ADR (backwards compatible, always optional).
+DOCUMENTED_ADDITIONS: dict[str, set[str]] = {"ClientBatch": {"mode"}}  # ADR-0004
+
 SPEC = Path(__file__).resolve().parents[3] / "docs" / "spec" / "team_tracker_models.py"
 
 
@@ -45,7 +48,8 @@ def test_fields_match(spec: Any, name: str) -> None:
     pyd = {m.__name__: m for m in (*ALL_MODELS, ClientTaskRef, ClientMessage, ClientBatch)}[name]
     dc = getattr(spec, name)
     dc_fields = dataclasses.fields(dc)
-    assert list(pyd.model_fields) == [f.name for f in dc_fields], "field names/order differ"
+    expected_names = [f.name for f in dc_fields] + sorted(DOCUMENTED_ADDITIONS.get(name, set()))
+    assert list(pyd.model_fields) == expected_names, "field names/order differ"
     dc_required = {
         f.name
         for f in dc_fields

@@ -19,6 +19,7 @@ dev-dependencies = [
   "time-machine>=2.14",
   "jsonschema>=4.26.0",
   "types-pyyaml>=6.0.12.20260906",
+  "types-dateparser>=1.4.3.20260907",
 ]
 
 [tool.uv.workspace]
@@ -27,6 +28,7 @@ members = ["packages/*", "apps/server", "apps/cli", "apps/worker"]
 [tool.uv.sources]
 tt-schema = { workspace = true }
 tt-server = { workspace = true }
+tt-client = { workspace = true }
 
 [tool.ruff]
 line-length = 110
@@ -37,7 +39,7 @@ extend-exclude = ["docs/spec", "tools/gen_snapshot.py"]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S"]
+"**/tests/**" = ["S", "E501"]
 "tools/**" = ["S"]
 "packages/schema/src/tt_schema/*.py" = ["F403", "F405", "UP007", "UP042", "UP045", "S101"]
 

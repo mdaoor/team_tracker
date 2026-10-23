@@ -21,8 +21,8 @@ jobs:
       - run: uv sync --all-packages --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy packages/schema/src apps/server/tt_server
-      - run: uv run pytest -q --cov=tt_schema --cov=tt_server --cov-fail-under=75
+      - run: uv run mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server
+      - run: uv run pytest -q --cov=tt_schema --cov=tt_server --cov=tt_client --cov=tt_cli --cov-fail-under=75
       - name: OpenAPI snapshot is up to date
         run: |
           uv run python -m tt_server.openapi docs/api/openapi.json

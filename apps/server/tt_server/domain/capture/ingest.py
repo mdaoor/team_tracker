@@ -162,6 +162,20 @@ async def resolve_project(ctx: Ctx) -> m.Project:
             if lowered in [str(a).lower() for a in (p.settings or {}).get("aliases", [])]:
                 ctx.resolution["project"] = {"method": "alias", "key": p.key}
                 return p
+        entry = await session.scalar(
+            select(m.GlossaryEntry).where(
+                m.GlossaryEntry.workspace_id == ws.id,
+                func.lower(m.GlossaryEntry.phrase) == lowered,
+                m.GlossaryEntry.resolves_to_type == "project",
+                m.GlossaryEntry.deleted_at.is_(None),
+            )
+        )
+        if entry:
+            hit = next((p for p in projects if p.id == entry.resolves_to_id), None)
+            if hit:
+                entry.hits += 1
+                ctx.resolution["project"] = {"method": "glossary", "key": hit.key}
+                return hit
         glossary = {str(k).lower(): v for k, v in ((ws.settings or {}).get("glossary") or {}).items()}
         target = glossary.get(lowered)
         if target:
@@ -762,6 +776,7 @@ class MessageResult:
     review_item_ids: list[str] = field(default_factory=list)
     error_code: str | None = None
     resolution: dict[str, Any] = field(default_factory=dict)
+    jira: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -773,11 +788,17 @@ class MessageResult:
             "review_item_ids": self.review_item_ids,
             "error_code": self.error_code,
             "resolution": self.resolution,
+            "jira": self.jira,
         }
 
 
 async def _process(
-    uow: UnitOfWork, ws: m.Workspace, msg: ClientMessage, client_version: str, correlation_id: str
+    uow: UnitOfWork,
+    ws: m.Workspace,
+    msg: ClientMessage,
+    client_version: str,
+    correlation_id: str,
+    mode: str | None = None,
 ) -> MessageResult:
     session = uow.session
     dup = await session.scalar(
@@ -884,9 +905,16 @@ async def _process(
         review_item_ids=ctx.review_ids,
         resolution=ctx.resolution,
     )
+    extra: dict[str, Any] = {}
+    if mode:
+        extra["mode"] = mode
+    if msg.jira:  # Phase 10 performs the push; until then the request is only recorded
+        extra["jira"] = msg.jira
+        if msg.jira.get("send"):
+            result.jira = {"status": "deferred"}
     primary = ctx.events[0]
     primary.client_id = msg.client_id
-    primary.payload = {**primary.payload, "result": result.as_dict()}
+    primary.payload = {**primary.payload, **extra, "result": result.as_dict()}
     return result
 
 
@@ -905,7 +933,7 @@ async def ingest_batch(
             async with uow:
                 ws = await uow.session.get(m.Workspace, ws_id)
                 assert ws is not None  # noqa: S101
-                result = await _process(uow, ws, msg, batch.client_version, batch_id)
+                result = await _process(uow, ws, msg, batch.client_version, batch_id, batch.mode)
                 if result.status == "failed":
                     results.append(result)
                     continue

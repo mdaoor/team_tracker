@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import Field
 
@@ -73,6 +73,7 @@ class ClientBatch(_Client):
     workspace: str
     messages: list[ClientMessage]
     client_version: str = "0.1"
+    mode: Optional[Literal["assisted", "manual"]] = None  # ADR-0004: schema addition, backwards compatible
 
 
 def _inline_refs(node: object, defs: dict[str, dict[str, object]]) -> object:
