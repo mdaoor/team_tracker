@@ -10,11 +10,12 @@ from typing import Any
 import structlog
 from fastapi import FastAPI, Request, Response
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from tt_schema import client_message_json_schema
 
 from tt_server.api.errors import install_error_handlers
-from tt_server.db.session import make_engine
+from tt_server.api.routers import auth, capture, core
+from tt_server.db.session import make_engine, make_session_factory
 from tt_server.logging import configure_logging
 from tt_server.settings import Settings, get_settings
 from tt_server.telemetry import configure_telemetry
@@ -22,7 +23,11 @@ from tt_server.telemetry import configure_telemetry
 log = structlog.get_logger()
 
 
-def create_app(settings: Settings | None = None, engine: AsyncEngine | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    engine: AsyncEngine | None = None,
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
+) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level, json=settings.log_json)
     configure_telemetry(otlp_endpoint=settings.otlp_endpoint)
@@ -36,7 +41,10 @@ def create_app(settings: Settings | None = None, engine: AsyncEngine | None = No
     app = FastAPI(title="Team Tracker", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.engine = db_engine
+    app.state.session_factory = session_factory or make_session_factory(db_engine)
     install_error_handlers(app)
+    for r in (auth.router, capture.router, core.router):
+        app.include_router(r)
 
     @app.middleware("http")
     async def request_id(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

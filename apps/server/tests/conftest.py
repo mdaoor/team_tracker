@@ -86,7 +86,11 @@ def uow(session_factory: async_sessionmaker[AsyncSession]) -> UnitOfWork:
 
 
 @pytest.fixture
-async def client(engine: AsyncEngine, migrated_url: str) -> AsyncIterator[httpx.AsyncClient]:
-    app = create_app(Settings(database_url=migrated_url, log_json=False, log_level="WARNING"), engine=engine)
+async def client(
+    engine: AsyncEngine, migrated_url: str, session_factory: async_sessionmaker[AsyncSession]
+) -> AsyncIterator[httpx.AsyncClient]:
+    """API client whose requests run inside the per-test rolled-back transaction (dev auth on)."""
+    settings = Settings(database_url=migrated_url, log_json=False, log_level="WARNING", dev_auth=True)
+    app = create_app(settings, engine=engine, session_factory=session_factory)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
         yield c

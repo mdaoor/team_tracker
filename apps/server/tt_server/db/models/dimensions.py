@@ -9,6 +9,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from tt_schema.base import utcnow
 from tt_schema.enums import Cardinality, DimensionKind, TargetType, ValueSource, ValueTypeShape
 
 from tt_server.db.base import RowBase, WorkspaceScopedMixin, _values
@@ -127,7 +128,7 @@ class Classification(WorkspaceScopedMixin, RowBase):
     )
     inherited_from_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
     set_by: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=True)
-    set_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    set_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     confidence: Mapped[Decimal | None] = mapped_column(sa.Numeric(18, 4), nullable=True)
     is_confirmed: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=True)
     confirmed_by: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=True)

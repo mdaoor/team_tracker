@@ -8,6 +8,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from tt_schema.base import utcnow
 from tt_schema.enums import (
     ActivityKind,
     ActivityStatus,
@@ -50,7 +51,7 @@ class Activity(RowBase):
         nullable=False,
         default=ActivityStatus.ACTIVE,
     )
-    started_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     ended_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     note: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
     client_meta: Mapped[Any | None] = mapped_column(JSONB(), nullable=True)
@@ -83,7 +84,7 @@ class Evidence(RowBase):
     attachment_id: Mapped[str | None] = mapped_column(
         sa.Text(), sa.ForeignKey("attachments.id"), nullable=True
     )
-    captured_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     source: Mapped[CaptureSource] = mapped_column(
         sa.Enum(
             CaptureSource,
@@ -143,6 +144,7 @@ class DailyLog(WorkspaceScopedMixin, RowBase):
     )
     reviewed_by: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+    __table_args__ = (sa.UniqueConstraint("workspace_id", "person_id", "date"),)
 
 
 class Event(WorkspaceScopedMixin, RowBase):
@@ -174,8 +176,8 @@ class Event(WorkspaceScopedMixin, RowBase):
         nullable=False,
         default=EventSource.CLIENT,
     )
-    occurred_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
-    received_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
+    received_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     client_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
     raw_input: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
     correlation_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)

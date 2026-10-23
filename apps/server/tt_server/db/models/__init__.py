@@ -14,5 +14,6 @@ from tt_server.db.models.items import *  # noqa: F403
 from tt_server.db.models.process import *  # noqa: F403
 from tt_server.db.models.products import *  # noqa: F403
 from tt_server.db.models.projects import *  # noqa: F403
+from tt_server.db.models.system import *  # noqa: F403
 from tt_server.db.models.tenancy import *  # noqa: F403
 from tt_server.db.models.views import *  # noqa: F403

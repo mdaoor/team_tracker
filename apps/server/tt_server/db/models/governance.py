@@ -9,6 +9,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from tt_schema.base import utcnow
 from tt_schema.enums import (
     HabitStatus,
     InsightKind,
@@ -134,7 +135,7 @@ class PolicyTestRun(RowBase):
     window: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     fired_count: Mapped[int] = mapped_column(sa.Integer(), nullable=False)
     sample_target_ids: Mapped[Any] = mapped_column(JSONB(), nullable=False, default=list)
-    ran_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    ran_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
 class Violation(WorkspaceScopedMixin, RowBase):
@@ -178,7 +179,7 @@ class Violation(WorkspaceScopedMixin, RowBase):
     team_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("teams.id"), nullable=True)
     project_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("projects.id"), nullable=True)
     product_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("products.id"), nullable=True)
-    detected_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    detected_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     evidence: Mapped[Any] = mapped_column(JSONB(), nullable=False, default=dict)
     status: Mapped[ViolationStatus] = mapped_column(
         sa.Enum(
@@ -334,7 +335,7 @@ class Insight(RowBase):
     )
     body: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     supporting_ids: Mapped[Any] = mapped_column(JSONB(), nullable=False, default=list)
-    generated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     status: Mapped[InsightStatus] = mapped_column(
         sa.Enum(
             InsightStatus,

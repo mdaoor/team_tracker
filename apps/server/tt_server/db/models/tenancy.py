@@ -9,6 +9,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from tt_schema.base import utcnow
 from tt_schema.enums import (
     ContextKind,
     MembershipRole,
@@ -120,7 +121,7 @@ class Membership(RowBase):
         default=MembershipRole.MEMBER,
     )
     allocation_pct: Mapped[int | None] = mapped_column(sa.Integer(), nullable=True)
-    joined_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    joined_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     left_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
 
 
@@ -156,6 +157,14 @@ class ReportingLine(WorkspaceScopedMixin, RowBase):
     is_primary: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=False)
     valid_from: Mapped[date | None] = mapped_column(sa.Date(), nullable=True)
     valid_to: Mapped[date | None] = mapped_column(sa.Date(), nullable=True)
+    __table_args__ = (
+        sa.Index(
+            "uq_reporting_lines_primary_line",
+            "person_id",
+            unique=True,
+            postgresql_where=sa.text("is_primary AND kind = 'line' AND deleted_at IS NULL"),
+        ),
+    )
 
 
 class ContextNote(WorkspaceScopedMixin, RowBase):

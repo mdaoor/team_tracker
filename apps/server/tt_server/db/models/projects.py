@@ -9,6 +9,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from tt_schema.base import utcnow
 from tt_schema.enums import (
     ApprovalPolicy,
     ApprovalStatus,
@@ -381,7 +382,7 @@ class Approval(RowBase):
         nullable=False,
         default=ApprovalStatus.PENDING,
     )
-    requested_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
 
 

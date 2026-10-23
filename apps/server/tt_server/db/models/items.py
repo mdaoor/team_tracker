@@ -9,6 +9,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from tt_schema.base import utcnow
 from tt_schema.enums import (
     AssignmentRole,
     AttachmentKind,
@@ -176,7 +177,7 @@ class Assignment(RowBase):
         nullable=False,
         default=AssignmentRole.OWNER,
     )
-    assigned_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    assigned_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     unassigned_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
 
 
@@ -361,4 +362,4 @@ class Baseline(RowBase):
     planned_start: Mapped[date | None] = mapped_column(sa.Date(), nullable=True)
     planned_end: Mapped[date | None] = mapped_column(sa.Date(), nullable=True)
     estimate_value: Mapped[Decimal | None] = mapped_column(sa.Numeric(18, 4), nullable=True)
-    captured_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)

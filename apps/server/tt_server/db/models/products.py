@@ -9,6 +9,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from tt_schema.base import utcnow
 from tt_schema.enums import ProductLinkRole, ProductStatus, ScopeType, TargetType, ValueSource, Visibility
 
 from tt_server.db.base import RowBase, WorkspaceScopedMixin, _values
@@ -151,4 +152,4 @@ class Weight(RowBase):
         default=ValueSource.FORMULA,
     )
     set_by: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=True)
-    computed_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)

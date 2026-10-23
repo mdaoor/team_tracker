@@ -109,6 +109,8 @@ event_types:
   - jira.pushed
   - jira.push_failed
   - jira.imported
+  # auth
+  - token.created
 ---
 
 # Event catalogue

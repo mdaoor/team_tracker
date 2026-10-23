@@ -64,6 +64,8 @@ class RowBase(Base, TimestampMixin, SoftDeleteMixin):
     """Abstract base: `Base` columns of the schema package (id, created_*, updated_at, deleted_at)."""
 
     __abstract__ = True
+    # fetch server defaults (created_at/updated_at) with RETURNING so async code never lazy-loads them
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[str] = mapped_column(sa.Text(), primary_key=True, default=new_id)
     created_by: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)

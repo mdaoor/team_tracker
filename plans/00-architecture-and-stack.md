@@ -93,12 +93,19 @@ We do **not** implement replay‑based event sourcing in v1. We implement the st
 
 ```python
 async def move_stage(self, uow: UnitOfWork, actor_id, target, stage_id, reason, source=EventSource.OVERLAY):
-    async with uow:                          # one transaction
-        placement = ...                      # close old StagePlacement, open new
-        uow.events.append(Event(actor_id=actor_id, entity_type=TargetType.STAGE_PLACEMENT,
-                                entity_id=placement.id, event_type="stage.moved",
-                                payload={...}, source=source))
-        await uow.commit()                   # commit also enqueues follow-up jobs (outbox)
+    async with uow:  # one transaction
+        placement = ...  # close old StagePlacement, open new
+        uow.events.append(
+            Event(
+                actor_id=actor_id,
+                entity_type=TargetType.STAGE_PLACEMENT,
+                entity_id=placement.id,
+                event_type="stage.moved",
+                payload={...},
+                source=source,
+            )
+        )
+        await uow.commit()  # commit also enqueues follow-up jobs (outbox)
 ```
 
 Rules:

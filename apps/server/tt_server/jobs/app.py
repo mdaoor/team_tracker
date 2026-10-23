@@ -11,7 +11,7 @@ from tt_server.settings import get_settings
 app = App(connector=PsycopgConnector(conninfo=get_settings().psycopg_dsn))
 
 # Modules that declare @app.task functions; later phases append here.
-TASK_MODULES: list[str] = []
+TASK_MODULES: list[str] = ["tt_server.jobs.tasks"]
 
 
 def load_tasks() -> None:

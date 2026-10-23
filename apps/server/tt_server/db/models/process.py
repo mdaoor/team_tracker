@@ -8,6 +8,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
+from tt_schema.base import utcnow
 from tt_schema.enums import StageCategory, StateCategory, TargetType
 
 from tt_server.db.base import RowBase, WorkspaceScopedMixin, _values
@@ -77,7 +78,7 @@ class StagePlacement(RowBase):
     target_id: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     process_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("processes.id"), nullable=False)
     stage_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("stages.id"), nullable=False)
-    entered_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    entered_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
     exited_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     moved_by: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=True)
     reason: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)

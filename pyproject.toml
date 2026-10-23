@@ -56,3 +56,6 @@ plugins = ["pydantic.mypy"]
 module = ["tt_schema.testing.*", "factory.*"]
 ignore_errors = true
 ignore_missing_imports = true
+
+[tool.coverage.run]
+concurrency = ["greenlet", "thread"]
