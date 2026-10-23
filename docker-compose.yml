@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: tt
+      POSTGRES_USER: tt
+      POSTGRES_PASSWORD: tt
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tt -d tt"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  server:
+    build: { context: ., dockerfile: apps/server/Dockerfile }
+    command: sh -c "tt-admin migrate && uvicorn tt_server.main:create_app --factory --reload --host 0.0.0.0 --port 8000"
+    environment:
+      TT_DATABASE_URL: postgresql+psycopg://tt:tt@db:5432/tt
+      TT_DEV_AUTH: "1"
+    ports: ["8000:8000"]
+    volumes: ["./apps:/app/apps", "./packages:/app/packages", "./docs:/app/docs", "./tools:/app/tools"]
+    depends_on: { db: { condition: service_healthy } }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/readyz')"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  worker:
+    build: { context: ., dockerfile: apps/server/Dockerfile }
+    command: python -m tt_worker
+    environment:
+      TT_DATABASE_URL: postgresql+psycopg://tt:tt@db:5432/tt
+    volumes: ["./apps:/app/apps", "./packages:/app/packages", "./docs:/app/docs"]
+    depends_on: { server: { condition: service_healthy } }
+
+  web:
+    image: node:22
+    working_dir: /app
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @tt/web dev"
+    environment:
+      TT_API_URL: http://server:8000
+    ports: ["5173:5173"]
+    volumes: [".:/app"]
+    depends_on: [server]
+
+  ollama:
+    profiles: ["llm"]
+    image: ollama/ollama
+    ports: ["11434:11434"]
+    environment:
+      OLLAMA_MODELS: /models
+    volumes: ["ollama:/models"]
+
+volumes:
+  pgdata:
+  ollama:

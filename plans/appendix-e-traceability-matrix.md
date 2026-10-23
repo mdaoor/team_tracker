@@ -4,9 +4,9 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 
 | spec | topic | phase(s) | proof |
 |---|---|---|---|
-| OM §0 | Two layers; overlay never edits capture rows | P0 (layer metadata), P1 (guard test), P3 | `tests/unit/test_layer_guard.py` |
+| OM §0 | Two layers; overlay never edits capture rows | P0 (layer metadata), P1 (guard test), P3 | `packages/schema/tests/test_models.py::test_layers_cover_every_work_item_field` (guard test: P1) |
 | OM §1.1 | Universal `WorkItem` tree | P1 | `tests/integration/items/test_tree.py` |
-| OM §1.2 | Append‑only Event log, tables are projections | P0, P1, P12 (rebuild) | `tests/integration/events/*`, `tests/oracle/test_rebuild.py` |
+| OM §1.2 | Append‑only Event log, tables are projections | P0, P1, P12 (rebuild) | `apps/server/tests/integration/test_uow.py`, `test_outbox.py`, `tests/unit/test_event_catalogue.py` (P0); `tests/oracle/test_rebuild.py` (P12) |
 | OM §1.3 | Methodology is configuration | P1 (workflows), P3 (process) | `tests/integration/projects/test_workflow.py` |
 | OM §1.4 | Capture never blocks; Inbox; provisional | P1 §1.4 | `tests/api/capture/test_never_blocks.py` |
 | OM §1.5, §4 | Dimensions, values, classification, mirrors | P3 §3.1–3.2 | `tests/integration/dimensions/*` |
@@ -17,7 +17,7 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | OM §3 | Tenancy, people, hierarchy, context notes | P1 §1.1 | `tests/integration/tenancy/*` |
 | OM §6 Product/Objective/KR | Products, objectives | P3 §3.4 | `tests/integration/products/*` |
 | OM §6 Weights | Schemes, weights, value_score | P3 §3.5 | `tests/integration/weights/*` |
-| OM §7 WorkItem fields | Full field list, layer tags | P0, P1 | `tests/unit/test_schema_parity.py` |
+| OM §7 WorkItem fields | Full field list, layer tags | P0, P1 | `packages/schema/tests/test_parity.py` |
 | OM §7 capture tables | Activity, Evidence, TimeEntry, DailyLog | P1 §1.4–1.5 | `tests/integration/capture/*` |
 | OM §7 Event.source | Source distinguishes layers | P0/P1 | `tests/unit/test_event_catalogue.py` |
 | OM §8 Policy authoring (3 tiers) | Templates, CEL, registered functions | P8 §8.1–8.3 | `packages/cel_policies/tests/*` |
