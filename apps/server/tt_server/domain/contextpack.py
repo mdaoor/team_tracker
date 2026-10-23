@@ -16,6 +16,9 @@ from tt_server.db import models as m
 
 SCHEMA_VERSION = 1
 MAX_ITEMS, MAX_TAGS, MAX_PEOPLE = 200, 300, 300
+from tt_schema.enums import RiskStatus  # noqa: E402
+
+OPEN_RISK_STATUSES = [r for r in RiskStatus if r not in (RiskStatus.CLOSED, RiskStatus.OCCURRED)]
 DEFAULT_REQUIRED = ["action", "item", "project"]
 
 
@@ -82,6 +85,25 @@ async def build_pack(
         for p in projects
         if (p.settings or {}).get("manual_mode", {}).get("required_fields")
     }
+    processes = (
+        await session.scalars(
+            select(m.Process)
+            .where(m.Process.workspace_id == ws.id, m.Process.deleted_at.is_(None))
+            .order_by(m.Process.key)
+        )
+    ).all()
+    stages: dict[str, list[str]] = {}
+    for proc in processes:
+        stages[proc.key] = list(
+            (
+                await session.scalars(
+                    select(m.Stage.key)
+                    .where(m.Stage.process_id == proc.id, m.Stage.deleted_at.is_(None))
+                    .order_by(m.Stage.position)
+                )
+            ).all()
+        )
+    process_key = {proc.id: proc.key for proc in processes}
     project_rows = []
     for p in projects:
         jira_cfg = (p.settings or {}).get("jira", {})
@@ -92,8 +114,13 @@ async def build_pack(
                 "aliases": sorted(
                     {*(p.settings or {}).get("aliases", []), *aliases_by_project.get(p.id, [])}
                 ),
-                "process": None,
-                "default_stage": None,
+                "process": process_key.get(p.default_process_id) if p.default_process_id else None,
+                "default_stage": (p.settings or {}).get("default_stage")
+                or (
+                    stages.get(process_key.get(p.default_process_id, ""), [None])[0]
+                    if p.default_process_id
+                    else None
+                ),
                 "jira": (p.external_refs or {}).get("jira"),
                 "jira_enabled": bool(
                     jira_cfg.get("enabled", (p.external_refs or {}).get("jira") is not None)
@@ -261,9 +288,34 @@ async def build_pack(
         "tags": tags,
         "milestones": milestones,
         "iterations": iterations,
-        "stages": {},
+        "stages": stages,
         "priorities": [p.value for p in Priority],
-        "risks": [],
+        "risks": [
+            {"key": r.key, "title": r.title, "project": pkey[r.project_id]}
+            for r in (
+                await session.scalars(
+                    select(m.Risk)
+                    .where(
+                        m.Risk.project_id.in_(pids),
+                        m.Risk.deleted_at.is_(None),
+                        m.Risk.status.in_(OPEN_RISK_STATUSES),
+                    )
+                    .order_by(m.Risk.key)
+                )
+            ).all()
+        ],
+        "required_dimensions": [
+            {"key": d.key, "name": d.name, "when": d.is_required_for}
+            for d in (
+                await session.scalars(
+                    select(m.Dimension).where(
+                        m.Dimension.workspace_id == ws.id,
+                        m.Dimension.deleted_at.is_(None),
+                        m.Dimension.is_required_for.is_not(None),
+                    )
+                )
+            ).all()
+        ],
         "manager_rules": [r.text for r in rules],
         "glossary": glossary,
         "custom_fields": [

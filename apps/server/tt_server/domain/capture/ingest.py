@@ -34,6 +34,11 @@ from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import aware, emit, zone
 from tt_server.domain.items import service as items
+from tt_server.domain.overlay import classify as classify_svc
+from tt_server.domain.overlay import process as proc
+from tt_server.domain.overlay import risks as risks_svc
+from tt_server.domain.overlay import weights
+from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, ensure_value, sync_item_mirrors
 from tt_server.domain.projects.service import item_type, pick_state, workflow_states
 
 log = structlog.get_logger()
@@ -617,6 +622,7 @@ async def apply_hints(ctx: Ctx, item: m.WorkItem, project: m.Project) -> None:
                 ctx.uow, ctx.ws, name.strip().lstrip("#"), provisional=True
             )
             if new:
+                await add_review(ctx, "provisional_tag", item.id, {"tag_id": tag.id, "name": tag.name})
                 ctx.emit(
                     "tag.created",
                     TargetType.WORK_ITEM,
@@ -753,12 +759,88 @@ async def apply_hints(ctx: Ctx, item: m.WorkItem, project: m.Project) -> None:
                 await add_review(ctx, "invalid_custom_field", item.id, {"key": key, "value": value})
                 continue
             session.add(row)
-    for deferred in ("stage", "product"):  # Phase 3 resolves these; keep the suggestion visible meanwhile
-        value = getattr(msg, deferred)
-        if value:
-            await add_review(ctx, f"deferred_{deferred}", item.id, {deferred: value})
-    if msg.risks:
-        await add_review(ctx, "deferred_risks", item.id, {"risks": msg.risks})
+    if msg.stage and not await low("stage", msg.stage):
+        process = await proc.get_process(session, ctx.ws.id)
+        stage = next(
+            (
+                st
+                for st in await proc.stages_of(session, process.id)
+                if st.key == msg.stage.lower() or st.name.lower() == msg.stage.lower()
+            ),
+            None,
+        )
+        if stage is None:
+            await add_review(ctx, "deferred_stage", item.id, {"stage": msg.stage})
+        else:  # applied, but unconfirmed: a manager confirms it in the review queue
+            await proc.place(
+                ctx.uow,
+                ctx.ws,
+                target_type=TargetType.WORK_ITEM,
+                target_id=item.id,
+                process=process,
+                stage=stage,
+                moved_by=ctx.actor.person_id,
+                reason="reporter hint",
+                source=EventSource.CLIENT,
+                strict=False,
+                confirmed=False,
+                correlation_id=ctx.correlation_id,
+            )
+    if msg.product and not await low("product", msg.product):
+        product = await session.scalar(
+            select(m.Product).where(
+                m.Product.workspace_id == ctx.ws.id,
+                m.Product.deleted_at.is_(None),
+                or_(
+                    func.lower(m.Product.key) == msg.product.lower(),
+                    func.lower(m.Product.name) == msg.product.lower(),
+                ),
+            )
+        )
+        if product is None:
+            await add_review(ctx, "deferred_product", item.id, {"product": msg.product})
+        else:
+            dims = await ensure_builtin_dimensions(session, ctx.ws.id)
+            value = await ensure_value(
+                session,
+                dims["product"],
+                backing_type="product",
+                backing_id=product.id,
+                key=product.key,
+                name=product.name,
+                parent_backing_id=product.parent_product_id,
+            )
+            await classify_svc.classify(
+                ctx.uow,
+                ctx.ws,
+                target_type=TargetType.WORK_ITEM,
+                target_id=item.id,
+                dimension=dims["product"],
+                value=value,
+                source=ValueSource.RULE,
+                set_by=ctx.actor.person_id,
+                is_confirmed=False,
+                confidence=(msg.llm_confidence or {}).get("product"),
+                emit_event=False,
+            )
+    if msg.risks and not await low("risks", msg.risks):
+        unresolved = []
+        for rk in msg.risks:
+            risk = await session.scalar(
+                select(m.Risk)
+                .join(m.Project, m.Project.id == m.Risk.project_id)
+                .where(
+                    m.Project.workspace_id == ctx.ws.id,
+                    func.lower(m.Risk.key) == rk.lower(),
+                    m.Risk.deleted_at.is_(None),
+                )
+            )
+            if risk is None:
+                unresolved.append(rk)
+            else:
+                await risks_svc.link_item(ctx.uow, ctx.ws, risk, item, actor_id=ctx.actor.person_id)
+        if unresolved:
+            await add_review(ctx, "deferred_risks", item.id, {"risks": unresolved})
     if changed:
         ctx.emit("item.updated", TargetType.WORK_ITEM, item.id, {"fields_changed": sorted(set(changed))})
 
@@ -834,6 +916,7 @@ async def _process(
         at=aware(msg.at),
         warnings=warnings,
     )
+    uow.context.update(actor_id=actor.person_id, correlation_id=correlation_id)
 
     project = await resolve_project(ctx)
     item, info = await resolve_item(ctx, project)
@@ -893,7 +976,13 @@ async def _process(
 
     activity = await apply_action(ctx, item, created)
     await apply_fields(ctx, item, activity)
+    if created and ctx.resolution["project"].get("unresolved"):
+        await add_review(
+            ctx, "unclassified_project", item.id, {"phrase": ctx.resolution["project"]["unresolved"]}
+        )
     await apply_hints(ctx, item, project)
+    await sync_item_mirrors(uow, ws, item, set_by=actor.person_id)
+    await weights.recompute_item(uow, ws, item, actor_id=actor.person_id)
     await session.flush()
 
     result = MessageResult(

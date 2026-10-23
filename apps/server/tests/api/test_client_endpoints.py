@@ -29,7 +29,9 @@ async def test_context_pack_shape_and_etag(api: Api) -> None:
     assert [i["key"] for i in pack["my_open_items"]] == ["WEB-1"]
     assert pack["milestones"][0]["name"] == "Beta"
     assert pack["manager_rules"] == ["prod incident -> priority critical"]
-    assert pack["priorities"][0] == "lowest" and pack["stages"] == {} and pack["risks"] == []
+    assert (
+        pack["priorities"][0] == "lowest" and list(pack["stages"]) == ["sw-delivery"] and pack["risks"] == []
+    )
     assert pack["manual_mode"]["required_fields"] == ["action", "item", "project"]
     assert "private" in r.headers["cache-control"]
     tag = r.headers["etag"]

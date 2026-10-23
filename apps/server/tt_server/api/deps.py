@@ -117,6 +117,7 @@ async def current_actor(
     if member is None:
         raise ApiError(404, "not_found", "workspace not found")  # 404 for non-members (ADR-0008)
     await uow.session.commit()  # end the read transaction: release the connection / savepoint early
+    uow.context["actor_id"] = person.id
     return Actor(workspace, member, person)  # TODO(P4-ACL): permission checks beyond membership
 
 

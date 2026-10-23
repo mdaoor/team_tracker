@@ -51,4 +51,9 @@ async def test_jobs_are_deferred_in_the_same_transaction(uow: UnitOfWork, routed
             )
         ).one()
         assert row.args == {"event_id": event.id}
-        assert await uow.session.scalar(select(func.count()).select_from(models.Event)) == 1
+        assert (
+            await uow.session.scalar(
+                select(func.count()).select_from(models.Event).where(models.Event.workspace_id == ws.id)
+            )
+            == 1
+        )

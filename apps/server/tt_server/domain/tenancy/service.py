@@ -21,6 +21,9 @@ from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions
+from tt_server.domain.overlay.process import ensure_default_process
+from tt_server.domain.overlay.weights import ensure_default_scheme
 from tt_server.domain.projects.service import create_project
 
 DEFAULT_SETTINGS: dict[str, Any] = {
@@ -96,6 +99,9 @@ async def create_workspace(
             )
         )
     await uow.session.flush()
+    await ensure_builtin_dimensions(uow.session, ws.id)
+    await ensure_default_process(uow.session, ws.id, creator_id)
+    await ensure_default_scheme(uow.session, ws.id)
     emit(
         uow,
         workspace_id=ws.id,

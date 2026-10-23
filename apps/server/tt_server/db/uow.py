@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -24,6 +24,8 @@ class UnitOfWork:
         self.events = EventWriter()
         self._touched_projection = False
         self._session: AsyncSession | None = None
+        # Ambient data for hooks (actor_id, correlation_id, sync_depth ...); reset on every `async with`.
+        self.context: dict[str, Any] = {}
 
     @property
     def session(self) -> AsyncSession:
@@ -34,6 +36,7 @@ class UnitOfWork:
     async def __aenter__(self) -> Self:
         self._session = self._factory()
         self._touched_projection = False
+        self.context = {}
         event.listen(self._session.sync_session, "before_flush", self._on_before_flush)
         return self
 

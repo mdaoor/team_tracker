@@ -26,7 +26,12 @@ async def test_allow_unlogged_is_the_seed_escape_hatch(uow: UnitOfWork) -> None:
     async with uow:
         uow.session.add(_workspace_row("uow-c"))
         await uow.commit(allow_unlogged=True)
-        assert await uow.session.scalar(select(func.count()).select_from(models.Workspace)) == 1
+        assert (
+            await uow.session.scalar(
+                select(func.count()).select_from(models.Workspace).where(models.Workspace.slug == "uow-c")
+            )
+            == 1
+        )
 
 
 async def test_event_and_projection_commit_atomically(uow: UnitOfWork) -> None:

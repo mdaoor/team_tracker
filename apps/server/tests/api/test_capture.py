@@ -37,13 +37,14 @@ async def test_ux_7_1_start_creates_item_activity_and_four_events(api: Api, sess
         types = sorted(
             (await s.scalars(select(m.Event.event_type).where(m.Event.correlation_id == corr))).all()
         )
-    # plan §1.4 lists four events; the open->active state move adds item.state_changed
+    # plan §1.4 lists four events; the open->active state move and the default-stage placement (Phase 3) add two
     assert types == [
         "activity.paused",
         "activity.started",
         "estimate.set",
         "item.created",
         "item.state_changed",
+        "stage.moved",
     ]
 
 
@@ -93,10 +94,12 @@ async def test_never_blocks_unknown_project_person_and_missing_estimate(api: Api
         tags=["new-tag"],
     )
     assert res["status"] == "applied" and res["item"]["project_key"] == "INBOX-mahmoud"
-    assert len(res["review_item_ids"]) == 1
+    assert len(res["review_item_ids"]) == 3  # unclassified project phrase, provisional tag, unknown person
     async with session_factory() as s:
-        review = (await s.scalars(select(m.ReviewItem))).one()
-        assert review.kind == "unknown_person" and review.suggestion["person"] == "@ghost"
+        reviews = {r.kind: r for r in (await s.scalars(select(m.ReviewItem))).all()}
+        assert set(reviews) == {"unknown_person", "unclassified_project", "provisional_tag"}
+        assert reviews["unknown_person"].suggestion["person"] == "@ghost"
+        assert reviews["unclassified_project"].suggestion["phrase"] == "no such project"
         item = await s.scalar(select(m.WorkItem).where(m.WorkItem.key == res["item"]["key"]))
         assert item is not None and item.is_provisional
         tag = (await s.scalars(select(m.Tag))).one()
@@ -175,7 +178,7 @@ async def test_overlay_hints_and_low_confidence(api: Api, session_factory) -> No
         item = await s.scalar(select(m.WorkItem).where(m.WorkItem.key == res["item"]["key"]))
         reviews = (await s.scalars(select(m.ReviewItem))).all()
     assert item is not None and item.priority.value == "medium"  # 0.4 < 0.7: not applied
-    assert [r.kind for r in reviews] == ["low_confidence"]
+    assert [r.kind for r in reviews if r.kind != "provisional_tag"] == ["low_confidence"]
     res2 = await api.send(action="create", item={"title": "hinted 2"}, project="WEB", priority="high")
     d = (await api.call("GET", f"/items/{res2['item']['key']}")).json()
     assert d["priority"] == "high" and d["priority_source"] == "rule"

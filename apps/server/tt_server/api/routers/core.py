@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from tt_schema import tenancy as schema_tenancy
@@ -32,6 +32,7 @@ from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.domain.items import service as items
+from tt_server.domain.overlay import approvals
 from tt_server.domain.projects import service as projects
 from tt_server.domain.projects.service import workflow_states
 from tt_server.domain.tenancy import service as tenancy
@@ -554,6 +555,10 @@ async def complete_milestone(milestone_id: str, actor: CurrentActor, uow: Uow) -
     )
     if ms is None:
         raise ApiError(404, "not_found", "milestone not found")
+    if ms.approval_id and not await approvals.is_approved(uow.session, ms.approval_id):
+        raise ApiError(
+            409, "approval_required", "this milestone needs an approved approval before it can complete"
+        )
     ms.completed_at = ms.completed_at or utcnow()
     emit(
         uow,
@@ -566,6 +571,33 @@ async def complete_milestone(milestone_id: str, actor: CurrentActor, uow: Uow) -
     )
     await uow.commit()
     return row_dict(ms)
+
+
+@router.post("/milestones/{milestone_id}/approval", status_code=201, tags=["projects"])
+async def request_milestone_approval(milestone_id: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """Gate completion behind an approval (approvers: project owner/managers, `settings.approvers`)."""
+    ms = await uow.session.scalar(
+        select(m.Milestone)
+        .join(m.Project, m.Project.id == m.Milestone.project_id)
+        .where(m.Milestone.id == milestone_id, m.Project.workspace_id == actor.ws.id)
+    )
+    if ms is None:
+        raise ApiError(404, "not_found", "milestone not found")
+    if ms.approval_id:
+        raise ApiError(409, "approval_exists", "an approval was already requested")
+    uow.context["actor_id"] = actor.person.id
+    appr = await approvals.request(
+        uow,
+        actor.ws,
+        project_id=ms.project_id,
+        target_type=TargetType.MILESTONE,
+        target_id=ms.id,
+        title=f"Milestone {ms.name}",
+        requested_by=actor.person.id,
+    )
+    ms.approval_id = appr.id
+    await uow.commit()
+    return row_dict(appr)
 
 
 @router.post("/projects/{key}/baselines", status_code=201, tags=["projects"])
@@ -671,12 +703,30 @@ async def _item_detail(uow: Uow, item: m.WorkItem) -> dict[str, Any]:
     d["hours_logged"] = round((mins or 0) / 60, 2)
     proj = await s.get(m.Project, item.project_id)
     d["project_key"] = proj.key if proj else None
+    state = await s.get(m.WorkflowState, item.state_id)
+    d["state"], d["state_category"] = (state.key, state.category.value) if state else (None, None)
+    placement = (
+        await s.execute(
+            select(m.Stage.key, m.StagePlacement.entered_at)
+            .join(m.StagePlacement, m.StagePlacement.stage_id == m.Stage.id)
+            .where(
+                m.StagePlacement.target_type == TargetType.WORK_ITEM,
+                m.StagePlacement.target_id == item.id,
+                m.StagePlacement.exited_at.is_(None),
+            )
+            .limit(1)
+        )
+    ).first()
+    d["stage"] = placement[0] if placement else None
+    d["stage_age_days"] = (utcnow() - placement[1]).days if placement else None
     return d
 
 
 @router.get("/items/{id_or_key}", tags=["items"])
-async def get_item(id_or_key: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    return await _item_detail(uow, await _item(uow, actor.ws.id, id_or_key))
+async def get_item(id_or_key: str, actor: CurrentActor, uow: Uow, response: Response) -> dict[str, Any]:
+    item = await _item(uow, actor.ws.id, id_or_key)
+    response.headers["ETag"] = f'"{item.updated_at.isoformat()}"'
+    return await _item_detail(uow, item)
 
 
 @router.get("/items", tags=["items"])

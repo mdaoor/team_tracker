@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from tt_schema import client_message_json_schema
 
 from tt_server.api.errors import install_error_handlers
-from tt_server.api.routers import auth, capture, client, core
+from tt_server.api.routers import auth, capture, client, core, overlay
 from tt_server.db.session import make_engine, make_session_factory
 from tt_server.logging import configure_logging
 from tt_server.settings import Settings, get_settings
@@ -43,7 +43,7 @@ def create_app(
     app.state.engine = db_engine
     app.state.session_factory = session_factory or make_session_factory(db_engine)
     install_error_handlers(app)
-    for r in (auth.router, capture.router, core.router, client.router):
+    for r in (auth.router, capture.router, core.router, client.router, overlay.router):
         app.include_router(r)
 
     @app.middleware("http")

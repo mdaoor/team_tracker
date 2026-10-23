@@ -132,4 +132,16 @@ class Classification(WorkspaceScopedMixin, RowBase):
     confidence: Mapped[Decimal | None] = mapped_column(sa.Numeric(18, 4), nullable=True)
     is_confirmed: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=True)
     confirmed_by: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=True)
-    __table_args__ = (sa.UniqueConstraint("target_type", "target_id", "dimension_id", "value_id"),)
+    __table_args__ = (
+        sa.Index(
+            "uq_classifications_active",
+            "target_type",
+            "target_id",
+            "dimension_id",
+            "value_id",
+            unique=True,
+            postgresql_where=sa.text("deleted_at IS NULL"),
+        ),
+        sa.Index("ix_classifications_target", "target_type", "target_id"),
+        sa.Index("ix_classifications_dimension_value", "dimension_id", "value_id"),
+    )

@@ -49,7 +49,7 @@ async def _seed(reset: bool) -> str:
                 tables = ", ".join(t.name for t in reversed(Base.metadata.sorted_tables))
                 await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
         count = await demo.persist_demo(make_session_factory(engine))
-        return f"seeded {count} rows into workspace 'acme'"
+        return f"seeded {count} work items into workspace 'acme'"
     finally:
         await engine.dispose()
 
@@ -68,6 +68,47 @@ def migrate() -> None:
     command.upgrade(cfg, "head")
     applied = ensure_procrastinate_schema(get_settings().psycopg_dsn)
     typer.echo("migrations applied" + ("; procrastinate schema applied" if applied else ""))
+
+
+@app.command("backfill-overlay")
+def backfill_overlay() -> None:
+    """One-off: give pre-Phase-3 workspaces dimensions, default process, weight scheme and mirrors."""
+    asyncio.run(_backfill())
+
+
+async def _backfill() -> None:
+    from sqlalchemy import select as sa_select
+
+    from tt_server.db import models as m
+    from tt_server.db.uow import UnitOfWork
+    from tt_server.domain.overlay import weights
+    from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, sync_item_mirrors
+    from tt_server.domain.overlay.process import ensure_default_process
+
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    try:
+        async with UnitOfWork(factory) as uow:
+            for ws in (await uow.session.scalars(sa_select(m.Workspace))).all():
+                await ensure_builtin_dimensions(uow.session, ws.id)
+                await ensure_default_process(uow.session, ws.id)
+                await weights.ensure_default_scheme(uow.session, ws.id)
+                rows = (
+                    await uow.session.scalars(
+                        sa_select(m.WorkItem)
+                        .join(m.Project, m.Project.id == m.WorkItem.project_id)
+                        .where(m.Project.workspace_id == ws.id)
+                    )
+                ).all()
+                for item in rows:
+                    await sync_item_mirrors(uow, ws, item, set_by=item.reporter_id)
+                    await weights.recompute_item(uow, ws, item, actor_id=item.reporter_id)
+                typer.echo(f"{ws.slug}: {len(rows)} items mirrored")
+            await uow.commit(
+                allow_unlogged=True
+            )  # derived rows only (mirrors / weights): no domain event applies
+    finally:
+        await engine.dispose()
 
 
 @seed_app.command("demo")

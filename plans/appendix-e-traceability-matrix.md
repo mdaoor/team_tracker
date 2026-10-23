@@ -9,14 +9,14 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | OM §1.2 | Append‑only Event log, tables are projections | P0, P1, P12 (rebuild) | `apps/server/tests/integration/test_uow.py`, `test_outbox.py`, `tests/unit/test_event_catalogue.py` (P0); `tests/oracle/test_rebuild.py` (P12) |
 | OM §1.3 | Methodology is configuration | P1 (workflows), P3 (process) | `tests/integration/projects/test_workflow.py` |
 | OM §1.4 | Capture never blocks; Inbox; provisional | P1 §1.4 | `tests/api/capture/test_never_blocks.py` |
-| OM §1.5, §4 | Dimensions, values, classification, mirrors | P3 §3.1–3.2 | `tests/integration/dimensions/*` |
-| OM §1.6, §5 | Process, stages, placements, transition rules | P3 §3.3 | `tests/integration/process/*` |
-| OM §1.7, §6 propagation | Propagation down, roll‑ups up | P3 §3.6 | `tests/integration/propagation/*` |
+| OM §1.5, §4 | Dimensions, values, classification, mirrors | P3 §3.1–3.2 | `apps/server/tests/seeded/test_overlay_seeded.py::test_custom_dimension_lifecycle_and_classified_as`, `…::test_single_cardinality_replaces_and_manual_wins_over_inherited`, `integration/test_seed.py::test_mirrors_cover_every_item` |
+| OM §1.6, §5 | Process, stages, placements, transition rules | P3 §3.3 | `seeded/test_overlay_seeded.py` (stage/state sync, board, approvals, evidence rule), `e2e/test_concurrency.py` |
+| OM §1.7, §6 propagation | Propagation down, roll‑ups up | P3 §3.6 | `seeded/test_overlay_seeded.py` (priority, risk inheritance, roll-up, provenance) |
 | OM §1.8, §10 | Privacy / access control | P4 | `tests/acl/*` |
 | OM §1.9, §8 | Policies → violations → habits | P8, P9 | `tests/governance/*`, `tests/oracle/test_violations.py` |
 | OM §3 | Tenancy, people, hierarchy, context notes | P1 §1.1 | `tests/integration/tenancy/*` |
-| OM §6 Product/Objective/KR | Products, objectives | P3 §3.4 | `tests/integration/products/*` |
-| OM §6 Weights | Schemes, weights, value_score | P3 §3.5 | `tests/integration/weights/*` |
+| OM §6 Product/Objective/KR | Products, objectives | P3 §3.4 | `seeded/test_overlay_seeded.py` (product tree, delivers rule, objectives) |
+| OM §6 Weights | Schemes, weights, value_score | P3 §3.5 | `unit/test_weights_and_approvals.py`, `seeded/test_overlay_seeded.py` (schemes, overrides, value_score) |
 | OM §7 WorkItem fields | Full field list, layer tags | P0, P1 | `packages/schema/tests/test_parity.py` |
 | OM §7 capture tables | Activity, Evidence, TimeEntry, DailyLog | P1 §1.4–1.5 | `tests/integration/capture/*` |
 | OM §7 Event.source | Source distinguishes layers | P0/P1 | `tests/unit/test_event_catalogue.py` |

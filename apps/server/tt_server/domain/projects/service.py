@@ -103,6 +103,10 @@ async def create_project(
         raise ApiError(409, "project_exists", f"project {key} already exists", pointer="/key")
     wf = await default_workflow(session, ws.id)
     task = await item_type(session, ws.id, ItemTypeKey.TASK)
+    if kind != ProjectKind.INBOX and "default_process_id" not in extra:
+        from tt_server.domain.overlay.process import ensure_default_process
+
+        extra["default_process_id"] = (await ensure_default_process(session, ws.id, owner_id)).id
     project = m.Project(
         id=new_id(),
         workspace_id=ws.id,

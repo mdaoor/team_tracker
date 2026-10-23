@@ -1,10 +1,8 @@
-"""Demo workspace seed: the `acme` workspace built from the data of `tools/gen_snapshot.py`.
+"""Demo workspace seed: the `acme` workspace built from `tools/gen_snapshot.py`, through the services.
 
-`build_demo()` is pure: it returns schema-package models in dependency order. Ids are UUID v5 of a
-natural key, so tests can look rows up deterministically (`det_id("work_item", "WEB-101")`).
-
-TODO(P3): route through the ingestion + overlay services (this P0 version inserts directly via
-SQLAlchemy and writes no events, no Classification mirrors and no dimension rows).
+Structure (workspace, members, teams, products, projects, risks, items, placements, tags) goes through the
+domain/overlay services; work-session rows (activities, time, evidence) go through the capture ingestion
+pipeline with historical timestamps. Item *keys* are deterministic (`WEB-101` ...); ids are fresh UUIDs.
 """
 
 from __future__ import annotations
@@ -14,76 +12,58 @@ import io
 import os
 import runpy
 import tempfile
-import uuid
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from tt_schema.capture import Activity, Evidence, TimeEntry
+from tt_schema.base import new_id
+from tt_schema.client import ClientBatch
 from tt_schema.enums import (
-    ActivityKind,
-    ActivityStatus,
-    CaptureSource,
     EstimationUnit,
-    EvidenceKind,
+    EventSource,
     ItemTypeKey,
     MembershipRole,
-    Methodology,
     MilestoneKind,
     Priority,
+    ProductLinkRole,
     ProjectStatus,
+    ReportingKind,
     RiskCategory,
     RiskStatus,
-    StageCategory,
     StateCategory,
     TargetType,
     TeamKind,
+    ValueSource,
 )
-from tt_schema.items import Tag, TagLink, WorkItem
-from tt_schema.process import Process, Stage, StagePlacement
-from tt_schema.products import Product, ProductLink
-from tt_schema.projects import Milestone, Project, Risk, RiskLink, Workflow, WorkflowState, WorkItemType
-from tt_schema.tenancy import Membership, Person, Team, Workspace, WorkspaceMember
-from tt_server.db import models
+from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
+from tt_server.domain.capture.ingest import ingest_batch
+from tt_server.domain.common import emit
+from tt_server.domain.items import service as items
+from tt_server.domain.overlay import process as proc
+from tt_server.domain.overlay import risks as risk_svc
+from tt_server.domain.overlay import weights
+from tt_server.domain.overlay.products import create_product, link
+from tt_server.domain.projects.service import create_project, item_type, pick_state, workflow_states
+from tt_server.domain.tenancy import service as tenancy
 
-NAMESPACE = uuid.UUID("7e0a6b1e-0000-4000-8000-00000000acae")
 AS_OF = datetime(2026, 10, 23, 18, 30, tzinfo=timezone(timedelta(hours=3)))
 GEN_SNAPSHOT = Path(__file__).resolve().parents[1] / "gen_snapshot.py"
 
-# who owns each project (not in the snapshot; chosen so every owner is a member of the project's team)
+# Not in the snapshot: project owners (members of the team) and the reporting graph for the review queue.
 PROJECT_OWNER = {"WEB": "@sara", "MOB": "@youssef", "DATA": "@nour", "GOV": "@mahmoud"}
-PROJECT_ID_KEYS = {"WEB", "MOB", "DATA", "GOV"}
-STAGE_CATEGORY: dict[str, tuple[StageCategory, StateCategory]] = {
-    "idea": (StageCategory.IDEATION, StateCategory.OPEN),
-    "discovery": (StageCategory.PLANNING, StateCategory.OPEN),
-    "design": (StageCategory.PLANNING, StateCategory.OPEN),
-    "build": (StageCategory.EXECUTION, StateCategory.ACTIVE),
-    "test": (StageCategory.VALIDATION, StateCategory.ACTIVE),
-    "staging": (StageCategory.RELEASE, StateCategory.ACTIVE),
-    "production": (StageCategory.OPERATE, StateCategory.DONE),
-}
+TEAM_LEAD = {"platform": "@mahmoud", "squad-a": "@youssef", "squad-b": "@sara", "data": "@nour"}
+PROJECT_SETTINGS = {"DATA": {"default_stage": "discovery"}}
 PRIORITY = {
     "low": Priority.LOW,
     "medium": Priority.MEDIUM,
     "high": Priority.HIGH,
     "critical": Priority.CRITICAL,
 }
+METHODOLOGY = {"agile": "agile", "waterfall": "waterfall", "kanban": "kanban"}
 RISK_STATUS = {s.value: s for s in RiskStatus}
-METHODOLOGY = {m.value: m for m in Methodology}
-ACTIVITY_KIND = {k.value: k for k in ActivityKind}
-
-
-def det_id(kind: str, key: str) -> str:
-    return str(uuid.uuid5(NAMESPACE, f"{kind}:{key}"))
-
-
-def ltree_label(row_id: str) -> str:
-    """ltree labels allow only [A-Za-z0-9_]; ids are stored in paths with '-' replaced by '_'."""
-    return row_id.replace("-", "_")
 
 
 def load_snapshot() -> dict[str, Any]:
@@ -104,314 +84,319 @@ def _dt(d: str | date) -> datetime:
     return datetime(day.year, day.month, day.day, 12, 0, tzinfo=UTC)
 
 
-def build_demo(snapshot: dict[str, Any] | None = None) -> list[BaseModel]:
+async def persist_demo(
+    session_factory: async_sessionmaker[AsyncSession], snapshot: dict[str, Any] | None = None
+) -> int:
+    """Create the demo workspace; returns the number of work items created (items + epics)."""
     snap = snapshot or load_snapshot()
-    out: list[BaseModel] = []
-    ws = Workspace(
-        id=det_id("workspace", "acme"), name="Acme", slug="acme", settings={"time_zone": "Asia/Riyadh"}
-    )
-    out.append(ws)
+    ids: dict[str, Any] = {}
 
-    # people, members, teams
-    person_id = {p["handle"]: det_id("person", p["handle"]) for p in snap["people"]}
-    for p in snap["people"]:
-        out.append(
-            Person(id=person_id[p["handle"]], display_name=p["name"], email=f"{p['handle'][1:]}@acme.example")
+    # ---- A: workspace, people, teams, reporting lines ------------------------------------------------
+    async with UnitOfWork(session_factory) as uow:
+        boss = await tenancy.get_or_create_person(
+            uow, display_name="Mahmoud A.", email="mahmoud@acme.example"
         )
-    for p in snap["people"]:
-        out.append(
-            WorkspaceMember(
-                id=det_id("member", p["handle"]),
-                workspace_id=ws.id,
-                person_id=person_id[p["handle"]],
-                handle=p["handle"],
+        ws = await tenancy.create_workspace(
+            uow, name="Acme", slug="acme", creator_id=boss.id, settings={"time_zone": "Asia/Riyadh"}
+        )
+        uow.context.update(actor_id=boss.id, correlation_id=new_id())
+        person_id: dict[str, str] = {}
+        for p in snap["people"]:
+            person = (
+                boss
+                if p["handle"] == "@mahmoud"
+                else await tenancy.get_or_create_person(
+                    uow, display_name=p["name"], email=f"{p['handle'][1:]}@acme.example"
+                )
             )
-        )
-    team_id = {t: det_id("team", t) for t in snap["teams"]}
-    for t in snap["teams"]:
-        members = [p for p in snap["people"] if p["team"] == t]
-        out.append(
-            Team(
-                id=team_id[t],
+            await tenancy.add_member(uow, ws, person, handle=p["handle"], actor_id=boss.id)
+            person_id[p["handle"]] = person.id
+        team_id: dict[str, str] = {}
+        for t in snap["teams"]:
+            team = m.Team(
+                id=new_id(),
                 workspace_id=ws.id,
                 name=t,
                 slug=t,
                 kind=TeamKind.ORG,
-                lead_id=person_id[members[0]["handle"]],
+                lead_id=person_id[TEAM_LEAD[t]],
             )
-        )
-    for p in snap["people"]:
-        out.append(
-            Membership(
-                id=det_id("membership", p["handle"]),
-                team_id=team_id[p["team"]],
-                person_id=person_id[p["handle"]],
-                role=MembershipRole.MEMBER,
-                joined_at=AS_OF,
-            )
-        )
-
-    # workflow + item types
-    wf = Workflow(id=det_id("workflow", "default"), workspace_id=ws.id, name="Default", is_default=True)
-    out.append(wf)
-    state_id: dict[str, str] = {}
-    for i, (key, cat, initial, terminal) in enumerate(
-        [
-            ("open", StateCategory.OPEN, True, False),
-            ("active", StateCategory.ACTIVE, False, False),
-            ("done", StateCategory.DONE, False, True),
-        ]
-    ):
-        state_id[key] = det_id("state", key)
-        out.append(
-            WorkflowState(
-                id=state_id[key],
-                workflow_id=wf.id,
-                key=key,
-                name=key.title(),
-                category=cat,
-                position=i,
-                is_initial=initial,
-                is_terminal=terminal,
-            )
-        )
-    type_id: dict[str, str] = {}
-    for level, key in enumerate([ItemTypeKey.EPIC, ItemTypeKey.STORY, ItemTypeKey.TASK, ItemTypeKey.BUG]):
-        type_id[key.value] = det_id("item_type", key.value)
-        out.append(
-            WorkItemType(
-                id=type_id[key.value],
+            uow.session.add(team)
+            team_id[t] = team.id
+            emit(
+                uow,
                 workspace_id=ws.id,
-                key=key,
-                name=key.value.title(),
-                level=min(level, 2),
-                default_workflow_id=wf.id,
+                actor_id=boss.id,
+                entity_type=TargetType.TEAM,
+                entity_id=team.id,
+                event_type="team.created",
+                payload={"after": {"slug": t}},
             )
-        )
-
-    # delivery process
-    proc = Process(
-        id=det_id("process", "delivery"), workspace_id=ws.id, key="delivery", name="Delivery", is_default=True
-    )
-    out.append(proc)
-    stage_id: dict[str, str] = {}
-    for pos, name in enumerate(snap["stages"]):
-        category, maps_to = STAGE_CATEGORY[name]
-        stage_id[name] = det_id("stage", name)
-        out.append(
-            Stage(
-                id=stage_id[name],
-                process_id=proc.id,
-                key=name,
-                name=name.title(),
-                position=pos,
-                category=category,
-                maps_to_state_category=maps_to,
-                expected_duration_days=snap["stage_expected_days"][name] or None,
+        await uow.session.flush()
+        for p in snap["people"]:
+            uow.session.add(
+                m.Membership(
+                    id=new_id(),
+                    team_id=team_id[p["team"]],
+                    person_id=person_id[p["handle"]],
+                    role=MembershipRole.LEAD
+                    if TEAM_LEAD[p["team"]] == p["handle"]
+                    else MembershipRole.MEMBER,
+                    joined_at=AS_OF,
+                )
             )
+            lead = TEAM_LEAD[p["team"]]
+            manager = lead if lead != p["handle"] else "@mahmoud"
+            if manager != p["handle"]:
+                uow.session.add(
+                    m.ReportingLine(
+                        id=new_id(),
+                        workspace_id=ws.id,
+                        person_id=person_id[p["handle"]],
+                        manager_id=person_id[manager],
+                        kind=ReportingKind.LINE,
+                        is_primary=True,
+                    )
+                )
+        emit(
+            uow,
+            workspace_id=ws.id,
+            actor_id=boss.id,
+            entity_type=TargetType.PERSON,
+            entity_id=boss.id,
+            event_type="reporting_line.changed",
+            payload={"after": {"seeded": True}},
         )
+        await uow.commit()
+        ids.update(ws_id=ws.id, boss=boss.id, person=person_id, team=team_id)
 
-    # products, projects, milestones, risks
-    owner0 = person_id["@mahmoud"]
-    product_id = {p["key"]: det_id("product", p["key"]) for p in snap["products"]}
-    for p in snap["products"]:
-        out.append(
-            Product(
-                id=product_id[p["key"]],
-                workspace_id=ws.id,
+    # ---- B: products, projects, milestones -------------------------------------------------------------
+    async with UnitOfWork(session_factory) as uow:
+        ws = await uow.session.get(m.Workspace, ids["ws_id"])
+        assert ws is not None  # noqa: S101
+        uow.context.update(actor_id=ids["boss"], correlation_id=new_id())
+        boss = ids["boss"]
+        product: dict[str, m.Product] = {}
+        for p in snap["products"]:
+            product[p["key"]] = await create_product(
+                uow, ws, key=p["key"], name=p["name"], owner_id=boss, actor_id=boss
+            )
+        project: dict[str, m.Project] = {}
+        for p in snap["projects"]:
+            project[p["key"]] = await create_project(
+                uow,
+                ws,
                 key=p["key"],
                 name=p["name"],
-                owner_id=owner0,
-                default_process_id=proc.id,
-            )
-        )
-    project_id = {p["key"]: det_id("project", p["key"]) for p in snap["projects"]}
-    for p in snap["projects"]:
-        out.append(
-            Project(
-                id=project_id[p["key"]],
-                workspace_id=ws.id,
-                key=p["key"],
-                name=p["name"],
-                owner_id=person_id[PROJECT_OWNER[p["key"]]],
-                workflow_id=wf.id,
-                default_item_type_id=type_id["task"],
+                owner_id=ids["person"][PROJECT_OWNER[p["key"]]],
+                actor_id=boss,
+                description=p["summary"],
+                team_id=ids["team"][p["team"]],
                 methodology=METHODOLOGY[p["methodology"]],
                 status=ProjectStatus.ACTIVE,
-                team_id=team_id[p["team"]],
-                default_process_id=proc.id,
-                description=p["summary"],
+                settings=PROJECT_SETTINGS.get(p["key"], {}),
             )
-        )
-        out.append(
-            ProductLink(
-                id=det_id("product_link", p["key"]),
-                product_id=product_id[p["product"]],
+            await link(
+                uow,
+                ws,
+                product[p["product"]],
                 target_type=TargetType.PROJECT,
-                target_id=project_id[p["key"]],
+                target_id=project[p["key"]].id,
+                role=ProductLinkRole.DELIVERS,
+                actor_id=boss,
             )
-        )
-    for m in snap["milestones"]:
-        out.append(
-            Milestone(
-                id=det_id("milestone", m["name"]),
-                project_id=project_id[m["project"]],
-                name=m["name"],
-                due_date=date.fromisoformat(m["due"]),
-                kind=MilestoneKind.DEADLINE,
+        for ms in snap["milestones"]:
+            uow.session.add(
+                m.Milestone(
+                    id=new_id(),
+                    project_id=project[ms["project"]].id,
+                    name=ms["name"],
+                    due_date=date.fromisoformat(ms["due"]),
+                    kind=MilestoneKind.DEADLINE,
+                )
             )
-        )
-    risk_id = {r["key"]: det_id("risk", r["key"]) for r in snap["risks"]}
-    for r in snap["risks"]:
-        out.append(
-            Risk(
-                id=risk_id[r["key"]],
-                project_id=project_id[r["project"]],
-                key=r["key"],
+        await uow.commit()
+        ids.update(project={k: v.id for k, v in project.items()})
+
+    # ---- C: epics, items, tags, stages, risks -----------------------------------------------------------
+    created = 0
+    async with UnitOfWork(session_factory) as uow:
+        ws = await uow.session.get(m.Workspace, ids["ws_id"])
+        assert ws is not None  # noqa: S101
+        s = uow.session
+        boss = ids["boss"]
+        uow.context.update(actor_id=boss, correlation_id=new_id())
+        process = await proc.get_process(s, ws.id)
+        stages = {st.key: st for st in await proc.stages_of(s, process.id)}
+        epic_type = await item_type(s, ws.id, ItemTypeKey.EPIC)
+        type_id = {
+            k.value: (await item_type(s, ws.id, k)).id
+            for k in (ItemTypeKey.TASK, ItemTypeKey.STORY, ItemTypeKey.BUG)
+        }
+        default_scheme = await weights.ensure_default_scheme(s, ws.id)
+        _ = default_scheme
+        team_of = {p["handle"]: ids["team"][p["team"]] for p in snap["people"]}
+        epic: dict[str, m.WorkItem] = {}
+        for e in snap["epics"]:
+            proj = await s.get(m.Project, ids["project"][e["project"]])
+            assert proj is not None  # noqa: S101
+            owner = ids["person"][PROJECT_OWNER[e["project"]]]
+            epic[e["key"]] = await items.create_item(
+                uow,
+                ws,
+                proj,
+                title=e["title"],
+                reporter_id=owner,
+                assignee_id=owner,
+                team_id=proj.team_id,
+                type_id=epic_type.id,
+                key=e["key"],
+                priority_source=ValueSource.RULE,
+                default_stage=False,
+            )
+            created += 1
+        tags: dict[str, m.Tag] = {}
+        made: dict[str, m.WorkItem] = {}
+        for it in snap["items"]:
+            proj = await s.get(m.Project, ids["project"][it["project"]])
+            assert proj is not None  # noqa: S101
+            who = ids["person"][it["assignee"]]
+            row = await items.create_item(
+                uow,
+                ws,
+                proj,
+                title=it["title"],
+                reporter_id=who,
+                assignee_id=who,
+                team_id=team_of[it["assignee"]],
+                type_id=type_id[it["type"]],
+                parent=epic.get(it["epic"]) if it["epic"] else None,
+                key=it["key"],
+                priority=PRIORITY[it["priority"]],
+                priority_source=ValueSource.RULE,
+                planned_start=date.fromisoformat(it["planned_start"]),
+                planned_end=date.fromisoformat(it["planned_end"]),
+                default_stage=False,
+            )
+            if it["estimate_h"] is not None:
+                await items.record_estimate(
+                    uow, row, person_id=who, value=Decimal(str(it["estimate_h"])), unit=EstimationUnit.HOURS
+                )
+            states = await workflow_states(s, proj.workflow_id)
+            category = {
+                "open": StateCategory.OPEN,
+                "active": StateCategory.ACTIVE,
+                "done": StateCategory.DONE,
+            }[it["state"]]
+            if category != StateCategory.OPEN:
+                at = _dt(it["actual_end"]) if it["actual_end"] else _dt(it["planned_start"])
+                await items.set_state(
+                    uow, row, pick_state(states, category, terminal=category == StateCategory.DONE), at=at
+                )
+            await proc.place(
+                uow,
+                ws,
+                target_type=TargetType.WORK_ITEM,
+                target_id=row.id,
+                process=process,
+                stage=stages[it["stage"]],
+                moved_by=who,
+                reason="seed",
+                source=EventSource.IMPORT,
+                entered_at=AS_OF - timedelta(days=it["stage_age_days"]),
+                sync_state=False,
+                strict=False,
+            )
+            for name in it["tags"]:
+                if name not in tags:
+                    tags[name], _ = await items.get_or_create_tag(uow, ws, name, provisional=False)
+                s.add(
+                    m.TagLink(
+                        id=new_id(), tag_id=tags[name].id, target_type=TargetType.WORK_ITEM, target_id=row.id
+                    )
+                )
+            made[it["key"]] = row
+            await weights.recompute_item(uow, ws, row, actor_id=boss)
+            emit(
+                uow,
+                workspace_id=ws.id,
+                actor_id=who,
+                entity_type=TargetType.WORK_ITEM,
+                entity_id=row.id,
+                event_type="item.created",
+                payload={"after": {"key": row.key, "seeded": True}},
+                source=EventSource.IMPORT,
+            )
+            created += 1
+        # Risks last: the snapshot attaches each risk to specific items, so they are item-scoped (a project-
+        # scoped risk would be inherited by every item).
+        for r in snap["risks"]:
+            linked = [it["key"] for it in snap["items"] if r["key"] in it["risks"]]
+            proj = await s.get(m.Project, ids["project"][r["project"]])
+            assert proj is not None  # noqa: S101
+            risk = await risk_svc.create_risk(
+                uow,
+                ws,
+                proj,
                 title=r["title"],
-                owner_id=person_id[PROJECT_OWNER[r["project"]]],
-                target_type=TargetType.PROJECT,
-                target_id=project_id[r["project"]],
+                owner_id=ids["person"][PROJECT_OWNER[r["project"]]],
+                actor_id=boss,
+                key=r["key"],
                 category=RiskCategory.TECHNICAL,
                 probability=r["p"],
                 impact=r["i"],
                 status=RISK_STATUS[r["status"]],
+                spread_links=False,
+                target_type=TargetType.WORK_ITEM if linked else TargetType.PROJECT,
+                target_id=made[linked[0]].id if linked else proj.id,
             )
-        )
+            for key in linked:
+                await risk_svc.link_item(uow, ws, risk, made[key], actor_id=boss)
+        await uow.commit()
 
-    # epics, then items (epics first: items point at them via parent_id)
-    epic_id = {e["key"]: det_id("work_item", e["key"]) for e in snap["epics"]}
-    for e in snap["epics"]:
-        proj = next(p for p in snap["projects"] if p["key"] == e["project"])
-        out.append(
-            WorkItem(
-                id=epic_id[e["key"]],
-                project_id=project_id[e["project"]],
-                key=e["key"],
-                type_id=type_id["epic"],
-                title=e["title"],
-                state_id=state_id["active"],
-                reporter_id=person_id[PROJECT_OWNER[e["project"]]],
-                path=ltree_label(epic_id[e["key"]]),
-                team_id=team_id[proj["team"]],
-            )
-        )
-    tag_id: dict[str, str] = {}
+    # ---- D: work sessions through the ingestion pipeline (historical timestamps) -------------------
+    live = {n["item"]: n for n in snap["now"]}
     for it in snap["items"]:
-        for t in it["tags"]:
-            if t not in tag_id:
-                tag_id[t] = det_id("tag", t)
-                out.append(Tag(id=tag_id[t], workspace_id=ws.id, name=t))
-    now_by_item = {n["item"]: n for n in snap["now"]}
-    for it in snap["items"]:
-        iid = det_id("work_item", it["key"])
-        parent = epic_id.get(it["epic"]) if it["epic"] else None
-        path = ltree_label(iid) if not parent else f"{ltree_label(parent)}.{ltree_label(iid)}"
-        est = Decimal(str(it["estimate_h"])) if it["estimate_h"] is not None else None
-        done = it["state"] == "done"
-        out.append(
-            WorkItem(
-                id=iid,
-                project_id=project_id[it["project"]],
-                key=it["key"],
-                type_id=type_id[it["type"]],
-                title=it["title"],
-                state_id=state_id[it["state"]],
-                reporter_id=person_id[it["assignee"]],
-                assignee_id=person_id[it["assignee"]],
-                team_id=team_id[it["team"]],
-                parent_id=parent,
-                path=path,
-                priority=PRIORITY[it["priority"]],
-                weight=Decimal(it["weight"]),
-                estimate_value=est,
-                estimate_unit=EstimationUnit.HOURS,
-                planned_start=date.fromisoformat(it["planned_start"]),
-                planned_end=date.fromisoformat(it["planned_end"]),
-                actual_end=_dt(it["actual_end"]) if it["actual_end"] else None,
-                progress_pct=100 if done else 0,
-                closed_at=_dt(it["actual_end"]) if it["actual_end"] else None,
-            )
-        )
-        # stage placement (current, entered stage_age_days ago)
-        out.append(
-            StagePlacement(
-                id=det_id("placement", it["key"]),
-                target_type=TargetType.WORK_ITEM,
-                target_id=iid,
-                process_id=proc.id,
-                stage_id=stage_id[it["stage"]],
-                entered_at=AS_OF - timedelta(days=it["stage_age_days"]),
-            )
-        )
-        for t in it["tags"]:
-            out.append(
-                TagLink(
-                    id=det_id("tag_link", f"{it['key']}:{t}"),
-                    tag_id=tag_id[t],
-                    target_type=TargetType.WORK_ITEM,
-                    target_id=iid,
-                )
-            )
-        for r in it["risks"]:
-            out.append(
-                RiskLink(id=det_id("risk_link", f"{it['key']}:{r}"), risk_id=risk_id[r], work_item_id=iid)
+        msgs: list[dict[str, Any]] = []
+        touched = _dt(it["last_touched"])
+        base = {"actor": it["assignee"], "item": {"key": it["key"]}}
+        for n in range(it["evidence_count"]):
+            msgs.append(
+                {
+                    **base,
+                    "action": "evidence",
+                    "at": touched.isoformat(),
+                    "client_id": f"seed-ev-{it['key']}-{n}",
+                    "evidence": [{"kind": "note", "title": f"note {n + 1}"}],
+                }
             )
         if it["hours_logged"] > 0:
-            out.append(
-                TimeEntry(
-                    id=det_id("time_entry", it["key"]),
-                    person_id=person_id[it["assignee"]],
-                    work_item_id=iid,
-                    date=date.fromisoformat(it["last_touched"]),
-                    minutes=round(it["hours_logged"] * 60),
-                    source=CaptureSource.IMPORTED,
-                )
+            msgs.append(
+                {
+                    **base,
+                    "action": "log_time",
+                    "at": touched.isoformat(),
+                    "client_id": f"seed-t-{it['key']}",
+                    "minutes": round(it["hours_logged"] * 60),
+                }
             )
-        live = now_by_item.get(it["key"])
-        if live or it["evidence_count"]:
-            aid = det_id("activity", it["key"])
-            started = AS_OF - timedelta(minutes=live["since_min"]) if live else _dt(it["last_touched"])
-            out.append(
-                Activity(
-                    id=aid,
-                    person_id=person_id[it["assignee"]],
-                    work_item_id=iid,
-                    project_id=project_id[it["project"]],
-                    kind=ACTIVITY_KIND[live["kind"]] if live else ActivityKind.WORKING,
-                    status=ActivityStatus.ACTIVE if live else ActivityStatus.ENDED,
-                    started_at=started,
-                    ended_at=None if live else started + timedelta(hours=1),
-                )
+        if it["key"] in live:
+            n = live[it["key"]]
+            msgs.append(
+                {
+                    **base,
+                    "action": "blocked" if n["kind"] == "blocked" else "start",
+                    "at": (AS_OF - timedelta(minutes=n["since_min"])).isoformat(),
+                    "client_id": f"seed-live-{it['key']}",
+                    "note": "waiting" if n["kind"] == "blocked" else None,
+                }
             )
-            for n in range(it["evidence_count"]):
-                out.append(
-                    Evidence(
-                        id=det_id("evidence", f"{it['key']}:{n}"),
-                        activity_id=aid,
-                        work_item_id=iid,
-                        person_id=person_id[it["assignee"]],
-                        kind=EvidenceKind.NOTE,
-                        title=f"note {n + 1}",
-                        captured_at=started,
-                        source=CaptureSource.IMPORTED,
-                    )
-                )
-    return out
-
-
-async def persist_demo(
-    session_factory: async_sessionmaker[AsyncSession], rows: list[BaseModel] | None = None
-) -> int:
-    """Insert the demo rows directly (P0 allow-listed unlogged path); returns the number of rows."""
-    rows = rows if rows is not None else build_demo()
-    uow = UnitOfWork(session_factory)
-    async with uow:
-        group: type | None = None
-        for row in rows:
-            if group is not None and type(row) is not group:
-                await uow.session.flush()  # keep FK order between groups
-            group = type(row)
-            uow.session.add(getattr(models, type(row).__name__)(**row.model_dump()))
-        await uow.commit(allow_unlogged=True)
-    return len(rows)
+        if msgs:
+            batch = ClientBatch.model_validate(
+                {"workspace": "acme", "messages": msgs, "client_version": "seed"}
+            )
+            results = await ingest_batch(session_factory, ids["ws_id"], batch)
+            bad = [r for r in results if r.status == "failed"]
+            if bad:
+                raise RuntimeError(f"seed ingestion failed for {it['key']}: {bad[0].error_code}")
+    return created

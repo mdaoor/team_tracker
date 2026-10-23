@@ -15,6 +15,8 @@ from tt_schema.enums import (
     EstimationUnit,
     EventSource,
     StateCategory,
+    TargetType,
+    ValueSource,
 )
 
 from tt_server.api.errors import ApiError
@@ -77,9 +79,14 @@ async def create_item(
     parent: m.WorkItem | None = None,
     provisional: bool = False,
     source: dict[str, object] | None = None,
+    key: str | None = None,
+    inherit: bool = True,
+    default_stage: bool = True,
     **fields: object,
 ) -> m.WorkItem:
     session = uow.session
+    if "priority" not in fields:
+        fields.setdefault("priority_source", ValueSource.INHERITED)
     states = await workflow_states(session, project.workflow_id)
     state = pick_state(states, StateCategory.OPEN, initial=True)
     type_id = type_id or project.default_item_type_id
@@ -90,7 +97,7 @@ async def create_item(
     item = m.WorkItem(
         id=item_id,
         project_id=project.id,
-        key=await next_item_key(session, project),
+        key=key or await next_item_key(session, project),
         type_id=type_id,
         title=title,
         state_id=state.id,
@@ -109,6 +116,10 @@ async def create_item(
         session.add(
             m.Assignment(id=new_id(), work_item_id=item.id, person_id=assignee_id, role=AssignmentRole.OWNER)
         )
+    if inherit:
+        from tt_server.domain.overlay import propagation
+
+        await propagation.inherit_on_create(uow, ws, item, parent=parent, default_stage=default_stage)
     return item
 
 
@@ -216,3 +227,38 @@ __all__ = [
     "set_state",
     "validate_nesting",
 ]
+
+
+async def change_project(
+    uow: UnitOfWork, ws: m.Workspace, item: m.WorkItem, project: m.Project, *, actor_id: str
+) -> None:
+    """Move an item (typically out of an Inbox): new key in the destination, old key kept in external_refs."""
+    from tt_server.domain.overlay import propagation
+
+    if item.project_id == project.id:
+        return
+    session = uow.session
+    old_key, old_project_id = item.key, item.project_id
+    old_state = await session.get(m.WorkflowState, item.state_id)
+    states = await workflow_states(session, project.workflow_id)
+    new_state = pick_state(states, old_state.category if old_state else StateCategory.OPEN)
+    item.external_refs = {**(item.external_refs or {}), "previous_key": old_key}
+    item.key = await next_item_key(session, project)
+    item.project_id, item.state_id, item.is_provisional = project.id, new_state.id, False
+    await session.flush()
+    emit(
+        uow,
+        workspace_id=ws.id,
+        actor_id=actor_id,
+        entity_type=TargetType.WORK_ITEM,
+        entity_id=item.id,
+        event_type="item.project_changed",
+        payload={
+            "before": {"project_id": old_project_id, "key": old_key},
+            "after": {"project_id": project.id, "key": item.key},
+        },
+        source=EventSource.OVERLAY,
+        correlation_id=uow.context.get("correlation_id"),
+    )
+    parent = await session.get(m.WorkItem, item.parent_id) if item.parent_id else None
+    await propagation.inherit_on_create(uow, ws, item, parent=parent, actor=actor_id)
