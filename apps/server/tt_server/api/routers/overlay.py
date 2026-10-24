@@ -40,6 +40,7 @@ from tt_server.domain.overlay import approvals, bulk, mirrors, products, propaga
 from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import process as proc
 from tt_server.domain.overlay import rollup as rollup_svc
+from tt_server.domain.plan import linkage as plan_linkage
 
 router = APIRouter(prefix="/api/v1/w/{ws}")
 TARGETS = {"work_item": TargetType.WORK_ITEM, "project": TargetType.PROJECT, "product": TargetType.PRODUCT}
@@ -1299,6 +1300,7 @@ class ItemPatch(BaseModel):
     impact: int | None = Field(default=None, ge=1, le=5)
     priority: Priority | None = None
     planned_start: date | None = None
+    planned_end: date | None = None
     due_date: date | None = None
     team_id: str | None = None
     assignee_id: str | None = None
@@ -1373,6 +1375,8 @@ async def patch_item(
     if priority is not None and priority != item.priority:
         await propagation.set_item_priority(uow, actor.ws, item, priority, actor=actor.person.id)
         changed.append("priority")
+    if "planned_end" in data or "planned_start" in data:
+        await plan_linkage.plan_changed(uow, actor.ws, item)
     if changed:
         await weights.recompute_item(uow, actor.ws, item, actor_id=actor.person.id)
         emit(

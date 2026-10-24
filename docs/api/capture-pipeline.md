@@ -53,3 +53,7 @@ sequenceDiagram
 ## Response per message
 `{client_id, status: applied|applied_with_warnings|deduplicated|failed, item:{id,key,title,project_key}, activity_id,
 warnings[], review_item_ids[], error_code, resolution}`.
+
+
+## Plan linkage (after step 6)
+A task *created* by the pipeline in a non-Inbox project that has deliverables is attached to one (glossary → trigram ≥ 0.5) or becomes an `unlinked_task` review row with three suggestions. See `docs/api/plan.md`.

@@ -14,6 +14,8 @@ from tt_schema.enums import (
     EstimateKind,
     EstimationUnit,
     EventSource,
+    ItemTypeKey,
+    ProgressMode,
     StateCategory,
     TargetType,
     ValueSource,
@@ -90,6 +92,12 @@ async def create_item(
     states = await workflow_states(session, project.workflow_id)
     state = pick_state(states, StateCategory.OPEN, initial=True)
     type_id = type_id or project.default_item_type_id
+    if "progress_mode" not in fields:
+        tt = await session.get(m.WorkItemType, type_id)
+        if tt is not None and tt.key in (ItemTypeKey.PHASE, ItemTypeKey.DELIVERABLE):
+            fields["progress_mode"] = (
+                ProgressMode.CHILDREN
+            )  # plan containers roll up from their tasks (plan P3 §3.11)
     if parent is not None:
         await validate_nesting(session, ws, type_id, parent)
     item_id = new_id()

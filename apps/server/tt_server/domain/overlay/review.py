@@ -270,6 +270,34 @@ async def _apply_choice(
 ) -> str:
     s = uow.session
     kind, sug = row.kind, row.suggestion or {}
+    if kind == "unlinked_task":
+        key = str(choice.get("deliverable") or "")
+        if not key:
+            raise ApiError(
+                400,
+                "invalid",
+                "choose a deliverable, or keep the task unlinked",
+                pointer="/choice/deliverable",
+            )
+        parent = await s.scalar(
+            select(m.WorkItem).where(
+                m.WorkItem.project_id == item.project_id, func_lower(m.WorkItem.key) == key.lower()
+            )
+        )
+        if parent is None:
+            raise ApiError(404, "not_found", f"unknown deliverable {key}", pointer="/choice/deliverable")
+        await items.validate_nesting(s, ws, item.type_id, parent)
+        await items.move_item(s, item, parent)
+        from tt_server.domain.plan import linkage
+
+        await linkage.refresh_ancestors(s, item)
+        emit(
+            uow, workspace_id=ws.id, actor_id=actor_id, entity_type=TargetType.WORK_ITEM, entity_id=item.id, event_type="item.parent_changed",
+            payload={"after": {"parent_id": parent.id, "deliverable": parent.key}, "cause": "review"}, source=EventSource.OVERLAY,
+        )  # fmt: skip
+        return f"linked:{parent.key}"
+    if kind in ("plan_slip", "plan_conflict"):
+        return "acknowledged"
     if kind == "jira_mapping_gap":
         return await _apply_jira_gap(uow, row, choice)
     if kind == "jira_sync_failed":

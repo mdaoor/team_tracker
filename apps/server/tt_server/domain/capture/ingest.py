@@ -42,6 +42,7 @@ from tt_server.domain.overlay import process as proc
 from tt_server.domain.overlay import risks as risks_svc
 from tt_server.domain.overlay import weights
 from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, ensure_value, sync_item_mirrors
+from tt_server.domain.plan import linkage
 from tt_server.domain.projects.service import item_type, pick_state, workflow_states
 
 log = structlog.get_logger()
@@ -568,6 +569,7 @@ async def apply_fields(ctx: Ctx, item: m.WorkItem, activity: m.Activity | None) 
                 "after": {"planned_end": local.isoformat()},
             },
         )
+        await linkage.plan_changed(ctx.uow, ctx.ws, item)
     if msg.minutes is not None:
         if msg.minutes <= 0:
             ctx.warnings.append("minutes_ignored")
@@ -1000,6 +1002,8 @@ async def _process(
             ctx, "unclassified_project", item.id, {"phrase": ctx.resolution["project"]["unresolved"]}
         )
     await apply_hints(ctx, item, project)
+    if created and project.kind.value != "inbox":
+        ctx.resolution["plan_link"] = await linkage.attach_or_ask(ctx, item, project)
     await sync_item_mirrors(uow, ws, item, set_by=actor.person_id)
     await weights.recompute_item(uow, ws, item, actor_id=actor.person_id)
     await session.flush()
