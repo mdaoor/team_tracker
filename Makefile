@@ -1,4 +1,4 @@
-.PHONY: dev down test lint typecheck check migrate seed openapi e2e fmt
+.PHONY: dev down test lint typecheck check migrate seed openapi e2e fmt handover
 
 PY ?= uv run
 
@@ -44,3 +44,6 @@ presentation:   ## single-file deck bundle: apps/presentation/dist/presentation.
 	pnpm --filter @tt/presentation build
 
 check: lint typecheck test
+
+handover:       ## fill an appendix-D prompt: make handover ARGS="kickoff 11"
+	$(PY) python tools/handover.py $(ARGS)
