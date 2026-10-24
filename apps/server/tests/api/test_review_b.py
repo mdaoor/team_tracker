@@ -350,3 +350,56 @@ async def test_a_concurrent_duplicate_client_id_is_deduplicated_not_failed(api: 
         and b["status"] == "deduplicated"
         and a["item"]["key"] == b["item"]["key"]
     )
+
+
+async def test_every_declared_hot_path_index_exists_in_the_migrated_database(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Review 22: the indexes declared in `db/models/indexes.py` are really created by the migrations (model/migration drift)."""
+    import inspect
+    import re
+
+    import tt_server.db.models.indexes as idx
+    from sqlalchemy import text
+
+    declared = set(re.findall(r'sa\.Index\(\s*"([a-z0-9_]+)"', inspect.getsource(idx)))
+    assert len(declared) >= 10
+    async with session_factory() as s:
+        have = {
+            r[0]
+            for r in (
+                await s.execute(text("select indexname from pg_indexes where schemaname = 'public'"))
+            ).all()
+        }
+    assert declared <= have, sorted(declared - have)
+
+
+async def test_browser_renders_are_bounded_and_the_overflow_is_told_to_retry(api: Api, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Review 19: at most MAX_BROWSER_RENDERS Chromium exports run at once; the rest get 503 render_busy instead of piling up."""
+    import asyncio
+
+    from tt_server.api.routers import presentations as pr
+    from tt_server.exports import presentation as exp
+
+    state = {"running": 0, "peak": 0}
+
+    async def slow(fmt, payload, bundle, handle=None):  # type: ignore[no-untyped-def]
+        state["running"] += 1
+        state["peak"] = max(state["peak"], state["running"])
+        await asyncio.sleep(0.4)
+        state["running"] -= 1
+        return b"%PDF-1.4"
+
+    monkeypatch.setattr(exp, "render", slow)
+    monkeypatch.setattr(pr, "RENDER_WAIT_S", 0.05)
+    monkeypatch.setattr(pr, "_RENDER_SLOTS", asyncio.Semaphore(pr.MAX_BROWSER_RENDERS))
+    pid = (
+        await api.call("POST", "/presentations", json={"title": "D", "slides": [{"kind": "kpis"}]})
+    ).json()["id"]
+    got = await asyncio.gather(
+        *(api.call("POST", f"/presentations/{pid}/render", params={"format": "pdf"}) for _ in range(5))
+    )
+    codes = sorted(r.status_code for r in got)
+    assert state["peak"] <= pr.MAX_BROWSER_RENDERS
+    assert codes.count(200) >= 1 and codes.count(503) >= 1 and set(codes) <= {200, 503}, codes
+    assert all(r.json()["error"]["code"] == "render_busy" for r in got if r.status_code == 503)

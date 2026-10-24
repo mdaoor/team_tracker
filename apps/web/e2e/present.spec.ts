@@ -62,3 +62,28 @@ test("a deck written by an external LLM is imported leniently and opens in the b
   await expect(page).toHaveURL(/\/present\/[^/]+$/);
   await expect(page.getByLabel("Title").first()).toHaveValue("External draft");
 });
+
+test("the served deck shell carries a CSP and renders with zero violations (phase 12 §5)", async ({
+  page,
+  request,
+}) => {
+  const created = await request.post("http://localhost:8010/api/v1/w/acme/presentations", {
+    data: { title: "CSP check", slides: [{ kind: "kpis" }, { kind: "projects" }] },
+  });
+  const id = (await created.json()).id as string;
+  await page.addInitScript(() => {
+    (window as unknown as { __csp: string[] }).__csp = [];
+    document.addEventListener("securitypolicyviolation", (e) =>
+      (window as unknown as { __csp: string[] }).__csp.push(
+        `${e.violatedDirective} ${e.blockedURI}`,
+      ),
+    );
+  });
+  const resp = await page.goto(`/p/acme/${id}`);
+  const csp = resp!.headers()["content-security-policy"];
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).not.toMatch(/https?:\/\//);
+  await expect(page.locator("html")).toHaveAttribute("data-ready", "1");
+  await page.keyboard.press("ArrowRight");
+  expect(await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp)).toEqual([]);
+});

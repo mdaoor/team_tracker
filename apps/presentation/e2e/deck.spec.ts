@@ -148,3 +148,16 @@ test("page mode stacks the same sections and keeps the drill-down breadcrumb", a
   await page.locator('[data-pop="0"]').click();
   await expect(page.locator("#drill tr.row")).toHaveCount(0);
 });
+
+test("a cross-origin ?src= is refused before any request is made (review 18)", async ({
+  page,
+}) => {
+  const calls: string[] = [];
+  page.on("request", (r) => {
+    if (new URL(r.url()).hostname === "evil.example") calls.push(r.url());
+  });
+  await page.goto("/?src=https://evil.example/deck.json");
+  await expect(page.locator("html")).toHaveAttribute("data-ready", "error");
+  await expect(page.locator("body")).toContainText("same origin");
+  expect(calls).toEqual([]);
+});
