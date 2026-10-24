@@ -54,9 +54,21 @@ def upgrade() -> None:
         op.execute(f"UPDATE {table} SET source = 'idp:ldap' WHERE source = 'idp'")  # noqa: S608
     for name, table, cols in INDEXES:
         op.create_index(name, table, cols)
+    op.create_table(
+        "login_attempts",
+        sa.Column("key", sa.Text(), nullable=False),
+        sa.Column("id", sa.Text(), nullable=False),
+        sa.Column("created_by", sa.Text(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_login_attempts")),
+    )
+    op.create_index(op.f("ix_login_attempts_key"), "login_attempts", ["key"])
 
 
 def downgrade() -> None:
+    op.drop_table("login_attempts")
     for name, table, _ in reversed(INDEXES):
         op.drop_index(name, table_name=table)
     for table in ("role_assignments", "memberships"):

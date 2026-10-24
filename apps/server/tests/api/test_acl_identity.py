@@ -7,7 +7,6 @@ Routers: webauth, identity. The directory is ldap3's in-memory MOCK_SYNC server;
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -18,7 +17,6 @@ from joserfc.jwk import KeySet, RSAKey
 from ldap3 import MOCK_SYNC, Connection, Server
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from tt_server.api.routers import webauth
 from tt_server.db import models as m
 from tt_server.integrations.ldap import LdapProvider
 from tt_server.integrations.oidc import OidcProvider
@@ -70,13 +68,6 @@ class Directory:
             return Connection(self.server, user=dn, password=pw, client_strategy=MOCK_SYNC)
 
         return LdapProvider(base_dn=BASE, bind_dn=f"cn=svc,{BASE}", bind_password="svc", connect=connect)
-
-
-@pytest.fixture(autouse=True)
-def _reset_throttle() -> Iterator[None]:
-    webauth._FAILURES.clear()
-    yield
-    webauth._FAILURES.clear()
 
 
 @pytest.fixture

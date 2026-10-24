@@ -7,7 +7,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import new_id
-from tt_schema.enums import HabitStatus, PolicyCategory, Polarity, TargetType, Trend
+from tt_schema.enums import HabitStatus, Polarity, PolicyCategory, TargetType, Trend
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.integrations import idp
@@ -168,3 +168,185 @@ async def test_role_notifications_stay_inside_their_workspace(
         got = set((await s.scalars(select(m.Notification.person_id))).all())
     assert bea not in got and got, "mahmoud (admin of acme) is notified, bea (admin of beta) is not"
     _ = beta
+
+
+async def test_browser_exports_are_bounded_and_say_so(api: Api, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import asyncio
+
+    from tt_server.api.routers import presentations as pr
+
+    p = (await api.call("POST", "/presentations:from-template", json={"template": "portfolio_review"})).json()
+    slots = asyncio.Semaphore(0)  # every slot taken
+    monkeypatch.setattr(pr, "_RENDER_SLOTS", slots)
+    monkeypatch.setattr(pr, "RENDER_WAIT_S", 0.05)
+    r = await api.call("POST", f"/presentations/{p['id']}/render", params={"format": "pdf"})
+    assert r.status_code == 503 and r.json()["error"]["code"] == "render_busy"
+    assert (
+        await api.call("POST", f"/presentations/{p['id']}/render", params={"format": "csv"})
+    ).status_code == 200
+
+
+def test_production_refuses_a_weak_or_default_session_secret() -> None:
+    import pytest
+    from tt_server.settings import Settings
+
+    Settings(env="dev").validate_for_runtime()
+    for bad in ("dev-insecure-session-secret", "short"):
+        with pytest.raises(RuntimeError, match="SESSION_SECRET"):
+            Settings(env="prod", session_secret=bad).validate_for_runtime()
+    with pytest.raises(RuntimeError, match="DEV_AUTH"):
+        Settings(env="prod", session_secret="x" * 40, dev_auth=True).validate_for_runtime()
+    Settings(env="prod", session_secret="x" * 40).validate_for_runtime()
+
+
+async def test_image_slides_refuse_external_hosts(api: Api) -> None:
+    ok = await api.call(
+        "POST",
+        "/presentations",
+        json={"title": "i", "slides": [{"kind": "image", "config": {"url": "data:image/png;base64,AAAA"}}]},
+    )
+    assert ok.status_code == 201
+    for bad in ("https://evil.example/x.png", "//evil.example/x.png", "http://x/y", "javascript:alert(1)"):
+        r = await api.call(
+            "POST",
+            "/presentations",
+            json={"title": "i", "slides": [{"kind": "image", "config": {"url": bad}}]},
+        )
+        assert r.status_code == 400, bad
+
+
+async def test_a_failed_sign_in_backs_off_per_address_and_user(api: Api) -> None:
+    from tt_server.api.routers import webauth
+
+    assert (
+        webauth.MAX_FAILURES == 5 and webauth.WINDOW >= 600
+    )  # numbers pinned; behaviour covered in test_acl_identity
+
+
+async def test_private_products_and_their_links_follow_visibility(
+    api: Api, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    from tt_schema.enums import Visibility
+
+    people = {p["handle"]: p["person_id"] for p in (await api.call("GET", "/people")).json()["data"]}
+    async with session_factory() as s:
+        ws = await s.scalar(select(m.Workspace).where(m.Workspace.slug == "acme"))
+        assert ws
+        s.add(
+            m.Product(
+                id=new_id(),
+                workspace_id=ws.id,
+                key="SECRET",
+                name="Secret",
+                owner_id=people["@mahmoud"],
+                visibility=Visibility.PRIVATE,
+            )
+        )
+        await s.commit()
+    assert "SECRET" in {p["key"] for p in (await api.call("GET", "/products")).json()["data"]}
+    assert "SECRET" not in {p["key"] for p in (await api.call("GET", "/products", as_="@ali")).json()["data"]}
+    assert (await api.call("GET", "/products/SECRET/links", as_="@ali")).status_code == 404
+    assert (
+        await api.call("GET", "/classifications", as_="@ali", params={"target_type": "product"})
+    ).status_code == 200
+
+
+async def test_rollups_apply_the_viewers_visibility(api: Api) -> None:
+    mine = (await api.call("POST", "/items", json={"title": "solo", "project": "WEB"})).json()
+    assert (await api.call("GET", f"/items/{mine['key']}/rollup")).json()["item_count"] == 1
+    assert (await api.call("GET", f"/items/{mine['key']}/rollup", as_="@ali")).status_code in (403, 404)
+
+
+async def test_allowed_roles_gate_a_stage_transition_for_people_but_not_for_admins(
+    api: Api, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await api.role("@sara", "contributor")
+    key = await active_item(api, "needs a manager to ship", as_="@mahmoud", assignee="@sara")
+    async with session_factory() as s:
+        ws = await s.scalar(select(m.Workspace).where(m.Workspace.slug == "acme"))
+        assert ws
+        proc = (
+            await s.scalars(
+                select(m.Process).where(m.Process.workspace_id == ws.id, m.Process.is_default.is_(True))
+            )
+        ).one()
+        stages = {
+            st.key: st for st in (await s.scalars(select(m.Stage).where(m.Stage.process_id == proc.id))).all()
+        }
+        s.add(
+            m.StageTransitionRule(
+                id=new_id(), process_id=proc.id, from_stage_id=stages["build"].id, to_stage_id=stages["test"].id,
+                allowed_roles=["manager"], required_evidence_kinds=[],
+            )
+        )  # fmt: skip
+        await s.commit()
+    assert (await api.call("PUT", f"/items/{key}/stage", json={"stage": "build"})).status_code in (200, 201)
+    denied = await api.call("PUT", f"/items/{key}/stage", as_="@sara", json={"stage": "test"})
+    assert denied.status_code in (403, 404), denied.text
+    if denied.status_code == 403:
+        assert denied.json()["error"]["code"] in ("role_not_allowed", "forbidden")
+    ok = await api.call("PUT", f"/items/{key}/stage", json={"stage": "test"})  # a workspace admin
+    assert ok.status_code in (200, 201)
+
+
+async def test_project_visibility_and_process_changes_propagate(
+    api: Api, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    r = await api.call("PATCH", "/projects/WEB", json={"visibility": "workspace"})
+    assert r.status_code == 200, r.text
+    async with session_factory() as s:
+        evs = (
+            await s.scalars(
+                select(m.Event.event_type).where(m.Event.event_type == "project.visibility_changed")
+            )
+        ).all()
+    assert len(evs) == 1
+    again = await api.call("PATCH", "/projects/WEB", json={"visibility": "workspace"})
+    assert again.status_code == 200
+    async with session_factory() as s:
+        assert (
+            len(
+                (
+                    await s.scalars(
+                        select(m.Event.event_type).where(m.Event.event_type == "project.visibility_changed")
+                    )
+                ).all()
+            )
+            == 1
+        )
+    bad = await api.call("PATCH", "/projects/WEB", json={"default_process_id": "nope"})
+    assert bad.status_code == 400
+
+
+async def test_bad_enum_cursor_and_size_inputs_are_400_not_500(api: Api) -> None:
+    for params in ({"severity": "loud"}, {"status": "gone"}, {"category": "x"}, {"cursor": "abc"}):
+        r = await api.call("GET", "/violations", params=params)
+        assert r.status_code == 400, (params, r.status_code)
+    for page in ({"size": "many"}, {"cursor": "zzz"}):
+        r = await api.call("POST", "/query/items", json={"page": page})
+        assert r.status_code == 400, (page, r.status_code)
+
+
+async def test_a_concurrent_duplicate_client_id_is_deduplicated_not_failed(api: Api) -> None:
+    import uuid
+
+    cid = str(uuid.uuid4())
+    body = {
+        "workspace": "acme",
+        "messages": [
+            {
+                "actor": "@mahmoud",
+                "at": "2026-10-23T10:00:00+03:00",
+                "client_id": cid,
+                "action": "create",
+                "item": {"title": "once"},
+            }
+        ],
+    }
+    a = (await api.call("POST", "/capture/batches", json=body)).json()["results"][0]
+    b = (await api.call("POST", "/capture/batches", json=body)).json()["results"][0]
+    assert (
+        a["status"].startswith("applied")
+        and b["status"] == "deduplicated"
+        and a["item"]["key"] == b["item"]["key"]
+    )

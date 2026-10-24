@@ -29,7 +29,7 @@ export const renderMarkdown = (ctx, cfg) =>
 
 export function renderImage(ctx, cfg) {
   const src = cfg.url || "";
-  return src && /^(data:image\/|https?:|\/)/.test(src)
+  return src && /^(data:image\/(png|jpeg|gif|webp);|\/(?!\/))/.test(src)
     ? `<div class="img"><img alt="${esc(cfg.alt ?? "")}" src="${esc(src)}"></div>`
     : `<div class="card">No image selected.</div>`;
 }

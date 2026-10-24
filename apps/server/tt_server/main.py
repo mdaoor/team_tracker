@@ -50,6 +50,7 @@ def create_app(
     session_factory: async_sessionmaker[AsyncSession] | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
+    settings.validate_for_runtime()
     configure_logging(settings.log_level, json=settings.log_json)
     configure_telemetry(otlp_endpoint=settings.otlp_endpoint)
     db_engine = engine or make_engine(settings.database_url)

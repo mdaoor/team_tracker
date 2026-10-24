@@ -183,8 +183,11 @@ async def query_items(
             )
         order.append(expr.desc().nulls_last() if desc else expr.asc().nulls_last())
     order.append(m.WorkItem.key)
-    size = min(int((page or {}).get("size", 50)), max_page)
-    offset = int((page or {}).get("cursor") or 0)
+    try:
+        size = max(1, min(int((page or {}).get("size", 50)), max_page))
+        offset = max(0, int((page or {}).get("cursor") or 0))
+    except (TypeError, ValueError) as exc:
+        raise FilterError("/page", "page.size and page.cursor must be integers") from exc
     # one scan: the window count rides along with the page instead of a second pass over the filtered set
     id_rows = (
         await qc.session.execute(

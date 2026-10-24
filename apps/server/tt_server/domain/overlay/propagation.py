@@ -346,3 +346,81 @@ async def inherit_on_create(
             )
     await risk_svc.inherit_for_new_item(uow, item, parent, project)
     await weights.recompute_item(uow, ws, item, actor_id=actor)
+
+
+# ------------------------------------------------------------------ container / team triggers (review M3)
+async def project_visibility_changed(
+    uow: UnitOfWork, ws: m.Workspace, project: m.Project, old: str, *, actor: str
+) -> None:
+    """Items inherit visibility at read time, so nothing is rewritten; what changes is what viewers may have cached."""
+    from sqlalchemy import delete
+
+    await uow.session.execute(delete(m.SnapshotCache).where(m.SnapshotCache.workspace_id == ws.id))
+    emit(
+        uow, workspace_id=ws.id, actor_id=actor, entity_type=TargetType.PROJECT, entity_id=project.id,
+        event_type="project.visibility_changed", payload={"before": {"visibility": old}, "after": {"visibility": project.visibility.value}},
+        source=EventSource.PROPAGATION, correlation_id=uow.context.get("correlation_id"),
+    )  # fmt: skip
+
+
+async def project_process_changed(
+    uow: UnitOfWork, ws: m.Workspace, project: m.Project, old: str | None, *, actor: str
+) -> int:
+    """Open items with no placement in the new process enter its default stage (idempotent: placed items are left alone)."""
+    from tt_server.domain.overlay import process as proc
+
+    s = uow.session
+    process = await proc.get_process(s, ws.id, project.default_process_id)
+    stages = await proc.stages_of(s, process.id)
+    key = (project.settings or {}).get("default_stage")
+    stage = next((st for st in stages if st.key == key), stages[0] if stages else None)
+    placed = 0
+    if stage is not None:
+        ids = (
+            await s.scalars(
+                select(m.WorkItem.id).where(
+                    m.WorkItem.project_id == project.id,
+                    m.WorkItem.deleted_at.is_(None),
+                    m.WorkItem.closed_at.is_(None),
+                )
+            )
+        ).all()
+        for iid in ids:
+            if await proc.current_placement(s, TargetType.WORK_ITEM, iid, process.id) is None:
+                await proc.place(
+                    uow, ws, target_type=TargetType.WORK_ITEM, target_id=iid, process=process, stage=stage, moved_by=actor,
+                    reason="project process changed", source=EventSource.PROPAGATION, sync_state=False, strict=False,
+                )  # fmt: skip
+                placed += 1
+    emit(
+        uow, workspace_id=ws.id, actor_id=actor, entity_type=TargetType.PROJECT, entity_id=project.id,
+        event_type="project.process_changed", payload={"before": {"process_id": old}, "after": {"process_id": project.default_process_id, "items_placed": placed}},
+        source=EventSource.PROPAGATION, correlation_id=uow.context.get("correlation_id"),
+    )  # fmt: skip
+    return placed
+
+
+async def item_team_changed(
+    uow: UnitOfWork, ws: m.Workspace, item: m.WorkItem, old_team: str | None, *, actor: str
+) -> int:
+    """Descendants that carried the old team (inherited, not chosen) follow the new one; explicit different teams stay."""
+    s = uow.session
+    kids = (
+        await s.scalars(
+            select(m.WorkItem).where(
+                m.WorkItem.path.op("<@")(item.path),
+                m.WorkItem.id != item.id,
+                m.WorkItem.deleted_at.is_(None),
+                m.WorkItem.team_id.is_not_distinct_from(old_team),
+            )
+        )
+    ).all()
+    for kid in kids:
+        kid.team_id = item.team_id
+        await sync_item_mirrors(uow, ws, kid, set_by=actor)
+    emit(
+        uow, workspace_id=ws.id, actor_id=actor, entity_type=TargetType.WORK_ITEM, entity_id=item.id,
+        event_type="item.team_changed", payload={"before": {"team_id": old_team}, "after": {"team_id": item.team_id, "descendants_updated": len(kids)}},
+        source=EventSource.PROPAGATION, correlation_id=uow.context.get("correlation_id"),
+    )  # fmt: skip
+    return len(kids)

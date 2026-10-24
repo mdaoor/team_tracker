@@ -8,7 +8,7 @@ are never overwritten, except that a new `observed` negative habit becomes `flag
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -435,6 +435,23 @@ def _rate(c: Counts, positive_inverse: bool) -> Decimal:
     return Decimal(c.occ) / Decimal(max(c.opp, 1))
 
 
+def _by_subject(
+    counts: Mapping[str, Counts], team_of: dict[str, str]
+) -> dict[tuple[TargetType, str], Counts]:
+    """Per-person counts plus their team totals, keyed by (subject type, id)."""
+    out: dict[tuple[TargetType, str], Counts] = {}
+    for pid, c in counts.items():
+        if pid is None:
+            continue
+        out[(TargetType.PERSON, pid)] = c
+        if (team_id := team_of.get(pid)) is not None:
+            t = out.setdefault((TargetType.TEAM, team_id), Counts())
+            t.occ += c.occ
+            t.opp += c.opp
+            t.linked += c.linked
+    return out
+
+
 def _trend(polarity: Polarity, now_rate: Decimal, prev_rate: Decimal | None) -> Trend:
     if prev_rate is None:
         return Trend.STABLE
@@ -506,23 +523,17 @@ async def compute(uow: UnitOfWork, ws: m.Workspace, *, now: datetime | None = No
             span = timedelta(days=window_days(w))
             cur = await det(s, ws.id, now - span, now + timedelta(seconds=1))
             prev = await det(s, ws.id, now - 2 * span, now - span)
-            subjects: dict[tuple[TargetType, str], Counts] = {}
-            for cpid, c in cur.items():
-                if cpid is None:
-                    continue
-                subjects[(TargetType.PERSON, cpid)] = c
-                if (team_id := team_of.get(cpid)) is not None:
-                    t = subjects.setdefault((TargetType.TEAM, team_id), Counts())
-                    t.occ += c.occ
-                    t.opp += c.opp
-                    t.linked += c.linked
+            subjects = _by_subject(cur, team_of)
+            previous = _by_subject(
+                prev, team_of
+            )  # team trends compare team totals with team totals (review M6)
             for (st, sid), c in subjects.items():
                 inverse = d.polarity == Polarity.POSITIVE and key == "evidence_consistency"
                 bad = c.occ < 0
                 if bad or c.opp < minimum or (c.occ == 0 and not inverse):
                     continue  # nothing to report (negative habit with no occurrences, or too few opportunities)
                 rate = _rate(c, inverse)
-                p = prev.get(sid)
+                p = previous.get((st, sid))
                 prate = _rate(p, inverse) if p is not None and p.opp else None
                 row = existing.get((st, sid, key, w))
                 trend = _trend(d.polarity, rate, prate)

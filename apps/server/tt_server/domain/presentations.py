@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -73,6 +74,9 @@ class SlideIn(BaseModel):
         return v
 
 
+IMAGE_URL = re.compile(r"^(data:image/(png|jpeg|gif|webp);|/(?!/))")
+
+
 def normalise_slides(slides: list[SlideIn]) -> list[dict[str, Any]]:
     """Validate each slide's config for its kind, fill defaults, assign ids and positions."""
     out: list[dict[str, Any]] = []
@@ -102,6 +106,13 @@ def normalise_slides(slides: list[SlideIn]) -> list[dict[str, Any]]:
                     f"measure must be one of {sorted(EXPLORER_MEASURES)}",
                     pointer=f"/slides/{pos}/config/measure",
                 )
+        if s.kind == "image" and cfg.get("url") and not IMAGE_URL.match(str(cfg["url"])):
+            raise ApiError(
+                400,
+                "invalid_slide",
+                "image.url must be a data:image/... URL or a same-origin path (no external hosts)",
+                pointer=f"/slides/{pos}/config/url",
+            )
         if s.kind == "radar" and not (1 <= int(cfg["days"]) <= 120):
             raise ApiError(
                 400, "invalid_slide", "radar days must be 1..120", pointer=f"/slides/{pos}/config/days"

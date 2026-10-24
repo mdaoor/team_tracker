@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import secrets
@@ -343,6 +344,10 @@ MEDIA = {
 }  # fmt: skip
 
 
+MAX_BROWSER_RENDERS, RENDER_WAIT_S = 2, 5.0
+_RENDER_SLOTS = asyncio.Semaphore(MAX_BROWSER_RENDERS)
+
+
 @router.post("/presentations/{pid}/render")
 async def render(pid: str, request: Request, actor: CurrentActor, uow: Uow, format: str = "html") -> Response:  # noqa: A002
     from tt_server.exports import presentation as exp
@@ -352,7 +357,25 @@ async def render(pid: str, request: Request, actor: CurrentActor, uow: Uow, form
     p = await _get(actor, uow, pid)
     qc = deckdata.qctx(uow.session, actor.ws, actor.person, actor.member, actor.acl)
     payload = await deckdata.deck_data(qc, actor.ws, p, viewer=actor.handle)
-    body = await exp.render(format, payload, BUNDLE, handle=actor.handle)
+    if format in (
+        "pdf",
+        "png",
+    ):  # headless Chromium: a few at a time, the rest are told to come back (review M7)
+        try:
+            await asyncio.wait_for(_RENDER_SLOTS.acquire(), timeout=RENDER_WAIT_S)
+        except TimeoutError as exc:
+            raise ApiError(
+                503,
+                "render_busy",
+                "too many exports are running; try again in a moment",
+                details={"retry_after": 10},
+            ) from exc
+        try:
+            body = await exp.render(format, payload, BUNDLE, handle=actor.handle)
+        finally:
+            _RENDER_SLOTS.release()
+    else:
+        body = await exp.render(format, payload, BUNDLE, handle=actor.handle)
     _ev(uow, actor, p, "presentation.rendered", format=format)
     await uow.commit()
     media, ext = MEDIA[format]

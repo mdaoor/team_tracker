@@ -27,6 +27,9 @@ class ClientConfig:
     gateway_url: str | None = None
     llm_mode: str = "translate"  # translate | agent
     llm_timeout: float = 1.5
+    llm_agent_timeout: float = (
+        20.0  # the agent loop makes several model + tool calls (p95 budget 6 s): 1.5 s always fell back
+    )
     default_mode: str = "assisted"  # assisted | manual
     feedback: bool = False
     time_zone: str = "UTC"
@@ -48,6 +51,7 @@ class ClientConfig:
             gateway_url=llm.get("gateway_url"),
             llm_mode=llm.get("mode", "translate"),
             llm_timeout=float(llm.get("timeout", 1.5)),
+            llm_agent_timeout=float(llm.get("agent_timeout", 20.0)),
             default_mode=client.get("default_mode", "assisted"),
             feedback=bool(client.get("feedback", False)),
             time_zone=client.get("time_zone", "UTC"),
@@ -72,7 +76,13 @@ class ClientConfig:
             lines.append(f"token = {q(self.token)}")
         if self.ca_bundle:
             lines.append(f"ca_bundle = {q(self.ca_bundle)}")
-        lines += ["", "[llm]", f"mode = {q(self.llm_mode)}", f"timeout = {self.llm_timeout}"]
+        lines += [
+            "",
+            "[llm]",
+            f"mode = {q(self.llm_mode)}",
+            f"timeout = {self.llm_timeout}",
+            f"agent_timeout = {self.llm_agent_timeout}",
+        ]
         if self.gateway_url:
             lines.append(f"gateway_url = {q(self.gateway_url)}")
         lines += [

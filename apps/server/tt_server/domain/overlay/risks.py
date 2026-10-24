@@ -162,7 +162,7 @@ async def spread(uow: UnitOfWork, ws: m.Workspace, risk: m.Risk, *, actor_id: st
             actor_id=actor_id,
             entity_type=TargetType.RISK,
             entity_id=risk.id,
-            event_type="risk.linked",
+            event_type="product.risk_linked" if risk.target_type == TargetType.PRODUCT else "risk.linked",
             payload={"after": {"inherited_links": created, "scope": risk.target_type.value}},
             source=EventSource.PROPAGATION,
             correlation_id=uow.context.get("correlation_id"),

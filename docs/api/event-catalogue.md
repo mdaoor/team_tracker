@@ -113,6 +113,7 @@ event_types:
   - jira.push_failed
   - jira.imported
   - item.jira_linked
+  - product.risk_linked
   - integration.jira_configured
   - project.jira_configured
   # auth

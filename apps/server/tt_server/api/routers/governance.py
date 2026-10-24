@@ -557,6 +557,15 @@ async def _violation(actor: Actor, uow: Uow, vid: str) -> tuple[m.Violation, str
     return row[0], row[1]
 
 
+def _enum(cls: Any, value: str, name: str) -> Any:
+    try:
+        return cls(value)
+    except ValueError as exc:
+        raise ApiError(
+            400, "invalid_" + name, f"{name} must be one of {[e.value for e in cls]}", pointer=f"/{name}"
+        ) from exc
+
+
 @router.get("/violations")
 async def list_violations(
     actor: CurrentActor, uow: Uow, status: str | None = None, severity: str | None = None, category: str | None = None, policy: str | None = None,
@@ -575,11 +584,13 @@ async def list_violations(
         m.Violation,
     )
     if status:
-        stmt = stmt.where(m.Violation.status.in_([ViolationStatus(x) for x in status.split(",")]))
+        stmt = stmt.where(
+            m.Violation.status.in_([_enum(ViolationStatus, x, "status") for x in status.split(",")])
+        )
     if severity:
-        stmt = stmt.where(m.Violation.severity == Severity(severity))
+        stmt = stmt.where(m.Violation.severity == _enum(Severity, severity, "severity"))
     if category:
-        stmt = stmt.where(m.Violation.category == PolicyCategory(category))
+        stmt = stmt.where(m.Violation.category == _enum(PolicyCategory, category, "category"))
     if policy:
         stmt = stmt.where(m.Policy.key == policy)
     if person:
@@ -595,7 +606,12 @@ async def list_violations(
         )
     if target_id:
         stmt = stmt.where(m.Violation.target_id == target_id)
-    offset = int(cursor or 0)
+    try:
+        offset = max(0, int(cursor or 0))
+    except ValueError as exc:
+        raise ApiError(
+            400, "invalid_cursor", "cursor must be a number from a previous response", pointer="/cursor"
+        ) from exc
     rows = (
         await uow.session.execute(
             stmt.order_by(m.Violation.detected_at.desc(), m.Violation.id)
