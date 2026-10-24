@@ -1,0 +1,2261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team Tracker — Portfolio Review</title>
+<style>
+:root{
+  --surface:#fcfcfb;--surface-2:#f1f0ed;--line:#e3e1dc;--text:#0b0b0b;--text-2:#52514e;--text-3:#8a8884;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;
+  --good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#d03b3b;
+  --seq1:#cde2fb;--seq2:#9ec5f4;--seq3:#6da7ec;--seq4:#3987e5;--seq5:#1c5cab;--seq6:#0d366b;
+  --radius:10px;--font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --surface:#1a1a19;--surface-2:#242423;--line:#383835;--text:#f0efec;--text-2:#c3c2b7;--text-3:#8a8884;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
+  --seq1:#184f95;--seq2:#1c5cab;--seq3:#256abf;--seq4:#3987e5;--seq5:#6da7ec;--seq6:#9ec5f4;}}
+:root[data-theme="dark"]{
+  --surface:#1a1a19;--surface-2:#242423;--line:#383835;--text:#f0efec;--text-2:#c3c2b7;--text-3:#8a8884;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
+  --seq1:#184f95;--seq2:#1c5cab;--seq3:#256abf;--seq4:#3987e5;--seq5:#6da7ec;--seq6:#9ec5f4;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--text);font:14px/1.45 var(--font)}
+a{color:inherit}
+header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+header h1{font-size:16px;margin:0 12px 0 0;font-weight:650}
+select,button{font:inherit;color:var(--text);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+button.ghost{background:transparent}
+.asof{margin-left:auto;color:var(--text-3);font-size:12px}
+main{max-width:1280px;margin:0 auto;padding:16px}
+section{margin:0 0 28px}
+h2{font-size:15px;margin:0 0 10px;font-weight:650;display:flex;align-items:center;gap:8px}
+h2 .sub{color:var(--text-3);font-weight:400;font-size:12px}
+.crumbs{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 14px;font-size:13px;color:var(--text-2)}
+.crumbs .chip{background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;cursor:pointer}
+.crumbs .chip.active{border-color:var(--s1);color:var(--text)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.kpi{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;cursor:pointer}
+.kpi .v{font-size:26px;font-weight:650;letter-spacing:-.02em;line-height:1.1}
+.kpi .l{color:var(--text-2);font-size:12px;margin-top:4px}
+.kpi .d{color:var(--text-3);font-size:11px;margin-top:2px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.card{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+.card h3{margin:0 0 4px;font-size:14px;display:flex;justify-content:space-between;align-items:baseline}
+.card h3 .k{font:12px var(--mono);color:var(--text-3)}
+.card p{margin:6px 0 10px;color:var(--text-2);font-size:13px}
+.bar{height:6px;background:var(--line);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--s1);border-radius:4px}
+.meta{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin-top:8px}
+.meta b{color:var(--text);font-weight:600}
+.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;border:1px solid var(--line);background:var(--surface)}
+.pill.crit{border-color:var(--crit);color:var(--crit)} .pill.warn{border-color:var(--warn)} .pill.serious{border-color:var(--serious)} .pill.good{border-color:var(--good);color:var(--good)}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.toolbar label{font-size:12px;color:var(--text-2)}
+svg text{font:11px var(--font);fill:var(--text-2)}
+.tip{position:fixed;pointer-events:none;background:var(--text);color:var(--surface);padding:6px 9px;border-radius:6px;font-size:12px;z-index:20;display:none;max-width:280px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--text-2);font-weight:600;font-size:12px;background:var(--surface-2)}
+tr.row{cursor:pointer}tr.row:hover td{background:var(--surface)}
+.mono{font-family:var(--mono);font-size:12px}
+.pipe{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(120px,1fr);gap:8px;overflow:auto}
+.col{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:10px;cursor:pointer;min-height:100px}
+.col .n{font-size:22px;font-weight:650}.col .t{font-size:12px;color:var(--text-2)}.col .w{font-size:11px;color:var(--text-3);margin-top:4px}
+.col.over{border-color:var(--serious)}
+.dots{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px}.dot{width:10px;height:10px;border-radius:3px}
+.list{display:flex;flex-direction:column;gap:6px}
+.item{display:grid;grid-template-columns:90px 1fr auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);font-size:13px;cursor:pointer}
+.item .t{color:var(--text-2);font-size:12px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin:6px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.drawer{position:fixed;right:0;top:0;height:100%;width:min(480px,95vw);background:var(--surface);border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.15);transform:translateX(100%);transition:.2s;z-index:10;overflow:auto;padding:16px}
+.drawer.open{transform:none}
+.drawer h3{margin:0 0 8px}
+.close{float:right}
+.hab{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line);font-size:12px}
+@media print{header{position:static}.drawer,.tip,button{display:none}body{font-size:12px}section{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Portfolio review</h1>
+  <select id="scope"></select>
+  <select id="range"><option value="14">Last 14 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select>
+  <select id="scheme"><option>Weight: default</option><option>Weight: product-led</option><option>Weight: effort-only</option></select>
+  <button class="ghost" id="theme" title="Toggle theme">◐</button>
+  <button class="ghost" onclick="window.print()">Print</button>
+  <span class="asof" id="asof"></span>
+</header>
+<main>
+  <div class="crumbs" id="crumbs"></div>
+
+  <section id="kpis"><h2>Overview <span class="sub">click any number to see the items behind it</span></h2><div class="kpis" id="kpiRow"></div></section>
+
+  <section><h2>Projects &amp; epics <span class="sub">summary per project, next milestone, top risk</span></h2><div class="grid2" id="projects"></div></section>
+
+  <section><h2>Delivery pipeline <span class="sub">generic stages across every project — click a column</span></h2><div class="pipe" id="pipe"></div></section>
+
+  <section>
+    <h2>Dimension explorer</h2>
+    <div class="toolbar">
+      <label>Rows</label><select id="dimA"></select>
+      <label>Columns</label><select id="dimB"><option value="">— none —</option></select>
+      <label>Measure</label><select id="measure"><option value="count">items</option><option value="hours">hours logged</option><option value="wt">weighted throughput (done)</option><option value="viol">open violations</option></select>
+    </div>
+    <div class="card" id="explorer"></div>
+  </section>
+
+  <section><h2>Delivery radar <span class="sub">planned to finish in the next 14 days</span></h2><div class="card" id="radar"></div></section>
+
+  <section><h2>Gantt <span class="sub">epics (planned span of their items) and milestones</span></h2><div class="card" id="gantt"></div></section>
+
+  <section><h2>Now <span class="sub">active sessions</span></h2><div class="list" id="now"></div></section>
+
+  <section><h2>Team activity <span class="sub">per person in range; habits visible per access rules</span></h2><div class="card" id="people"></div></section>
+
+  <section><h2>Violations &amp; habits</h2><div class="grid2"><div class="card" id="viol"></div><div class="card" id="habits"></div></div></section>
+</main>
+<div class="drawer" id="drawer"><button class="close ghost" onclick="closeDrawer()">✕</button><div id="drawerBody"></div></div>
+<div class="tip" id="tip"></div>
+
+<script>
+const D = {
+ "as_of": "2026-10-23T18:30:00+03:00",
+ "workspace": "acme",
+ "range": {
+  "from": "2026-10-09",
+  "to": "2026-10-23"
+ },
+ "weight_scheme": "default",
+ "stages": [
+  "idea",
+  "discovery",
+  "design",
+  "build",
+  "test",
+  "staging",
+  "production"
+ ],
+ "stage_expected_days": {
+  "idea": 14,
+  "discovery": 10,
+  "design": 7,
+  "build": 10,
+  "test": 5,
+  "staging": 3,
+  "production": 0
+ },
+ "people": [
+  {
+   "handle": "@mahmoud",
+   "name": "Mahmoud A.",
+   "team": "platform"
+  },
+  {
+   "handle": "@sara",
+   "name": "Sara H.",
+   "team": "squad-b"
+  },
+  {
+   "handle": "@ali",
+   "name": "Ali K.",
+   "team": "squad-b"
+  },
+  {
+   "handle": "@nour",
+   "name": "Nour S.",
+   "team": "data"
+  },
+  {
+   "handle": "@omar",
+   "name": "Omar F.",
+   "team": "data"
+  },
+  {
+   "handle": "@lina",
+   "name": "Lina M.",
+   "team": "platform"
+  },
+  {
+   "handle": "@youssef",
+   "name": "Youssef R.",
+   "team": "squad-a"
+  },
+  {
+   "handle": "@dina",
+   "name": "Dina T.",
+   "team": "squad-a"
+  }
+ ],
+ "teams": [
+  "platform",
+  "squad-a",
+  "squad-b",
+  "data"
+ ],
+ "products": [
+  {
+   "key": "CUST",
+   "name": "Customer Portal"
+  },
+  {
+   "key": "DPLAT",
+   "name": "Data Platform"
+  }
+ ],
+ "projects": [
+  {
+   "key": "WEB",
+   "name": "Website Refresh",
+   "product": "CUST",
+   "methodology": "agile",
+   "team": "squad-b",
+   "summary": "Sprint 14 is on track for the Beta release but four items have been sitting in test for over a week, all tied to the OAuth migration. Velocity is steady at ~28 points; the main risk is the identity provider deprecation in December."
+  },
+  {
+   "key": "MOB",
+   "name": "Mobile App v2",
+   "product": "CUST",
+   "methodology": "agile",
+   "team": "squad-a",
+   "summary": "Discovery is complete and build has started on the offline-sync epic. Estimates are consistently missing on new items, which is hiding the real remaining effort. No open critical risks."
+  },
+  {
+   "key": "DATA",
+   "name": "Ingestion Pipeline",
+   "product": "DPLAT",
+   "methodology": "waterfall",
+   "team": "data",
+   "summary": "Phase 2 (schema registry) is two days behind baseline because of the retry-logic rework. Production rollout gate is scheduled for 6 Nov and still needs sign-off from platform. Evidence logging on this project is the best in the workspace."
+  },
+  {
+   "key": "GOV",
+   "name": "Governance Rules",
+   "product": "DPLAT",
+   "methodology": "kanban",
+   "team": "platform",
+   "summary": "Steady flow of small rule-authoring items. WIP in build is above the limit (6 of 4). One item has been re-opened twice, which the rework habit detector has flagged."
+  }
+ ],
+ "epics": [
+  {
+   "key": "WEB-120",
+   "title": "Password reset & OAuth migration",
+   "project": "WEB"
+  },
+  {
+   "key": "WEB-130",
+   "title": "Checkout redesign",
+   "project": "WEB"
+  },
+  {
+   "key": "MOB-40",
+   "title": "Offline sync",
+   "project": "MOB"
+  },
+  {
+   "key": "MOB-55",
+   "title": "Push notifications",
+   "project": "MOB"
+  },
+  {
+   "key": "DATA-80",
+   "title": "Schema registry (Phase 2)",
+   "project": "DATA"
+  },
+  {
+   "key": "DATA-95",
+   "title": "Backfill tooling (Phase 3)",
+   "project": "DATA"
+  },
+  {
+   "key": "GOV-10",
+   "title": "Rule authoring UI",
+   "project": "GOV"
+  }
+ ],
+ "milestones": [
+  {
+   "name": "Beta release",
+   "project": "WEB",
+   "due": "2026-11-10"
+  },
+  {
+   "name": "Offline sync demo",
+   "project": "MOB",
+   "due": "2026-11-20"
+  },
+  {
+   "name": "Phase 2 gate",
+   "project": "DATA",
+   "due": "2026-11-06"
+  },
+  {
+   "name": "Rules v1 published",
+   "project": "GOV",
+   "due": "2026-10-31"
+  }
+ ],
+ "risks": [
+  {
+   "key": "WEB-R7",
+   "title": "OAuth provider deprecates v1 API in Dec",
+   "project": "WEB",
+   "p": 4,
+   "i": 5,
+   "status": "mitigating"
+  },
+  {
+   "key": "DATA-R3",
+   "title": "Retry storm under upstream outage",
+   "project": "DATA",
+   "p": 3,
+   "i": 4,
+   "status": "monitoring"
+  },
+  {
+   "key": "MOB-R1",
+   "title": "App-store review delay",
+   "project": "MOB",
+   "p": 2,
+   "i": 3,
+   "status": "identified"
+  },
+  {
+   "key": "GOV-R2",
+   "title": "Rule engine performance at 10k rules",
+   "project": "GOV",
+   "p": 2,
+   "i": 4,
+   "status": "analysing"
+  }
+ ],
+ "items": [
+  {
+   "key": "WEB-101",
+   "title": "fix the login redirect loop",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-120",
+   "type": "task",
+   "assignee": "@sara",
+   "team": "squad-b",
+   "stage": "test",
+   "stage_age_days": 12,
+   "state": "active",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": null,
+   "hours_logged": 2.8,
+   "planned_start": "2026-10-25",
+   "planned_end": "2026-11-03",
+   "actual_end": null,
+   "tags": [
+    "bug",
+    "frontend"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-22",
+   "evidence_count": 0
+  },
+  {
+   "key": "WEB-105",
+   "title": "password reset email template",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-130",
+   "type": "task",
+   "assignee": "@sara",
+   "team": "squad-b",
+   "stage": "test",
+   "stage_age_days": 7,
+   "state": "active",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": 24,
+   "hours_logged": 17.5,
+   "planned_start": "2026-11-03",
+   "planned_end": "2026-11-06",
+   "actual_end": null,
+   "tags": [
+    "backend",
+    "tech-debt",
+    "docs"
+   ],
+   "risks": [
+    "WEB-R7"
+   ],
+   "last_touched": "2026-10-22",
+   "evidence_count": 1
+  },
+  {
+   "key": "WEB-108",
+   "title": "rate-limit reset endpoint",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-130",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "test",
+   "stage_age_days": 11,
+   "state": "active",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": 2,
+   "hours_logged": 17.4,
+   "planned_start": "2026-10-08",
+   "planned_end": "2026-10-20",
+   "actual_end": null,
+   "tags": [
+    "ux"
+   ],
+   "risks": [
+    "WEB-R7"
+   ],
+   "last_touched": "2026-10-20",
+   "evidence_count": 1
+  },
+  {
+   "key": "WEB-110",
+   "title": "OAuth v2 token exchange",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-120",
+   "type": "task",
+   "assignee": "@ali",
+   "team": "squad-b",
+   "stage": "test",
+   "stage_age_days": 9,
+   "state": "active",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 16,
+   "hours_logged": 10.8,
+   "planned_start": "2026-10-19",
+   "planned_end": "2026-10-31",
+   "actual_end": null,
+   "tags": [
+    "incident",
+    "security"
+   ],
+   "risks": [
+    "WEB-R7"
+   ],
+   "last_touched": "2026-10-16",
+   "evidence_count": 2
+  },
+  {
+   "key": "WEB-114",
+   "title": "migrate session store",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-120",
+   "type": "bug",
+   "assignee": "@sara",
+   "team": "squad-b",
+   "stage": "build",
+   "stage_age_days": 19,
+   "state": "active",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": null,
+   "hours_logged": 12.5,
+   "planned_start": "2026-10-30",
+   "planned_end": "2026-11-02",
+   "actual_end": null,
+   "tags": [
+    "bug",
+    "incident",
+    "infra"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-08",
+   "evidence_count": 2
+  },
+  {
+   "key": "WEB-117",
+   "title": "checkout address form",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-130",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 15,
+   "state": "active",
+   "priority": "critical",
+   "weight": 3,
+   "estimate_h": 8,
+   "hours_logged": 25.2,
+   "planned_start": "2026-10-12",
+   "planned_end": "2026-10-19",
+   "actual_end": null,
+   "tags": [
+    "ux",
+    "security",
+    "tech-debt"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-21",
+   "evidence_count": 5
+  },
+  {
+   "key": "WEB-119",
+   "title": "cart totals rounding bug",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-120",
+   "type": "story",
+   "assignee": "@ali",
+   "team": "squad-b",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 5.0,
+   "planned_start": "2026-10-26",
+   "planned_end": "2026-10-31",
+   "actual_end": "2026-10-31",
+   "tags": [
+    "frontend",
+    "docs",
+    "incident"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-17",
+   "evidence_count": 6
+  },
+  {
+   "key": "WEB-122",
+   "title": "A/B test checkout CTA",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-130",
+   "type": "story",
+   "assignee": "@ali",
+   "team": "squad-b",
+   "stage": "discovery",
+   "stage_age_days": 14,
+   "state": "open",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": 16,
+   "hours_logged": 26.5,
+   "planned_start": "2026-10-16",
+   "planned_end": "2026-10-25",
+   "actual_end": null,
+   "tags": [
+    "backend"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-10",
+   "evidence_count": 0
+  },
+  {
+   "key": "WEB-124",
+   "title": "accessibility pass on checkout",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-130",
+   "type": "task",
+   "assignee": "@sara",
+   "team": "squad-b",
+   "stage": "discovery",
+   "stage_age_days": 21,
+   "state": "open",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 24.9,
+   "planned_start": "2026-10-23",
+   "planned_end": "2026-11-01",
+   "actual_end": null,
+   "tags": [
+    "infra",
+    "ux",
+    "backend"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-23",
+   "evidence_count": 5
+  },
+  {
+   "key": "WEB-129",
+   "title": "remove legacy auth cookie",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-130",
+   "type": "bug",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": 24,
+   "hours_logged": 13.7,
+   "planned_start": "2026-10-31",
+   "planned_end": "2026-11-09",
+   "actual_end": "2026-11-07",
+   "tags": [
+    "security"
+   ],
+   "risks": [
+    "WEB-R7"
+   ],
+   "last_touched": "2026-10-11",
+   "evidence_count": 5
+  },
+  {
+   "key": "WEB-131",
+   "title": "e2e tests for reset flow",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-120",
+   "type": "task",
+   "assignee": "@sara",
+   "team": "squad-b",
+   "stage": "discovery",
+   "stage_age_days": 2,
+   "state": "open",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": 8,
+   "hours_logged": 3.3,
+   "planned_start": "2026-10-11",
+   "planned_end": "2026-10-22",
+   "actual_end": null,
+   "tags": [
+    "infra"
+   ],
+   "risks": [
+    "WEB-R7"
+   ],
+   "last_touched": "2026-10-23",
+   "evidence_count": 4
+  },
+  {
+   "key": "WEB-133",
+   "title": "staging smoke tests",
+   "project": "WEB",
+   "product": "CUST",
+   "epic": "WEB-130",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "discovery",
+   "stage_age_days": 6,
+   "state": "open",
+   "priority": "critical",
+   "weight": 3,
+   "estimate_h": 8,
+   "hours_logged": 19.0,
+   "planned_start": "2026-10-17",
+   "planned_end": "2026-10-21",
+   "actual_end": null,
+   "tags": [
+    "security",
+    "ux"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-08",
+   "evidence_count": 3
+  },
+  {
+   "key": "MOB-101",
+   "title": "conflict resolution strategy",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-40",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "discovery",
+   "stage_age_days": 3,
+   "state": "open",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 22.2,
+   "planned_start": "2026-10-21",
+   "planned_end": "2026-10-27",
+   "actual_end": null,
+   "tags": [
+    "infra",
+    "backend",
+    "auth"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-07",
+   "evidence_count": 6
+  },
+  {
+   "key": "MOB-105",
+   "title": "local queue persistence",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-55",
+   "type": "story",
+   "assignee": "@youssef",
+   "team": "squad-a",
+   "stage": "build",
+   "stage_age_days": 20,
+   "state": "active",
+   "priority": "critical",
+   "weight": 3,
+   "estimate_h": 24,
+   "hours_logged": 15.6,
+   "planned_start": "2026-10-19",
+   "planned_end": "2026-10-25",
+   "actual_end": null,
+   "tags": [
+    "frontend",
+    "ux",
+    "docs"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-16",
+   "evidence_count": 5
+  },
+  {
+   "key": "MOB-106",
+   "title": "sync status indicator",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-55",
+   "type": "story",
+   "assignee": "@dina",
+   "team": "squad-a",
+   "stage": "design",
+   "stage_age_days": 15,
+   "state": "open",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 0.9,
+   "planned_start": "2026-11-03",
+   "planned_end": "2026-11-09",
+   "actual_end": null,
+   "tags": [
+    "ux",
+    "infra",
+    "security"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-08",
+   "evidence_count": 6
+  },
+  {
+   "key": "MOB-111",
+   "title": "background sync job",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-40",
+   "type": "task",
+   "assignee": "@dina",
+   "team": "squad-a",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 6.8,
+   "planned_start": "2026-10-14",
+   "planned_end": "2026-10-24",
+   "actual_end": "2026-10-22",
+   "tags": [
+    "infra",
+    "bug",
+    "incident"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-08",
+   "evidence_count": 3
+  },
+  {
+   "key": "MOB-114",
+   "title": "push token registration",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-55",
+   "type": "bug",
+   "assignee": "@youssef",
+   "team": "squad-a",
+   "stage": "test",
+   "stage_age_days": 7,
+   "state": "active",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 23.7,
+   "planned_start": "2026-10-26",
+   "planned_end": "2026-10-30",
+   "actual_end": null,
+   "tags": [
+    "backend",
+    "ux",
+    "incident"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-09",
+   "evidence_count": 0
+  },
+  {
+   "key": "MOB-115",
+   "title": "notification deep links",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-55",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "test",
+   "stage_age_days": 7,
+   "state": "active",
+   "priority": "critical",
+   "weight": 3,
+   "estimate_h": 2,
+   "hours_logged": 24.8,
+   "planned_start": "2026-11-02",
+   "planned_end": "2026-11-05",
+   "actual_end": null,
+   "tags": [
+    "bug"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-19",
+   "evidence_count": 4
+  },
+  {
+   "key": "MOB-120",
+   "title": "offline banner UX",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-40",
+   "type": "task",
+   "assignee": "@dina",
+   "team": "squad-a",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 26.2,
+   "planned_start": "2026-10-11",
+   "planned_end": "2026-10-23",
+   "actual_end": "2026-10-27",
+   "tags": [
+    "tech-debt",
+    "incident"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-14",
+   "evidence_count": 3
+  },
+  {
+   "key": "MOB-121",
+   "title": "retry on network regain",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-40",
+   "type": "task",
+   "assignee": "@dina",
+   "team": "squad-a",
+   "stage": "discovery",
+   "stage_age_days": 11,
+   "state": "open",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 24,
+   "hours_logged": 24.5,
+   "planned_start": "2026-10-24",
+   "planned_end": "2026-11-04",
+   "actual_end": null,
+   "tags": [
+    "auth",
+    "security",
+    "backend"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-06",
+   "evidence_count": 4
+  },
+  {
+   "key": "MOB-124",
+   "title": "crash on empty queue",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-40",
+   "type": "bug",
+   "assignee": "@youssef",
+   "team": "squad-a",
+   "stage": "staging",
+   "stage_age_days": 2,
+   "state": "active",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": null,
+   "hours_logged": 14.2,
+   "planned_start": "2026-10-17",
+   "planned_end": "2026-10-21",
+   "actual_end": null,
+   "tags": [
+    "auth",
+    "frontend",
+    "incident"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-13",
+   "evidence_count": 2
+  },
+  {
+   "key": "MOB-127",
+   "title": "telemetry for sync",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-55",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "staging",
+   "stage_age_days": 7,
+   "state": "active",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 26.8,
+   "planned_start": "2026-11-03",
+   "planned_end": "2026-11-10",
+   "actual_end": null,
+   "tags": [
+    "incident",
+    "ux"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-04",
+   "evidence_count": 6
+  },
+  {
+   "key": "MOB-131",
+   "title": "store listing update",
+   "project": "MOB",
+   "product": "CUST",
+   "epic": "MOB-55",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 7,
+   "state": "active",
+   "priority": "critical",
+   "weight": 3,
+   "estimate_h": null,
+   "hours_logged": 26.3,
+   "planned_start": "2026-10-23",
+   "planned_end": "2026-11-02",
+   "actual_end": null,
+   "tags": [
+    "docs"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-06",
+   "evidence_count": 0
+  },
+  {
+   "key": "DATA-101",
+   "title": "retry logic rework",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-80",
+   "type": "story",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 2,
+   "state": "active",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": 2,
+   "hours_logged": 2.2,
+   "planned_start": "2026-10-25",
+   "planned_end": "2026-10-30",
+   "actual_end": null,
+   "tags": [
+    "backend",
+    "security"
+   ],
+   "risks": [
+    "DATA-R3"
+   ],
+   "last_touched": "2026-10-19",
+   "evidence_count": 1
+  },
+  {
+   "key": "DATA-105",
+   "title": "schema registry API",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-95",
+   "type": "bug",
+   "assignee": "@omar",
+   "team": "data",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 8,
+   "hours_logged": 25.0,
+   "planned_start": "2026-10-14",
+   "planned_end": "2026-10-22",
+   "actual_end": "2026-10-25",
+   "tags": [
+    "frontend",
+    "infra"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-07",
+   "evidence_count": 2
+  },
+  {
+   "key": "DATA-106",
+   "title": "registry migration script",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-95",
+   "type": "story",
+   "assignee": "@omar",
+   "team": "data",
+   "stage": "test",
+   "stage_age_days": 0,
+   "state": "active",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": 16,
+   "hours_logged": 13.2,
+   "planned_start": "2026-10-20",
+   "planned_end": "2026-10-31",
+   "actual_end": null,
+   "tags": [
+    "bug"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-07",
+   "evidence_count": 6
+  },
+  {
+   "key": "DATA-109",
+   "title": "compat checker",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-95",
+   "type": "bug",
+   "assignee": "@nour",
+   "team": "data",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": null,
+   "hours_logged": 1.2,
+   "planned_start": "2026-10-18",
+   "planned_end": "2026-10-25",
+   "actual_end": "2026-10-25",
+   "tags": [
+    "backend",
+    "incident"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-19",
+   "evidence_count": 4
+  },
+  {
+   "key": "DATA-114",
+   "title": "backfill CLI skeleton",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-80",
+   "type": "task",
+   "assignee": "@nour",
+   "team": "data",
+   "stage": "build",
+   "stage_age_days": 10,
+   "state": "active",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 4,
+   "hours_logged": 24.0,
+   "planned_start": "2026-10-14",
+   "planned_end": "2026-10-18",
+   "actual_end": null,
+   "tags": [
+    "bug",
+    "frontend"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-15",
+   "evidence_count": 0
+  },
+  {
+   "key": "DATA-116",
+   "title": "partition pruning",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-80",
+   "type": "task",
+   "assignee": "@omar",
+   "team": "data",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "critical",
+   "weight": 3,
+   "estimate_h": null,
+   "hours_logged": 12.5,
+   "planned_start": "2026-10-23",
+   "planned_end": "2026-10-27",
+   "actual_end": "2026-10-29",
+   "tags": [
+    "tech-debt"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-22",
+   "evidence_count": 0
+  },
+  {
+   "key": "DATA-118",
+   "title": "alerting on lag",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-80",
+   "type": "story",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "design",
+   "stage_age_days": 9,
+   "state": "open",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 4,
+   "hours_logged": 22.8,
+   "planned_start": "2026-10-30",
+   "planned_end": "2026-11-02",
+   "actual_end": null,
+   "tags": [
+    "auth",
+    "ux"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-15",
+   "evidence_count": 0
+  },
+  {
+   "key": "DATA-123",
+   "title": "phase 2 runbook",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-95",
+   "type": "bug",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 6,
+   "state": "active",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": 8,
+   "hours_logged": 28.0,
+   "planned_start": "2026-10-13",
+   "planned_end": "2026-10-24",
+   "actual_end": null,
+   "tags": [
+    "frontend",
+    "ux"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-08",
+   "evidence_count": 2
+  },
+  {
+   "key": "DATA-124",
+   "title": "load test 10x volume",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-80",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 24,
+   "hours_logged": 12.1,
+   "planned_start": "2026-11-02",
+   "planned_end": "2026-11-06",
+   "actual_end": "2026-11-05",
+   "tags": [
+    "tech-debt",
+    "docs",
+    "backend"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-19",
+   "evidence_count": 0
+  },
+  {
+   "key": "DATA-127",
+   "title": "platform sign-off package",
+   "project": "DATA",
+   "product": "DPLAT",
+   "epic": "DATA-80",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "test",
+   "stage_age_days": 6,
+   "state": "active",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": 24,
+   "hours_logged": 18.0,
+   "planned_start": "2026-10-21",
+   "planned_end": "2026-10-26",
+   "actual_end": null,
+   "tags": [
+    "security",
+    "auth"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-09",
+   "evidence_count": 2
+  },
+  {
+   "key": "GOV-101",
+   "title": "rule editor autosave",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "task",
+   "assignee": "@lina",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 17,
+   "state": "active",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 2,
+   "hours_logged": 29.0,
+   "planned_start": "2026-10-10",
+   "planned_end": "2026-10-18",
+   "actual_end": null,
+   "tags": [
+    "bug",
+    "security"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-18",
+   "evidence_count": 2
+  },
+  {
+   "key": "GOV-105",
+   "title": "CEL validator in UI",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 7,
+   "state": "active",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 7.9,
+   "planned_start": "2026-10-10",
+   "planned_end": "2026-10-19",
+   "actual_end": null,
+   "tags": [
+    "tech-debt"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-05",
+   "evidence_count": 2
+  },
+  {
+   "key": "GOV-108",
+   "title": "rule templates gallery",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "bug",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 18,
+   "state": "active",
+   "priority": "high",
+   "weight": 2,
+   "estimate_h": 2,
+   "hours_logged": 26.8,
+   "planned_start": "2026-11-02",
+   "planned_end": "2026-11-07",
+   "actual_end": null,
+   "tags": [
+    "ux",
+    "backend"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-13",
+   "evidence_count": 0
+  },
+  {
+   "key": "GOV-111",
+   "title": "bulk import rules",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "task",
+   "assignee": "@lina",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 20,
+   "state": "active",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 24,
+   "hours_logged": 24.4,
+   "planned_start": "2026-11-04",
+   "planned_end": "2026-11-08",
+   "actual_end": null,
+   "tags": [
+    "auth"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-05",
+   "evidence_count": 1
+  },
+  {
+   "key": "GOV-114",
+   "title": "rule versioning",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "story",
+   "assignee": "@lina",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 3,
+   "state": "active",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": 8,
+   "hours_logged": 1.5,
+   "planned_start": "2026-10-31",
+   "planned_end": "2026-11-03",
+   "actual_end": null,
+   "tags": [
+    "bug",
+    "incident"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-08",
+   "evidence_count": 4
+  },
+  {
+   "key": "GOV-115",
+   "title": "perf test 10k rules",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "task",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 2,
+   "state": "active",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": 24,
+   "hours_logged": 7.6,
+   "planned_start": "2026-10-26",
+   "planned_end": "2026-11-01",
+   "actual_end": null,
+   "tags": [
+    "security",
+    "ux",
+    "docs"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-16",
+   "evidence_count": 0
+  },
+  {
+   "key": "GOV-119",
+   "title": "docs for rule authors",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "story",
+   "assignee": "@lina",
+   "team": "platform",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "low",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 19.3,
+   "planned_start": "2026-10-29",
+   "planned_end": "2026-11-05",
+   "actual_end": "2026-11-08",
+   "tags": [
+    "ux",
+    "backend",
+    "auth"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-13",
+   "evidence_count": 3
+  },
+  {
+   "key": "GOV-121",
+   "title": "permission matrix",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "bug",
+   "assignee": "@mahmoud",
+   "team": "platform",
+   "stage": "build",
+   "stage_age_days": 21,
+   "state": "active",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": 24,
+   "hours_logged": 20.3,
+   "planned_start": "2026-10-13",
+   "planned_end": "2026-10-23",
+   "actual_end": null,
+   "tags": [
+    "incident"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-09",
+   "evidence_count": 1
+  },
+  {
+   "key": "GOV-125",
+   "title": "dry-run panel",
+   "project": "GOV",
+   "product": "DPLAT",
+   "epic": "GOV-10",
+   "type": "bug",
+   "assignee": "@lina",
+   "team": "platform",
+   "stage": "production",
+   "stage_age_days": 0,
+   "state": "done",
+   "priority": "medium",
+   "weight": 1,
+   "estimate_h": null,
+   "hours_logged": 2.3,
+   "planned_start": "2026-10-20",
+   "planned_end": "2026-10-26",
+   "actual_end": "2026-10-27",
+   "tags": [
+    "bug"
+   ],
+   "risks": [],
+   "last_touched": "2026-10-15",
+   "evidence_count": 4
+  }
+ ],
+ "violations": [
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "WEB-101",
+   "person": "@sara",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "test for 12d (expected \u2264 5)"
+  },
+  {
+   "policy": "no_estimate_weighted",
+   "category": "planning",
+   "severity": "warning",
+   "target": "WEB-101",
+   "person": "@sara",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "weight 2, no estimate"
+  },
+  {
+   "policy": "evidence_gap",
+   "category": "quality",
+   "severity": "info",
+   "target": "WEB-101",
+   "person": "@sara",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "no evidence while active"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "WEB-105",
+   "person": "@sara",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "test for 7d (expected \u2264 5)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "WEB-108",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "WEB",
+   "detail": "test for 11d (expected \u2264 5)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "WEB-110",
+   "person": "@ali",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "test for 9d (expected \u2264 5)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "WEB-114",
+   "person": "@sara",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "build for 19d (expected \u2264 10)"
+  },
+  {
+   "policy": "no_estimate_weighted",
+   "category": "planning",
+   "severity": "warning",
+   "target": "WEB-114",
+   "person": "@sara",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "weight 2, no estimate"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "WEB-117",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "WEB",
+   "detail": "build for 15d (expected \u2264 10)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "WEB-122",
+   "person": "@ali",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "discovery for 14d (expected \u2264 10)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "WEB-124",
+   "person": "@sara",
+   "team": "squad-b",
+   "project": "WEB",
+   "detail": "discovery for 21d (expected \u2264 10)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "MOB-105",
+   "person": "@youssef",
+   "team": "squad-a",
+   "project": "MOB",
+   "detail": "build for 20d (expected \u2264 10)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "MOB-106",
+   "person": "@dina",
+   "team": "squad-a",
+   "project": "MOB",
+   "detail": "design for 15d (expected \u2264 7)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "MOB-114",
+   "person": "@youssef",
+   "team": "squad-a",
+   "project": "MOB",
+   "detail": "test for 7d (expected \u2264 5)"
+  },
+  {
+   "policy": "evidence_gap",
+   "category": "quality",
+   "severity": "info",
+   "target": "MOB-114",
+   "person": "@youssef",
+   "team": "squad-a",
+   "project": "MOB",
+   "detail": "no evidence while active"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "MOB-115",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "MOB",
+   "detail": "test for 7d (expected \u2264 5)"
+  },
+  {
+   "policy": "overrun",
+   "category": "time",
+   "severity": "violation",
+   "target": "MOB-120",
+   "person": "@dina",
+   "team": "squad-a",
+   "project": "MOB",
+   "detail": "finished 2026-10-27 vs plan 2026-10-23"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "MOB-121",
+   "person": "@dina",
+   "team": "squad-a",
+   "project": "MOB",
+   "detail": "discovery for 11d (expected \u2264 10)"
+  },
+  {
+   "policy": "no_estimate_weighted",
+   "category": "planning",
+   "severity": "warning",
+   "target": "MOB-124",
+   "person": "@youssef",
+   "team": "squad-a",
+   "project": "MOB",
+   "detail": "weight 2, no estimate"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "MOB-127",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "MOB",
+   "detail": "staging for 7d (expected \u2264 3)"
+  },
+  {
+   "policy": "no_estimate_weighted",
+   "category": "planning",
+   "severity": "warning",
+   "target": "MOB-131",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "MOB",
+   "detail": "weight 3, no estimate"
+  },
+  {
+   "policy": "evidence_gap",
+   "category": "quality",
+   "severity": "info",
+   "target": "MOB-131",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "MOB",
+   "detail": "no evidence while active"
+  },
+  {
+   "policy": "overrun",
+   "category": "time",
+   "severity": "violation",
+   "target": "DATA-105",
+   "person": "@omar",
+   "team": "data",
+   "project": "DATA",
+   "detail": "finished 2026-10-25 vs plan 2026-10-22"
+  },
+  {
+   "policy": "evidence_gap",
+   "category": "quality",
+   "severity": "info",
+   "target": "DATA-114",
+   "person": "@nour",
+   "team": "data",
+   "project": "DATA",
+   "detail": "no evidence while active"
+  },
+  {
+   "policy": "overrun",
+   "category": "time",
+   "severity": "violation",
+   "target": "DATA-116",
+   "person": "@omar",
+   "team": "data",
+   "project": "DATA",
+   "detail": "finished 2026-10-29 vs plan 2026-10-27"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "DATA-118",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "DATA",
+   "detail": "design for 9d (expected \u2264 7)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "DATA-127",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "DATA",
+   "detail": "test for 6d (expected \u2264 5)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "GOV-101",
+   "person": "@lina",
+   "team": "platform",
+   "project": "GOV",
+   "detail": "build for 17d (expected \u2264 10)"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "GOV-108",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "GOV",
+   "detail": "build for 18d (expected \u2264 10)"
+  },
+  {
+   "policy": "evidence_gap",
+   "category": "quality",
+   "severity": "info",
+   "target": "GOV-108",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "GOV",
+   "detail": "no evidence while active"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "GOV-111",
+   "person": "@lina",
+   "team": "platform",
+   "project": "GOV",
+   "detail": "build for 20d (expected \u2264 10)"
+  },
+  {
+   "policy": "evidence_gap",
+   "category": "quality",
+   "severity": "info",
+   "target": "GOV-115",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "GOV",
+   "detail": "no evidence while active"
+  },
+  {
+   "policy": "overrun",
+   "category": "time",
+   "severity": "violation",
+   "target": "GOV-119",
+   "person": "@lina",
+   "team": "platform",
+   "project": "GOV",
+   "detail": "finished 2026-11-08 vs plan 2026-11-05"
+  },
+  {
+   "policy": "stuck_in_stage",
+   "category": "process",
+   "severity": "warning",
+   "target": "GOV-121",
+   "person": "@mahmoud",
+   "team": "platform",
+   "project": "GOV",
+   "detail": "build for 21d (expected \u2264 10)"
+  },
+  {
+   "policy": "overrun",
+   "category": "time",
+   "severity": "violation",
+   "target": "GOV-125",
+   "person": "@lina",
+   "team": "platform",
+   "project": "GOV",
+   "detail": "finished 2026-10-27 vs plan 2026-10-26"
+  },
+  {
+   "policy": "wip_breach",
+   "category": "process",
+   "severity": "violation",
+   "target": "GOV/build",
+   "person": null,
+   "team": "platform",
+   "project": "GOV",
+   "detail": "WIP 7 > limit 4"
+  }
+ ],
+ "habits": [
+  {
+   "subject": "@mahmoud",
+   "key": "no_estimates",
+   "polarity": "negative",
+   "rate": 0.25,
+   "trend": "worsening"
+  },
+  {
+   "subject": "@mahmoud",
+   "key": "log_consistency",
+   "polarity": "positive",
+   "rate": 0.86,
+   "trend": "improving"
+  },
+  {
+   "subject": "@sara",
+   "key": "no_estimates",
+   "polarity": "negative",
+   "rate": 0.5,
+   "trend": "stable"
+  },
+  {
+   "subject": "@sara",
+   "key": "log_consistency",
+   "polarity": "positive",
+   "rate": 0.95,
+   "trend": "improving"
+  },
+  {
+   "subject": "@ali",
+   "key": "evidence_consistency",
+   "polarity": "positive",
+   "rate": 0.9,
+   "trend": "stable"
+  },
+  {
+   "subject": "@omar",
+   "key": "late_finish",
+   "polarity": "negative",
+   "rate": 0.67,
+   "trend": "improving"
+  },
+  {
+   "subject": "@omar",
+   "key": "evidence_consistency",
+   "polarity": "positive",
+   "rate": 0.9,
+   "trend": "stable"
+  },
+  {
+   "subject": "@lina",
+   "key": "late_finish",
+   "polarity": "negative",
+   "rate": 0.67,
+   "trend": "stable"
+  },
+  {
+   "subject": "@lina",
+   "key": "evidence_consistency",
+   "polarity": "positive",
+   "rate": 0.8,
+   "trend": "stable"
+  },
+  {
+   "subject": "@lina",
+   "key": "log_consistency",
+   "polarity": "positive",
+   "rate": 0.85,
+   "trend": "improving"
+  },
+  {
+   "subject": "@youssef",
+   "key": "no_estimates",
+   "polarity": "negative",
+   "rate": 0.25,
+   "trend": "stable"
+  },
+  {
+   "subject": "@dina",
+   "key": "late_finish",
+   "polarity": "negative",
+   "rate": 0.33,
+   "trend": "improving"
+  },
+  {
+   "subject": "@dina",
+   "key": "evidence_consistency",
+   "polarity": "positive",
+   "rate": 0.88,
+   "trend": "stable"
+  },
+  {
+   "subject": "@dina",
+   "key": "log_consistency",
+   "polarity": "positive",
+   "rate": 0.74,
+   "trend": "improving"
+  },
+  {
+   "subject": "@lina",
+   "key": "rework",
+   "polarity": "negative",
+   "rate": 0.33,
+   "trend": "worsening"
+  }
+ ],
+ "now": [
+  {
+   "person": "@mahmoud",
+   "item": "DATA-101",
+   "title": "retry logic rework",
+   "project": "DATA",
+   "since_min": 5,
+   "kind": "reviewing"
+  },
+  {
+   "person": "@sara",
+   "item": "WEB-105",
+   "title": "password reset email template",
+   "project": "WEB",
+   "since_min": 106,
+   "kind": "working"
+  },
+  {
+   "person": "@ali",
+   "item": "WEB-110",
+   "title": "OAuth v2 token exchange",
+   "project": "WEB",
+   "since_min": 8,
+   "kind": "reviewing"
+  },
+  {
+   "person": "@nour",
+   "item": "DATA-114",
+   "title": "backfill CLI skeleton",
+   "project": "DATA",
+   "since_min": 100,
+   "kind": "working"
+  },
+  {
+   "person": "@omar",
+   "item": "DATA-106",
+   "title": "registry migration script",
+   "project": "DATA",
+   "since_min": 104,
+   "kind": "working"
+  },
+  {
+   "person": "@lina",
+   "item": "GOV-111",
+   "title": "bulk import rules",
+   "project": "GOV",
+   "since_min": 114,
+   "kind": "reviewing"
+  }
+ ]
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TEAM_COLOR = {platform:'var(--s1)','squad-a':'var(--s2)','squad-b':'var(--s3)',data:'var(--s4)'};
+const PRIO_RANK = {low:0,medium:1,high:2,critical:3};
+const state = {scope:'workspace:acme', path:[], range:14};
+
+// ---------- scope / filter ----------
+function scopedItems(){
+  const [kind,id] = state.scope.split(':');
+  let items = D.items;
+  if(kind==='product') items = items.filter(i=>i.product===id);
+  if(kind==='project') items = items.filter(i=>i.project===id);
+  if(kind==='team') items = items.filter(i=>i.team===id);
+  if(kind==='person') items = items.filter(i=>i.assignee===id);
+  for(const f of state.path) items = items.filter(f.fn);
+  return items;
+}
+function scopedViol(items){ const keys=new Set(items.map(i=>i.key)); return D.violations.filter(v=>keys.has(v.target)||(v.target.includes('/')&&items.some(i=>v.project===i.project))); }
+
+function drill(label, fn){ state.path.push({label,fn}); render(); }
+function popTo(n){ state.path = state.path.slice(0,n); render(); }
+
+// ---------- header ----------
+function initHeader(){
+  const sc = $('#scope');
+  const opts = [['workspace:acme','Workspace: acme']];
+  D.products.forEach(p=>opts.push([`product:${p.key}`,`Product: ${p.name}`]));
+  D.projects.forEach(p=>opts.push([`project:${p.key}`,`Project: ${p.name}`]));
+  D.teams.forEach(t=>opts.push([`team:${t}`,`Team: ${t}`]));
+  D.people.forEach(p=>opts.push([`person:${p.handle}`,`Person: ${p.name}`]));
+  sc.innerHTML = opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  sc.onchange = e=>{state.scope=e.target.value; state.path=[]; render();};
+  $('#range').onchange = e=>{state.range=+e.target.value; render();};
+  $('#asof').textContent = `as of ${D.as_of.replace('T',' ').slice(0,16)}`;
+  $('#theme').onclick = ()=>{const r=document.documentElement; r.dataset.theme = r.dataset.theme==='dark'?'light':'dark';};
+  const a = $('#dimA'), b=$('#dimB');
+  const dims = [['assignee','person'],['team','team'],['project','project'],['product','product'],['stage','stage'],['priority','priority'],['epic','epic'],['tags','tag']];
+  a.innerHTML = dims.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  b.innerHTML += dims.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  a.value='team'; b.value='stage';
+  [a,b,$('#measure')].forEach(el=>el.onchange=renderExplorer);
+}
+
+// ---------- crumbs ----------
+function renderCrumbs(){
+  const c=$('#crumbs');
+  const parts = [`<span class="chip ${state.path.length?'':'active'}" onclick="popTo(0)">${esc($('#scope').selectedOptions[0].text)}</span>`];
+  state.path.forEach((p,i)=>parts.push(`›`, `<span class="chip ${i===state.path.length-1?'active':''}" onclick="popTo(${i+1})">${esc(p.label)}</span>`));
+  c.innerHTML = parts.join(' ');
+}
+
+// ---------- KPIs ----------
+function renderKPIs(items){
+  const v = scopedViol(items);
+  const done = items.filter(i=>i.state==='done');
+  const onTime = done.filter(i=>!i.actual_end || i.actual_end<=i.planned_end);
+  const hours = items.reduce((s,i)=>s+i.hours_logged,0);
+  const wt = done.reduce((s,i)=>s+i.weight,0);
+  const riskKeys = new Set(items.flatMap(i=>i.risks));
+  const exposure = D.risks.filter(r=>riskKeys.has(r.key)).reduce((s,r)=>s+r.p*r.i,0);
+  const tiles = [
+    ['Open', items.filter(i=>i.state==='open').length, 'not started', ()=>drill('open',i=>i.state==='open')],
+    ['Active', items.filter(i=>i.state==='active').length, 'in build / test / staging', ()=>drill('active',i=>i.state==='active')],
+    ['Done', done.length, `in range`, ()=>drill('done',i=>i.state==='done')],
+    ['Hours', hours.toFixed(0), 'logged', ()=>drill('with hours',i=>i.hours_logged>0)],
+    ['Weighted throughput', wt, 'Σ weight of done', ()=>drill('done',i=>i.state==='done')],
+    ['On-time', done.length?Math.round(onTime.length/done.length*100)+'%':'—', 'of finished items', ()=>drill('late',i=>i.actual_end&&i.actual_end>i.planned_end)],
+    ['Violations', v.length, 'open', ()=>{document.getElementById('viol').scrollIntoView({behavior:'smooth'})}],
+    ['Risk exposure', exposure, 'Σ p×i of linked risks', ()=>drill('with risk',i=>i.risks.length>0)],
+  ];
+  $('#kpiRow').innerHTML = tiles.map((t,i)=>`<div class="kpi" data-i="${i}"><div class="v">${t[1]}</div><div class="l">${t[0]}</div><div class="d">${t[2]}</div></div>`).join('');
+  $('#kpiRow').querySelectorAll('.kpi').forEach(el=>el.onclick=()=>tiles[+el.dataset.i][3]());
+}
+
+// ---------- projects ----------
+function renderProjects(items){
+  const projs = D.projects.filter(p=>items.some(i=>i.project===p.key));
+  $('#projects').innerHTML = projs.map(p=>{
+    const its = items.filter(i=>i.project===p.key);
+    const done = its.filter(i=>i.state==='done').length;
+    const pct = its.length?Math.round(done/its.length*100):0;
+    const ms = D.milestones.filter(m=>m.project===p.key).sort((a,b)=>a.due.localeCompare(b.due))[0];
+    const risk = D.risks.filter(r=>r.project===p.key).sort((a,b)=>b.p*b.i-a.p*a.i)[0];
+    const stuck = its.filter(i=>i.state!=='done'&&i.stage_age_days>D.stage_expected_days[i.stage]).length;
+    const dist = D.stages.map(s=>its.filter(i=>i.stage===s).length);
+    const spark = `<svg width="140" height="22" viewBox="0 0 140 22" aria-label="stage distribution">${dist.map((n,k)=>`<rect x="${k*20}" y="${22-Math.max(2,n/Math.max(1,...dist)*20)}" width="16" height="${Math.max(2,n/Math.max(1,...dist)*20)}" rx="2" fill="var(--seq${Math.min(6,k+1)})"><title>${D.stages[k]}: ${n}</title></rect>`).join('')}</svg>`;
+    const epics = D.epics.filter(e=>e.project===p.key).map(e=>{const ei=its.filter(i=>i.epic===e.key);const ed=ei.filter(i=>i.state==='done').length;return `<div class="hab"><span class="mono">${e.key}</span><span>${esc(e.title)}</span><span>${ed}/${ei.length}</span></div>`}).join('');
+    return `<div class="card">
+      <h3><span>${esc(p.name)}</span><span class="k">${p.key} · ${p.methodology}</span></h3>
+      <p>${esc(p.summary)}</p>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="meta"><span><b>${pct}%</b> done (${done}/${its.length})</span><span><b>${stuck}</b> stuck</span>
+        ${ms?`<span>next: <b>${esc(ms.name)}</b> ${ms.due}</span>`:''}
+        ${risk?`<span class="pill ${risk.p*risk.i>=15?'crit':risk.p*risk.i>=9?'serious':'warn'}">⚠ ${risk.key} ${risk.p*risk.i}</span>`:''}</div>
+      <div class="meta">${spark}<span style="color:var(--text-3);font-size:11px">stage distribution idea→prod</span></div>
+      <div style="margin-top:8px">${epics}</div>
+      <div class="meta"><a href="#" onclick="drill('${p.key}',i=>i.project==='${p.key}');return false">open items ›</a></div>
+    </div>`;
+  }).join('') || '<div class="card">No projects in scope.</div>';
+}
+
+// ---------- pipeline ----------
+function renderPipe(items){
+  const limits = {build:{GOV:4}};
+  $('#pipe').innerHTML = D.stages.map(s=>{
+    const its = items.filter(i=>i.stage===s);
+    const w = its.reduce((a,i)=>a+i.weight,0);
+    const over = its.filter(i=>i.state!=='done'&&i.stage_age_days>D.stage_expected_days[s]).length;
+    const wip = s==='build' && items.filter(i=>i.stage==='build'&&i.project==='GOV').length>4;
+    return `<div class="col ${wip?'over':''}" onclick="drill('stage ${s}',i=>i.stage==='${s}')">
+      <div class="t">${s}</div><div class="n">${its.length}</div>
+      <div class="w">Σw ${w} · ${over?`<span style="color:var(--serious)">${over} over ${D.stage_expected_days[s]}d</span>`:'—'}${wip?' · WIP breach':''}</div>
+      <div class="dots">${its.map(i=>`<span class="dot" style="background:${TEAM_COLOR[i.team]}" title="${esc(i.key)} ${esc(i.title)} (${i.team})"></span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---------- explorer ----------
+function keyOf(i, dim){ return dim==='tags'? i.tags : [i[dim] ?? '—']; }
+function measureOf(list, m){
+  if(m==='count') return list.length;
+  if(m==='hours') return +list.reduce((s,i)=>s+i.hours_logged,0).toFixed(0);
+  if(m==='wt') return list.filter(i=>i.state==='done').reduce((s,i)=>s+i.weight,0);
+  if(m==='viol') return scopedViol(list).length;
+}
+function renderExplorer(){
+  const items = scopedItems();
+  const a=$('#dimA').value, b=$('#dimB').value, m=$('#measure').value;
+  const rows = [...new Set(items.flatMap(i=>keyOf(i,a)))];
+  if(a==='stage') rows.sort((x,y)=>D.stages.indexOf(x)-D.stages.indexOf(y)); else if(a==='priority') rows.sort((x,y)=>PRIO_RANK[x]-PRIO_RANK[y]); else rows.sort();
+  const el=$('#explorer');
+  if(!b){
+    const vals = rows.map(r=>[r, measureOf(items.filter(i=>keyOf(i,a).includes(r)),m)]);
+    const max = Math.max(1,...vals.map(v=>v[1]));
+    const h = vals.length*26+10, lw=110, W=760;
+    el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${h}" style="max-width:${W}px">${vals.map(([r,v],k)=>{
+      const bw = (W-lw-60)*v/max;
+      return `<g transform="translate(0,${k*26+6})"><text x="${lw-8}" y="13" text-anchor="end">${esc(r)}</text>
+        <rect x="${lw}" y="2" width="${Math.max(2,bw)}" height="16" rx="4" fill="${a==='team'?TEAM_COLOR[r]:'var(--s1)'}" style="cursor:pointer" data-r="${esc(r)}"></rect>
+        <text x="${lw+bw+6}" y="13" fill="var(--text)">${v}</text></g>`}).join('')}</svg>`;
+    el.querySelectorAll('rect').forEach(r=>r.onclick=()=>drill(`${a}=${r.dataset.r}`, i=>keyOf(i,a).includes(r.dataset.r)));
+    return;
+  }
+  const cols = [...new Set(items.flatMap(i=>keyOf(i,b)))];
+  if(b==='stage') cols.sort((x,y)=>D.stages.indexOf(x)-D.stages.indexOf(y)); else if(b==='priority') cols.sort((x,y)=>PRIO_RANK[x]-PRIO_RANK[y]); else cols.sort();
+  const cell = rows.map(r=>cols.map(c=>measureOf(items.filter(i=>keyOf(i,a).includes(r)&&keyOf(i,b).includes(c)),m)));
+  const max = Math.max(1,...cell.flat());
+  const seq = v => v===0?'var(--surface)':`var(--seq${Math.min(6,1+Math.floor(v/max*5.999))})`;
+  el.innerHTML = `<div style="overflow:auto"><table><thead><tr><th>${a} \\ ${b}</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}<th>total</th></tr></thead><tbody>${
+    rows.map((r,ri)=>`<tr><th>${esc(r)}</th>${cols.map((c,ci)=>`<td style="background:${seq(cell[ri][ci])};color:${cell[ri][ci]/max>0.5?'#fff':'var(--text)'};cursor:pointer;text-align:center" data-r="${esc(r)}" data-c="${esc(c)}">${cell[ri][ci]||''}</td>`).join('')}<td><b>${cell[ri].reduce((s,v)=>s+v,0)}</b></td></tr>`).join('')
+  }</tbody></table></div><div class="legend" style="margin-top:8px">${[1,2,3,4,5,6].map(k=>`<span><i style="background:var(--seq${k})"></i></span>`).join('')}<span>low → high ${m}</span></div>`;
+  el.querySelectorAll('td[data-r]').forEach(td=>td.onclick=()=>drill(`${a}=${td.dataset.r} × ${b}=${td.dataset.c}`, i=>keyOf(i,a).includes(td.dataset.r)&&keyOf(i,b).includes(td.dataset.c)));
+}
+
+// ---------- radar ----------
+function renderRadar(items){
+  const today = D.as_of.slice(0,10);
+  const horizon = new Date(today); horizon.setDate(horizon.getDate()+14);
+  const hz = horizon.toISOString().slice(0,10);
+  const due = items.filter(i=>i.state!=='done'&&i.planned_end>=today&&i.planned_end<=hz).sort((a,b)=>a.planned_end.localeCompare(b.planned_end));
+  const overdue = items.filter(i=>i.state!=='done'&&i.planned_end<today);
+  const byDay = {}; due.forEach(i=>(byDay[i.planned_end]=byDay[i.planned_end]||[]).push(i));
+  const row = i=>`<tr class="row" onclick="openItem('${i.key}')"><td class="mono">${i.key}</td><td>${esc(i.title)}</td><td>${i.assignee}</td><td>${i.stage} <span style="color:var(--text-3)">${i.stage_age_days}d</span></td><td>${i.risks.map(r=>`<span class="pill serious">⚠ ${r}</span>`).join(' ')}${i.estimate_h==null?'<span class="pill warn">no est.</span>':''}</td></tr>`;
+  $('#radar').innerHTML = `${overdue.length?`<div class="meta" style="margin:0 0 10px"><span class="pill crit">${overdue.length} overdue</span><a href="#" onclick="drill('overdue',i=>i.state!=='done'&&i.planned_end<'${today}');return false">show ›</a></div>`:''}
+  <table><thead><tr><th>key</th><th>item</th><th>owner</th><th>stage</th><th>flags</th></tr></thead><tbody>${
+    Object.keys(byDay).sort().map(d=>`<tr><td colspan="5" style="background:var(--surface);font-weight:600;color:var(--text-2)">${d} · ${byDay[d].length} item${byDay[d].length>1?'s':''}</td></tr>`+byDay[d].map(row).join('')).join('')||'<tr><td colspan="5">Nothing planned in the next 14 days.</td></tr>'
+  }</tbody></table>`;
+}
+
+// ---------- gantt ----------
+function renderGantt(items){
+  const epics = D.epics.filter(e=>items.some(i=>i.epic===e.key));
+  const rows = epics.map(e=>{const ei=items.filter(i=>i.epic===e.key);return {e, start:ei.map(i=>i.planned_start).sort()[0], end:ei.map(i=>i.planned_end).sort().slice(-1)[0], done:ei.filter(i=>i.state==='done').length, n:ei.length, project:e.project};}).filter(r=>r.start);
+  const ms = D.milestones.filter(m=>items.some(i=>i.project===m.project));
+  const dates = [...rows.flatMap(r=>[r.start,r.end]), ...ms.map(m=>m.due), D.as_of.slice(0,10)].sort();
+  const d0=new Date(dates[0]), d1=new Date(dates[dates.length-1]); d0.setDate(d0.getDate()-2); d1.setDate(d1.getDate()+3);
+  const span=(d1-d0)/864e5, lw=220, W=900, px=(W-lw-20)/span, x=d=>lw+((new Date(d)-d0)/864e5)*px;
+  const H = rows.length*26+40;
+  let g = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="max-width:${W}px">`;
+  for(let t=new Date(d0); t<=d1; t.setDate(t.getDate()+1)){ if(t.getDay()===1){ g+=`<line x1="${x(t)}" x2="${x(t)}" y1="0" y2="${H-20}" stroke="var(--line)"/><text x="${x(t)+3}" y="${H-6}">${t.toISOString().slice(5,10)}</text>`; } }
+  const tx=x(D.as_of.slice(0,10)); g+=`<line x1="${tx}" x2="${tx}" y1="0" y2="${H-20}" stroke="var(--s8)" stroke-dasharray="3 3"/><text x="${tx+3}" y="10" fill="var(--s8)">today</text>`;
+  rows.forEach((r,k)=>{const y=k*26+16, x0=x(r.start), x1=x(r.end), w=Math.max(4,x1-x0);
+    g+=`<text x="${lw-8}" y="${y+12}" text-anchor="end">${esc(r.e.key)} ${esc(r.e.title).slice(0,28)}</text>
+    <rect x="${x0}" y="${y}" width="${w}" height="14" rx="4" fill="var(--line)"/><rect x="${x0}" y="${y}" width="${w*r.done/Math.max(1,r.n)}" height="14" rx="4" fill="${TEAM_COLOR[D.projects.find(p=>p.key===r.project).team]}"/>
+    <text x="${x1+6}" y="${y+11}" fill="var(--text)">${r.done}/${r.n}</text>`;});
+  ms.forEach(m=>{const mx=x(m.due); g+=`<polygon points="${mx},${H-32} ${mx+6},${H-26} ${mx},${H-20} ${mx-6},${H-26}" fill="var(--s7)"><title>${esc(m.name)} ${m.due}</title></polygon>`;});
+  g+='</svg>';
+  $('#gantt').innerHTML = g + `<div class="legend">${D.teams.map(t=>`<span><i style="background:${TEAM_COLOR[t]}"></i>${t}</span>`).join('')}<span><i style="background:var(--s7)"></i>milestone</span><span><i style="background:var(--line)"></i>remaining</span></div>`;
+}
+
+// ---------- now ----------
+function renderNow(items){
+  const keys=new Set(items.map(i=>i.key));
+  const now = D.now.filter(n=>keys.has(n.item));
+  $('#now').innerHTML = now.map(n=>`<div class="item" onclick="openItem('${n.item}')"><span class="mono">${n.person}</span><span>${esc(n.title)} <span class="t">· ${n.project} · ${n.kind}</span></span><span class="t">${n.since_min} min</span></div>`).join('')||'<div class="card">No active sessions in scope.</div>';
+}
+
+// ---------- people ----------
+function renderPeople(items){
+  const ppl = D.people.filter(p=>items.some(i=>i.assignee===p.handle));
+  const v = scopedViol(items);
+  $('#people').innerHTML = `<table><thead><tr><th>person</th><th>team</th><th>items</th><th>active</th><th>done</th><th>hours</th><th>Σw done</th><th>violations</th><th>habits</th></tr></thead><tbody>${ppl.map(p=>{
+    const mine=items.filter(i=>i.assignee===p.handle);
+    const h=D.habits.filter(x=>x.subject===p.handle);
+    return `<tr class="row" onclick="drill('${p.handle}',i=>i.assignee==='${p.handle}')"><td>${esc(p.name)} <span class="mono" style="color:var(--text-3)">${p.handle}</span></td><td><i class="dot" style="display:inline-block;background:${TEAM_COLOR[p.team]}"></i> ${p.team}</td>
+    <td>${mine.length}</td><td>${mine.filter(i=>i.state==='active').length}</td><td>${mine.filter(i=>i.state==='done').length}</td><td>${mine.reduce((s,i)=>s+i.hours_logged,0).toFixed(0)}</td><td>${mine.filter(i=>i.state==='done').reduce((s,i)=>s+i.weight,0)}</td>
+    <td>${v.filter(x=>x.person===p.handle).length}</td><td>${h.map(x=>`<span class="pill ${x.polarity==='positive'?'good':'warn'}">${x.key.replace(/_/g,' ')} ${x.trend==='improving'?'↑':x.trend==='worsening'?'↓':'→'}</span>`).join(' ')}</td></tr>`}).join('')}</tbody></table>`;
+}
+
+// ---------- violations & habits ----------
+function renderViol(items){
+  const v = scopedViol(items);
+  const byCat={}; v.forEach(x=>{(byCat[x.category]=byCat[x.category]||[]).push(x)});
+  const sev = s=>({info:'',warning:'warn',violation:'serious',critical:'crit'}[s]);
+  $('#viol').innerHTML = `<h3>Open violations <span class="k">${v.length}</span></h3>` + Object.entries(byCat).sort((a,b)=>b[1].length-a[1].length).map(([c,l])=>`<div style="margin:8px 0 4px;font-weight:600">${c} <span style="color:var(--text-3);font-weight:400">${l.length}</span></div>`+l.slice(0,6).map(x=>`<div class="hab"><span><span class="pill ${sev(x.severity)}">${x.severity}</span> <span class="mono">${x.target}</span> ${esc(x.policy.replace(/_/g,' '))}</span><span style="color:var(--text-2)">${esc(x.detail)}${x.person?' · '+x.person:''}</span></div>`).join('')+(l.length>6?`<div class="hab" style="color:var(--text-3)">+${l.length-6} more</div>`:'')).join('')||'<div>No open violations in scope.</div>';
+  const ppl=new Set(items.map(i=>i.assignee));
+  const hab=D.habits.filter(h=>ppl.has(h.subject));
+  $('#habits').innerHTML = `<h3>Habits <span class="k">${hab.length}</span></h3><div class="legend"><span><i style="background:var(--good)"></i>positive</span><span><i style="background:var(--warn)"></i>needs work</span></div>`+
+    hab.sort((a,b)=>(a.polarity>b.polarity?-1:1)||b.rate-a.rate).map(h=>`<div class="hab"><span><i class="dot" style="display:inline-block;background:${h.polarity==='positive'?'var(--good)':'var(--warn)'}"></i> ${esc(h.key.replace(/_/g,' '))} <span class="mono" style="color:var(--text-3)">${h.subject}</span></span><span>${Math.round(h.rate*100)}% · ${h.trend}</span></div>`).join('');
+}
+
+// ---------- drill list / drawer ----------
+function renderList(items){
+  if(!state.path.length) { const old=$('#drill'); if(old) old.remove(); return; }
+  let sec=$('#drill'); if(!sec){ sec=document.createElement('section'); sec.id='drill'; $('main').insertBefore(sec, $('#kpis')); }
+  sec.innerHTML = `<h2>Items in selection <span class="sub">${items.length}</span></h2><div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>key</th><th>title</th><th>project</th><th>owner</th><th>stage</th><th>prio</th><th>w</th><th>est</th><th>hrs</th><th>plan end</th><th>tags</th></tr></thead><tbody>${
+    items.map(i=>`<tr class="row" onclick="openItem('${i.key}')"><td class="mono">${i.key}</td><td>${esc(i.title)}</td><td>${i.project}</td><td>${i.assignee}</td><td>${i.stage} <span style="color:${i.state!=='done'&&i.stage_age_days>D.stage_expected_days[i.stage]?'var(--serious)':'var(--text-3)'}">${i.stage_age_days}d</span></td><td>${i.priority}</td><td>${i.weight}</td><td>${i.estimate_h??'<span class="pill warn">—</span>'}</td><td>${i.hours_logged}</td><td>${i.planned_end}</td><td>${i.tags.map(t=>'#'+t).join(' ')}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function openItem(key){
+  const i=D.items.find(x=>x.key===key); if(!i) return;
+  const v=D.violations.filter(x=>x.target===key); const rs=D.risks.filter(r=>i.risks.includes(r.key));
+  const epic=D.epics.find(e=>e.key===i.epic);
+  $('#drawerBody').innerHTML = `<h3><span class="mono">${i.key}</span> ${esc(i.title)}</h3>
+  <div class="meta"><span>${i.project} › ${epic?esc(epic.title):'—'}</span><span>${i.type}</span><span class="pill">${i.priority}</span><span>w ${i.weight}</span></div>
+  <div class="meta"><span>owner <b>${i.assignee}</b></span><span>team <b>${i.team}</b></span><span>product <b>${i.product}</b></span></div>
+  <div class="meta"><span>stage <b>${i.stage}</b> ${i.stage_age_days}d</span><span>state <b>${i.state}</b></span></div>
+  <div class="meta"><span>planned ${i.planned_start} → ${i.planned_end}</span>${i.actual_end?`<span>actual end ${i.actual_end}</span>`:''}</div>
+  <div class="meta"><span>estimate <b>${i.estimate_h??'—'}</b> h</span><span>logged <b>${i.hours_logged}</b> h</span><span>evidence <b>${i.evidence_count}</b></span><span>touched ${i.last_touched}</span></div>
+  <div class="meta">${i.tags.map(t=>`<span class="pill">#${t}</span>`).join(' ')}</div>
+  <h4>Risks</h4>${rs.map(r=>`<div class="hab"><span class="mono">${r.key}</span><span>${esc(r.title)}</span><span class="pill ${r.p*r.i>=15?'crit':'serious'}">${r.p}×${r.i}=${r.p*r.i} · ${r.status}</span></div>`).join('')||'<div style="color:var(--text-3)">none</div>'}
+  <h4>Violations</h4>${v.map(x=>`<div class="hab"><span>${x.policy.replace(/_/g,' ')}</span><span style="color:var(--text-2)">${esc(x.detail)}</span></div>`).join('')||'<div style="color:var(--text-3)">none</div>'}
+  <h4>Dimensions</h4><div class="meta"><span>project=${i.project}</span><span>product=${i.product}</span><span>stage=${i.stage}</span><span>team=${i.team}</span><span>priority=${i.priority}</span><span>epic=${i.epic??'—'}</span></div>`;
+  $('#drawer').classList.add('open');
+}
+function closeDrawer(){ $('#drawer').classList.remove('open'); }
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+
+// ---------- render all ----------
+function render(){
+  const items = scopedItems();
+  renderCrumbs(); renderList(items); if(state.path.length){const d=$('#drill'); if(d) d.scrollIntoView({behavior:'smooth',block:'start'});} renderKPIs(items); renderProjects(items); renderPipe(items); renderExplorer(); renderRadar(items); renderGantt(items); renderNow(items); renderPeople(items); renderViol(items);
+}
+initHeader(); render();
+</script>
+</body>
+</html>
