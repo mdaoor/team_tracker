@@ -18,6 +18,7 @@ from tt_schema.enums import (
     ValueSource,
 )
 
+from tt_server.acl.context import item_ref
 from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
@@ -202,6 +203,27 @@ async def _project_by_key(uow: UnitOfWork, ws: m.Workspace, key: str) -> m.Proje
     return row
 
 
+async def authorise(uow: UnitOfWork, kind: str, row: Any, actor_id: str) -> None:
+    """The service checks itself (it is reached from resolve, bulk and confirm-all): the actor must be the row's review owner, or hold
+    `review_queue.resolve` on the item. Anything else is a 404, as for an invisible object (ADR-0008)."""
+    s = uow.session
+    target_type = TargetType.WORK_ITEM.value if kind == "classification" else row.target_type
+    item = await s.get(m.WorkItem, row.target_id) if target_type == TargetType.WORK_ITEM.value else None
+    if item is None:
+        acl = uow.context.get("acl")
+        if acl is not None and acl.can("review_queue.resolve"):
+            return  # workspace-level rows with no item (e.g. a person target)
+        raise ApiError(404, "not_found", "review row not found")
+    project = await s.get(m.Project, item.project_id)
+    assert project is not None  # noqa: S101
+    if await review_owner(s, project.workspace_id, item, project) == actor_id:
+        return
+    acl = uow.context.get("acl")
+    if acl is not None and acl.can("review_queue.resolve", await item_ref(s, item)):
+        return
+    raise ApiError(404, "not_found", "review row not found")
+
+
 async def resolve(
     uow: UnitOfWork, ws: m.Workspace, ref: str, choice: dict[str, Any], *, actor_id: str
 ) -> dict[str, Any]:
@@ -209,6 +231,7 @@ async def resolve(
     s = uow.session
     kind, row = await _load(uow, ws, ref)
     uow.context["actor_id"] = actor_id
+    await authorise(uow, kind, row, actor_id)
     if kind == "classification":
         action = choice.get("action", "confirm")
         if action == "reject":

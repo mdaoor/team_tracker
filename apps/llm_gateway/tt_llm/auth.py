@@ -35,12 +35,35 @@ def _bearer(authorization: str | None) -> str | None:
     return None
 
 
+def _workspace_tokens(env_name: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for pair in _tokens(env_name):
+        tok, _, ws = pair.partition("=")
+        if tok and ws:
+            out[tok] = ws
+    return out
+
+
 async def require_caller(request: Request, authorization: Annotated[str | None, Header()] = None) -> None:
+    """Shared and admin tokens may name any workspace (the server runs the whole deployment); a workspace token is bound to one
+    workspace: its budget, runs and limits cannot be charged to another by writing a different `workspace` in the body."""
     cfg: GatewayConfig = request.app.state.cfg
+    presented = _bearer(authorization)
     accepted = _tokens(cfg.auth.tokens_env) + _tokens(cfg.auth.admin_env)
-    if _matches(_bearer(authorization), accepted):
+    if _matches(presented, accepted):
         return
-    if cfg.auth.allow_anonymous and not accepted:
+    bound = _workspace_tokens(cfg.auth.workspace_tokens_env)
+    for tok, ws in bound.items():
+        if presented is not None and hmac.compare_digest(presented, tok):
+            if request.method == "POST":
+                try:
+                    claimed = (await request.json()).get("workspace")
+                except ValueError:
+                    claimed = None
+                if claimed != ws:
+                    raise Forbidden(f"this token is bound to workspace {ws!r}")
+            return
+    if cfg.auth.allow_anonymous and not accepted and not bound:
         return
     raise Unauthorized("a gateway token is required")
 

@@ -152,6 +152,10 @@ class LdapProvider:
         return await asyncio.to_thread(self._lookup, email, "mail")
 
 
+class StartTlsFailed(RuntimeError):
+    """StartTLS was required but not established: never send a password over the clear connection."""
+
+
 def ldap_provider_from_settings(settings: Settings) -> LdapProvider | None:
     if not (settings.ldap_url and settings.ldap_base_dn):
         return None
@@ -175,7 +179,11 @@ def ldap_provider_from_settings(settings: Settings) -> LdapProvider | None:
         )
         if settings.ldap_start_tls and not url.lower().startswith("ldaps://"):
             conn.open()
-            conn.start_tls()  # refuses the bind when the certificate does not validate
+            if (
+                not conn.start_tls()
+            ):  # ldap3 returns False (does not raise) when the upgrade or certificate check fails
+                conn.unbind()
+                raise StartTlsFailed("LDAP StartTLS failed; refusing to bind over a clear-text connection")
         return conn
 
     return LdapProvider(

@@ -126,6 +126,26 @@ SORTS: dict[str, Any] = {
 }  # fmt: skip
 
 
+async def query_all(qc: QueryCtx, *, hard_cap: int = 100_000, **kw: Any) -> dict[str, Any]:
+    """Every matching row, paging internally (layout endpoints and CSV must not silently stop at one page)."""
+    kw.pop("page", None)
+    items: list[Any] = []
+    offset = 0
+    res: dict[str, Any] = {}
+    while offset < hard_cap:
+        res = await query_items(qc, page={"size": MAX_PAGE, "cursor": str(offset)}, **kw)
+        items += res["items"]
+        if not res["page"].get("next_cursor") or not res["items"]:
+            break
+        offset += MAX_PAGE
+    total = res["page"]["total"] if res else 0
+    return {
+        **res,
+        "items": items,
+        "page": {**dict(res.get("page") or {}), "total": total, "next_cursor": None},
+    }
+
+
 async def query_items(
     qc: QueryCtx,
     *,

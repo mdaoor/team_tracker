@@ -126,7 +126,11 @@ async def load_context(
         await session.execute(
             select(m.Role, m.RoleAssignment)
             .join(m.RoleAssignment, m.RoleAssignment.role_id == m.Role.id)
-            .where(m.RoleAssignment.person_id == person_id, m.RoleAssignment.deleted_at.is_(None))
+            .where(
+                m.RoleAssignment.person_id == person_id,
+                m.RoleAssignment.workspace_id == ws_id,
+                m.RoleAssignment.deleted_at.is_(None),
+            )
         )
     ).all()
     for role, ra in rows:

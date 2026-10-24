@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import time
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -23,6 +25,7 @@ from tt_server.governance import facts as factmod
 from tt_server.governance import service
 from tt_server.query.compile import QueryCtx, compile_filter
 
+EVAL_BUDGET_S = 120.0  # wall-clock budget of one policy evaluation (celpy has no step cap)
 BATCH = 500
 
 
@@ -297,6 +300,7 @@ async def evaluate(
     if limit is not None:
         refs = refs[:limit]
     ev_root = ctxmod.event_root(event)
+    deadline = time.monotonic() + EVAL_BUDGET_S
     for k in range(0, len(refs), BATCH):
         batch = refs[k : k + BATCH]
         item_ids = sorted({r.item_id for r in batch if r.item_id})
@@ -343,6 +347,14 @@ async def evaluate(
                 root["person"] = persons.get(r.person_id or "", root["person"])
             if r.type == TargetType.PROJECT:
                 root["project"] = projects.get(r.project_id or "", root["project"])
+            if (
+                time.monotonic() > deadline
+            ):  # a runaway condition must not hold a worker: stop, and do not auto-resolve the rest
+                result.errors.append(
+                    f"evaluation budget of {EVAL_BUDGET_S:g}s exceeded after {len(result.evaluated)} targets"
+                )
+                result.sweep = False
+                return result
             result.evaluated.add(_vkey(r, it, tmpl))
             try:
                 hit = compiled.evaluate(root, funcs, now=now)

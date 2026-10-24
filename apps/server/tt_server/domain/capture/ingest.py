@@ -30,6 +30,8 @@ from tt_schema.enums import (
     ValueSource,
 )
 
+from tt_server.acl.context import load_context
+from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import aware, emit, zone
@@ -200,16 +202,23 @@ async def _state_category(session: AsyncSession, state_id: str) -> StateCategory
     return cat or StateCategory.OPEN
 
 
-async def _find_item(session: AsyncSession, ws_id: str, ref: ClientTaskRef) -> m.WorkItem | None:
-    base = (
+async def _find_item(ctx: Ctx, ref: ClientTaskRef) -> m.WorkItem | None:
+    """Look an item up by id or key *as the reporter*: an item they cannot see behaves as if it did not exist (review M1)."""
+    session, ws_id = ctx.session, ctx.ws.id
+    acl = ctx.__dict__.get("_acl")
+    if acl is None:
+        acl = ctx.__dict__["_acl"] = await load_context(session, ws_id, ctx.actor_person.id)
+    base = visible(
         select(m.WorkItem)
         .join(m.Project, m.Project.id == m.WorkItem.project_id)
-        .where(m.Project.workspace_id == ws_id, m.WorkItem.deleted_at.is_(None))
+        .where(m.Project.workspace_id == ws_id, m.WorkItem.deleted_at.is_(None)),
+        acl,
+        m.WorkItem,
     )
     if ref.id:
-        return await session.scalar(base.where(m.WorkItem.id == ref.id))
+        return await session.scalar(base.where(m.WorkItem.id == ref.id))  # type: ignore[no-any-return]
     if ref.key:
-        return await session.scalar(base.where(func.lower(m.WorkItem.key) == ref.key.lower()))
+        return await session.scalar(base.where(func.lower(m.WorkItem.key) == ref.key.lower()))  # type: ignore[no-any-return]
     return None
 
 
@@ -225,7 +234,7 @@ async def resolve_item(ctx: Ctx, project: m.Project) -> tuple[m.WorkItem | None,
     msg, session = ctx.msg, ctx.session
     ref = msg.item
     if ref and (ref.id or ref.key):
-        found = await _find_item(session, ctx.ws.id, ref)
+        found = await _find_item(ctx, ref)
         if found:
             return found, {"method": "matched", "by": "id" if ref.id else "key", "score": 1.0}
         ctx.warnings.append("item_not_found")
@@ -587,7 +596,7 @@ async def apply_fields(ctx: Ctx, item: m.WorkItem, activity: m.Activity | None) 
 
 
 async def _resolve_ref(ctx: Ctx, ref: ClientTaskRef, project_id: str) -> m.WorkItem | None:
-    found = await _find_item(ctx.session, ctx.ws.id, ref)
+    found = await _find_item(ctx, ref)
     if found or not ref.title:
         return found
     return await ctx.session.scalar(

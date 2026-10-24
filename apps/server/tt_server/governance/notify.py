@@ -43,12 +43,16 @@ async def recipients(uow: UnitOfWork, ws: m.Workspace, policy: m.Policy, v: m.Vi
             await s.execute(
                 select(m.RoleAssignment.person_id, m.RoleAssignment.scope_type, m.RoleAssignment.scope_id)
                 .join(m.Role, m.Role.id == m.RoleAssignment.role_id)
-                .where(m.Role.key.in_(cfg["roles"]), m.RoleAssignment.deleted_at.is_(None))
+                .where(
+                    m.Role.key.in_(cfg["roles"]),
+                    m.RoleAssignment.workspace_id == ws.id,
+                    m.RoleAssignment.deleted_at.is_(None),
+                )
             )
         ).all():
             pid, st, sid = row
             if (
-                st in (ScopeType.WORKSPACE, ScopeType.NONE)
+                (st == ScopeType.WORKSPACE and sid == ws.id)
                 or (st == ScopeType.PROJECT and sid == v.project_id)
                 or (st == ScopeType.TEAM and sid == v.team_id)
             ):

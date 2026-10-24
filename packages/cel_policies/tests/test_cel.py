@@ -248,3 +248,28 @@ def test_on_event_evaluation_cpu_budget() -> None:
     p95 = times[int(len(times) * 0.95)]
     print("CEL p95 ms", round(p95, 3))
     assert p95 < 20
+
+
+def test_matches_rejects_patterns_that_can_backtrack_without_bound() -> None:
+    """Review B7: celpy hands the raw user regex to `re`; ours refuses nested quantifiers, long patterns and back-references."""
+    import time
+
+    c = tt_cel.compile('item.title.matches("(a+)+$")')
+    ctx = root(item={"id": "i1", "title": "a" * 40 + "!"})
+    t0 = time.perf_counter()
+    with pytest.raises(tt_cel.CelError, match="backtrack"):
+        c.evaluate(ctx, tt_cel.bind(facts()), now=NOW)
+    assert time.perf_counter() - t0 < 1.0  # refused up front, not after minutes of backtracking
+    for bad in (
+        'item.title.matches("(.*)*x")',
+        'item.title.matches("(a|b+)+")',
+        'item.title.matches("(a)\\\\1")',
+    ):
+        with pytest.raises(tt_cel.CelError):
+            tt_cel.compile(bad).evaluate(ctx, tt_cel.bind(facts()), now=NOW)
+    with pytest.raises(tt_cel.CelError, match="too long"):
+        tt_cel.compile('item.title.matches("' + "a" * 300 + '")').evaluate(ctx, tt_cel.bind(facts()), now=NOW)
+    ok = tt_cel.compile('item.title.matches("^fix .*login$")')
+    assert (
+        ok.evaluate(root(item={"id": "i1", "title": "fix the login"}), tt_cel.bind(facts()), now=NOW) is True
+    )

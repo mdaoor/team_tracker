@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -180,7 +181,15 @@ async def slide_payload(
             p.key: p.id
             for p in (
                 await s.scalars(
-                    select(m.Project).where(m.Project.workspace_id == qc.ws_id, m.Project.key.in_(keys))
+                    visible(
+                        select(m.Project).where(
+                            m.Project.workspace_id == qc.ws_id,
+                            m.Project.key.in_(keys),
+                            m.Project.deleted_at.is_(None),
+                        ),
+                        qc.acl,
+                        m.Project,
+                    )
                 )
             ).all()
         }
@@ -302,3 +311,43 @@ async def refresh_cache(
             except ApiError:
                 continue  # the scope vanished (project deleted): the row ages out
     return n
+
+
+def redact_for_share(out: dict[str, Any], level: str = "standard") -> dict[str, Any]:
+    """An anonymous link viewer is not the owner: no wellbeing data and no live sessions ever; `strict` also pseudonymises people.
+
+    The deck was assembled with the owner's visibility, so everything not listed here stays (that is what the owner chose to share)."""
+    snap = out.get("snapshot") or {}
+    snap["habits"] = []  # habits include wellbeing-adjacent signals about named people
+    snap["now"] = []  # live sessions: who is working on what, right now
+    for v in snap.get("violations", []):
+        if v.get("category") == "wellbeing":
+            v["person"] = None
+    snap["violations"] = [v for v in snap.get("violations", []) if v.get("category") != "wellbeing"]
+    for sd in (out.get("slide_data") or {}).values():
+        if isinstance(sd, dict) and "restricted" not in sd:
+            sd.pop("habits", None)
+    if level != "strict":
+        return out
+    handles = sorted({p["handle"] for p in snap.get("people", []) if p.get("handle")})
+    alias = {h: f"Person {i + 1}" for i, h in enumerate(handles)}
+    pattern = (
+        re.compile("|".join(re.escape(h) + r"(?![\w-])" for h in sorted(handles, key=len, reverse=True)))
+        if handles
+        else None
+    )
+
+    def walk(x: Any) -> Any:
+        if isinstance(x, str):
+            return pattern.sub(lambda mt: alias[mt.group(0)], x) if pattern else x
+        if isinstance(x, list):
+            return [walk(i) for i in x]
+        if isinstance(x, dict):
+            return {
+                k: (None if k in ("email", "display_name", "name") and "handle" in x else walk(v))
+                for k, v in x.items()
+            }
+        return x
+
+    red: dict[str, Any] = walk(out)
+    return red

@@ -76,7 +76,7 @@ async def _authenticate(
             raise ApiError(401, "invalid_token", "token is not valid for this workspace")
         if row.last_used_at is None or utcnow() - row.last_used_at > timedelta(minutes=1):
             row.last_used_at = utcnow()
-            await session.commit()
+            await uow.commit_bookkeeping()  # not a domain fact: no Event, and the guard flag is reset
         person = await session.get(m.Person, row.person_id)
         assert person is not None  # noqa: S101
         return person, row

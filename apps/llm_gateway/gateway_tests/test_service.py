@@ -124,3 +124,34 @@ def test_local_only_flag_forces_the_privacy_mode_and_anonymous_loopback() -> Non
     assert exposed.privacy_mode == "local_only" and exposed.auth.allow_anonymous is False
     with pytest.raises(ValueError, match="localhost"):
         apply_local_only(default_config(ollama_api_base="http://gpu.corp:11434"), "127.0.0.1")
+
+
+async def test_a_workspace_token_cannot_charge_another_workspace(
+    make: Callable[..., Harness], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review B6: the budget key is the workspace the token is bound to, not a string the caller writes."""
+    from gateway_tests.conftest import request_body
+
+    monkeypatch.setenv("TT_LLM_WORKSPACE_TOKENS", "ws-acme-secret=acme")
+    h = make()
+    ok = await h.http.post(
+        "/v1/embed",
+        json={**request_body(), "texts": ["x"]},
+        headers={"Authorization": "Bearer ws-acme-secret"},
+    )
+    assert ok.status_code != 403 and ok.status_code != 401
+    bad = await h.http.post(
+        "/v1/embed",
+        json={**request_body(workspace="victim"), "texts": ["x"]},
+        headers={"Authorization": "Bearer ws-acme-secret"},
+    )
+    assert bad.status_code == 403
+    missing = await h.http.post(
+        "/v1/embed",
+        json={**request_body(workspace=""), "texts": ["x"]},
+        headers={"Authorization": "Bearer ws-acme-secret"},
+    )
+    assert missing.status_code == 403
+    nope = await h.http.post("/v1/embed", json={**request_body()}, headers={"Authorization": "Bearer other"})
+    assert nope.status_code == 401
+    await h.http.aclose()

@@ -33,7 +33,7 @@ class Role(RowBase):
     )
 
 
-class RoleAssignment(RowBase):
+class RoleAssignment(WorkspaceScopedMixin, RowBase):
     __tablename__ = "role_assignments"
     person_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=False)
     role_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("roles.id"), nullable=False)

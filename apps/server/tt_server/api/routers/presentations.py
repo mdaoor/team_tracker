@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -420,7 +421,9 @@ async def public_data(token: str, request: Request) -> dict[str, Any]:
         qc = deckdata.qctx(session, ws, person, member, acl)
         out = await deckdata.deck_data(qc, ws, p, viewer=f"shared by {member.handle}")
         out["presentation"].pop("owner_id", None)
-        return out
+        return deckdata.redact_for_share(
+            out, str((ws.settings or {}).get("external_share_redaction", "standard"))
+        )
 
 
 def _shell(extra: str) -> HTMLResponse:
@@ -437,14 +440,27 @@ def _shell(extra: str) -> HTMLResponse:
     )
 
 
+_SAFE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+
+def _src(url: str, *parts: str) -> HTMLResponse:
+    """Path segments are attacker-controlled (percent-decoded): accept only a safe alphabet, and JSON-encode with `<` escaped anyway."""
+    if not all(_SAFE.match(p) for p in parts):
+        raise ApiError(404, "not_found", "no such deck")
+    literal = (
+        json.dumps(url.format(*parts)).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    )
+    return _shell(f"window.__DECK_SRC__={literal};")
+
+
 @shell.get("/p/t/{token}")
 async def shell_token(token: str) -> HTMLResponse:
-    return _shell(f'window.__DECK_SRC__="/api/v1/public/p/{token}/data";')
+    return _src("/api/v1/public/p/{}/data", token)
 
 
 @shell.get("/p/{ws}/{pid}")
 async def shell_session(ws: str, pid: str) -> HTMLResponse:
-    return _shell(f'window.__DECK_SRC__="/api/v1/w/{ws}/presentations/{pid}/data";')
+    return _src("/api/v1/w/{}/presentations/{}/data", ws, pid)
 
 
 # ---------------------------------------------------------------- insights

@@ -775,6 +775,14 @@ async def metric_snapshots(
     actor: CurrentActor, uow: Uow, scope_type: ScopeType, scope_id: str, from_: Annotated[date | None, Query(alias="from")] = None, to: date | None = None, scheme: str | None = None,
 ) -> dict[str, Any]:  # fmt: skip
     sid = scope_id
+    aggregate = scope_type in (ScopeType.WORKSPACE, ScopeType.TEAM, ScopeType.PROCESS)
+    if aggregate and not (actor.acl.is_admin or actor.acl.manager_all or actor.acl.can("habit.view_team")):
+        raise ApiError(
+            403,
+            "forbidden",
+            "missing permission 'habit.view_team'",
+            details={"permission": "habit.view_team"},
+        )
     if scope_type == ScopeType.WORKSPACE:
         sid = actor.ws.id
     elif scope_type == ScopeType.PROJECT:
@@ -843,6 +851,28 @@ async def metric_snapshots(
     if to:
         stmt = stmt.where(m.MetricSnapshot.date <= to)
     rows = (await uow.session.scalars(stmt.order_by(m.MetricSnapshot.date))).all()
+    # wellbeing habit scores belong to the person and their line managers only (object model §13.3)
+    own_view = scope_type == ScopeType.PERSON and (sid == actor.person.id or sid in actor.acl.managed_ids)
+    wellbeing = (
+        set()
+        if own_view
+        else set(
+            (
+                await uow.session.scalars(
+                    select(m.HabitDefinition.key).where(
+                        m.HabitDefinition.category == PolicyCategory.WELLBEING
+                    )
+                )
+            ).all()
+        )
+    )
+
+    def clean(metrics: dict[str, Any]) -> dict[str, Any]:
+        hs = metrics.get("habit_scores")
+        if wellbeing and isinstance(hs, dict):
+            metrics = {**metrics, "habit_scores": {k: v for k, v in hs.items() if k not in wellbeing}}
+        return metrics
+
     return {
         "data": [
             {
@@ -850,7 +880,7 @@ async def metric_snapshots(
                 "scope_type": r.scope_type.value,
                 "scope_id": r.scope_id,
                 "weight_scheme_id": r.weight_scheme_id,
-                "metrics": r.metrics,
+                "metrics": clean(r.metrics),
             }
             for r in rows
         ],
