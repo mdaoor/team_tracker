@@ -1,0 +1,23 @@
+{{- $c := dict "root" . "component" "worker" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: {{ include "tt.name" $c }}, labels: {{ include "tt.labels" $c | nindent 4 }}}
+spec:
+  replicas: {{ .Values.replicas.worker }}
+  selector: {matchLabels: {{ include "tt.labels" $c | nindent 6 }}}
+  template:
+    metadata: {labels: {{ include "tt.labels" $c | nindent 8 }}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001}
+      containers:
+        - name: worker
+          image: {{ .Values.image.server }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [python, -m, tt_worker]
+          envFrom: [{secretRef: {name: {{ .Values.existingSecret }}}}]
+          env: {{ include "tt.env" . | nindent 12 }}
+          resources: {{ toYaml .Values.resources.worker | nindent 12 }}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      terminationGracePeriodSeconds: 60
+      volumes: [{name: tmp, emptyDir: {}}]

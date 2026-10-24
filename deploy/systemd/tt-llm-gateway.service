@@ -1,0 +1,18 @@
+[Unit]
+Description=Team Tracker LLM gateway
+After=network-online.target
+
+[Service]
+User=tt
+Group=tt
+EnvironmentFile=/etc/tt/llm-gateway.env
+WorkingDirectory=/opt/team-tracker
+ExecStart=/opt/team-tracker/.venv/bin/tt-llm serve
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

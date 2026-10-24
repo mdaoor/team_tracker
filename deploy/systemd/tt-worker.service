@@ -1,0 +1,22 @@
+[Unit]
+Description=Team Tracker background worker (Procrastinate)
+After=tt-server.service
+Requires=tt-server.service
+
+[Service]
+User=tt
+Group=tt
+EnvironmentFile=/etc/tt/tt.env
+WorkingDirectory=/opt/team-tracker
+ExecStart=/opt/team-tracker/.venv/bin/python -m tt_worker
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=60
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/team-tracker
+
+[Install]
+WantedBy=multi-user.target

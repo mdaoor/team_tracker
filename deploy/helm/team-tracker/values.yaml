@@ -1,0 +1,27 @@
+# Values for the Team Tracker chart. NOTE: written without access to `helm`/`kind` in the authoring environment; run
+# `helm lint` and the kind smoke test (docs/ops/helm.md) before the first real install.
+image:
+  server: ghcr.io/example/team-tracker-server:1.0.0     # one image: API, worker, tt-admin
+  web: ghcr.io/example/team-tracker-web:1.0.0           # nginx with the built SPA
+  gateway: ghcr.io/example/team-tracker-llm-gateway:1.0.0
+  pullPolicy: IfNotPresent
+replicas: {server: 2, worker: 1, web: 2, gateway: 1}
+config:
+  env: prod
+  logJson: "true"
+  webOrigin: https://tracker.example.com
+  features: {jiraSync: "false", governance: "true", llmSuggestions: "false"}
+  llmGatewayUrl: ""            # set to http://<release>-gateway:8700 when the gateway is enabled
+# Secrets are NEVER in values: reference an existing Secret with these keys
+#   TT_DATABASE_URL, TT_SESSION_SECRET, TT_SECRET_KEY, TT_METRICS_TOKEN (and optionally TT_LLM_GATEWAY_TOKEN, TT_OIDC_CLIENT_SECRET, TT_LDAP_BIND_PASSWORD)
+existingSecret: team-tracker-secrets
+tls:
+  # PEM pair mounted at /etc/tt/tls; empty = terminate TLS at the ingress and trust X-Forwarded-Proto
+  secretName: ""
+gateway: {enabled: false, existingSecret: team-tracker-llm-secrets, configMap: ""}
+ingress: {enabled: true, className: nginx, host: tracker.example.com, tlsSecret: tracker-tls, annotations: {}}
+metrics: {serviceMonitor: false}
+resources:
+  server: {requests: {cpu: 250m, memory: 512Mi}, limits: {memory: 1Gi}}
+  worker: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 512Mi}}
+persistence: {attachments: {enabled: true, size: 20Gi, storageClass: ""}}
