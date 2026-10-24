@@ -44,6 +44,18 @@ const FORMS: Record<string, Spec[]> = {
   markdown: [{ k: "text", label: "Text (markdown)", type: "textarea" }],
   image: [{ k: "url", label: "Image URL (https or data:)", type: "text" }],
   violations: [{ k: "with_habits", label: "Show habits next to violations", type: "check" }],
+  roadmap: [
+    { k: "project_key", label: "Project key (empty = every planned project in scope)", type: "text" },
+    { k: "show_baseline", label: "Show baseline end markers", type: "check" },
+  ],
+  milestones: [{ k: "project_key", label: "Project key (empty = all)", type: "text" }],
+  deliverables: [
+    { k: "project_key", label: "Project key", type: "text" },
+    { k: "phase", label: "Phase key (empty = all phases)", type: "text" },
+  ],
+  plan_vs_actual: [{ k: "project_key", label: "Project key", type: "text" }],
+  phase_status: [{ k: "project_key", label: "Project key", type: "text" }],
+  project_overview: [{ k: "project_key", label: "Project key", type: "text" }],
 }; // prettier-ignore
 
 export function PresentRoute() {

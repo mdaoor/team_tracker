@@ -445,3 +445,122 @@ tr.row:hover td {
     break-inside: avoid;
   }
 }
+
+/* plan slide kinds */
+.card.empty {
+  color: var(--text-2, #667);
+  text-align: center;
+  padding: 2rem 1rem;
+}
+.plan-bar {
+  display: inline-block;
+  width: 80px;
+  height: 8px;
+  background: var(--border, #ddd);
+  border-radius: 4px;
+  vertical-align: middle;
+  overflow: hidden;
+}
+.plan-bar i {
+  display: block;
+  height: 100%;
+  background: var(--good, #2a7);
+}
+.chip.ok {
+  border-color: var(--good, #2a7);
+  color: var(--good, #2a7);
+}
+.chip.sev-warning {
+  border-color: var(--warn, #c80);
+  color: var(--warn, #c80);
+}
+.chip.sev-critical {
+  border-color: var(--crit, #c33);
+  color: var(--crit, #c33);
+}
+.chip.health-green {
+  color: var(--good, #2a7);
+}
+.chip.health-amber {
+  color: var(--warn, #c80);
+}
+.chip.health-red {
+  color: var(--crit, #c33);
+}
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+}
+.facts dt {
+  color: var(--text-2, #667);
+}
+.facts dd {
+  margin: 0;
+}
+.cards.phases {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.roadmap svg {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+}
+.rm-label {
+  font-size: 11px;
+  fill: var(--text-1, #222);
+}
+.rm-label.phase {
+  font-weight: 600;
+}
+.rm-month {
+  font-size: 10px;
+  fill: var(--text-3, #889);
+}
+.rm-bar {
+  fill: var(--s1, #46a);
+  opacity: 0.85;
+}
+.rm-bar.phase {
+  fill: var(--s3, #678);
+}
+.rm-bar.st-overdue {
+  fill: var(--crit, #c33);
+}
+.rm-bar.st-at_risk {
+  fill: var(--warn, #c80);
+}
+.rm-bar.st-done {
+  fill: var(--good, #2a7);
+}
+.rm-done {
+  fill: rgba(255, 255, 255, 0.55);
+}
+.rm-ghost {
+  stroke: var(--text-1, #222);
+  stroke-width: 2;
+  stroke-dasharray: 2 2;
+}
+.rm-dep {
+  fill: none;
+  stroke: var(--text-3, #889);
+  stroke-width: 1.2;
+}
+.rm-dep-head {
+  fill: var(--text-3, #889);
+}
+.rm-ms path {
+  fill: var(--s4, #a6c);
+}
+.rm-ms.st-overdue path {
+  fill: var(--crit, #c33);
+}
+.rm-ms.st-completed path {
+  fill: var(--good, #2a7);
+}
+.rm-today {
+  stroke: var(--crit, #c33);
+  stroke-width: 1;
+}

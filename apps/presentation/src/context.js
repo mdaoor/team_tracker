@@ -6,6 +6,9 @@ import { radarRows } from "./renderers/time.js";
 /** Everything a renderer reads. `items` is the scoped list (page mode narrows it as the viewer drills). */
 export function makeContext(data, { interactive = false } = {}) {
   const D = data.snapshot;
+  // snapshots from before the plan fields (golden fixtures, older exports) simply have no plan
+  D.phases ??= [];
+  D.deliverables ??= [];
   const presentation = data.presentation;
   const tables = new Set();
   const ctx = {

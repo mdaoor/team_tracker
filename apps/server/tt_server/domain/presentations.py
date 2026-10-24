@@ -13,7 +13,17 @@ from tt_server.api.errors import ApiError
 SLIDE_KINDS = (
     "title", "kpis", "projects", "project_detail", "pipeline", "explorer", "radar", "gantt", "now", "people",
     "violations", "habits", "insight", "view", "chart", "table", "markdown", "image", "section_divider",
+    "roadmap", "milestones", "deliverables", "plan_vs_actual", "phase_status", "project_overview",
 )  # fmt: skip
+PLAN_KINDS = ("roadmap", "milestones", "deliverables", "plan_vs_actual", "phase_status", "project_overview")
+# The plan-only rule: what each kind needs, and what it does when it has nothing. Mirrored by KIND_META in apps/presentation
+# (tests/unit/test_slide_kind_meta.py keeps the two identical).
+KIND_META: dict[str, dict[str, str]] = {
+    **{k: {"requires": "plan", "render_empty": "placeholder"} for k in (*PLAN_KINDS, "title", "section_divider", "markdown", "image")},
+    **{k: {"requires": "both", "render_empty": "placeholder"} for k in ("projects", "project_detail", "gantt")},
+    "insight": {"requires": "both", "render_empty": "note"},
+    **{k: {"requires": "activity", "render_empty": "note"} for k in ("explorer", "radar", "kpis", "pipeline", "now", "people", "violations", "habits", "view", "chart", "table")},
+}  # fmt: skip
 SECTION_KINDS = {
     "kpis",
     "projects",
@@ -27,6 +37,7 @@ SECTION_KINDS = {
     "habits",
     "project_detail",
     "insight",
+    *PLAN_KINDS,
 }
 QUERY_KINDS = {"view", "chart", "table"}
 
@@ -51,6 +62,12 @@ CONFIG: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
     "markdown": (("text",), {}),
     "image": ((), {"url": None, "attachment_id": None}),
     "section_divider": ((), {}),
+    "roadmap": ((), {"project_key": None, "show_baseline": True}),
+    "milestones": ((), {"project_key": None, "style": "table"}),
+    "deliverables": ((), {"project_key": None, "phase": None}),
+    "plan_vs_actual": ((), {"project_key": None}),
+    "phase_status": ((), {"project_key": None}),
+    "project_overview": ((), {"project_key": None}),
 }
 EXPLORER_DIMS = {"assignee", "team", "project", "product", "stage", "priority", "epic", "tags"}
 EXPLORER_MEASURES = {"count", "hours", "wt", "viol"}
@@ -145,7 +162,26 @@ def _portfolio() -> list[SlideIn]:
     ]  # fmt: skip
 
 
+def _plan_review() -> list[SlideIn]:
+    return [
+        _s("title", "Project plan review"), _s("project_overview", "Overview"), _s("roadmap", "Roadmap"), _s("milestones", "Milestones"),
+        _s("deliverables", "Deliverables"), _s("plan_vs_actual", "Plan vs actual"), _s("phase_status", "Phases"),
+        _s("violations", "Risks and violations"), _s("markdown", "Next steps", text="- \n- \n- "),
+    ]  # fmt: skip
+
+
 TEMPLATES: dict[str, tuple[str, list[SlideIn]]] = {
+    "project_plan_review": ("Project plan review", _plan_review()),
+    "programme_roadmap": (
+        "Programme roadmap",
+        [
+            _s("title", "Programme roadmap"),
+            _s("roadmap", "Roadmap"),
+            _s("milestones", "Milestones"),
+            _s("phase_status", "Phases"),
+            _s("insight", "Where we are"),
+        ],
+    ),  # fmt: skip
     "portfolio_review": ("Portfolio review", _portfolio()),
     "sprint_review": (
         "Sprint review",

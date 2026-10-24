@@ -1,4 +1,4 @@
-import { RENDERERS, TITLES } from "./renderers/index.js";
+import { KIND_META, RENDERERS, TITLES } from "./renderers/index.js";
 import { esc } from "./util.js";
 
 const ROWS = {
@@ -13,6 +13,22 @@ const ROWS = {
     count: (ctx, cfg, s) => (ctx.slideData[s.id]?.items ?? []).length,
   },
   projects: { per: 4, count: (ctx) => ctx.projectCount() },
+  deliverables: {
+    per: 10,
+    count: (ctx, cfg) =>
+      ctx.D.deliverables.filter(
+        (d) =>
+          (!cfg.project_key || d.project === cfg.project_key) &&
+          (!cfg.phase || d.phase === cfg.phase),
+      ).length,
+  },
+  plan_vs_actual: {
+    per: 12,
+    count: (ctx, cfg) =>
+      ctx.D.deliverables.filter(
+        (d) => !cfg.project_key || d.project === cfg.project_key,
+      ).length,
+  },
 };
 
 /** Long tables paginate into continuation slides ("(cont.)") instead of overflowing. */
@@ -42,6 +58,13 @@ export function slideBody(ctx, slide) {
   const fn = RENDERERS[slide.kind];
   if (!fn)
     return `<div class="card">Unknown slide kind ${esc(slide.kind)}</div>`;
+  const meta = KIND_META[slide.kind];
+  if (
+    meta?.requires === "activity" &&
+    !(ctx.D.items ?? []).length &&
+    !ctx.slideData?.[slide.id]?.items?.length
+  )
+    return `<div class="card empty">No work reported yet for this scope.</div>`;
   const slideCtx = slide._origin
     ? { ...ctx, tableMode: (id) => ctx.tableMode(slide._origin) }
     : ctx;
