@@ -41,7 +41,12 @@ Dimensions/classifications/stages/products/weights/risks/approvals (P3), ACL bey
 - `Project` create requires only `name, key, owner_id`; everything else defaults (workflow=Simple, default type=task). `methodology` is informational in P1.
 - Key generation per architecture §4.7: table `project_key_sequences(project_id pk, next int)`.
 - `Iteration` state machine `planned → active → closed`; only one `active` per project (service check). On `closed`, compute `completed_points` from items whose state category is done.
-- `Milestone` `completed_at` set manually in P1 (approval gating in P3).
+- `Milestone` `completed_at` set manually in P1 (approval gating in P3). `kind` (`gate|release|demo|deadline|other`) is first‑class in the API and the plan editor.
+- **Top‑down project plan (product requirement: managers plan first, reporters may never log a task).** A project is fully plannable with zero capture rows:
+  - `POST /projects/{key}/plan` accepts a nested plan `{phases: [{title, planned_start, planned_end, deliverables: [{title, planned_start, planned_end, owner?, milestone?, depends_on?: [ref]}]}], milestones: [{name, kind, due_date, description}]}` and creates `WorkItem{type=phase}` → `WorkItem{type=deliverable}` children (`reporter_id = manager`, `source={"origin": "plan"}`), `Milestone` rows, `WorkItemLink{finish_to_start, lag_days}` dependencies, and `WorkItem.milestone_id` links; all in one transaction with `plan.created` events. Individual CRUD on phases/deliverables is the normal items API (type `phase`/`deliverable`).
+  - Derived **plan status** (computed on read, no column): for a deliverable `not_started | in_progress | done | overdue | at_risk` — `done` if state category done; `overdue` if `planned_end < today` and not done; `at_risk` if `planned_end` within 7 days and progress < 50 % or a predecessor is overdue; `in_progress` if any child task/activity exists; else `not_started` ("no activity reported yet"). For a milestone: `completed | overdue | due_soon(≤14d) | planned`, plus `deliverables_done/total`. For a project: `planned_start/end` default to min/max of phases if null; health = worst of its milestones.
+  - `Baseline` capture (`POST /projects/{key}/baselines {name}`) is how a plan is "approved"; variance = current planned dates vs baseline.
+  - `GET /projects/{key}/plan` returns the tree with statuses, dependencies, milestones, baseline variance — the single read used by the P5 plan editor and the P7 roadmap slides.
 - `RecurrenceRule`: job `recurrence.materialise` runs hourly, uses `dateutil.rrule`, creates items from the template item `lead_days` ahead, sets `template_item_id`, advances `next_run_at`; idempotent per (rule, occurrence) via `external_refs["recurrence_occurrence"]`.
 
 ### 1.3 Items

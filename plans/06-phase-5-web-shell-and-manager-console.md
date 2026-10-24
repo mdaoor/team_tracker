@@ -18,6 +18,7 @@ Phase 4 (auth, scopes, permissions), Phase 3 (all overlay APIs), Phase 2 (glossa
    - **Dimensions**: add dimension (name, tree/flat, single/multi, applies‑to), inline values, CSV paste.
    - **People & teams**: org/virtual teams tree, membership with allocation %, reporting lines editor (kind, scope, validity), capacity; **Identity provider** panel (P4 §4.6): LDAPS/OIDC settings, test connection, AD group → role/team mapping table with group picker (searches AD), "Sync now", last sync log, Kerberos status.
    - **Milestones & iterations** calendar editor (month view, drag to move dates, iteration bars).
+   - **Project plan (roadmap) editor** — product requirement, works with zero tasks: per project, a timeline board (phases as swimlanes, deliverables as bars, milestones as diamonds, dependency arrows, baseline ghost); add phase/deliverable/milestone inline, drag to move/resize dates, link dependencies by dragging bar ends, set owner/kind; import from CSV/Excel (`title, type, start, end, parent, milestone, depends_on`) and paste from a bullet outline ("Phase 1 › Deliverable a (1 Nov–15 Nov)"); "Capture baseline" button; status pills from the derived plan status; a "Linked tasks" badge per deliverable (0 when nothing is reported, with the text "no activity reported yet"); **"Present this plan"** button that creates a `Presentation` from the "Project plan review" template (P7) scoped to the project.
    - **Risks** register table + 5×5 heat‑map; drag risk card onto tree node → `RiskLink`.
    - **Tags & glossary**: tag merge, provisional tag review, glossary phrase → target typeahead, learned entries with hit counts.
    - **Rules for the translator**: free‑text list, reorder, dry‑run panel "would have changed N of last 200 lines" (needs endpoint `POST /translator-rules:dry-run` — build it here using the `tt_client` structured parser plus the LLM gateway's `/v1/rules/dry-run`, Phase 2b).
@@ -72,6 +73,7 @@ Views (P6), presentation page (P7), policy editor (P9), Jira sync UI beyond fiel
 ## Acceptance criteria
 - [ ] UX §7.2 walk‑through completes in the UI in ≤ 6 clicks: confirm a match, drag a risk onto an epic (children inherit), set weight inline.
 - [ ] Adding a project requires only name, key, process; defaults are visible afterwards.
+- [ ] A manager can build the seed `ERP` plan from scratch in the roadmap editor (3 phases, 9 deliverables, 4 milestones, 2 dependencies), capture a baseline, move a deliverable and see the variance and dependent `at_risk` status, then click "Present this plan" and land in a deck — with no tasks logged anywhere.
 - [ ] Review queue is scoped: two managers logged in see disjoint queues for the same seed.
 - [ ] Every overlay value shows a provenance chip with `set by · when · inherited from` matching `/provenance`.
 - [ ] 409 conflict flow works and the revert restores the prior value (verified via events).

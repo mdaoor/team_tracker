@@ -31,6 +31,7 @@ The spec is silent or ambiguous in the places below. Each row records the defaul
 | 24a | Agent write access | — | Read‑only tools by default; write tools per task, opt‑in (`send`/`apply`), always via the capture/overlay APIs with `agent_run_id` audit | P2b, ADR‑0019 |
 | 24b | Insights provider | "LLM‑ or rule‑generated" | Gateway `summariser` alias (Anthropic default in hybrid/cloud, Ollama in local_only), flag‑gated, deterministic fallback in the core server | P7 |
 | 28 | Presentation output | UX §5 describes one scrolling page | Composable deck: pick scope + sections → one slide per screen with next/prev; same template exports any report/view; one‑page scroll mode kept as a layout of the same deck | P7, ADR‑0011/0021 |
+| 30 | Plan‑first projects | Spec assumes items arrive from capture | Phases/deliverables are manager‑created `WorkItem`s (types `phase`/`deliverable`, `source.origin=plan`); statuses derived, never stored; every slide kind declares plan‑only behaviour; seed has a zero‑task project | P1 §1.2, P3 §3.11, P7, ADR‑0023 |
 | 29 | Enterprise auth | Spec: generic OIDC | Active Directory via LDAPS (group → role mapping) and/or OIDC (Entra ID/ADFS); optional Kerberos SSO; HTTPS with PEM cert/key on Linux; internal CA bundle for clients | P4 §4.7, P12, ADR‑0022 |
 | 25 | Time/plan on multi‑item lines | — | Apply to the first item unless each element carries its own | P2 |
 | 26 | Approval policy source | — | `Project.settings.approval_policy`, default `any_one` | P3 |

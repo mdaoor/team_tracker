@@ -43,6 +43,7 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | UX §2.4 | Local LLM translator + ContextPack | P2 §2.1, 2.3, P2b `/v1/translate` | golden harness, `tests/api/test_context_pack.py` |
 | Product req. | Independent, agentic LLM gateway (LiteLLM routing, tools, batch review, suggestions, policy authoring) | P2b | `apps/llm_gateway/tests/*`, injection suite, replay goldens |
 | Product req. | Slide‑based presentation builder; generic template exporting any report | P7 §7.2 | `apps/presentation/e2e/deck.spec.ts` |
+| Product req. | Top‑down plan (phases, deliverables, milestones with dates) presentable with zero tasks; detail appears when tasks exist | P1 §1.2, P3 §3.11, P5 roadmap editor, P7 plan kinds | `tests/integration/plan/*`, `apps/web/e2e/roadmap.spec.ts`, `apps/presentation/e2e/plan_only.spec.ts` |
 | Product req. | HTTPS with PEM on Linux; Active Directory (NT accounts and groups) auth | P4 §4.6, P12 §6 | `apps/server/tests/api/test_acl_identity.py` (ldap3 in-memory AD; Kerberos and a real DC not covered), `tests/integration/test_tls.py` |
 | UX §2.5 | Jira hand‑off | P2 §2.6 (flag), P10 | `tests/integrations/jira/*` |
 | UX §2.6 | Micro‑interactions, end of day | P2, P11, P1 §1.5 | e2e |

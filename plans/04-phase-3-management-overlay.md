@@ -23,7 +23,8 @@ Phase 1 (and Phase 2 for the pack fields it fills).
 10. **Bulk edit API** with propagation preview (UX §3.3 last bullet).
 11. **Provenance**: `GET /items/{key}/provenance` returns, per overlay field, `{set_by, set_at, source, inherited_from}` (UX §3.4).
 12. Capture pipeline completion: on item creation → inherited classifications (project → product → objective), default stage (`Project.default_process_id` first stage, or `translator_rules`/pack default), weight computation; the LLM hints `stage`, `product`, `risks` are now applied (unconfirmed) instead of only queued.
-13. Seed rewritten to go through services (removes the P0 TODO).
+13. Seed rewritten to go through services (removes the P0 TODO). The seed gains a **plan‑only project** `ERP` ("ERP Rollout": 3 phases, 9 deliverables, 4 milestones, dependencies, a baseline, **zero tasks/activities**) so every view, snapshot and deck is tested against a project with no reported work.
+14. **Plan ↔ execution linkage** (§3.11): reporter tasks attach to the manager's deliverables; progress rolls up deliverable → phase → milestone → project.
 
 ## Out of scope
 UI (P5), ACL (P4) — but every service takes an `actor` and records `set_by`.
@@ -100,6 +101,12 @@ Roll‑ups (computed on read for subtree size ≤ 500, else by job into `work_it
 ### 3.10 Collision handling (UX §3.4)
 - Optimistic concurrency: overlay `PATCH` requires `If-Match: <updated_at or version>`; mismatch → `409` with current value and diff. Same‑field edits by two managers → last write wins only if the client re‑reads; both get a notification event `item.field_conflict` (consumed by P5 UI as the one‑click revert).
 
+### 3.11 Plan ↔ execution linkage
+- Deliverables are the intended parents of reporter tasks. Resolution order when a captured item lands in a project that has a plan: LLM hint `parent` (if ≥ 0.7) → `translator_rules`/glossary mapping phrase → deliverable → fuzzy title match of the task against deliverable titles (`pg_trgm ≥ 0.5`) → else leave `parent_id` null and create `ReviewItem{kind=unlinked_task, suggestion: top‑3 deliverables with scores}`; the LLM gateway's `/v1/suggest/review` refines the suggestion. The review queue row offers `[Deliverable X ✓] [other…] [keep unlinked]`.
+- Roll‑ups (§3.6) run on the plan tree: deliverable `progress_pct` from children (`progress_mode=children` by default for `phase`/`deliverable` types), hours logged, remaining estimate, open risk score; milestone `deliverables_done/total`; project health. With zero tasks, roll‑ups are null and statuses are `not_started`, never errors.
+- Moving a deliverable's dates re‑evaluates dependent deliverables (`finish_to_start` + lag) and marks violations of the chain as `at_risk`; a P8 template `plan_slip` (deliverable planned_end moved later than baseline by > N days) is pre‑registered here as a `ReviewItem` kind until the engine exists.
+- The P1 `/projects/{key}/plan` read includes, per deliverable, `linked_tasks: n, hours_logged, last_activity_at` so plan‑only and active projects share one shape.
+
 ## Data & API contracts (new routes, all under `/api/v1/w/{ws}`)
 `/dimensions`, `/dimensions/{id}/values`, `/classifications`, `/processes`, `/processes/{id}/stages`, `/processes/{id}/board`, `/items/{key}/stage` (PUT), `/items/{key}/placements` (history), `/products`, `/products/{id}/links`, `/objectives`, `/objectives/{id}/key-results`, `/weight-schemes`, `/items/{key}/weights`, `/risks`, `/risks/{id}/links|actions`, `/approvals`, `/approvals/{id}/decisions`, `/review-queue`, `/items:bulk-preview`, `/items:bulk`, `/items/{key}/provenance`, `/items/{key}/rollup`.
 
@@ -117,6 +124,7 @@ Events to register: `dimension.*`, `classification.changed|confirmed`, `stage.mo
 - [ ] Resolving `unclassified_project` for raw phrase "the ingestion retry" → `DATA` creates a learned glossary entry that the P2 pack then contains.
 - [ ] Capture pipeline: a new item in DATA lands on `discovery` (project default) with product `DPLAT` inherited and a default weight, all in the same `correlation_id`.
 - [ ] Bulk preview numbers equal the bulk apply results.
+- [ ] Seed project `ERP` (zero tasks) returns a full plan tree with statuses `not_started`, milestones `planned|due_soon`, null roll‑ups, no errors in any list/board/pipeline endpoint; a captured task "configure the GL module" in `ERP` is auto‑parented under deliverable "General ledger configuration" (fuzzy) or lands in the review queue with it as the top suggestion.
 - [ ] Capture‑vs‑overlay column guard still passes; coverage ≥ 80 % for `domain/overlay`.
 
 ## Exit checklist
