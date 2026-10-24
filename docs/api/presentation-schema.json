@@ -139,6 +139,108 @@
   ],
   "title": "_Presentation",
   "type": "object",
+  "x-kind-meta": {
+    "chart": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "deliverables": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "explorer": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "gantt": {
+      "render_empty": "placeholder",
+      "requires": "both"
+    },
+    "habits": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "image": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "insight": {
+      "render_empty": "note",
+      "requires": "both"
+    },
+    "kpis": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "markdown": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "milestones": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "now": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "people": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "phase_status": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "pipeline": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "plan_vs_actual": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "project_detail": {
+      "render_empty": "placeholder",
+      "requires": "both"
+    },
+    "project_overview": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "projects": {
+      "render_empty": "placeholder",
+      "requires": "both"
+    },
+    "radar": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "roadmap": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "section_divider": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "table": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "title": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "view": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "violations": {
+      "render_empty": "note",
+      "requires": "activity"
+    }
+  },
   "x-slide-kinds": {
     "chart": {
       "default_config": {
@@ -296,64 +398,5 @@
       },
       "required_config": []
     }
-  },
-  "x-templates": {
-    "exec_summary": [
-      "title",
-      "kpis",
-      "insight",
-      "gantt"
-    ],
-    "portfolio_review": [
-      "kpis",
-      "projects",
-      "pipeline",
-      "explorer",
-      "radar",
-      "gantt",
-      "now",
-      "people",
-      "violations"
-    ],
-    "programme_roadmap": [
-      "title",
-      "roadmap",
-      "milestones",
-      "phase_status",
-      "insight"
-    ],
-    "project_plan_review": [
-      "title",
-      "project_overview",
-      "roadmap",
-      "milestones",
-      "deliverables",
-      "plan_vs_actual",
-      "phase_status",
-      "violations",
-      "markdown"
-    ],
-    "risk_review": [
-      "title",
-      "projects",
-      "explorer",
-      "violations",
-      "radar"
-    ],
-    "sprint_review": [
-      "title",
-      "kpis",
-      "pipeline",
-      "explorer",
-      "radar",
-      "insight"
-    ],
-    "team_1on1": [
-      "title",
-      "people",
-      "habits",
-      "radar",
-      "now"
-    ]
   }
 }

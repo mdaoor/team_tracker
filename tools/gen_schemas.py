@@ -1,10 +1,11 @@
-"""Write docs/api/snapshot-schema.json and docs/api/presentation-schema.json from the Pydantic models (CI fails on drift)."""
+"""Write docs/api/snapshot-schema.json, presentation-schema.json and presentation-template-schema.json from the Pydantic models (CI fails on drift)."""
 
 import json
 from pathlib import Path
 
 from pydantic import BaseModel
-from tt_server.domain.presentations import CONFIG, SLIDE_KINDS, TEMPLATES, SlideIn
+from tt_server.domain import presentation_templates as ptpl
+from tt_server.domain.presentations import CONFIG, KIND_META, SLIDE_KINDS, SlideIn
 from tt_server.domain.snapshot import json_schema
 
 DOCS = Path(__file__).resolve().parents[1] / "docs" / "api"
@@ -28,7 +29,7 @@ def presentation_schema() -> dict:
     s["x-slide-kinds"] = {
         k: {"required_config": list(CONFIG[k][0]), "default_config": CONFIG[k][1]} for k in SLIDE_KINDS
     }
-    s["x-templates"] = {k: [sl.kind for sl in v[1]] for k, v in TEMPLATES.items()}
+    s["x-kind-meta"] = {k: KIND_META[k] for k in SLIDE_KINDS}
     return s
 
 
@@ -36,6 +37,7 @@ def render() -> dict[str, str]:
     return {
         "snapshot-schema.json": json.dumps(json_schema(), indent=2, sort_keys=True) + "\n",
         "presentation-schema.json": json.dumps(presentation_schema(), indent=2, sort_keys=True) + "\n",
+        "presentation-template-schema.json": json.dumps(ptpl.json_schema(), indent=2, sort_keys=True) + "\n",
     }
 
 

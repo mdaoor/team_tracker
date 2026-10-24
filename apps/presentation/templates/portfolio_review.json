@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "key": "portfolio_review",
+  "version": 1,
+  "name": "Portfolio review",
+  "description": "Every section of the portfolio view, one slide each.",
+  "scope_types": [
+    "workspace",
+    "product",
+    "project",
+    "team",
+    "person"
+  ],
+  "params": [],
+  "slides": [
+    {
+      "kind": "kpis",
+      "title_template": "Key numbers",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "projects",
+      "title_template": "Projects",
+      "config": {},
+      "requires": "both",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "pipeline",
+      "title_template": "Pipeline",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "explorer",
+      "title_template": "Explorer",
+      "config": {
+        "dimA": "team",
+        "dimB": "stage",
+        "measure": "count"
+      },
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "radar",
+      "title_template": "Next 14 days",
+      "config": {
+        "days": 14
+      },
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "gantt",
+      "title_template": "Plan",
+      "config": {
+        "rows": "epic"
+      },
+      "requires": "both",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "now",
+      "title_template": "Working now",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "people",
+      "title_template": "People",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "violations",
+      "title_template": "Violations & habits",
+      "config": {
+        "with_habits": true
+      },
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    }
+  ]
+}

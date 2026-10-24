@@ -1,0 +1,310 @@
+{
+  "$defs": {
+    "Param": {
+      "properties": {
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "type": {
+          "default": "string",
+          "enum": [
+            "project",
+            "product",
+            "team",
+            "process",
+            "dimension",
+            "int",
+            "string",
+            "date_range"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Param",
+      "type": "object"
+    },
+    "PostRule": {
+      "properties": {
+        "action": {
+          "const": "drop_slides",
+          "default": "drop_slides",
+          "title": "Action",
+          "type": "string"
+        },
+        "kinds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kinds",
+          "type": "array"
+        },
+        "when": {
+          "title": "When",
+          "type": "string"
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "PostRule",
+      "type": "object"
+    },
+    "TSlide": {
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "layout": {
+          "default": "full",
+          "enum": [
+            "full",
+            "split",
+            "grid"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "notes_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes Template"
+        },
+        "render_empty": {
+          "anyOf": [
+            {
+              "enum": [
+                "hide",
+                "placeholder",
+                "note"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Render Empty"
+        },
+        "requires": {
+          "anyOf": [
+            {
+              "enum": [
+                "plan",
+                "activity",
+                "both"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requires"
+        },
+        "subtitle_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitle Template"
+        },
+        "title_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Template"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "TSlide",
+      "type": "object"
+    },
+    "Theme": {
+      "properties": {
+        "font": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font"
+        },
+        "footer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footer"
+        },
+        "logo_attachment_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logo Attachment Id"
+        },
+        "palette": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Palette"
+        }
+      },
+      "title": "Theme",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "key": {
+      "pattern": "^[a-z][a-z0-9_]{1,62}$",
+      "title": "Key",
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "params": {
+      "items": {
+        "$ref": "#/$defs/Param"
+      },
+      "title": "Params",
+      "type": "array"
+    },
+    "post_rules": {
+      "items": {
+        "$ref": "#/$defs/PostRule"
+      },
+      "title": "Post Rules",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "scope_types": {
+      "items": {
+        "enum": [
+          "workspace",
+          "product",
+          "project",
+          "team",
+          "person"
+        ],
+        "type": "string"
+      },
+      "title": "Scope Types",
+      "type": "array"
+    },
+    "slides": {
+      "items": {
+        "$ref": "#/$defs/TSlide"
+      },
+      "maxItems": 60,
+      "minItems": 1,
+      "title": "Slides",
+      "type": "array"
+    },
+    "theme": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Theme"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "key",
+    "name",
+    "slides"
+  ],
+  "title": "TemplateBody",
+  "type": "object"
+}

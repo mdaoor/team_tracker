@@ -6,6 +6,7 @@ import { useToasts } from "../../components/Toasts";
 import { Button, Empty, Field } from "../../components/ui";
 import { useList, useObj, useWs } from "../../lib/hooks";
 import { SLIDE_ICONS, SLIDE_LABELS } from "../../lib/slides";
+import { Templates } from "./Templates";
 
 const DIMS = ["assignee", "team", "project", "product", "stage", "priority", "epic", "tags"];
 const MEASURES = ["count", "hours", "wt", "viol"];
@@ -60,6 +61,7 @@ const FORMS: Record<string, Spec[]> = {
 
 export function PresentRoute() {
   const id = useParams()["*"]?.split("/")[0];
+  if (id === "templates") return <Templates />;
   return id ? <Builder id={id} /> : <PresentList />;
 }
 
@@ -81,7 +83,11 @@ function PresentList() {
   });
   return (
     <div className="present">
-      <h1>Presentations</h1>
+      <div className="row">
+        <h1>Presentations</h1>
+        <span className="grow" />
+        <Link to="templates">Templates</Link>
+      </div>
       <section aria-label="Start from template">
         <h2>Start from template</h2>
         <div className="row">
