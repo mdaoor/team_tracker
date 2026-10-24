@@ -25,6 +25,7 @@ from tt_server.api.routers import (
     identity,
     llm,
     overlay,
+    query,
     webauth,
 )
 from tt_server.api.session import CSRF_COOKIE, set_session
@@ -68,6 +69,7 @@ def create_app(
         webauth.api_router,
         identity.router,
         console.router,
+        query.router,
         llm.router,  # before core: `/items/search` must win over `/items/{id_or_key}`
         capture.router,
         core.router,

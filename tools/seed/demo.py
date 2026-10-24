@@ -17,6 +17,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import new_id
 from tt_schema.client import ClientBatch
@@ -399,4 +400,14 @@ async def persist_demo(
             bad = [r for r in results if r.status == "failed"]
             if bad:
                 raise RuntimeError(f"seed ingestion failed for {it['key']}: {bad[0].error_code}")
+    # The generator's WIP rule ("GOV/build above 4") becomes a real stage limit so pipelines show the breach.
+    async with UnitOfWork(session_factory) as uow:
+        build = await uow.session.scalar(
+            select(m.Stage)
+            .join(m.Process, m.Process.id == m.Stage.process_id)
+            .where(m.Process.workspace_id == ids["ws_id"], m.Stage.key == "build")
+        )
+        if build is not None:
+            build.wip_limit = 4
+        await uow.commit(allow_unlogged=True)
     return created

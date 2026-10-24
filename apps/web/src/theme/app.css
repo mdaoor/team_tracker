@@ -360,3 +360,101 @@ dl.props {
 [dir="rtl"] .shell {
   direction: rtl;
 }
+
+/* ---- Phase 6: Views ---- */
+.vtoolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2, 8px);
+  align-items: center;
+  margin-bottom: 12px;
+}
+.vtabs {
+  display: flex;
+  gap: 4px;
+}
+.vtabs button[aria-selected="true"] {
+  background: var(--s1);
+  color: #fff;
+}
+.crumbs {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  margin: 6px 0;
+}
+.vcard {
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--surface, #fff);
+  margin-bottom: 8px;
+}
+.vcard header,
+.vcard footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.vcard .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.vcard p {
+  margin: 4px 0;
+}
+.vcols {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  align-items: flex-start;
+}
+.vcol {
+  min-width: 240px;
+  flex: 1;
+  background: var(--surface-2, #f4f4f4);
+  border-radius: 6px;
+  padding: 8px;
+}
+.vcol.over {
+  outline: 2px solid var(--crit);
+}
+.vcol.drop {
+  outline: 2px dashed var(--s1);
+}
+.vlist table,
+.vmatrix table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.vlist td,
+.vlist th,
+.vmatrix td,
+.vmatrix th {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border, #ddd);
+  text-align: left;
+}
+.vmatrix td.cell {
+  cursor: pointer;
+  text-align: right;
+}
+.vgantt text {
+  font-size: 11px;
+  fill: currentColor;
+}
+.vcal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.vcal > div {
+  min-height: 72px;
+  border: 1px solid var(--border, #ddd);
+  padding: 4px;
+  font-size: 11px;
+}

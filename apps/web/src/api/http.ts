@@ -91,6 +91,11 @@ export const api = {
     call<T>("PATCH", path, { body, headers }).then((r) => r.data),
   put: <T = Row>(path: string, body: unknown, headers?: Record<string, string>) =>
     call<T>("PUT", path, { body, headers }).then((r) => r.data),
+  postBlob: async (path: string, body: unknown): Promise<Blob> => {
+    const { response } = await (client as any).POST(path, { body, parseAs: "blob" });
+    if (!response.ok) throw new ApiError(response.status, "error", `HTTP ${response.status}`, null);
+    return response.clone().blob();
+  },
   del: (path: string) => call<null>("DELETE", path).then((r) => r.data),
 };
 

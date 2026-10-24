@@ -12,6 +12,7 @@ members = [
     "team-tracker",
     "tt-cli",
     "tt-client",
+    "tt-filter",
     "tt-llm-gateway",
     "tt-schema",
     "tt-server",
@@ -3460,6 +3461,11 @@ requires-dist = [
 dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
+name = "tt-filter"
+version = "0.1.0"
+source = { editable = "packages/filter_grammar" }
+
+[[package]]
 name = "tt-llm-gateway"
 version = "0.1.0"
 source = { editable = "apps/llm_gateway" }
@@ -3545,6 +3551,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
+    { name = "tt-filter" },
     { name = "tt-schema" },
     { name = "typer" },
     { name = "uvicorn", extra = ["standard"] },
@@ -3567,6 +3574,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.30" },
     { name = "structlog", specifier = ">=24.1" },
+    { name = "tt-filter", editable = "packages/filter_grammar" },
     { name = "tt-schema", editable = "packages/schema" },
     { name = "typer", specifier = ">=0.12" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },

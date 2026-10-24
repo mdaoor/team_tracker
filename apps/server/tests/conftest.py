@@ -61,7 +61,7 @@ def migrated_url(database_url: str) -> str:
 
 @pytest.fixture(scope="session")
 async def engine(migrated_url: str) -> AsyncIterator[AsyncEngine]:
-    eng = create_async_engine(migrated_url)
+    eng = create_async_engine(migrated_url, connect_args={"options": "-c jit=off"})
     yield eng
     await eng.dispose()
 

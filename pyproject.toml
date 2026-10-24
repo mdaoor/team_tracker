@@ -29,6 +29,7 @@ members = ["packages/*", "apps/server", "apps/cli", "apps/worker", "apps/llm_gat
 tt-schema = { workspace = true }
 tt-server = { workspace = true }
 tt-client = { workspace = true }
+tt-filter = { workspace = true }
 tt-llm-gateway = { workspace = true }
 
 [tool.ruff]

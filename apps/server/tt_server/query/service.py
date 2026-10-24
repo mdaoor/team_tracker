@@ -1,0 +1,439 @@
+"""Item queries, aggregates and layout data on top of the compiled filter (Phase 6 §6.2-6.3)."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from typing import Any
+
+import sqlalchemy as sa
+from sqlalchemy import func, select
+from tt_filter import FilterError, Node, parse
+from tt_schema.enums import StateCategory, TargetType
+
+from tt_server.acl.visibility import visible
+from tt_server.db import models as m
+from tt_server.query.compile import (
+    OPEN_VIOLATION,
+    QueryCtx,
+    compile_filter,
+    priority_rank,
+    risk_query,
+    weight_expr,
+)
+
+MAX_PAGE = 200
+MEASURES = (
+    "count",
+    "hours",
+    "weighted_throughput",
+    "sum_weight",
+    "open_violations",
+    "avg_stage_age",
+    "remaining_estimate",
+)
+
+
+def _parse(raw: Any) -> Node:
+    return parse(raw or {})
+
+
+def _hours() -> Any:
+    return (
+        select(func.coalesce(func.sum(m.TimeEntry.minutes), 0) / 60.0)
+        .where(m.TimeEntry.work_item_id == m.WorkItem.id)
+        .correlate(m.WorkItem)
+        .scalar_subquery()
+    )
+
+
+def _top_risk() -> Any:
+    return (
+        risk_query()
+        .with_only_columns(func.max(m.Risk.probability * m.Risk.impact))
+        .correlate(m.WorkItem)
+        .scalar_subquery()
+    )
+
+
+def _open_violations() -> Any:
+    return (
+        select(func.count())
+        .select_from(m.Violation)
+        .where(
+            m.Violation.target_type == TargetType.WORK_ITEM,
+            m.Violation.target_id == m.WorkItem.id,
+            m.Violation.status.in_(OPEN_VIOLATION),
+        )
+        .correlate(m.WorkItem)
+        .scalar_subquery()
+    )
+
+
+def _last_touched() -> Any:
+    return (
+        select(func.max(m.Event.occurred_at))
+        .where(m.Event.entity_type == TargetType.WORK_ITEM, m.Event.entity_id == m.WorkItem.id)
+        .correlate(m.WorkItem)
+        .scalar_subquery()
+    )
+
+
+def current_stage(ids: list[str] | None = None) -> Any:
+    """One current placement per item (the newest when an item sits in several processes)."""
+    q = (
+        select(
+            m.StagePlacement.target_id.label("item_id"),
+            m.Stage.key.label("stage"),
+            m.StagePlacement.entered_at.label("entered_at"),
+            m.Stage.expected_duration_days.label("expected_days"),
+            m.Process.key.label("process"),
+        )
+        .join(m.Stage, m.Stage.id == m.StagePlacement.stage_id)
+        .join(m.Process, m.Process.id == m.StagePlacement.process_id)
+        .where(m.StagePlacement.target_type == TargetType.WORK_ITEM, m.StagePlacement.exited_at.is_(None))
+    )
+    if ids is not None:
+        q = q.where(m.StagePlacement.target_id.in_(ids))
+    return (
+        q.distinct(m.StagePlacement.target_id)
+        .order_by(m.StagePlacement.target_id, m.StagePlacement.entered_at.desc())
+        .subquery("cur")
+    )
+
+
+async def filtered_items(qc: QueryCtx, raw_filter: Any, *cols: Any, where: Any = None) -> sa.Select[Any]:
+    """`SELECT cols FROM work_items ...` with the filter, workspace boundary and ACL applied."""
+    pred = await compile_filter(_parse(raw_filter), qc)
+    stmt = (
+        select(*cols)
+        .select_from(m.WorkItem)
+        .join(m.Project, m.Project.id == m.WorkItem.project_id)
+        .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
+        .where(m.Project.workspace_id == qc.ws_id, m.WorkItem.deleted_at.is_(None), pred)
+    )
+    if where is not None:
+        stmt = stmt.where(where)
+    result: sa.Select[Any] = visible(stmt, qc.acl, m.WorkItem)
+    return result
+
+
+SORTS: dict[str, Any] = {
+    "priority": priority_rank(), "key": m.WorkItem.key, "title": m.WorkItem.title, "due_date": m.WorkItem.due_date,
+    "planned_end": m.WorkItem.planned_end, "created": m.WorkItem.created_at, "updated": m.WorkItem.updated_at,
+    "impact": m.WorkItem.impact,
+}  # fmt: skip
+
+
+async def query_items(
+    qc: QueryCtx,
+    *,
+    filter: Any = None,  # noqa: A002
+    sort: list[dict[str, str]] | None = None,
+    group_by: list[str] | None = None,
+    page: dict[str, Any] | None = None,
+    extra_where: Any = None,
+) -> dict[str, Any]:
+    w = weight_expr(qc.scheme_id)
+    # Phase 1: only ids, in order, with the filter and ACL -- cheap even on 50 k items.
+    need_stage = any(x.get("field") == "stage_age" for x in (sort or []))
+    cur1 = current_stage() if need_stage else None
+    id_stmt = await filtered_items(qc, filter, m.WorkItem.id, where=extra_where)
+    if cur1 is not None:
+        id_stmt = id_stmt.outerjoin(cur1, cur1.c.item_id == m.WorkItem.id)
+    order = []
+    for s_ in sort or [{"field": "priority", "dir": "desc"}]:
+        field = s_.get("field", "priority")
+        desc = s_.get("dir", "desc") == "desc"
+        if field == "stage_age":
+            assert cur1 is not None  # noqa: S101
+            order.append(
+                cur1.c.entered_at.asc().nulls_last() if desc else cur1.c.entered_at.desc().nulls_last()
+            )
+            continue
+        if field == "weight":
+            expr: Any = w
+        elif field in SORTS:
+            expr = SORTS[field]
+        else:
+            raise FilterError(
+                "/sort", f"cannot sort by {field!r}; allowed: {', '.join([*SORTS, 'weight', 'stage_age'])}"
+            )
+        order.append(expr.desc().nulls_last() if desc else expr.asc().nulls_last())
+    order.append(m.WorkItem.key)
+    size = min(int((page or {}).get("size", 50)), MAX_PAGE)
+    offset = int((page or {}).get("cursor") or 0)
+    # one scan: the window count rides along with the page instead of a second pass over the filtered set
+    id_rows = (
+        await qc.session.execute(
+            id_stmt.add_columns(func.count().over().label("total"))
+            .order_by(*order)
+            .limit(size + 1)
+            .offset(offset)
+        )
+    ).all()
+    total = id_rows[0].total if id_rows else 0
+    if not id_rows and offset:
+        total = await qc.session.scalar(select(func.count()).select_from(id_stmt.subquery())) or 0
+    page_ids = [r[0] for r in id_rows]
+    more = len(page_ids) > size
+    page_ids = page_ids[:size]
+    # Phase 2: the card fields, for at most `size` items.
+    cur = current_stage(page_ids)
+    assignee = (
+        select(m.WorkspaceMember.handle)
+        .where(
+            m.WorkspaceMember.person_id == m.WorkItem.assignee_id, m.WorkspaceMember.workspace_id == qc.ws_id
+        )
+        .correlate(m.WorkItem)
+        .scalar_subquery()
+    )
+    team = select(m.Team.slug).where(m.Team.id == m.WorkItem.team_id).correlate(m.WorkItem).scalar_subquery()
+    wtype = (
+        select(m.WorkItemType.key)
+        .where(m.WorkItemType.id == m.WorkItem.type_id)
+        .correlate(m.WorkItem)
+        .scalar_subquery()
+    )
+    cols = [
+        m.WorkItem, m.Project.key.label("project_key"), m.WorkflowState.key.label("state"),
+        m.WorkflowState.category.label("state_category"), assignee.label("assignee"), team.label("team"),
+        wtype.label("type"), cur.c.stage, cur.c.entered_at, cur.c.expected_days, cur.c.process,
+        w.label("weight_v"), _hours().label("hours_logged"), _top_risk().label("top_risk"),
+        _open_violations().label("open_violations"), _last_touched().label("last_touched"),
+    ]  # fmt: skip
+    detail = (
+        select(*cols)
+        .select_from(m.WorkItem)
+        .join(m.Project, m.Project.id == m.WorkItem.project_id)
+        .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
+        .outerjoin(cur, cur.c.item_id == m.WorkItem.id)
+        .where(m.WorkItem.id.in_(page_ids))
+    )
+    by_id = {r[0].id: r for r in (await qc.session.execute(detail)).all()} if page_ids else {}
+    rows = [by_id[i] for i in page_ids if i in by_id]
+    ids = [r[0].id for r in rows]
+    tags: dict[str, list[str]] = defaultdict(list)
+    prod: dict[str, str] = {}
+    gdims: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+    if ids:
+        for tid, name in (
+            await qc.session.execute(
+                select(m.TagLink.target_id, m.Tag.name)
+                .join(m.Tag, m.Tag.id == m.TagLink.tag_id)
+                .where(
+                    m.TagLink.target_type == TargetType.WORK_ITEM,
+                    m.TagLink.target_id.in_(ids),
+                    m.TagLink.deleted_at.is_(None),
+                )
+            )
+        ).all():
+            tags[tid].append(name)
+        want = {"product", *(group_by or [])}
+        for tid, dkey, vkey in (
+            await qc.session.execute(
+                select(m.Classification.target_id, m.Dimension.key, m.DimensionValue.key)
+                .join(m.Dimension, m.Dimension.id == m.Classification.dimension_id)
+                .join(m.DimensionValue, m.DimensionValue.id == m.Classification.value_id)
+                .where(
+                    m.Classification.target_type == TargetType.WORK_ITEM,
+                    m.Classification.target_id.in_(ids),
+                    m.Classification.deleted_at.is_(None),
+                    m.Classification.is_confirmed.is_(True),
+                    m.Dimension.key.in_(want),
+                )
+            )
+        ).all():
+            if dkey == "product":
+                prod[tid] = vkey
+            gdims[tid][dkey].append(vkey)
+    items = []
+    for r in rows:
+        it = r[0]
+        age = (qc.now - r.entered_at).days if r.entered_at else None
+        items.append(
+            {
+                "key": it.key, "id": it.id, "title": it.title, "project": r.project_key, "product": prod.get(it.id),
+                "type": r.type.value if r.type else None, "assignee": r.assignee, "team": r.team, "stage": r.stage,
+                "process": r.process, "stage_age_days": age, "expected_duration_days": r.expected_days,
+                "state": r.state, "state_category": r.state_category.value, "priority": it.priority.value,
+                "weight": float(r.weight_v or 0), "impact": it.impact,
+                "estimate": {"value": float(it.estimate_value), "unit": it.estimate_unit.value} if it.estimate_value is not None else None,
+                "remaining": float(it.remaining_value) if it.remaining_value is not None else None,
+                "hours_logged": round(float(r.hours_logged or 0), 2), "planned_start": it.planned_start,
+                "planned_end": it.planned_end, "due_date": it.due_date, "actual_end": it.actual_end,
+                "tags": sorted(tags.get(it.id, [])), "top_risk_score": r.top_risk, "open_violations": r.open_violations or 0,
+                "last_touched": r.last_touched, "parent_id": it.parent_id,
+                "dims": {g: sorted(gdims[it.id].get(g, [])) for g in (group_by or [])},
+            }
+        )  # fmt: skip
+    out: dict[str, Any] = {
+        "items": items,
+        "page": {"next_cursor": str(offset + size) if more else None, "size": size, "total": total or 0},
+    }
+    if group_by:
+        agg = await aggregate(qc, filter=filter, rows=group_by[0], measure="count")
+        out["groups"] = [{"value": r["value"], "count": r["count"]} for r in agg["rows"]]
+    return out
+
+
+# ---------------------------------------------------------------- aggregate
+def dim_values(qc: QueryCtx, dim: str) -> Any:
+    """Subquery (item_id, val) for any dimension: built-ins read their columns, the rest read classifications."""
+    k = dim.lower()
+    wi = m.WorkItem
+    if k == "stage":
+        cur = current_stage()
+        return select(cur.c.item_id.label("item_id"), cur.c.stage.label("val")).subquery()
+    if k == "state":
+        return (
+            select(wi.id.label("item_id"), m.WorkflowState.category.label("val"))
+            .join(m.WorkflowState, m.WorkflowState.id == wi.state_id)
+            .subquery()
+        )
+    if k == "project":
+        return (
+            select(wi.id.label("item_id"), m.Project.key.label("val"))
+            .join(m.Project, m.Project.id == wi.project_id)
+            .subquery()
+        )
+    if k == "type":
+        return (
+            select(wi.id.label("item_id"), m.WorkItemType.key.label("val"))
+            .join(m.WorkItemType, m.WorkItemType.id == wi.type_id)
+            .subquery()
+        )
+    if k == "priority":
+        return select(wi.id.label("item_id"), wi.priority.label("val")).subquery()
+    if k == "assignee":
+        return (
+            select(wi.id.label("item_id"), m.WorkspaceMember.handle.label("val"))
+            .join(
+                m.WorkspaceMember,
+                (m.WorkspaceMember.person_id == wi.assignee_id)
+                & (m.WorkspaceMember.workspace_id == qc.ws_id),
+            )
+            .subquery()
+        )
+    if k == "team":
+        return (
+            select(wi.id.label("item_id"), m.Team.slug.label("val"))
+            .join(m.Team, m.Team.id == wi.team_id)
+            .subquery()
+        )
+    if k == "tags":
+        return (
+            select(m.TagLink.target_id.label("item_id"), m.Tag.name.label("val"))
+            .join(m.Tag, m.Tag.id == m.TagLink.tag_id)
+            .where(m.TagLink.target_type == TargetType.WORK_ITEM, m.TagLink.deleted_at.is_(None))
+            .subquery()
+        )
+    return (
+        select(m.Classification.target_id.label("item_id"), m.DimensionValue.key.label("val"))
+        .join(m.Dimension, m.Dimension.id == m.Classification.dimension_id)
+        .join(m.DimensionValue, m.DimensionValue.id == m.Classification.value_id)
+        .where(
+            m.Classification.target_type == TargetType.WORK_ITEM,
+            m.Classification.deleted_at.is_(None),
+            m.Classification.is_confirmed.is_(True),
+            func.lower(m.Dimension.key) == k,
+            m.Dimension.workspace_id == qc.ws_id,
+        )
+        .subquery()
+    )
+
+
+async def _check_dim(qc: QueryCtx, dim: str, ptr: str) -> None:
+    if dim.lower() not in {"stage", "state", "project", "type", "priority", "assignee", "team", "tags"}:
+        await qc.dimension(dim, ptr)
+
+
+def measure_expr(measure: str, qc: QueryCtx) -> Any:
+    w = weight_expr(qc.scheme_id)
+    if measure == "count":
+        return func.count(sa.distinct(m.WorkItem.id))
+    if measure == "hours":
+        return func.coalesce(func.sum(_hours()), 0)
+    if measure == "sum_weight":
+        return func.coalesce(func.sum(w), 0)
+    if measure == "weighted_throughput":
+        return func.coalesce(
+            func.sum(sa.case((m.WorkflowState.category == StateCategory.DONE, w), else_=0)), 0
+        )
+    if measure == "open_violations":
+        return func.coalesce(func.sum(_open_violations()), 0)
+    if measure == "remaining_estimate":
+        return func.coalesce(func.sum(m.WorkItem.remaining_value), 0)
+    if measure == "avg_stage_age":
+        cur = current_stage()
+        age = (
+            select(func.extract("epoch", qc.now - cur.c.entered_at) / 86400.0)
+            .where(cur.c.item_id == m.WorkItem.id)
+            .correlate(m.WorkItem)
+            .scalar_subquery()
+        )
+        return func.avg(age)
+    raise FilterError("/measure", f"unknown measure {measure!r}; allowed: {', '.join(MEASURES)}")
+
+
+async def aggregate(
+    qc: QueryCtx,
+    *,
+    filter: Any = None,
+    rows: str,
+    cols: str | None = None,
+    measure: str = "count",  # noqa: A002
+) -> dict[str, Any]:
+    await _check_dim(qc, rows, "/rows")
+    if cols:
+        await _check_dim(qc, cols, "/cols")
+    mexpr = measure_expr(measure, qc)
+    ids = (await filtered_items(qc, filter, m.WorkItem.id)).subquery("f")
+    r = dim_values(qc, rows)
+    base = (
+        select()
+        .select_from(ids)
+        .join(m.WorkItem, m.WorkItem.id == ids.c.id)
+        .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
+        .outerjoin(r, r.c.item_id == m.WorkItem.id)
+    )
+    rv = func.coalesce(sa.cast(r.c.val, sa.Text), "—")
+    c = dim_values(qc, cols) if cols else None
+    if c is not None:
+        base = base.outerjoin(c, c.c.item_id == m.WorkItem.id)
+    cv = func.coalesce(sa.cast(c.c.val, sa.Text), "—") if c is not None else None
+    sel = [rv.label("r"), *([cv.label("c")] if cv is not None else []), mexpr.label("v")]
+    grp = [rv, *([cv] if cv is not None else [])]
+    data = (await qc.session.execute(base.add_columns(*sel).group_by(*grp))).all()
+    row_keys = sorted({d.r for d in data})
+    col_keys = sorted({d.c for d in data}) if cv is not None else []
+    cell = {(d.r, getattr(d, "c", None)): float(d.v or 0) for d in data}
+    row_tot = {
+        d.r: float(d.v or 0)
+        for d in (
+            await qc.session.execute(base.add_columns(rv.label("r"), mexpr.label("v")).group_by(rv))
+        ).all()
+    }
+    col_tot: dict[str, float] = {}
+    if cv is not None:
+        col_tot = {
+            d.c: float(d.v or 0)
+            for d in (
+                await qc.session.execute(base.add_columns(cv.label("c"), mexpr.label("v")).group_by(cv))
+            ).all()
+        }
+    total = float(
+        await qc.session.scalar(
+            select(mexpr)
+            .select_from(ids)
+            .join(m.WorkItem, m.WorkItem.id == ids.c.id)
+            .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
+        )
+        or 0
+    )
+    return {
+        "measure": measure,
+        "rows": [{"value": k, "count": row_tot.get(k, 0), "total": row_tot.get(k, 0)} for k in row_keys],
+        "cols": col_keys,
+        "cells": [[cell.get((rk, ck), 0.0) for ck in col_keys] for rk in row_keys] if cv is not None else [[cell.get((rk, None), 0.0)] for rk in row_keys],
+        "totals": {"rows": row_tot, "cols": col_tot, "all": total},
+    }  # fmt: skip

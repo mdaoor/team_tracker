@@ -343,7 +343,9 @@ class ProjectIn(BaseModel):
     owner_id: str | None = None
     description: str | None = None
     team_id: str | None = None
-    process: str | None = Field(default=None, description="process key; default: the workspace's default process")
+    process: str | None = Field(
+        default=None, description="process key; default: the workspace's default process"
+    )
     settings: dict[str, Any] = Field(default_factory=dict)
 
 

@@ -29,7 +29,7 @@ fmt:
 	pnpm --filter @tt/web format
 
 typecheck:
-	$(PY) mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server apps/llm_gateway/tt_llm
+	$(PY) mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server apps/llm_gateway/tt_llm packages/filter_grammar/src
 	pnpm --filter @tt/web typecheck
 
 openapi:        ## docs/api/openapi.json + generated web client types
