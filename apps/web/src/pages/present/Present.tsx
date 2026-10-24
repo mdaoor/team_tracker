@@ -81,6 +81,37 @@ function PresentList() {
     },
     onError: (e) => toasts.error(e),
   });
+  const [brief, setBrief] = useState("");
+  const [importText, setImportText] = useState("");
+  const done = (p: Row) => {
+    void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
+    nav(p.id);
+  };
+  const author = useMutation({
+    mutationFn: () => api.post<Row>(w(ws, "/presentations:author"), { brief }),
+    onSuccess: done,
+    onError: (e) => toasts.error(e),
+  });
+  const importDeck = useMutation({
+    mutationFn: () => {
+      const deck: unknown = JSON.parse(importText);
+      return api.post<Row>(w(ws, "/presentations:import"), { deck, lenient: true });
+    },
+    onSuccess: done,
+    onError: (e) => toasts.error(e),
+  });
+  const downloadPack = async () => {
+    try {
+      const blob = await api.postBlob(w(ws, "/presentations:generation-pack"), { brief });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "tt-generation-pack.zip";
+      a.click();
+    } catch (e) {
+      toasts.error(e);
+    }
+  };
   return (
     <div className="present">
       <div className="row">
@@ -88,6 +119,40 @@ function PresentList() {
         <span className="grow" />
         <Link to="templates">Templates</Link>
       </div>
+      <section aria-label="Generate with AI">
+        <h2>Generate with AI</h2>
+        <textarea
+          aria-label="Brief"
+          rows={3}
+          value={brief}
+          placeholder="e.g. A quarterly review of the ERP rollout for the steering committee"
+          onChange={(e) => setBrief(e.target.value)}
+        />
+        <div className="row">
+          <Button
+            disabled={brief.trim().length < 3 || author.isPending}
+            onClick={() => author.mutate()}
+          >
+            Generate with AI
+          </Button>
+          <Button onClick={() => void downloadPack()}>Download pack for an external LLM</Button>
+        </div>
+        <details>
+          <summary>Import a deck an external LLM wrote</summary>
+          <textarea
+            aria-label="Deck JSON"
+            rows={6}
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+          />
+          <Button
+            disabled={!importText.trim() || importDeck.isPending}
+            onClick={() => importDeck.mutate()}
+          >
+            Import deck
+          </Button>
+        </details>
+      </section>
       <section aria-label="Start from template">
         <h2>Start from template</h2>
         <div className="row">

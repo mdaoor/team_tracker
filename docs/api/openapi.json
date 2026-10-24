@@ -101,21 +101,6 @@
         "title": "ApprovalStatus",
         "type": "string"
       },
-      "AuthorIn": {
-        "properties": {
-          "request": {
-            "maxLength": 2000,
-            "minLength": 3,
-            "title": "Request",
-            "type": "string"
-          }
-        },
-        "required": [
-          "request"
-        ],
-        "title": "AuthorIn",
-        "type": "object"
-      },
       "BodyIn": {
         "properties": {
           "body": {
@@ -950,6 +935,53 @@
         "title": "HabitStatus",
         "type": "string"
       },
+      "ImportIn": {
+        "properties": {
+          "deck": {
+            "additionalProperties": true,
+            "title": "Deck",
+            "type": "object"
+          },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "lenient": {
+            "default": false,
+            "title": "Lenient",
+            "type": "boolean"
+          },
+          "range_days": {
+            "default": 14,
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Range Days",
+            "type": "integer"
+          },
+          "scope": {
+            "default": "workspace",
+            "title": "Scope",
+            "type": "string"
+          },
+          "weight_scheme_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Scheme Id"
+          }
+        },
+        "required": [
+          "deck"
+        ],
+        "title": "ImportIn",
+        "type": "object"
+      },
       "InsightGen": {
         "properties": {
           "scope": {
@@ -1635,6 +1667,58 @@
           "handle"
         ],
         "title": "OwnerIn",
+        "type": "object"
+      },
+      "PackIn": {
+        "properties": {
+          "brief": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Brief",
+            "type": "string"
+          },
+          "format": {
+            "default": "zip",
+            "pattern": "^(zip|json)$",
+            "title": "Format",
+            "type": "string"
+          },
+          "range_days": {
+            "default": 14,
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Range Days",
+            "type": "integer"
+          },
+          "redaction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redaction"
+          },
+          "scope": {
+            "default": "workspace",
+            "title": "Scope",
+            "type": "string"
+          },
+          "weight_scheme_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Scheme Id"
+          }
+        },
+        "title": "PackIn",
         "type": "object"
       },
       "PhaseIn": {
@@ -4157,6 +4241,21 @@
         "title": "MilestoneIn",
         "type": "object"
       },
+      "tt_server__api__routers__governance_ui__AuthorIn": {
+        "properties": {
+          "request": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Request",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "AuthorIn",
+        "type": "object"
+      },
       "tt_server__api__routers__jira__LinkIn": {
         "properties": {
           "by_summary": {
@@ -4219,6 +4318,44 @@
           }
         },
         "title": "ShareIn",
+        "type": "object"
+      },
+      "tt_server__api__routers__presentations__AuthorIn": {
+        "properties": {
+          "brief": {
+            "maxLength": 4000,
+            "minLength": 3,
+            "title": "Brief",
+            "type": "string"
+          },
+          "range_days": {
+            "default": 14,
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Range Days",
+            "type": "integer"
+          },
+          "scope": {
+            "default": "workspace",
+            "title": "Scope",
+            "type": "string"
+          },
+          "weight_scheme_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Scheme Id"
+          }
+        },
+        "required": [
+          "brief"
+        ],
+        "title": "AuthorIn",
         "type": "object"
       },
       "tt_server__api__routers__presentations__ShareIn": {
@@ -13452,7 +13589,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AuthorIn"
+                "$ref": "#/components/schemas/tt_server__api__routers__governance_ui__AuthorIn"
               }
             }
           },
@@ -16236,6 +16373,89 @@
         ]
       }
     },
+    "/api/v1/w/{ws}/presentations:author": {
+      "post": {
+        "description": "\"Generate with AI\": the gateway drafts a deck from a brief and the viewer's own snapshot digest; the draft goes through the same\nvalidation as an import (lenient), then lands as an ordinary deck the user can edit.",
+        "operationId": "author_api_v1_w__ws__presentations_author_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/tt_server__api__routers__presentations__AuthorIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Author",
+        "tags": [
+          "presentation"
+        ]
+      }
+    },
     "/api/v1/w/{ws}/presentations:from-template": {
       "post": {
         "description": "Copy a template into a new deck. The deck keeps `template_id`/`template_version` as provenance only (copy semantics).",
@@ -16318,6 +16538,172 @@
           }
         },
         "summary": "From Template",
+        "tags": [
+          "presentation"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/presentations:generation-pack": {
+      "post": {
+        "description": "Everything an outside LLM needs to draft a deck, as a zip (or the same files as JSON). Off unless the workspace allows it.",
+        "operationId": "generation_pack_api_v1_w__ws__presentations_generation_pack_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generation Pack",
+        "tags": [
+          "presentation"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/presentations:import": {
+      "post": {
+        "description": "Turn a deck an external model drafted into a presentation. Strict by default: every problem comes back with a JSON pointer.",
+        "operationId": "import_deck_api_v1_w__ws__presentations_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Deck",
         "tags": [
           "presentation"
         ]
