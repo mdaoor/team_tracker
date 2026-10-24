@@ -1,8 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, w, type Row } from "../../api/http";
+import { AddToPresentation } from "../../components/AddToPresentation";
 import { Button } from "../../components/ui";
 import { useList, useWs } from "../../lib/hooks";
+import { slideFromView } from "../../lib/slides";
 import {
   LAYOUTS,
   sortParam,
@@ -194,6 +196,7 @@ export function ViewsPage() {
           </>
         )}
         <Button onClick={() => void exportCsv()}>Export CSV</Button>
+        <AddToPresentation build={() => slideFromView(st)} />
       </div>
       <FilterBar
         chips={st.chips}

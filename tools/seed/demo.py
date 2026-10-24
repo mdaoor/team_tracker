@@ -410,4 +410,74 @@ async def persist_demo(
         if build is not None:
             build.wip_limit = 4
         await uow.commit(allow_unlogged=True)
+    await seed_governance(session_factory, ids)
     return created
+
+
+# (template, key, overrides): the generator's five rules as active policies; evaluated at AS_OF they reproduce its 36 violations.
+SEED_POLICIES: list[tuple[str, str, dict[str, object]]] = [
+    ("stuck_in_stage", "stuck_in_stage", {}),
+    (
+        "no_estimate_weighted",
+        "no_estimate_weighted",
+        {"trigger": "scheduled", "schedule": "0 6 * * *", "event_types": None},
+    ),
+    ("evidence_gap", "evidence_gap", {}),
+    ("overrun", "overrun", {"trigger": "scheduled", "schedule": "30 6 * * *", "event_types": None}),
+    (
+        "wip_breach",
+        "wip_breach",
+        {"trigger": "scheduled", "schedule": "0 * * * *", "event_types": None, "scope": "GOV"},
+    ),
+]
+
+
+async def seed_governance(session_factory: async_sessionmaker[AsyncSession], ids: dict[str, Any]) -> None:
+    """Activate the oracle policies and run the engine once at `AS_OF`: violations, habits and metric snapshots appear in the demo."""
+    from tt_schema.enums import PolicyCategory, PolicyTrigger, ScopeType, Severity, TargetType
+    from tt_server.governance import runner, service
+
+    async with UnitOfWork(session_factory) as uow:
+        s = uow.session
+        await service.ensure_builtins(s)
+        for tkey, key, over in SEED_POLICIES:
+            row = await service.find_template(s, ids["ws_id"], tkey)
+            t = service.template_from_row(row)
+            comp = await service.compile_condition(
+                s, ids["ws_id"], {"template": tkey, "params": {}}, raw_allowed=True
+            )
+            comp.pop("_template", None)
+            scope = None
+            if over.get("scope"):
+                scope = await s.scalar(
+                    select(m.Project.id).where(
+                        m.Project.workspace_id == ids["ws_id"], m.Project.key == over["scope"]
+                    )
+                )
+            s.add(
+                m.Policy(
+                    id=new_id(),
+                    workspace_id=ids["ws_id"],
+                    key=key,
+                    name=t.name,
+                    description=t.description,
+                    owner_id=ids["boss"],
+                    scope_type=ScopeType.PROJECT if scope else ScopeType.WORKSPACE,
+                    scope_id=scope,
+                    is_active=True,
+                    **{
+                        **comp,
+                        "target": TargetType(comp["target"]),
+                        "trigger": PolicyTrigger(over.get("trigger", comp["trigger"])),
+                        "severity": Severity(comp["severity"]),
+                        "category": PolicyCategory(comp["category"]),
+                        "schedule": over.get("schedule", comp["schedule"]),
+                        "event_types": over.get("event_types", comp["event_types"]),
+                    },
+                    notify={},
+                    context_schema_version=1,
+                )  # fmt: skip
+            )
+        await uow.commit(allow_unlogged=True)
+    await runner.run_workspace(session_factory, ids["ws_id"], now=AS_OF)
+    await runner.nightly(session_factory, ids["ws_id"], now=AS_OF)

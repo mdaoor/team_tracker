@@ -57,3 +57,26 @@ async def suggest_for_event(event_id: str) -> str:
     finally:
         await client.aclose()
         await engine.dispose()
+
+
+@app.periodic(cron="45 3 * * *")
+@app.task(name="insights.nightly", queueing_lock="insights.nightly")
+async def nightly_insights(timestamp: int) -> dict[str, int]:
+    """Grounded project summaries through the gateway (Phase 7 §7.3); no gateway configured = no-op."""
+    from tt_server.domain import insights
+
+    client = gateway_from_settings(get_settings())
+    if client is None:
+        return {"written": 0}
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    written = 0
+    try:
+        async with factory() as s:
+            ids = (await s.scalars(select(m.Workspace.id).where(m.Workspace.deleted_at.is_(None)))).all()
+        for ws_id in ids:
+            written += await insights.nightly(factory, client, ws_id)
+    finally:
+        await client.aclose()
+        await engine.dispose()
+    return {"written": written}

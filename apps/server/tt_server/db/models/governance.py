@@ -200,6 +200,15 @@ class Violation(WorkspaceScopedMixin, RowBase):
     waive_reason: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
     __table_args__ = (
         sa.Index("ix_violations_workspace_status_severity", "workspace_id", "status", "severity"),
+        # one open violation per (policy, target): the engine's de-duplication is also a database rule
+        sa.Index(
+            "uq_violations_open_target",
+            "policy_id",
+            "target_type",
+            "target_id",
+            unique=True,
+            postgresql_where=sa.text("status IN ('open', 'acknowledged') AND deleted_at IS NULL"),
+        ),
     )
 
 
@@ -304,6 +313,11 @@ class Habit(WorkspaceScopedMixin, RowBase):
         ),
         nullable=False,
         default=PolicyCategory.PROCESS,
+    )
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "workspace_id", "subject_type", "subject_id", "key", "window", name="uq_habits_subject_key_window"
+        ),
     )
 
 

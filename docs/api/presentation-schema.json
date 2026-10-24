@@ -1,0 +1,302 @@
+{
+  "$defs": {
+    "SlideIn": {
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "layout": {
+          "default": "full",
+          "enum": [
+            "full",
+            "split",
+            "grid"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "live": {
+          "default": false,
+          "title": "Live",
+          "type": "boolean"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitle"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SlideIn",
+      "type": "object"
+    }
+  },
+  "description": "Shape of `presentation` inside `GET /presentations/{id}/data`.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "is_shared": {
+      "title": "Is Shared",
+      "type": "boolean"
+    },
+    "range_days": {
+      "title": "Range Days",
+      "type": "integer"
+    },
+    "scope": {
+      "title": "Scope",
+      "type": "string"
+    },
+    "slides": {
+      "items": {
+        "$ref": "#/$defs/SlideIn"
+      },
+      "title": "Slides",
+      "type": "array"
+    },
+    "theme": {
+      "title": "Theme",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "weight_scheme_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Weight Scheme Id"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "scope",
+    "range_days",
+    "weight_scheme_id",
+    "theme",
+    "slides",
+    "is_shared"
+  ],
+  "title": "_Presentation",
+  "type": "object",
+  "x-slide-kinds": {
+    "chart": {
+      "default_config": {
+        "cols": null,
+        "filter": {},
+        "measure": "count"
+      },
+      "required_config": [
+        "rows"
+      ]
+    },
+    "explorer": {
+      "default_config": {
+        "dimA": "team",
+        "dimB": "stage",
+        "measure": "count"
+      },
+      "required_config": []
+    },
+    "gantt": {
+      "default_config": {
+        "baseline": null,
+        "rows": "epic"
+      },
+      "required_config": []
+    },
+    "habits": {
+      "default_config": {},
+      "required_config": []
+    },
+    "image": {
+      "default_config": {
+        "attachment_id": null,
+        "url": null
+      },
+      "required_config": []
+    },
+    "insight": {
+      "default_config": {
+        "scope": null
+      },
+      "required_config": []
+    },
+    "kpis": {
+      "default_config": {},
+      "required_config": []
+    },
+    "markdown": {
+      "default_config": {},
+      "required_config": [
+        "text"
+      ]
+    },
+    "now": {
+      "default_config": {},
+      "required_config": []
+    },
+    "people": {
+      "default_config": {},
+      "required_config": []
+    },
+    "pipeline": {
+      "default_config": {
+        "process": null
+      },
+      "required_config": []
+    },
+    "project_detail": {
+      "default_config": {},
+      "required_config": [
+        "project_key"
+      ]
+    },
+    "projects": {
+      "default_config": {},
+      "required_config": []
+    },
+    "radar": {
+      "default_config": {
+        "days": 14
+      },
+      "required_config": []
+    },
+    "section_divider": {
+      "default_config": {},
+      "required_config": []
+    },
+    "table": {
+      "default_config": {
+        "filter": {},
+        "limit": 50,
+        "sort": [
+          {
+            "dir": "desc",
+            "field": "priority"
+          }
+        ]
+      },
+      "required_config": []
+    },
+    "title": {
+      "default_config": {},
+      "required_config": []
+    },
+    "view": {
+      "default_config": {
+        "layout": null
+      },
+      "required_config": [
+        "saved_view_id"
+      ]
+    },
+    "violations": {
+      "default_config": {
+        "with_habits": false
+      },
+      "required_config": []
+    }
+  },
+  "x-templates": {
+    "exec_summary": [
+      "title",
+      "kpis",
+      "insight",
+      "gantt"
+    ],
+    "portfolio_review": [
+      "kpis",
+      "projects",
+      "pipeline",
+      "explorer",
+      "radar",
+      "gantt",
+      "now",
+      "people",
+      "violations"
+    ],
+    "risk_review": [
+      "title",
+      "projects",
+      "explorer",
+      "violations",
+      "radar"
+    ],
+    "sprint_review": [
+      "title",
+      "kpis",
+      "pipeline",
+      "explorer",
+      "radar",
+      "insight"
+    ],
+    "team_1on1": [
+      "title",
+      "people",
+      "habits",
+      "radar",
+      "now"
+    ]
+  }
+}

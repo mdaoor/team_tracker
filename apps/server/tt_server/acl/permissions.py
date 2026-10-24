@@ -29,6 +29,7 @@ _MANAGER = frozenset(
         "view.share",
         "context_note.write",
         "policy.read",
+        "policy.write",
         "objective.write",
         "translator_rule.write",
         "project.create",

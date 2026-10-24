@@ -1,0 +1,14 @@
+key: overwork
+name: "Too much time logged in a day"
+description: "A person logged more than the allowed minutes today. Wellbeing-sensitive: visible to the person and their line manager only."
+category: wellbeing
+severity: warning
+target: person
+trigger: scheduled
+schedule: "0 20 * * *"
+params:
+  - {name: minutes, type: int, default: 600, min: 60, max: 1440, help: "Minutes per day"}
+cel: >-
+  metrics.minutes_logged(person.id, "today") > {minutes}
+detail: "{metrics.minutes_logged(person.id, \"today\")} min logged today (limit {minutes})"
+example: "640 min logged today (limit 600)"

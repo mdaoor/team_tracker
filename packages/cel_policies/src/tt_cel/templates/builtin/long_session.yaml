@@ -1,0 +1,14 @@
+key: long_session
+name: "Very long work session"
+description: "An activity has been running longer than N hours without a pause. Wellbeing-sensitive."
+category: wellbeing
+severity: info
+target: activity
+trigger: scheduled
+schedule: "0 * * * *"
+params:
+  - {name: hours, type: int, default: 4, min: 1, max: 24, help: "Hours"}
+cel: >-
+  activity.status == "active" && now - activity.started_at > duration(string({hours}) + "h")
+detail: "running for more than {hours} h"
+example: "running for more than 4 h"

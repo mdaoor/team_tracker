@@ -1,0 +1,13 @@
+key: missing_required_dimension
+name: "Required dimension missing"
+description: "A dimension that is required for the item's stage has no confirmed value."
+category: compliance
+severity: warning
+target: work_item
+trigger: on_event
+event_types: [item.stage_changed, item.created, classification.confirmed]
+params: []
+cel: >-
+  item.missing_required_dimensions().size() > 0
+detail: "missing {item.missing_required_dimensions()}"
+example: "missing [product]"

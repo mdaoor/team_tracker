@@ -10,7 +10,7 @@ test("layout tabs switch and filter chips round-trip through the URL", async ({ 
   await page.getByRole("button", { name: "+ Filter" }).click();
   await page.getByLabel("Filter on").selectOption("state");
   await page.getByLabel("Value").selectOption("open");
-  await page.getByRole("button", { name: "Add" }).click();
+  await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByRole("group", { name: "Filters" })).toContainText("state open");
   await page.reload();
   await expect(page.getByRole("group", { name: "Filters" })).toContainText("state open");

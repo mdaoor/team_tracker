@@ -28,7 +28,7 @@ async def test_seed_matches_snapshot_counts(seed_sf: async_sessionmaker[AsyncSes
         assert await count(models.WorkItem, models.WorkItem.type_id != epic_type) == 42
         assert await count(models.WorkItem, models.WorkItem.type_id == epic_type) == 7
         assert await count(models.Project, models.Project.kind != "inbox") == 4
-        assert await count(models.Person) == 8 + 0  # the system bot is created lazily by jobs
+        assert await count(models.Person) == 8 + 1  # + the system bot, created when the governance seed first acts
         assert await count(models.Milestone) == 4
         assert await count(models.Risk) == 4
         assert await count(models.RiskLink) == 6

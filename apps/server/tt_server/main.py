@@ -22,9 +22,11 @@ from tt_server.api.routers import (
     client,
     console,
     core,
+    governance,
     identity,
     llm,
     overlay,
+    presentations,
     query,
     webauth,
 )
@@ -70,6 +72,10 @@ def create_app(
         identity.router,
         console.router,
         query.router,
+        governance.router,
+        presentations.router,
+        presentations.public,
+        presentations.shell,
         llm.router,  # before core: `/items/search` must win over `/items/{id_or_key}`
         capture.router,
         core.router,

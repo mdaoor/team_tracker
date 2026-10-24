@@ -30,6 +30,7 @@ tt-schema = { workspace = true }
 tt-server = { workspace = true }
 tt-client = { workspace = true }
 tt-filter = { workspace = true }
+tt-cel = { workspace = true }
 tt-llm-gateway = { workspace = true }
 
 [tool.ruff]
@@ -63,6 +64,10 @@ plugins = ["pydantic.mypy"]
 module = ["tt_schema.testing.*", "factory.*", "ldap3.*", "jsonschema.*", "litellm.*"]
 ignore_errors = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tt_server.exports.pptx_builder"]
+disallow_untyped_calls = false  # python-pptx ships partial typing
 
 [tool.coverage.run]
 concurrency = ["greenlet", "thread"]

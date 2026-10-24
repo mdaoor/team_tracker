@@ -69,3 +69,22 @@ async def sync_directory(timestamp: int) -> int:
     finally:
         await engine.dispose()
     return changed
+
+
+@app.periodic(cron="*/15 * * * *")
+@app.task(name="snapshot.refresh", queueing_lock="snapshot.refresh")
+async def refresh_snapshots(timestamp: int) -> int:
+    """Every 15 min: keep cached snapshots of saved presentations and recently opened scopes fresh (Phase 7 §7.9)."""
+    from tt_server.domain import deckdata
+
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    n = 0
+    try:
+        async with factory() as s:
+            ids = (await s.scalars(select(m.Workspace.id).where(m.Workspace.deleted_at.is_(None)))).all()
+        for ws_id in ids:
+            n += await deckdata.refresh_cache(factory, ws_id)
+    finally:
+        await engine.dispose()
+    return n

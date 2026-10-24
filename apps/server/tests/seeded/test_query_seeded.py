@@ -103,11 +103,16 @@ async def test_the_object_model_example_runs_unchanged_where_its_names_exist(sap
     assert r.status_code == 400 and r.json()["error"]["pointer"] == "/dims/made_up_dim"
 
 
-async def test_violations_are_empty_until_the_governance_engine_exists(sapi: Api) -> None:
-    assert (
-        await keys(sapi, {"violations": {"open": True}}) == set()
-    )  # flips in Phase 8 (the seed's violations)
-    assert len(await keys(sapi, {"violations": {"open": False}})) == len(SNAP["items"])
+async def test_the_violations_filter_matches_the_items_the_engine_flagged(sapi: Api) -> None:
+    flagged = {
+        v["target"] for v in SNAP["violations"] if "/" not in v["target"]
+    }  # the WIP breach is on a stage, not an item
+    assert await keys(sapi, {"violations": {"open": True}}) == flagged
+    assert await keys(sapi, {"violations": {"open": False}}) == {i["key"] for i in SNAP["items"]} - flagged
+    by_cat = {
+        v["target"] for v in SNAP["violations"] if v["category"] == "quality" and "/" not in v["target"]
+    }
+    assert await keys(sapi, {"violations": {"category": ["quality"]}}) == by_cat
 
 
 async def test_relative_dates_follow_the_requested_zone(sapi: Api) -> None:

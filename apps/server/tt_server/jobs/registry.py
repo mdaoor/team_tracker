@@ -6,11 +6,18 @@ from collections.abc import Callable
 
 from tt_server.settings import Settings, get_settings
 
-JOBS: dict[str, list[str]] = {"review.created": ["llm.suggest_for_event"]}
+JOBS: dict[str, list[str]] = {
+    "review.created": ["llm.suggest_for_event"],
+    **{
+        prefix: ["governance.on_event"]
+        for prefix in ("item.", "activity.", "stage.", "classification.", "dailylog.", "evidence.", "time.")
+    },
+}
 
 # Tasks that only make sense when a feature is configured; otherwise they are never enqueued.
 ENABLED: dict[str, Callable[[Settings], bool]] = {
     "llm.suggest_for_event": lambda s: bool(s.llm_gateway_url and s.features.llm_suggestions),
+    "governance.on_event": lambda s: s.features.governance,
 }
 
 

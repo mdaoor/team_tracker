@@ -1,0 +1,15 @@
+key: evidence_gap
+name: "No evidence while active"
+description: "An active item has no evidence at all, or (with `days`) none in the last N working days."
+category: quality
+severity: info
+target: work_item
+trigger: scheduled
+schedule: "30 6 * * *"
+params:
+  - {name: days, type: int, default: null, min: 1, max: 90, help: "Working days without evidence; empty = never any evidence"}
+cel: >-
+  item.state.category == "active" && (item.evidence_count() == 0<<?days || item.evidence_last_at() < now - business_days({days})?>>)
+detail: "no evidence while active"
+candidate_filter: {state: {category: [active]}}
+example: "no evidence while active"

@@ -78,7 +78,7 @@ def _last_touched() -> Any:
     )
 
 
-def current_stage(ids: list[str] | None = None) -> Any:
+def current_stage(ids: list[str] | None = None, restrict: Any = None) -> Any:
     """One current placement per item (the newest when an item sits in several processes)."""
     q = (
         select(
@@ -94,6 +94,8 @@ def current_stage(ids: list[str] | None = None) -> Any:
     )
     if ids is not None:
         q = q.where(m.StagePlacement.target_id.in_(ids))
+    if restrict is not None:
+        q = q.where(m.StagePlacement.target_id.in_(restrict))
     return (
         q.distinct(m.StagePlacement.target_id)
         .order_by(m.StagePlacement.target_id, m.StagePlacement.entered_at.desc())
@@ -132,6 +134,7 @@ async def query_items(
     group_by: list[str] | None = None,
     page: dict[str, Any] | None = None,
     extra_where: Any = None,
+    max_page: int = MAX_PAGE,
 ) -> dict[str, Any]:
     w = weight_expr(qc.scheme_id)
     # Phase 1: only ids, in order, with the filter and ACL -- cheap even on 50 k items.
@@ -160,7 +163,7 @@ async def query_items(
             )
         order.append(expr.desc().nulls_last() if desc else expr.asc().nulls_last())
     order.append(m.WorkItem.key)
-    size = min(int((page or {}).get("size", 50)), MAX_PAGE)
+    size = min(int((page or {}).get("size", 50)), max_page)
     offset = int((page or {}).get("cursor") or 0)
     # one scan: the window count rides along with the page instead of a second pass over the filtered set
     id_rows = (
@@ -198,7 +201,8 @@ async def query_items(
         m.WorkItem, m.Project.key.label("project_key"), m.WorkflowState.key.label("state"),
         m.WorkflowState.category.label("state_category"), assignee.label("assignee"), team.label("team"),
         wtype.label("type"), cur.c.stage, cur.c.entered_at, cur.c.expected_days, cur.c.process,
-        w.label("weight_v"), _hours().label("hours_logged"), _top_risk().label("top_risk"),
+        w.label("weight_v"),
+        _hours().label("hours_logged"), _top_risk().label("top_risk"),
         _open_violations().label("open_violations"), _last_touched().label("last_touched"),
     ]  # fmt: skip
     detail = (
@@ -274,6 +278,71 @@ async def query_items(
         agg = await aggregate(qc, filter=filter, rows=group_by[0], measure="count")
         out["groups"] = [{"value": r["value"], "count": r["count"]} for r in agg["rows"]]
     return out
+
+
+SNAP_IDS = sa.table("snap_ids", sa.column("id", sa.Text()))
+
+
+async def bulk_items(qc: QueryCtx, raw_filter: Any) -> tuple[list[dict[str, Any]], Any]:
+    """Every matching item in one pass (the snapshot's read): no paging, no sort, no per-item subqueries.
+
+    The filtered, ACL-checked ids go into a transaction-scoped temp table once; the card query and the caller's grouped enrichment
+    queries all join it, so the filter is evaluated a single time. Returns the rows and a `SELECT id` over that table.
+    """
+    s = qc.session
+    ids_sel = await filtered_items(qc, raw_filter, m.WorkItem.id)
+    await s.execute(sa.text("CREATE TEMP TABLE IF NOT EXISTS snap_ids (id text PRIMARY KEY) ON COMMIT DROP"))
+    await s.execute(sa.text("TRUNCATE snap_ids"))
+    await s.execute(sa.insert(SNAP_IDS).from_select(["id"], ids_sel))
+    await s.execute(sa.text("ANALYZE snap_ids"))
+    cur = current_stage(restrict=select(SNAP_IDS.c.id))
+    stmt = (
+        select(
+            m.WorkItem.id, m.WorkItem.key, m.WorkItem.title, m.WorkItem.priority, m.WorkItem.estimate_value, m.WorkItem.estimate_unit,
+            m.WorkItem.planned_start, m.WorkItem.planned_end, m.WorkItem.actual_end, m.WorkItem.parent_id, m.Project.key.label("project_key"), m.WorkflowState.key.label("state"),
+            m.WorkflowState.category.label("state_category"), m.WorkspaceMember.handle.label("assignee"),
+            m.Team.slug.label("team"), m.WorkItemType.key.label("type"), cur.c.stage, cur.c.entered_at, cur.c.process,
+            weight_expr(qc.scheme_id).label("weight_v"),
+        )
+        .select_from(SNAP_IDS)
+        .join(m.WorkItem, m.WorkItem.id == SNAP_IDS.c.id)
+        .join(m.Project, m.Project.id == m.WorkItem.project_id)
+        .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
+        .outerjoin(cur, cur.c.item_id == m.WorkItem.id)
+        .outerjoin(m.WorkspaceMember, (m.WorkspaceMember.person_id == m.WorkItem.assignee_id) & (m.WorkspaceMember.workspace_id == qc.ws_id))
+        .outerjoin(m.Team, m.Team.id == m.WorkItem.team_id)
+        .outerjoin(m.WorkItemType, m.WorkItemType.id == m.WorkItem.type_id)
+        .order_by(m.WorkItem.key)
+    )  # fmt: skip
+    ids_only = select(SNAP_IDS.c.id)
+    tags: dict[str, list[str]] = defaultdict(list)
+    for tid, name in (
+        await s.execute(
+            select(m.TagLink.target_id, m.Tag.name)
+            .join(m.Tag, m.Tag.id == m.TagLink.tag_id)
+            .where(
+                m.TagLink.target_type == TargetType.WORK_ITEM,
+                m.TagLink.deleted_at.is_(None),
+                m.TagLink.target_id.in_(ids_only),
+            )
+        )
+    ).all():
+        tags[tid].append(name)
+    out = []
+    for r in (await s.execute(stmt)).all():
+        it = r
+        out.append(
+            {
+                "key": it.key, "id": it.id, "title": it.title, "project": r.project_key, "type": r.type.value if r.type else None,
+                "assignee": r.assignee, "team": r.team, "stage": r.stage, "process": r.process,
+                "stage_age_days": (qc.now - r.entered_at).days if r.entered_at else None, "state": r.state,
+                "state_category": r.state_category.value, "priority": it.priority.value, "weight": float(r.weight_v or 0),
+                "estimate": {"value": float(it.estimate_value), "unit": it.estimate_unit.value} if it.estimate_value is not None else None,
+                "planned_start": it.planned_start, "planned_end": it.planned_end, "actual_end": it.actual_end,
+                "tags": sorted(tags.get(it.id, [])), "parent_id": it.parent_id,
+            }
+        )  # fmt: skip
+    return out, ids_only
 
 
 # ---------------------------------------------------------------- aggregate

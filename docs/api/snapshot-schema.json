@@ -1,0 +1,773 @@
+{
+  "$defs": {
+    "Epic": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "project": {
+          "title": "Project",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "project"
+      ],
+      "title": "Epic",
+      "type": "object"
+    },
+    "Habit": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "polarity": {
+          "title": "Polarity",
+          "type": "string"
+        },
+        "rate": {
+          "title": "Rate",
+          "type": "number"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "trend": {
+          "title": "Trend",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "key",
+        "polarity",
+        "rate",
+        "trend"
+      ],
+      "title": "Habit",
+      "type": "object"
+    },
+    "Item": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Actual End"
+        },
+        "assignee": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Assignee"
+        },
+        "epic": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Epic"
+        },
+        "estimate_h": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Estimate H"
+        },
+        "evidence_count": {
+          "title": "Evidence Count",
+          "type": "integer"
+        },
+        "hours_logged": {
+          "title": "Hours Logged",
+          "type": "number"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "last_touched": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Touched"
+        },
+        "planned_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Planned End"
+        },
+        "planned_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Planned Start"
+        },
+        "priority": {
+          "title": "Priority",
+          "type": "string"
+        },
+        "product": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Product"
+        },
+        "project": {
+          "title": "Project",
+          "type": "string"
+        },
+        "risks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risks",
+          "type": "array"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stage"
+        },
+        "stage_age_days": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stage Age Days"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Team"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Type"
+        },
+        "weight": {
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "project",
+        "product",
+        "epic",
+        "type",
+        "assignee",
+        "team",
+        "stage",
+        "stage_age_days",
+        "state",
+        "priority",
+        "weight",
+        "estimate_h",
+        "hours_logged",
+        "planned_start",
+        "planned_end",
+        "actual_end",
+        "tags",
+        "risks",
+        "last_touched",
+        "evidence_count"
+      ],
+      "title": "Item",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "generated_for": {
+          "title": "Generated For",
+          "type": "string"
+        },
+        "scope_label": {
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "viewer": {
+          "title": "Viewer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "viewer",
+        "scope_label",
+        "generated_for"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "Milestone": {
+      "additionalProperties": false,
+      "properties": {
+        "due": {
+          "title": "Due",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "project": {
+          "title": "Project",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "project",
+        "due"
+      ],
+      "title": "Milestone",
+      "type": "object"
+    },
+    "Now": {
+      "additionalProperties": false,
+      "properties": {
+        "item": {
+          "title": "Item",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "person": {
+          "title": "Person",
+          "type": "string"
+        },
+        "project": {
+          "title": "Project",
+          "type": "string"
+        },
+        "since_min": {
+          "title": "Since Min",
+          "type": "integer"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "person",
+        "item",
+        "title",
+        "project",
+        "since_min",
+        "kind"
+      ],
+      "title": "Now",
+      "type": "object"
+    },
+    "Person": {
+      "additionalProperties": false,
+      "properties": {
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Team"
+        }
+      },
+      "required": [
+        "handle",
+        "name",
+        "team"
+      ],
+      "title": "Person",
+      "type": "object"
+    },
+    "ProcessInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "stage_expected_days": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Stage Expected Days",
+          "type": "object"
+        },
+        "stages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Stages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "stages",
+        "stage_expected_days"
+      ],
+      "title": "ProcessInfo",
+      "type": "object"
+    },
+    "Product": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "name"
+      ],
+      "title": "Product",
+      "type": "object"
+    },
+    "Project": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "methodology": {
+          "title": "Methodology",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "product": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Product"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Team"
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "product",
+        "methodology",
+        "team",
+        "summary"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "Range": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Range",
+      "type": "object"
+    },
+    "Risk": {
+      "additionalProperties": false,
+      "properties": {
+        "i": {
+          "title": "I",
+          "type": "integer"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "p": {
+          "title": "P",
+          "type": "integer"
+        },
+        "project": {
+          "title": "Project",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "project",
+        "p",
+        "i",
+        "status"
+      ],
+      "title": "Risk",
+      "type": "object"
+    },
+    "Violation": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "person": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Person"
+        },
+        "policy": {
+          "title": "Policy",
+          "type": "string"
+        },
+        "project": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Project"
+        },
+        "severity": {
+          "title": "Severity",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Team"
+        }
+      },
+      "required": [
+        "policy",
+        "category",
+        "severity",
+        "target",
+        "person",
+        "team",
+        "project",
+        "detail"
+      ],
+      "title": "Violation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "as_of": {
+      "title": "As Of",
+      "type": "string"
+    },
+    "epics": {
+      "items": {
+        "$ref": "#/$defs/Epic"
+      },
+      "title": "Epics",
+      "type": "array"
+    },
+    "habits": {
+      "items": {
+        "$ref": "#/$defs/Habit"
+      },
+      "title": "Habits",
+      "type": "array"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/Item"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "milestones": {
+      "items": {
+        "$ref": "#/$defs/Milestone"
+      },
+      "title": "Milestones",
+      "type": "array"
+    },
+    "now": {
+      "items": {
+        "$ref": "#/$defs/Now"
+      },
+      "title": "Now",
+      "type": "array"
+    },
+    "people": {
+      "items": {
+        "$ref": "#/$defs/Person"
+      },
+      "title": "People",
+      "type": "array"
+    },
+    "processes": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/ProcessInfo"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Processes"
+    },
+    "products": {
+      "items": {
+        "$ref": "#/$defs/Product"
+      },
+      "title": "Products",
+      "type": "array"
+    },
+    "projects": {
+      "items": {
+        "$ref": "#/$defs/Project"
+      },
+      "title": "Projects",
+      "type": "array"
+    },
+    "range": {
+      "$ref": "#/$defs/Range"
+    },
+    "risks": {
+      "items": {
+        "$ref": "#/$defs/Risk"
+      },
+      "title": "Risks",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "stage_expected_days": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Stage Expected Days",
+      "type": "object"
+    },
+    "stages": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Stages",
+      "type": "array"
+    },
+    "teams": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Teams",
+      "type": "array"
+    },
+    "violations": {
+      "items": {
+        "$ref": "#/$defs/Violation"
+      },
+      "title": "Violations",
+      "type": "array"
+    },
+    "weight_scheme": {
+      "title": "Weight Scheme",
+      "type": "string"
+    },
+    "workspace": {
+      "title": "Workspace",
+      "type": "string"
+    }
+  },
+  "required": [
+    "meta",
+    "as_of",
+    "workspace",
+    "range",
+    "weight_scheme",
+    "stages",
+    "stage_expected_days",
+    "people",
+    "teams",
+    "products",
+    "projects",
+    "epics",
+    "milestones",
+    "risks",
+    "items",
+    "violations",
+    "habits",
+    "now"
+  ],
+  "title": "Snapshot",
+  "type": "object"
+}

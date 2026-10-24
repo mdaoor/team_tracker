@@ -29,7 +29,7 @@ fmt:
 	pnpm --filter @tt/web format
 
 typecheck:
-	$(PY) mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server apps/llm_gateway/tt_llm packages/filter_grammar/src
+	$(PY) mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server apps/llm_gateway/tt_llm packages/filter_grammar/src packages/cel_policies/src
 	pnpm --filter @tt/web typecheck
 
 openapi:        ## docs/api/openapi.json + generated web client types
@@ -38,5 +38,9 @@ openapi:        ## docs/api/openapi.json + generated web client types
 
 e2e:
 	pnpm --filter @tt/web e2e
+	pnpm --filter @tt/presentation e2e
+
+presentation:   ## single-file deck bundle: apps/presentation/dist/presentation.html
+	pnpm --filter @tt/presentation build
 
 check: lint typecheck test

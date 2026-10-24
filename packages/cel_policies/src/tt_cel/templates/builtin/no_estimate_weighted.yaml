@@ -1,0 +1,15 @@
+key: no_estimate_weighted
+name: "Weighted item started with no estimate"
+description: "An active item whose weight is above the threshold has no estimate."
+category: planning
+severity: warning
+target: work_item
+trigger: on_event
+event_types: [activity.started, item.state_changed, item.created]
+params:
+  - {name: min_weight, type: number, default: 1, min: 0, max: 100, help: "Weight above which an estimate is expected"}
+cel: >-
+  item.state.category == "active" && item.estimate_value == null && item.weight > {min_weight}
+detail: "weight {item.weight}, no estimate"
+candidate_filter: {state: {category: [active]}}
+example: "weight 2, no estimate"

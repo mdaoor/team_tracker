@@ -62,6 +62,7 @@ event_types:
   - dailylog.drafted
   - dailylog.confirmed
   - dailylog.reviewed
+  - dailylog.summarised
   # overlay
   - dimension.*
   - dimension_value.*
@@ -100,11 +101,12 @@ event_types:
   - habit.flagged
   - habit.status_changed
   - metrics.snapshot_written
-  - notification.sent
+  - notification.*  # sent, read
   - insight.generated
   - insight.status_changed
   # views, access, integrations
   - view.*
+  - presentation.*  # created, updated, deleted, slide_added, rendered, shared (entity_type `saved_view`, ADR-0021)
   - grant.*
   - role_assignment.*
   - jira.pushed

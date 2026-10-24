@@ -12,7 +12,10 @@ class Features(BaseSettings):
     insights_llm: bool = False
     llm_suggestions: bool = False  # review-queue suggestions + classification pre-fill via the LLM gateway
     jira_sync: bool = False
-    habits_nightly: bool = False
+    governance: bool = (
+        False  # policy evaluation: on-event routing from the outbox and the scheduled sweeps (Phase 8)
+    )
+    habits_nightly: bool = False  # nightly habits + metric snapshots + key-result updates
     slack_bot: bool = False
 
 

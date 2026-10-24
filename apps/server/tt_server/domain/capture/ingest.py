@@ -432,7 +432,16 @@ def _add_evidence(
         "evidence.added",
         TargetType.WORK_ITEM,
         item.id,
-        {"after": {"evidence_id": row.id, "kind": kind.value}},
+        # title/url/body (trimmed) let policies and stage rules read what was attached, e.g. `auto_when: ... title.contains("merged")`
+        {
+            "after": {
+                "evidence_id": row.id,
+                "kind": kind.value,
+                "title": title,
+                "url": url,
+                "body": (body or "")[:500] or None,
+            }
+        },
     )
 
 

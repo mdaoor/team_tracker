@@ -58,6 +58,14 @@ class UnitOfWork:
                 continue
             self._touched_projection = True
 
+    async def commit_bookkeeping(self) -> None:
+        """Commit rows that are infrastructure rather than domain facts (the governance bot person) without requiring an Event.
+
+        Only for the moment before a unit of work does its real work: anything already pending is committed too.
+        """
+        await self.session.commit()
+        self._touched_projection = False
+
     async def commit(self, *, allow_unlogged: bool = False) -> None:
         """Flush projection rows, append buffered events, enqueue jobs, commit.
 

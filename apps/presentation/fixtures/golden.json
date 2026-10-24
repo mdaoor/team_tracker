@@ -1,0 +1,2009 @@
+{
+ "presentation": {
+  "id": "golden",
+  "title": "Portfolio review",
+  "scope": "workspace",
+  "range_days": 14,
+  "theme": "light",
+  "slides": [
+   {
+    "id": "s0",
+    "kind": "kpis",
+    "title": "Overview",
+    "subtitle": null,
+    "config": {},
+    "notes": "Notes for Overview",
+    "layout": "full",
+    "live": false,
+    "position": 0
+   },
+   {
+    "id": "s1",
+    "kind": "projects",
+    "title": "Projects & epics",
+    "subtitle": null,
+    "config": {},
+    "notes": "Notes for Projects & epics",
+    "layout": "full",
+    "live": false,
+    "position": 1
+   },
+   {
+    "id": "s2",
+    "kind": "pipeline",
+    "title": "Delivery pipeline",
+    "subtitle": null,
+    "config": {},
+    "notes": "Notes for Delivery pipeline",
+    "layout": "full",
+    "live": false,
+    "position": 2
+   },
+   {
+    "id": "s3",
+    "kind": "explorer",
+    "title": "Dimension explorer",
+    "subtitle": null,
+    "config": {
+     "dimA": "team",
+     "dimB": "stage",
+     "measure": "count"
+    },
+    "notes": "Notes for Dimension explorer",
+    "layout": "full",
+    "live": false,
+    "position": 3
+   },
+   {
+    "id": "s4",
+    "kind": "radar",
+    "title": "Delivery radar",
+    "subtitle": null,
+    "config": {
+     "days": 14
+    },
+    "notes": "Notes for Delivery radar",
+    "layout": "full",
+    "live": false,
+    "position": 4
+   },
+   {
+    "id": "s5",
+    "kind": "gantt",
+    "title": "Gantt",
+    "subtitle": null,
+    "config": {
+     "rows": "epic"
+    },
+    "notes": "Notes for Gantt",
+    "layout": "full",
+    "live": false,
+    "position": 5
+   },
+   {
+    "id": "s6",
+    "kind": "now",
+    "title": "Now",
+    "subtitle": null,
+    "config": {},
+    "notes": "Notes for Now",
+    "layout": "full",
+    "live": false,
+    "position": 6
+   },
+   {
+    "id": "s7",
+    "kind": "people",
+    "title": "Team activity",
+    "subtitle": null,
+    "config": {},
+    "notes": "Notes for Team activity",
+    "layout": "full",
+    "live": false,
+    "position": 7
+   },
+   {
+    "id": "s8",
+    "kind": "violations",
+    "title": "Violations & habits",
+    "subtitle": null,
+    "config": {
+     "with_habits": true
+    },
+    "notes": "Notes for Violations & habits",
+    "layout": "full",
+    "live": false,
+    "position": 8
+   }
+  ]
+ },
+ "snapshot": {
+  "as_of": "2026-10-23T18:30:00+03:00",
+  "workspace": "acme",
+  "range": {
+   "from": "2026-10-09",
+   "to": "2026-10-23"
+  },
+  "weight_scheme": "default",
+  "stages": [
+   "idea",
+   "discovery",
+   "design",
+   "build",
+   "test",
+   "staging",
+   "production"
+  ],
+  "stage_expected_days": {
+   "idea": 14,
+   "discovery": 10,
+   "design": 7,
+   "build": 10,
+   "test": 5,
+   "staging": 3,
+   "production": 0
+  },
+  "people": [
+   {
+    "handle": "@mahmoud",
+    "name": "Mahmoud A.",
+    "team": "platform"
+   },
+   {
+    "handle": "@sara",
+    "name": "Sara H.",
+    "team": "squad-b"
+   },
+   {
+    "handle": "@ali",
+    "name": "Ali K.",
+    "team": "squad-b"
+   },
+   {
+    "handle": "@nour",
+    "name": "Nour S.",
+    "team": "data"
+   },
+   {
+    "handle": "@omar",
+    "name": "Omar F.",
+    "team": "data"
+   },
+   {
+    "handle": "@lina",
+    "name": "Lina M.",
+    "team": "platform"
+   },
+   {
+    "handle": "@youssef",
+    "name": "Youssef R.",
+    "team": "squad-a"
+   },
+   {
+    "handle": "@dina",
+    "name": "Dina T.",
+    "team": "squad-a"
+   }
+  ],
+  "teams": [
+   "platform",
+   "squad-a",
+   "squad-b",
+   "data"
+  ],
+  "products": [
+   {
+    "key": "CUST",
+    "name": "Customer Portal"
+   },
+   {
+    "key": "DPLAT",
+    "name": "Data Platform"
+   }
+  ],
+  "projects": [
+   {
+    "key": "WEB",
+    "name": "Website Refresh",
+    "product": "CUST",
+    "methodology": "agile",
+    "team": "squad-b",
+    "summary": "Sprint 14 is on track for the Beta release but four items have been sitting in test for over a week, all tied to the OAuth migration. Velocity is steady at ~28 points; the main risk is the identity provider deprecation in December."
+   },
+   {
+    "key": "MOB",
+    "name": "Mobile App v2",
+    "product": "CUST",
+    "methodology": "agile",
+    "team": "squad-a",
+    "summary": "Discovery is complete and build has started on the offline-sync epic. Estimates are consistently missing on new items, which is hiding the real remaining effort. No open critical risks."
+   },
+   {
+    "key": "DATA",
+    "name": "Ingestion Pipeline",
+    "product": "DPLAT",
+    "methodology": "waterfall",
+    "team": "data",
+    "summary": "Phase 2 (schema registry) is two days behind baseline because of the retry-logic rework. Production rollout gate is scheduled for 6 Nov and still needs sign-off from platform. Evidence logging on this project is the best in the workspace."
+   },
+   {
+    "key": "GOV",
+    "name": "Governance Rules",
+    "product": "DPLAT",
+    "methodology": "kanban",
+    "team": "platform",
+    "summary": "Steady flow of small rule-authoring items. WIP in build is above the limit (6 of 4). One item has been re-opened twice, which the rework habit detector has flagged."
+   }
+  ],
+  "epics": [
+   {
+    "key": "WEB-120",
+    "title": "Password reset & OAuth migration",
+    "project": "WEB"
+   },
+   {
+    "key": "WEB-130",
+    "title": "Checkout redesign",
+    "project": "WEB"
+   },
+   {
+    "key": "MOB-40",
+    "title": "Offline sync",
+    "project": "MOB"
+   },
+   {
+    "key": "MOB-55",
+    "title": "Push notifications",
+    "project": "MOB"
+   },
+   {
+    "key": "DATA-80",
+    "title": "Schema registry (Phase 2)",
+    "project": "DATA"
+   },
+   {
+    "key": "DATA-95",
+    "title": "Backfill tooling (Phase 3)",
+    "project": "DATA"
+   },
+   {
+    "key": "GOV-10",
+    "title": "Rule authoring UI",
+    "project": "GOV"
+   }
+  ],
+  "milestones": [
+   {
+    "name": "Beta release",
+    "project": "WEB",
+    "due": "2026-11-10"
+   },
+   {
+    "name": "Offline sync demo",
+    "project": "MOB",
+    "due": "2026-11-20"
+   },
+   {
+    "name": "Phase 2 gate",
+    "project": "DATA",
+    "due": "2026-11-06"
+   },
+   {
+    "name": "Rules v1 published",
+    "project": "GOV",
+    "due": "2026-10-31"
+   }
+  ],
+  "risks": [
+   {
+    "key": "WEB-R7",
+    "title": "OAuth provider deprecates v1 API in Dec",
+    "project": "WEB",
+    "p": 4,
+    "i": 5,
+    "status": "mitigating"
+   },
+   {
+    "key": "DATA-R3",
+    "title": "Retry storm under upstream outage",
+    "project": "DATA",
+    "p": 3,
+    "i": 4,
+    "status": "monitoring"
+   },
+   {
+    "key": "MOB-R1",
+    "title": "App-store review delay",
+    "project": "MOB",
+    "p": 2,
+    "i": 3,
+    "status": "identified"
+   },
+   {
+    "key": "GOV-R2",
+    "title": "Rule engine performance at 10k rules",
+    "project": "GOV",
+    "p": 2,
+    "i": 4,
+    "status": "analysing"
+   }
+  ],
+  "items": [
+   {
+    "key": "WEB-101",
+    "title": "fix the login redirect loop",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-120",
+    "type": "task",
+    "assignee": "@sara",
+    "team": "squad-b",
+    "stage": "test",
+    "stage_age_days": 12,
+    "state": "active",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": null,
+    "hours_logged": 2.8,
+    "planned_start": "2026-10-25",
+    "planned_end": "2026-11-03",
+    "actual_end": null,
+    "tags": [
+     "bug",
+     "frontend"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-22",
+    "evidence_count": 0
+   },
+   {
+    "key": "WEB-105",
+    "title": "password reset email template",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-130",
+    "type": "task",
+    "assignee": "@sara",
+    "team": "squad-b",
+    "stage": "test",
+    "stage_age_days": 7,
+    "state": "active",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": 24,
+    "hours_logged": 17.5,
+    "planned_start": "2026-11-03",
+    "planned_end": "2026-11-06",
+    "actual_end": null,
+    "tags": [
+     "backend",
+     "tech-debt",
+     "docs"
+    ],
+    "risks": [
+     "WEB-R7"
+    ],
+    "last_touched": "2026-10-22",
+    "evidence_count": 1
+   },
+   {
+    "key": "WEB-108",
+    "title": "rate-limit reset endpoint",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-130",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "test",
+    "stage_age_days": 11,
+    "state": "active",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": 2,
+    "hours_logged": 17.4,
+    "planned_start": "2026-10-08",
+    "planned_end": "2026-10-20",
+    "actual_end": null,
+    "tags": [
+     "ux"
+    ],
+    "risks": [
+     "WEB-R7"
+    ],
+    "last_touched": "2026-10-20",
+    "evidence_count": 1
+   },
+   {
+    "key": "WEB-110",
+    "title": "OAuth v2 token exchange",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-120",
+    "type": "task",
+    "assignee": "@ali",
+    "team": "squad-b",
+    "stage": "test",
+    "stage_age_days": 9,
+    "state": "active",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 16,
+    "hours_logged": 10.8,
+    "planned_start": "2026-10-19",
+    "planned_end": "2026-10-31",
+    "actual_end": null,
+    "tags": [
+     "incident",
+     "security"
+    ],
+    "risks": [
+     "WEB-R7"
+    ],
+    "last_touched": "2026-10-16",
+    "evidence_count": 2
+   },
+   {
+    "key": "WEB-114",
+    "title": "migrate session store",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-120",
+    "type": "bug",
+    "assignee": "@sara",
+    "team": "squad-b",
+    "stage": "build",
+    "stage_age_days": 19,
+    "state": "active",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": null,
+    "hours_logged": 12.5,
+    "planned_start": "2026-10-30",
+    "planned_end": "2026-11-02",
+    "actual_end": null,
+    "tags": [
+     "bug",
+     "incident",
+     "infra"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-08",
+    "evidence_count": 2
+   },
+   {
+    "key": "WEB-117",
+    "title": "checkout address form",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-130",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 15,
+    "state": "active",
+    "priority": "critical",
+    "weight": 3,
+    "estimate_h": 8,
+    "hours_logged": 25.2,
+    "planned_start": "2026-10-12",
+    "planned_end": "2026-10-19",
+    "actual_end": null,
+    "tags": [
+     "ux",
+     "security",
+     "tech-debt"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-21",
+    "evidence_count": 5
+   },
+   {
+    "key": "WEB-119",
+    "title": "cart totals rounding bug",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-120",
+    "type": "story",
+    "assignee": "@ali",
+    "team": "squad-b",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 5.0,
+    "planned_start": "2026-10-26",
+    "planned_end": "2026-10-31",
+    "actual_end": "2026-10-31",
+    "tags": [
+     "frontend",
+     "docs",
+     "incident"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-17",
+    "evidence_count": 6
+   },
+   {
+    "key": "WEB-122",
+    "title": "A/B test checkout CTA",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-130",
+    "type": "story",
+    "assignee": "@ali",
+    "team": "squad-b",
+    "stage": "discovery",
+    "stage_age_days": 14,
+    "state": "open",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": 16,
+    "hours_logged": 26.5,
+    "planned_start": "2026-10-16",
+    "planned_end": "2026-10-25",
+    "actual_end": null,
+    "tags": [
+     "backend"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-10",
+    "evidence_count": 0
+   },
+   {
+    "key": "WEB-124",
+    "title": "accessibility pass on checkout",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-130",
+    "type": "task",
+    "assignee": "@sara",
+    "team": "squad-b",
+    "stage": "discovery",
+    "stage_age_days": 21,
+    "state": "open",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 24.9,
+    "planned_start": "2026-10-23",
+    "planned_end": "2026-11-01",
+    "actual_end": null,
+    "tags": [
+     "infra",
+     "ux",
+     "backend"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-23",
+    "evidence_count": 5
+   },
+   {
+    "key": "WEB-129",
+    "title": "remove legacy auth cookie",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-130",
+    "type": "bug",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": 24,
+    "hours_logged": 13.7,
+    "planned_start": "2026-10-31",
+    "planned_end": "2026-11-09",
+    "actual_end": "2026-11-07",
+    "tags": [
+     "security"
+    ],
+    "risks": [
+     "WEB-R7"
+    ],
+    "last_touched": "2026-10-11",
+    "evidence_count": 5
+   },
+   {
+    "key": "WEB-131",
+    "title": "e2e tests for reset flow",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-120",
+    "type": "task",
+    "assignee": "@sara",
+    "team": "squad-b",
+    "stage": "discovery",
+    "stage_age_days": 2,
+    "state": "open",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": 8,
+    "hours_logged": 3.3,
+    "planned_start": "2026-10-11",
+    "planned_end": "2026-10-22",
+    "actual_end": null,
+    "tags": [
+     "infra"
+    ],
+    "risks": [
+     "WEB-R7"
+    ],
+    "last_touched": "2026-10-23",
+    "evidence_count": 4
+   },
+   {
+    "key": "WEB-133",
+    "title": "staging smoke tests",
+    "project": "WEB",
+    "product": "CUST",
+    "epic": "WEB-130",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "discovery",
+    "stage_age_days": 6,
+    "state": "open",
+    "priority": "critical",
+    "weight": 3,
+    "estimate_h": 8,
+    "hours_logged": 19.0,
+    "planned_start": "2026-10-17",
+    "planned_end": "2026-10-21",
+    "actual_end": null,
+    "tags": [
+     "security",
+     "ux"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-08",
+    "evidence_count": 3
+   },
+   {
+    "key": "MOB-101",
+    "title": "conflict resolution strategy",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-40",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "discovery",
+    "stage_age_days": 3,
+    "state": "open",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 22.2,
+    "planned_start": "2026-10-21",
+    "planned_end": "2026-10-27",
+    "actual_end": null,
+    "tags": [
+     "infra",
+     "backend",
+     "auth"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-07",
+    "evidence_count": 6
+   },
+   {
+    "key": "MOB-105",
+    "title": "local queue persistence",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-55",
+    "type": "story",
+    "assignee": "@youssef",
+    "team": "squad-a",
+    "stage": "build",
+    "stage_age_days": 20,
+    "state": "active",
+    "priority": "critical",
+    "weight": 3,
+    "estimate_h": 24,
+    "hours_logged": 15.6,
+    "planned_start": "2026-10-19",
+    "planned_end": "2026-10-25",
+    "actual_end": null,
+    "tags": [
+     "frontend",
+     "ux",
+     "docs"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-16",
+    "evidence_count": 5
+   },
+   {
+    "key": "MOB-106",
+    "title": "sync status indicator",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-55",
+    "type": "story",
+    "assignee": "@dina",
+    "team": "squad-a",
+    "stage": "design",
+    "stage_age_days": 15,
+    "state": "open",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 0.9,
+    "planned_start": "2026-11-03",
+    "planned_end": "2026-11-09",
+    "actual_end": null,
+    "tags": [
+     "ux",
+     "infra",
+     "security"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-08",
+    "evidence_count": 6
+   },
+   {
+    "key": "MOB-111",
+    "title": "background sync job",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-40",
+    "type": "task",
+    "assignee": "@dina",
+    "team": "squad-a",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 6.8,
+    "planned_start": "2026-10-14",
+    "planned_end": "2026-10-24",
+    "actual_end": "2026-10-22",
+    "tags": [
+     "infra",
+     "bug",
+     "incident"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-08",
+    "evidence_count": 3
+   },
+   {
+    "key": "MOB-114",
+    "title": "push token registration",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-55",
+    "type": "bug",
+    "assignee": "@youssef",
+    "team": "squad-a",
+    "stage": "test",
+    "stage_age_days": 7,
+    "state": "active",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 23.7,
+    "planned_start": "2026-10-26",
+    "planned_end": "2026-10-30",
+    "actual_end": null,
+    "tags": [
+     "backend",
+     "ux",
+     "incident"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-09",
+    "evidence_count": 0
+   },
+   {
+    "key": "MOB-115",
+    "title": "notification deep links",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-55",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "test",
+    "stage_age_days": 7,
+    "state": "active",
+    "priority": "critical",
+    "weight": 3,
+    "estimate_h": 2,
+    "hours_logged": 24.8,
+    "planned_start": "2026-11-02",
+    "planned_end": "2026-11-05",
+    "actual_end": null,
+    "tags": [
+     "bug"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-19",
+    "evidence_count": 4
+   },
+   {
+    "key": "MOB-120",
+    "title": "offline banner UX",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-40",
+    "type": "task",
+    "assignee": "@dina",
+    "team": "squad-a",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 26.2,
+    "planned_start": "2026-10-11",
+    "planned_end": "2026-10-23",
+    "actual_end": "2026-10-27",
+    "tags": [
+     "tech-debt",
+     "incident"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-14",
+    "evidence_count": 3
+   },
+   {
+    "key": "MOB-121",
+    "title": "retry on network regain",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-40",
+    "type": "task",
+    "assignee": "@dina",
+    "team": "squad-a",
+    "stage": "discovery",
+    "stage_age_days": 11,
+    "state": "open",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 24,
+    "hours_logged": 24.5,
+    "planned_start": "2026-10-24",
+    "planned_end": "2026-11-04",
+    "actual_end": null,
+    "tags": [
+     "auth",
+     "security",
+     "backend"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-06",
+    "evidence_count": 4
+   },
+   {
+    "key": "MOB-124",
+    "title": "crash on empty queue",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-40",
+    "type": "bug",
+    "assignee": "@youssef",
+    "team": "squad-a",
+    "stage": "staging",
+    "stage_age_days": 2,
+    "state": "active",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": null,
+    "hours_logged": 14.2,
+    "planned_start": "2026-10-17",
+    "planned_end": "2026-10-21",
+    "actual_end": null,
+    "tags": [
+     "auth",
+     "frontend",
+     "incident"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-13",
+    "evidence_count": 2
+   },
+   {
+    "key": "MOB-127",
+    "title": "telemetry for sync",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-55",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "staging",
+    "stage_age_days": 7,
+    "state": "active",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 26.8,
+    "planned_start": "2026-11-03",
+    "planned_end": "2026-11-10",
+    "actual_end": null,
+    "tags": [
+     "incident",
+     "ux"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-04",
+    "evidence_count": 6
+   },
+   {
+    "key": "MOB-131",
+    "title": "store listing update",
+    "project": "MOB",
+    "product": "CUST",
+    "epic": "MOB-55",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 7,
+    "state": "active",
+    "priority": "critical",
+    "weight": 3,
+    "estimate_h": null,
+    "hours_logged": 26.3,
+    "planned_start": "2026-10-23",
+    "planned_end": "2026-11-02",
+    "actual_end": null,
+    "tags": [
+     "docs"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-06",
+    "evidence_count": 0
+   },
+   {
+    "key": "DATA-101",
+    "title": "retry logic rework",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-80",
+    "type": "story",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 2,
+    "state": "active",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": 2,
+    "hours_logged": 2.2,
+    "planned_start": "2026-10-25",
+    "planned_end": "2026-10-30",
+    "actual_end": null,
+    "tags": [
+     "backend",
+     "security"
+    ],
+    "risks": [
+     "DATA-R3"
+    ],
+    "last_touched": "2026-10-19",
+    "evidence_count": 1
+   },
+   {
+    "key": "DATA-105",
+    "title": "schema registry API",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-95",
+    "type": "bug",
+    "assignee": "@omar",
+    "team": "data",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 8,
+    "hours_logged": 25.0,
+    "planned_start": "2026-10-14",
+    "planned_end": "2026-10-22",
+    "actual_end": "2026-10-25",
+    "tags": [
+     "frontend",
+     "infra"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-07",
+    "evidence_count": 2
+   },
+   {
+    "key": "DATA-106",
+    "title": "registry migration script",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-95",
+    "type": "story",
+    "assignee": "@omar",
+    "team": "data",
+    "stage": "test",
+    "stage_age_days": 0,
+    "state": "active",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": 16,
+    "hours_logged": 13.2,
+    "planned_start": "2026-10-20",
+    "planned_end": "2026-10-31",
+    "actual_end": null,
+    "tags": [
+     "bug"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-07",
+    "evidence_count": 6
+   },
+   {
+    "key": "DATA-109",
+    "title": "compat checker",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-95",
+    "type": "bug",
+    "assignee": "@nour",
+    "team": "data",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": null,
+    "hours_logged": 1.2,
+    "planned_start": "2026-10-18",
+    "planned_end": "2026-10-25",
+    "actual_end": "2026-10-25",
+    "tags": [
+     "backend",
+     "incident"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-19",
+    "evidence_count": 4
+   },
+   {
+    "key": "DATA-114",
+    "title": "backfill CLI skeleton",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-80",
+    "type": "task",
+    "assignee": "@nour",
+    "team": "data",
+    "stage": "build",
+    "stage_age_days": 10,
+    "state": "active",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 4,
+    "hours_logged": 24.0,
+    "planned_start": "2026-10-14",
+    "planned_end": "2026-10-18",
+    "actual_end": null,
+    "tags": [
+     "bug",
+     "frontend"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-15",
+    "evidence_count": 0
+   },
+   {
+    "key": "DATA-116",
+    "title": "partition pruning",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-80",
+    "type": "task",
+    "assignee": "@omar",
+    "team": "data",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "critical",
+    "weight": 3,
+    "estimate_h": null,
+    "hours_logged": 12.5,
+    "planned_start": "2026-10-23",
+    "planned_end": "2026-10-27",
+    "actual_end": "2026-10-29",
+    "tags": [
+     "tech-debt"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-22",
+    "evidence_count": 0
+   },
+   {
+    "key": "DATA-118",
+    "title": "alerting on lag",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-80",
+    "type": "story",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "design",
+    "stage_age_days": 9,
+    "state": "open",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 4,
+    "hours_logged": 22.8,
+    "planned_start": "2026-10-30",
+    "planned_end": "2026-11-02",
+    "actual_end": null,
+    "tags": [
+     "auth",
+     "ux"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-15",
+    "evidence_count": 0
+   },
+   {
+    "key": "DATA-123",
+    "title": "phase 2 runbook",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-95",
+    "type": "bug",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 6,
+    "state": "active",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": 8,
+    "hours_logged": 28.0,
+    "planned_start": "2026-10-13",
+    "planned_end": "2026-10-24",
+    "actual_end": null,
+    "tags": [
+     "frontend",
+     "ux"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-08",
+    "evidence_count": 2
+   },
+   {
+    "key": "DATA-124",
+    "title": "load test 10x volume",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-80",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 24,
+    "hours_logged": 12.1,
+    "planned_start": "2026-11-02",
+    "planned_end": "2026-11-06",
+    "actual_end": "2026-11-05",
+    "tags": [
+     "tech-debt",
+     "docs",
+     "backend"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-19",
+    "evidence_count": 0
+   },
+   {
+    "key": "DATA-127",
+    "title": "platform sign-off package",
+    "project": "DATA",
+    "product": "DPLAT",
+    "epic": "DATA-80",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "test",
+    "stage_age_days": 6,
+    "state": "active",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": 24,
+    "hours_logged": 18.0,
+    "planned_start": "2026-10-21",
+    "planned_end": "2026-10-26",
+    "actual_end": null,
+    "tags": [
+     "security",
+     "auth"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-09",
+    "evidence_count": 2
+   },
+   {
+    "key": "GOV-101",
+    "title": "rule editor autosave",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "task",
+    "assignee": "@lina",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 17,
+    "state": "active",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 2,
+    "hours_logged": 29.0,
+    "planned_start": "2026-10-10",
+    "planned_end": "2026-10-18",
+    "actual_end": null,
+    "tags": [
+     "bug",
+     "security"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-18",
+    "evidence_count": 2
+   },
+   {
+    "key": "GOV-105",
+    "title": "CEL validator in UI",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 7,
+    "state": "active",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 7.9,
+    "planned_start": "2026-10-10",
+    "planned_end": "2026-10-19",
+    "actual_end": null,
+    "tags": [
+     "tech-debt"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-05",
+    "evidence_count": 2
+   },
+   {
+    "key": "GOV-108",
+    "title": "rule templates gallery",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "bug",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 18,
+    "state": "active",
+    "priority": "high",
+    "weight": 2,
+    "estimate_h": 2,
+    "hours_logged": 26.8,
+    "planned_start": "2026-11-02",
+    "planned_end": "2026-11-07",
+    "actual_end": null,
+    "tags": [
+     "ux",
+     "backend"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-13",
+    "evidence_count": 0
+   },
+   {
+    "key": "GOV-111",
+    "title": "bulk import rules",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "task",
+    "assignee": "@lina",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 20,
+    "state": "active",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 24,
+    "hours_logged": 24.4,
+    "planned_start": "2026-11-04",
+    "planned_end": "2026-11-08",
+    "actual_end": null,
+    "tags": [
+     "auth"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-05",
+    "evidence_count": 1
+   },
+   {
+    "key": "GOV-114",
+    "title": "rule versioning",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "story",
+    "assignee": "@lina",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 3,
+    "state": "active",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": 8,
+    "hours_logged": 1.5,
+    "planned_start": "2026-10-31",
+    "planned_end": "2026-11-03",
+    "actual_end": null,
+    "tags": [
+     "bug",
+     "incident"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-08",
+    "evidence_count": 4
+   },
+   {
+    "key": "GOV-115",
+    "title": "perf test 10k rules",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "task",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 2,
+    "state": "active",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": 24,
+    "hours_logged": 7.6,
+    "planned_start": "2026-10-26",
+    "planned_end": "2026-11-01",
+    "actual_end": null,
+    "tags": [
+     "security",
+     "ux",
+     "docs"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-16",
+    "evidence_count": 0
+   },
+   {
+    "key": "GOV-119",
+    "title": "docs for rule authors",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "story",
+    "assignee": "@lina",
+    "team": "platform",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "low",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 19.3,
+    "planned_start": "2026-10-29",
+    "planned_end": "2026-11-05",
+    "actual_end": "2026-11-08",
+    "tags": [
+     "ux",
+     "backend",
+     "auth"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-13",
+    "evidence_count": 3
+   },
+   {
+    "key": "GOV-121",
+    "title": "permission matrix",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "bug",
+    "assignee": "@mahmoud",
+    "team": "platform",
+    "stage": "build",
+    "stage_age_days": 21,
+    "state": "active",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": 24,
+    "hours_logged": 20.3,
+    "planned_start": "2026-10-13",
+    "planned_end": "2026-10-23",
+    "actual_end": null,
+    "tags": [
+     "incident"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-09",
+    "evidence_count": 1
+   },
+   {
+    "key": "GOV-125",
+    "title": "dry-run panel",
+    "project": "GOV",
+    "product": "DPLAT",
+    "epic": "GOV-10",
+    "type": "bug",
+    "assignee": "@lina",
+    "team": "platform",
+    "stage": "production",
+    "stage_age_days": 0,
+    "state": "done",
+    "priority": "medium",
+    "weight": 1,
+    "estimate_h": null,
+    "hours_logged": 2.3,
+    "planned_start": "2026-10-20",
+    "planned_end": "2026-10-26",
+    "actual_end": "2026-10-27",
+    "tags": [
+     "bug"
+    ],
+    "risks": [],
+    "last_touched": "2026-10-15",
+    "evidence_count": 4
+   }
+  ],
+  "violations": [
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "WEB-101",
+    "person": "@sara",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "test for 12d (expected \u2264 5)"
+   },
+   {
+    "policy": "no_estimate_weighted",
+    "category": "planning",
+    "severity": "warning",
+    "target": "WEB-101",
+    "person": "@sara",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "weight 2, no estimate"
+   },
+   {
+    "policy": "evidence_gap",
+    "category": "quality",
+    "severity": "info",
+    "target": "WEB-101",
+    "person": "@sara",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "no evidence while active"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "WEB-105",
+    "person": "@sara",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "test for 7d (expected \u2264 5)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "WEB-108",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "WEB",
+    "detail": "test for 11d (expected \u2264 5)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "WEB-110",
+    "person": "@ali",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "test for 9d (expected \u2264 5)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "WEB-114",
+    "person": "@sara",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "build for 19d (expected \u2264 10)"
+   },
+   {
+    "policy": "no_estimate_weighted",
+    "category": "planning",
+    "severity": "warning",
+    "target": "WEB-114",
+    "person": "@sara",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "weight 2, no estimate"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "WEB-117",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "WEB",
+    "detail": "build for 15d (expected \u2264 10)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "WEB-122",
+    "person": "@ali",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "discovery for 14d (expected \u2264 10)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "WEB-124",
+    "person": "@sara",
+    "team": "squad-b",
+    "project": "WEB",
+    "detail": "discovery for 21d (expected \u2264 10)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "MOB-105",
+    "person": "@youssef",
+    "team": "squad-a",
+    "project": "MOB",
+    "detail": "build for 20d (expected \u2264 10)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "MOB-106",
+    "person": "@dina",
+    "team": "squad-a",
+    "project": "MOB",
+    "detail": "design for 15d (expected \u2264 7)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "MOB-114",
+    "person": "@youssef",
+    "team": "squad-a",
+    "project": "MOB",
+    "detail": "test for 7d (expected \u2264 5)"
+   },
+   {
+    "policy": "evidence_gap",
+    "category": "quality",
+    "severity": "info",
+    "target": "MOB-114",
+    "person": "@youssef",
+    "team": "squad-a",
+    "project": "MOB",
+    "detail": "no evidence while active"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "MOB-115",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "MOB",
+    "detail": "test for 7d (expected \u2264 5)"
+   },
+   {
+    "policy": "overrun",
+    "category": "time",
+    "severity": "violation",
+    "target": "MOB-120",
+    "person": "@dina",
+    "team": "squad-a",
+    "project": "MOB",
+    "detail": "finished 2026-10-27 vs plan 2026-10-23"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "MOB-121",
+    "person": "@dina",
+    "team": "squad-a",
+    "project": "MOB",
+    "detail": "discovery for 11d (expected \u2264 10)"
+   },
+   {
+    "policy": "no_estimate_weighted",
+    "category": "planning",
+    "severity": "warning",
+    "target": "MOB-124",
+    "person": "@youssef",
+    "team": "squad-a",
+    "project": "MOB",
+    "detail": "weight 2, no estimate"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "MOB-127",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "MOB",
+    "detail": "staging for 7d (expected \u2264 3)"
+   },
+   {
+    "policy": "no_estimate_weighted",
+    "category": "planning",
+    "severity": "warning",
+    "target": "MOB-131",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "MOB",
+    "detail": "weight 3, no estimate"
+   },
+   {
+    "policy": "evidence_gap",
+    "category": "quality",
+    "severity": "info",
+    "target": "MOB-131",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "MOB",
+    "detail": "no evidence while active"
+   },
+   {
+    "policy": "overrun",
+    "category": "time",
+    "severity": "violation",
+    "target": "DATA-105",
+    "person": "@omar",
+    "team": "data",
+    "project": "DATA",
+    "detail": "finished 2026-10-25 vs plan 2026-10-22"
+   },
+   {
+    "policy": "evidence_gap",
+    "category": "quality",
+    "severity": "info",
+    "target": "DATA-114",
+    "person": "@nour",
+    "team": "data",
+    "project": "DATA",
+    "detail": "no evidence while active"
+   },
+   {
+    "policy": "overrun",
+    "category": "time",
+    "severity": "violation",
+    "target": "DATA-116",
+    "person": "@omar",
+    "team": "data",
+    "project": "DATA",
+    "detail": "finished 2026-10-29 vs plan 2026-10-27"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "DATA-118",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "DATA",
+    "detail": "design for 9d (expected \u2264 7)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "DATA-127",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "DATA",
+    "detail": "test for 6d (expected \u2264 5)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "GOV-101",
+    "person": "@lina",
+    "team": "platform",
+    "project": "GOV",
+    "detail": "build for 17d (expected \u2264 10)"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "GOV-108",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "GOV",
+    "detail": "build for 18d (expected \u2264 10)"
+   },
+   {
+    "policy": "evidence_gap",
+    "category": "quality",
+    "severity": "info",
+    "target": "GOV-108",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "GOV",
+    "detail": "no evidence while active"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "GOV-111",
+    "person": "@lina",
+    "team": "platform",
+    "project": "GOV",
+    "detail": "build for 20d (expected \u2264 10)"
+   },
+   {
+    "policy": "evidence_gap",
+    "category": "quality",
+    "severity": "info",
+    "target": "GOV-115",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "GOV",
+    "detail": "no evidence while active"
+   },
+   {
+    "policy": "overrun",
+    "category": "time",
+    "severity": "violation",
+    "target": "GOV-119",
+    "person": "@lina",
+    "team": "platform",
+    "project": "GOV",
+    "detail": "finished 2026-11-08 vs plan 2026-11-05"
+   },
+   {
+    "policy": "stuck_in_stage",
+    "category": "process",
+    "severity": "warning",
+    "target": "GOV-121",
+    "person": "@mahmoud",
+    "team": "platform",
+    "project": "GOV",
+    "detail": "build for 21d (expected \u2264 10)"
+   },
+   {
+    "policy": "overrun",
+    "category": "time",
+    "severity": "violation",
+    "target": "GOV-125",
+    "person": "@lina",
+    "team": "platform",
+    "project": "GOV",
+    "detail": "finished 2026-10-27 vs plan 2026-10-26"
+   },
+   {
+    "policy": "wip_breach",
+    "category": "process",
+    "severity": "violation",
+    "target": "GOV/build",
+    "person": null,
+    "team": "platform",
+    "project": "GOV",
+    "detail": "WIP 7 > limit 4"
+   }
+  ],
+  "habits": [
+   {
+    "subject": "@mahmoud",
+    "key": "no_estimates",
+    "polarity": "negative",
+    "rate": 0.25,
+    "trend": "worsening"
+   },
+   {
+    "subject": "@mahmoud",
+    "key": "log_consistency",
+    "polarity": "positive",
+    "rate": 0.86,
+    "trend": "improving"
+   },
+   {
+    "subject": "@sara",
+    "key": "no_estimates",
+    "polarity": "negative",
+    "rate": 0.5,
+    "trend": "stable"
+   },
+   {
+    "subject": "@sara",
+    "key": "log_consistency",
+    "polarity": "positive",
+    "rate": 0.95,
+    "trend": "improving"
+   },
+   {
+    "subject": "@ali",
+    "key": "evidence_consistency",
+    "polarity": "positive",
+    "rate": 0.9,
+    "trend": "stable"
+   },
+   {
+    "subject": "@omar",
+    "key": "late_finish",
+    "polarity": "negative",
+    "rate": 0.67,
+    "trend": "improving"
+   },
+   {
+    "subject": "@omar",
+    "key": "evidence_consistency",
+    "polarity": "positive",
+    "rate": 0.9,
+    "trend": "stable"
+   },
+   {
+    "subject": "@lina",
+    "key": "late_finish",
+    "polarity": "negative",
+    "rate": 0.67,
+    "trend": "stable"
+   },
+   {
+    "subject": "@lina",
+    "key": "evidence_consistency",
+    "polarity": "positive",
+    "rate": 0.8,
+    "trend": "stable"
+   },
+   {
+    "subject": "@lina",
+    "key": "log_consistency",
+    "polarity": "positive",
+    "rate": 0.85,
+    "trend": "improving"
+   },
+   {
+    "subject": "@youssef",
+    "key": "no_estimates",
+    "polarity": "negative",
+    "rate": 0.25,
+    "trend": "stable"
+   },
+   {
+    "subject": "@dina",
+    "key": "late_finish",
+    "polarity": "negative",
+    "rate": 0.33,
+    "trend": "improving"
+   },
+   {
+    "subject": "@dina",
+    "key": "evidence_consistency",
+    "polarity": "positive",
+    "rate": 0.88,
+    "trend": "stable"
+   },
+   {
+    "subject": "@dina",
+    "key": "log_consistency",
+    "polarity": "positive",
+    "rate": 0.74,
+    "trend": "improving"
+   },
+   {
+    "subject": "@lina",
+    "key": "rework",
+    "polarity": "negative",
+    "rate": 0.33,
+    "trend": "worsening"
+   }
+  ],
+  "now": [
+   {
+    "person": "@mahmoud",
+    "item": "DATA-101",
+    "title": "retry logic rework",
+    "project": "DATA",
+    "since_min": 5,
+    "kind": "reviewing"
+   },
+   {
+    "person": "@sara",
+    "item": "WEB-105",
+    "title": "password reset email template",
+    "project": "WEB",
+    "since_min": 106,
+    "kind": "working"
+   },
+   {
+    "person": "@ali",
+    "item": "WEB-110",
+    "title": "OAuth v2 token exchange",
+    "project": "WEB",
+    "since_min": 8,
+    "kind": "reviewing"
+   },
+   {
+    "person": "@nour",
+    "item": "DATA-114",
+    "title": "backfill CLI skeleton",
+    "project": "DATA",
+    "since_min": 100,
+    "kind": "working"
+   },
+   {
+    "person": "@omar",
+    "item": "DATA-106",
+    "title": "registry migration script",
+    "project": "DATA",
+    "since_min": 104,
+    "kind": "working"
+   },
+   {
+    "person": "@lina",
+    "item": "GOV-111",
+    "title": "bulk import rules",
+    "project": "GOV",
+    "since_min": 114,
+    "kind": "reviewing"
+   }
+  ],
+  "schema_version": 1,
+  "meta": {
+   "viewer": "@mahmoud",
+   "scope_label": "Workspace: acme",
+   "generated_for": "@mahmoud"
+  }
+ },
+ "slide_data": {}
+}
