@@ -27,6 +27,7 @@ Four requirements were added by the product owner during planning and are **not*
 | A **separate LLM server** on LiteLLM with **agentic** calls that take the local tasks and route them to the model; LLM logic independent of client and core server | Phase 2b (`14-phase-2b-llm-gateway.md`) |
 | Presentation as a **deck**: choose what to present, one slide per screen, next/previous; a **generic template** that can export a presentation from any report or view | Phase 7 |
 | **HTTPS with PEM certificates on Linux**; sign‑in with **Windows NT (Active Directory) accounts and NT groups** | Phase 4 §4.6, Phase 5 (IdP panel), Phase 12 (deployment) |
+| **Open presentation templates** and an **external‑LLM generation pack**: any new template for project presentation output can be added as data (form, JSON, import, or AI‑drafted); for any scope the server emits data + context + prompt + template so an external LLM call can generate a new presentation, which is imported and rendered by the same engine | Phase 7 §7.5–7.6, Phase 2b (`/v1/presentation/author`) |
 | **Top‑down planning**: a manager builds projects with phases, deliverables and milestones with dates, and can present all of it as a deck even if nobody has logged a task; when tasks exist the same slides add the detail | Phase 1 §1.2 (plan API, derived status), Phase 3 §3.11 (task ↔ deliverable linkage, roll‑ups, plan‑only seed project), Phase 5 (roadmap editor, "Present this plan"), Phase 7 (plan slide kinds, plan‑only rule, "Project plan review" template) |
 
 ## How to use these plans
