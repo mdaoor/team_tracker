@@ -32,3 +32,8 @@ Schemathesis against the seeded app found and fixed 500s on negative/huge `limit
 
 ## Unresolved / open
 See `docs/uat/known-limitations.md`, ADR-0036 (Kerberos), ADR-0040 (no replay rebuild). GitHub CI on these branches was already failing before this work (python job, from the P2b commit onward); the cause could not be read from the logs available here and is **not diagnosed**.
+
+## Final verification (branch `feat/i-remaining-plan`)
+* Python: 2775 passed, 2 failed in a coverage run (23 min); the two failures are timing budgets (`test_query_perf`, `test_governance_perf`) that pass when run alone (3 passed in 5.5 min). Total line coverage of the measured packages: **90 %** (19,520 statements).
+* ruff, ruff format, mypy (222 files): clean. Web vitest 49, desktop vitest 13, presentation vitest 15. Playwright: web 40 passed (includes axe = 100 on 14 screens, walkthrough, CSP), presentation 12 passed.
+* Not run: real-model goldens, Tauri/mobile builds, Helm lint/kind, a real Slack workspace, a real Jira / AD / OIDC provider, walkthrough video capture (ffmpeg build mismatch in the sandbox).
