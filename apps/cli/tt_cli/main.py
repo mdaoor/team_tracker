@@ -80,7 +80,11 @@ def _deliver(rt: Runtime, entries: list[Entry]) -> None:
             "applied_with_warnings": "✓ with warnings",
         }.get(r["status"], "✗")
         item = r.get("item") or {}
-        extra = f" jira:{r['jira']['status']}" if r.get("jira") else ""
+        extra = (
+            f" jira:{r['jira']['status']}" + (f" {r['jira']['key']}" if r["jira"].get("key") else "")
+            if r.get("jira")
+            else ""
+        )
         typer.echo(f"{flag} {item.get('key', '')} {item.get('title', '')}{extra}".rstrip())
         for w in r.get("warnings", []):
             typer.echo(f"   ! {w}")

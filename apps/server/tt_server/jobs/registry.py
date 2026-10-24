@@ -13,11 +13,14 @@ JOBS: dict[str, list[str]] = {
         for prefix in ("item.", "activity.", "stage.", "classification.", "dailylog.", "evidence.", "time.")
     },
 }
+for _prefix in ("item.", "time.", "stage.", "classification."):
+    JOBS.setdefault(_prefix, []).append("jira.on_event")
 
 # Tasks that only make sense when a feature is configured; otherwise they are never enqueued.
 ENABLED: dict[str, Callable[[Settings], bool]] = {
     "llm.suggest_for_event": lambda s: bool(s.llm_gateway_url and s.features.llm_suggestions),
     "governance.on_event": lambda s: s.features.governance,
+    "jira.on_event": lambda s: s.features.jira_sync,
 }
 
 

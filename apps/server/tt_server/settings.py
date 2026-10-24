@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     # --- web sessions (Phase 4 §4.5)
     session_secret: str = Field(default="dev-insecure-session-secret", description="Signs session cookies.")
     session_ttl_hours: int = 12
+    secret_key: str | None = Field(
+        default=None, description="Encrypts stored integration credentials (Jira). Required in production."
+    )
+    jira_inline_timeout_s: float = Field(
+        default=4.0,
+        description="Bound on the immediate push for an item the reporter opted in (0 = always async).",
+    )
     web_origin: str | None = Field(default=None, description="Allowed redirect target after login.")
 
     # --- OIDC (Entra ID / ADFS / any provider)

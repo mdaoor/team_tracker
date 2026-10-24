@@ -252,6 +252,7 @@ function RowActions({
           ))}
         </select>
       )}
+      {row.kind === "jira_mapping_gap" && <JiraGapFix row={row} onResolve={onResolve} />}
       {row.kind === "unconfirmed_classification" ? (
         <Button onClick={() => onResolve(row, { action: "reject" })}>Reject</Button>
       ) : (
@@ -259,6 +260,33 @@ function RowActions({
           Ignore
         </Button>
       )}
+    </span>
+  );
+}
+
+/** One-click mapping fix for a Jira gap: name the Jira value (outbound) or the Team Tracker state (inbound status). */
+function JiraGapFix({ row, onResolve }: { row: Row; onResolve: (r: Row, c: Row) => void }) {
+  const [v, setV] = useState("");
+  const s = row.suggestion ?? {};
+  const inbound = s.jira_status != null;
+  const what = inbound
+    ? `Jira status “${s.jira_status}” means state…`
+    : `${String(s.field).replace("_map", "").replace("issuetype", "item type")} “${s.key}” is in Jira…`;
+  return (
+    <span className="row">
+      <input
+        aria-label={what}
+        placeholder={what}
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+      />
+      <Button
+        variant="primary"
+        disabled={!v.trim()}
+        onClick={() => onResolve(row, inbound ? { state: v.trim() } : { map_to: v.trim() })}
+      >
+        Map
+      </Button>
     </span>
   );
 }

@@ -247,6 +247,10 @@ async def _apply_choice(
 ) -> str:
     s = uow.session
     kind, sug = row.kind, row.suggestion or {}
+    if kind == "jira_mapping_gap":
+        return await _apply_jira_gap(uow, row, choice)
+    if kind == "jira_sync_failed":
+        return "acknowledged"
     if kind == "unclassified_project":
         project = await _project_by_key(uow, ws, str(choice.get("project", "")))
         await items.change_project(uow, ws, item, project, actor_id=actor_id)
@@ -427,3 +431,37 @@ async def confirm_all_suggested(uow: UnitOfWork, ws: m.Workspace, actor_id: str)
     for r in rows:
         await resolve(uow, ws, r["ref"], {"action": "confirm"}, actor_id=actor_id)
     return len(rows)
+
+
+async def _apply_jira_gap(uow: UnitOfWork, row: m.ReviewItem, choice: dict[str, Any]) -> str:
+    """One-click mapping fix: `{"map_to": "<Jira name>"}` (or `{"state": "<state key>"}` for an unmapped Jira status) edits the project's mapping."""
+    s = uow.session
+    sug = row.suggestion or {}
+    project = await s.scalar(
+        select(m.Project).where(
+            m.Project.key == sug.get("project"), m.Project.workspace_id == row.workspace_id
+        )
+    )
+    if project is None:
+        raise ApiError(404, "not_found", "project not found", pointer="/choice")
+    cfg = dict((project.settings or {}).get("jira") or {})
+    fld = str(sug.get("field"))
+    mp = dict(cfg.get(fld) or {})
+    if sug.get("jira_status") is not None:  # inbound: Jira status -> a Team Tracker state
+        state = str(choice.get("state") or "")
+        if not state:
+            raise ApiError(
+                400,
+                "invalid",
+                "choose the Team Tracker state this Jira status means",
+                pointer="/choice/state",
+            )
+        mp[state] = str(sug["jira_status"])
+    else:
+        target = str(choice.get("map_to") or "")
+        if not target:
+            raise ApiError(400, "invalid", "choose the Jira name to map to", pointer="/choice/map_to")
+        mp[str(sug["key"])] = target
+    cfg[fld] = mp
+    project.settings = {**(project.settings or {}), "jira": cfg}
+    return f"mapped:{fld}"

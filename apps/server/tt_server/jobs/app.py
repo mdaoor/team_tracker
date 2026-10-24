@@ -15,6 +15,7 @@ TASK_MODULES: list[str] = [
     "tt_server.jobs.tasks",
     "tt_server.jobs.llm_tasks",
     "tt_server.jobs.governance_tasks",
+    "tt_server.jobs.jira_tasks",
 ]
 
 

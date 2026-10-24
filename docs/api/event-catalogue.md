@@ -112,6 +112,9 @@ event_types:
   - jira.pushed
   - jira.push_failed
   - jira.imported
+  - item.jira_linked
+  - integration.jira_configured
+  - project.jira_configured
   # auth
   - token.created
   - auth.login

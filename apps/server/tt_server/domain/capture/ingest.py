@@ -1006,14 +1006,32 @@ async def _process(
     extra: dict[str, Any] = {}
     if mode:
         extra["mode"] = mode
-    if msg.jira:  # Phase 10 performs the push; until then the request is only recorded
+    if msg.jira:  # the push itself is a job (Phase 10); a `send` opts this item in
         extra["jira"] = msg.jira
         if msg.jira.get("send"):
+            item.external_refs = {**(item.external_refs or {}), "jira_opt_in": "true"}
             result.jira = {"status": "deferred"}
     primary = ctx.events[0]
     primary.client_id = msg.client_id
     primary.payload = {**primary.payload, **extra, "result": result.as_dict()}
     return result
+
+
+async def _inline_jira_push(session_factory: async_sessionmaker[AsyncSession], result: MessageResult) -> None:
+    """A reporter who asked for Jira gets the key back when Jira answers within a short bound; otherwise the queued job finishes it."""
+    from tt_server.integrations.jira import sync as jira_sync
+    from tt_server.settings import get_settings
+
+    st = get_settings()
+    if not (st.features.jira_sync and result.jira and result.item and st.jira_inline_timeout_s > 0):
+        return
+    res = await jira_sync.push_bounded(session_factory, result.item["id"], st.jira_inline_timeout_s)
+    if res is None:
+        return
+    if res.status in ("pushed", "unchanged") and res.key:
+        result.jira = {"status": "pushed", "key": res.key}
+    elif res.status == "failed":
+        result.jira = {"status": "failed", "error": res.reason}
 
 
 async def ingest_batch(
@@ -1040,6 +1058,7 @@ async def ingest_batch(
                     continue
                 await uow.commit()
                 results.append(result)
+            await _inline_jira_push(session_factory, result)
         except Exception as exc:
             log.warning("capture_message_failed", client_id=msg.client_id, error=repr(exc))
             results.append(MessageResult(msg.client_id, "failed", error_code="internal_error"))

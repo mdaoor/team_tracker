@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/integrations/jira/webhook/{ws}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Webhook */
+        post: operations["webhook_api_v1_integrations_jira_webhook__ws__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/workspaces": {
         parameters: {
             query?: never;
@@ -725,6 +742,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/integrations/jira": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Connection */
+        get: operations["get_connection_api_v1_w__ws__integrations_jira_get"];
+        /** Put Connection */
+        put: operations["put_connection_api_v1_w__ws__integrations_jira_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/integrations/jira/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sync Log */
+        get: operations["sync_log_api_v1_w__ws__integrations_jira_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/integrations/jira:rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate Secret */
+        post: operations["rotate_secret_api_v1_w__ws__integrations_jira_rotate_secret_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/integrations/jira:test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Connection
+         * @description Authenticate, learn the integration user (its edits are never echoed back), and optionally fetch a project's options.
+         */
+        post: operations["test_connection_api_v1_w__ws__integrations_jira_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/w/{ws}/items": {
         parameters: {
             query?: never;
@@ -965,6 +1054,43 @@ export interface paths {
         /** Override Weight */
         put: operations["override_weight_api_v1_w__ws__items__id_or_key__weights__scheme__put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/items/{key}/jira": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Item Jira */
+        get: operations["item_jira_api_v1_w__ws__items__key__jira_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/items/{key}/jira:push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push Now
+         * @description Manual push. An explicit push is an opt-in for this item.
+         */
+        post: operations["push_now_api_v1_w__ws__items__key__jira_push_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1976,6 +2102,44 @@ export interface paths {
         put?: never;
         /** Create Iteration */
         post: operations["create_iteration_api_v1_w__ws__projects__key__iterations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/projects/{key}/jira": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mapping */
+        get: operations["get_mapping_api_v1_w__ws__projects__key__jira_get"];
+        /** Put Mapping */
+        put: operations["put_mapping_api_v1_w__ws__projects__key__jira_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/projects/{key}/jira:link-existing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link Existing
+         * @description Attach existing Jira issues to items (explicit pairs, or equal summaries). Nothing is created or changed in Jira.
+         */
+        post: operations["link_existing_api_v1_w__ws__projects__key__jira_link_existing_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3179,6 +3343,20 @@ export interface components {
             /** Value */
             value: string;
         };
+        /** ConnIn */
+        ConnIn: {
+            /** Api Token */
+            api_token?: string | null;
+            /** Base Url */
+            base_url: string;
+            /** Email */
+            email: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+        };
         /**
          * ContextKind
          * @enum {string}
@@ -3493,16 +3671,6 @@ export interface components {
             username: string;
             /** Workspace */
             workspace: string;
-        };
-        /** LinkIn */
-        LinkIn: {
-            /** @default delivers */
-            role: components["schemas"]["ProductLinkRole"];
-            /** Target Id */
-            target_id: string;
-            target_type: components["schemas"]["TargetType"];
-            /** Weight */
-            weight?: number | null;
         };
         /** MappingIn */
         MappingIn: {
@@ -4391,6 +4559,28 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** LinkIn */
+        tt_server__api__routers__jira__LinkIn: {
+            /**
+             * By Summary
+             * @default false
+             */
+            by_summary: boolean;
+            /** Pairs */
+            pairs?: {
+                [key: string]: string;
+            }[];
+        };
+        /** LinkIn */
+        tt_server__api__routers__overlay__LinkIn: {
+            /** @default delivers */
+            role: components["schemas"]["ProductLinkRole"];
+            /** Target Id */
+            target_id: string;
+            target_type: components["schemas"]["TargetType"];
+            /** Weight */
+            weight?: number | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -4400,6 +4590,41 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    webhook_api_v1_integrations_jira_webhook__ws__post: {
+        parameters: {
+            query?: {
+                token?: string;
+            };
+            header?: never;
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     my_workspaces_api_v1_me_workspaces_get: {
         parameters: {
             query?: never;
@@ -6219,6 +6444,195 @@ export interface operations {
             };
         };
     };
+    get_connection_api_v1_w__ws__integrations_jira_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_connection_api_v1_w__ws__integrations_jira_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_log_api_v1_w__ws__integrations_jira_log_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                item?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_secret_api_v1_w__ws__integrations_jira_rotate_secret_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_connection_api_v1_w__ws__integrations_jira_test_post: {
+        parameters: {
+            query?: {
+                project?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_items_api_v1_w__ws__items_get: {
         parameters: {
             query?: {
@@ -6834,6 +7248,80 @@ export interface operations {
                 "application/json": components["schemas"]["WeightIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    item_jira_api_v1_w__ws__items__key__jira_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                key: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_now_api_v1_w__ws__items__key__jira_push_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                key: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -9236,7 +9724,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinkIn"];
+                "application/json": components["schemas"]["tt_server__api__routers__overlay__LinkIn"];
             };
         };
         responses: {
@@ -9558,6 +10046,127 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mapping_api_v1_w__ws__projects__key__jira_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                key: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_mapping_api_v1_w__ws__projects__key__jira_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                key: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_existing_api_v1_w__ws__projects__key__jira_link_existing_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                key: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["tt_server__api__routers__jira__LinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

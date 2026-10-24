@@ -2,6 +2,7 @@ import { NavLink, Navigate, useParams } from "react-router-dom";
 import { Dimensions } from "./Dimensions";
 import { Glossary } from "./Glossary";
 import { Identity } from "./Identity";
+import { Jira } from "./Jira";
 import { Manual } from "./Manual";
 import { People } from "./People";
 import { Planning } from "./Planning";
@@ -16,6 +17,7 @@ const SECTIONS = [
   ["dimensions", "Dimensions", Dimensions],
   ["people", "People & teams", People],
   ["identity", "Identity provider", Identity],
+  ["jira", "Jira", Jira],
   ["planning", "Milestones & iterations", Planning],
   ["risks", "Risks", Risks],
   ["glossary", "Tags & glossary", Glossary],
