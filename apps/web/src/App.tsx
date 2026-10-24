@@ -1,6 +1,55 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { Shell } from "./components/Shell";
+import { ToastProvider } from "./components/Toasts";
+import { ComingSoon } from "./pages/ComingSoon";
 import { HealthPage } from "./pages/HealthPage";
+import { Login } from "./pages/Login";
+import { ReviewQueue } from "./pages/ReviewQueue";
+import { Setup } from "./pages/setup/Setup";
+import { useQuery } from "@tanstack/react-query";
+import { api, type Row } from "./api/http";
+import { ViewsRoute, PresentRoute } from "./routes";
 
-/** Phase 0 shell: no routing library yet; `/healthz` is the only page. */
+function Home() {
+  const q = useQuery({
+    queryKey: ["workspaces"],
+    queryFn: () => api.get<Row>("/api/v1/me/workspaces"),
+    retry: false,
+  });
+  if (q.isError) return <Navigate to="/login" replace />;
+  const first = (q.data?.data as Row[] | undefined)?.[0];
+  return first ? <Navigate to={`/w/${first.slug}/review`} replace /> : <p>Loading…</p>;
+}
+
 export function App() {
-  return <HealthPage />;
+  const [qc] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: false } },
+      }),
+  );
+  return (
+    <QueryClientProvider client={qc}>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/status" element={<HealthPage />} />
+            <Route path="/w/:ws" element={<Shell />}>
+              <Route index element={<Navigate to="review" replace />} />
+              <Route path="review" element={<ReviewQueue />} />
+              <Route path="setup/:section?" element={<Setup />} />
+              <Route path="views/*" element={<ViewsRoute />} />
+              <Route path="present/*" element={<PresentRoute />} />
+              <Route path="policies" element={<ComingSoon name="Policies" />} />
+              <Route path="weights" element={<ComingSoon name="Weights" />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
+    </QueryClientProvider>
+  );
 }

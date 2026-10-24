@@ -1,0 +1,362 @@
+body {
+  margin: 0;
+}
+.shell {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  grid-template-rows: 48px 1fr;
+  min-height: 100vh;
+}
+.topbar {
+  grid-column: 1 / 3;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.brand {
+  margin-right: 8px;
+}
+.grow {
+  flex: 1;
+}
+.sidenav {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 2px;
+  border-right: 1px solid var(--line);
+}
+.sidenav a,
+.subnav a {
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+.sidenav a.active,
+.subnav a.active {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+}
+.content {
+  padding: 16px 24px;
+  overflow: auto;
+}
+.setup {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+.subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-primary {
+  background: var(--s1);
+  color: #fff;
+  border-color: var(--s1);
+}
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.btn:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+button:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--s1);
+  outline-offset: 2px;
+}
+.chip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  background: var(--surface-2);
+}
+.chip-x {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--text-3);
+}
+.pill {
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  background: var(--surface);
+}
+.card-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-h h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: var(--text-2);
+  gap: 2px;
+}
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 8px;
+}
+th,
+td {
+  text-align: start;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.muted,
+small {
+  color: var(--text-3);
+}
+.empty {
+  color: var(--text-3);
+  padding: 24px;
+  text-align: center;
+}
+.err {
+  color: var(--crit);
+}
+.cue {
+  font-size: 11px;
+  opacity: 0.85;
+}
+.cue-suggested,
+.cue-ask {
+  font-style: italic;
+}
+.prov {
+  position: relative;
+  color: var(--text-3);
+  cursor: help;
+  margin-inline-start: 4px;
+}
+.prov-tip {
+  display: none;
+  position: absolute;
+  inset-inline-start: 0;
+  top: 1.3em;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+  white-space: nowrap;
+  z-index: 5;
+}
+.prov:hover .prov-tip,
+.prov:focus .prov-tip {
+  display: block;
+}
+.toasts {
+  position: fixed;
+  inset-inline-end: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 20;
+}
+.toast {
+  background: var(--text);
+  color: var(--surface);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.toast-error {
+  background: var(--crit);
+  color: #fff;
+}
+.drawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: min(520px, 100vw);
+  background: var(--surface);
+  border-inline-start: 1px solid var(--line);
+  box-shadow: -4px 0 16px #0002;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+.drawer-h {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer-h h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.drawer-b {
+  padding: 12px 16px;
+  overflow: auto;
+}
+.dialog {
+  border: 2px solid var(--warn);
+  padding: 12px;
+  border-radius: 8px;
+  margin: 8px 0;
+  background: var(--surface-2);
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+.tabs button {
+  border: 0;
+  background: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: var(--text-2);
+}
+.tabs button[aria-selected="true"] {
+  border-color: var(--s1);
+  color: var(--text);
+}
+.palette {
+  position: fixed;
+  top: 20%;
+  inset-inline: 0;
+  margin: auto;
+  width: 480px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+  z-index: 30;
+  box-shadow: 0 8px 32px #0004;
+}
+.palette input {
+  width: 100%;
+}
+.palette ul {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+}
+.palette button {
+  width: 100%;
+  text-align: start;
+  border: 0;
+  background: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text);
+}
+.rq {
+  list-style: none;
+  padding: 0;
+}
+.rq-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.rq-row.cur {
+  background: var(--surface-2);
+  outline: 2px solid var(--s1);
+}
+.key {
+  font-family: var(--mono);
+}
+.bulk {
+  margin-bottom: 12px;
+}
+.stages {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  flex-wrap: wrap;
+}
+.stages li {
+  padding: 4px;
+  border-radius: 8px;
+}
+.heat td button {
+  width: 40px;
+  height: 32px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--text);
+}
+.droplist li {
+  padding: 6px;
+  border: 1px dashed var(--line);
+  margin: 4px 0;
+}
+.login {
+  max-width: 360px;
+  margin: 10vh auto;
+}
+.login form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+dl.props {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 4px 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+[dir="rtl"] .shell {
+  direction: rtl;
+}

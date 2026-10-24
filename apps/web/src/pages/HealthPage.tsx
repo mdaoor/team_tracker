@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getReady, type Ready } from "../api/client";
+import { getReady, type Ready } from "../api/http";
 
 export function HealthPage() {
   const [ready, setReady] = useState<Ready | null>(null);

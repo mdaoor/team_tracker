@@ -7,9 +7,11 @@ afterEach(() => vi.restoreAllMocks());
 test("shows readiness from the API", async () => {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({
-      json: async () => ({ status: "ready", checks: { database: "ok", procrastinate: "ok" } }),
-    }),
+    vi
+      .fn()
+      .mockImplementation(async () =>
+        Response.json({ status: "ready", checks: { database: "ok", procrastinate: "ok" } }),
+      ),
   );
   render(<HealthPage />);
   expect(await screen.findByText("API ready")).toBeInTheDocument();

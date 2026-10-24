@@ -96,6 +96,14 @@ class LLMGatewayClient:
             "/v1/policy/author", {"workspace": workspace, "request": request}, core_token=core_token
         )
 
+    async def rules_dry_run(
+        self, workspace: str, lines: list[str], rules: list[str], pack: dict[str, Any], actor: str
+    ) -> GatewayAnswer:
+        return await self._post(
+            "/v1/rules/dry-run",
+            {"workspace": workspace, "lines": lines, "rules": rules, "pack": pack, "actor": actor},
+        )
+
     async def aclose(self) -> None:
         await self.http.aclose()
 

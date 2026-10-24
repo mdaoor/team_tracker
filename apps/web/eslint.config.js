@@ -8,6 +8,18 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Every request goes through the generated client in src/api/http.ts (Phase 5 acceptance).
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/api/**"],
+    rules: {
+      "no-restricted-globals": [
+        "error",
+        { name: "fetch", message: "use src/api/http.ts" },
+        { name: "XMLHttpRequest", message: "use src/api/http.ts" },
+      ],
+    },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     languageOptions: { globals: globals.browser },
     plugins: { "react-hooks": reactHooks },

@@ -343,11 +343,17 @@ class ProjectIn(BaseModel):
     owner_id: str | None = None
     description: str | None = None
     team_id: str | None = None
+    process: str | None = Field(default=None, description="process key; default: the workspace's default process")
     settings: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.post("/projects", status_code=201, tags=["projects"], dependencies=[needs("project.create")])
 async def create_project(body: ProjectIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    extra: dict[str, Any] = {}
+    if body.process:
+        from tt_server.domain.overlay import process as proc
+
+        extra["default_process_id"] = (await proc.get_process(uow.session, actor.ws.id, body.process)).id
     p = await projects.create_project(
         uow,
         actor.ws,
@@ -358,6 +364,7 @@ async def create_project(body: ProjectIn, actor: CurrentActor, uow: Uow) -> dict
         description=body.description,
         team_id=body.team_id,
         settings=body.settings,
+        **extra,
     )
     await uow.commit()
     return row_dict(p)

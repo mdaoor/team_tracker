@@ -38,6 +38,7 @@ extend-exclude = ["docs/spec", "tools/gen_snapshot.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
+ignore = ["E501"]  # `ruff format` wraps code; long docstrings/strings are left to the author
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S", "E501"]

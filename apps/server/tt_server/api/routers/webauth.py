@@ -5,17 +5,17 @@ from __future__ import annotations
 import secrets
 import time
 from datetime import timedelta
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import quote, urlencode, urlparse
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Header, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import EventSource, MemberStatus, TargetType
 
-from tt_server.api.deps import Uow, hash_token, new_token
+from tt_server.api.deps import Uow, _authenticate, hash_token, new_token
 from tt_server.api.errors import ApiError
 from tt_server.api.session import (
     SESSION_COOKIE,
@@ -30,6 +30,7 @@ from tt_server.domain.common import emit
 from tt_server.integrations import idp
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+api_router = APIRouter()
 
 _FAILURES: dict[str, list[float]] = {}
 MAX_FAILURES, WINDOW = 5, 300.0
@@ -205,6 +206,29 @@ async def me(request: Request, uow: Uow) -> dict[str, Any]:
         "display_name": person.display_name,
         "workspaces": [{"slug": s, "handle": h} for s, h in rows],
     }
+
+
+@api_router.get("/api/v1/me/workspaces", tags=["auth"])
+async def my_workspaces(
+    request: Request, uow: Uow, authorization: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    """Workspaces the caller belongs to -- by session cookie or API token (feeds the workspace switcher)."""
+    person: m.Person | None = None
+    if authorization and authorization.lower().startswith("bearer "):
+        person, _ = await _authenticate(request, uow, authorization, None, None)
+    else:
+        sess = read_session(request, request.app.state.settings)
+        person = await uow.session.get(m.Person, sess[0]) if sess else None
+    if person is None:
+        raise ApiError(401, "unauthorized", "not signed in")
+    rows = (
+        await uow.session.execute(
+            select(m.Workspace.slug, m.Workspace.name, m.WorkspaceMember.handle)
+            .join(m.WorkspaceMember, m.WorkspaceMember.workspace_id == m.Workspace.id)
+            .where(m.WorkspaceMember.person_id == person.id, m.WorkspaceMember.status == MemberStatus.ACTIVE)
+        )
+    ).all()
+    return {"data": [{"slug": s, "name": n, "handle": h} for s, n, h in rows], "next_cursor": None}
 
 
 async def _mint(

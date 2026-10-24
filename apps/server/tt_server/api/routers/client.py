@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Header, Request, Response
+from fastapi import APIRouter, Header, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from tt_schema.base import new_id
@@ -24,9 +24,28 @@ router = APIRouter(prefix="/api/v1/w/{ws}")
 
 @router.get("/context-pack", tags=["client"])
 async def context_pack(
-    actor: CurrentActor, uow: Uow, response: Response, if_none_match: str | None = Header(default=None)
+    actor: CurrentActor,
+    uow: Uow,
+    response: Response,
+    if_none_match: str | None = Header(default=None),
+    for_: str | None = Query(default=None, alias="for"),
 ) -> Any:
-    pack = await build_pack(uow.session, actor.ws, actor.member)
+    member = actor.member
+    if (
+        for_ and for_ != actor.member.handle
+    ):  # export the pack another person would get (admin only, air-gapped mode)
+        if not actor.acl.is_admin:
+            raise ApiError(403, "forbidden", "only a workspace admin may export another person's pack")
+        other = await uow.session.scalar(
+            select(m.WorkspaceMember).where(
+                m.WorkspaceMember.workspace_id == actor.ws.id,
+                m.WorkspaceMember.handle == (for_ if for_.startswith("@") else "@" + for_),
+            )
+        )
+        if other is None:
+            raise ApiError(404, "not_found", f"unknown member {for_}")
+        member = other
+    pack = await build_pack(uow.session, actor.ws, member)
     tag = etag_of(pack)
     headers = {"ETag": tag, "Cache-Control": "private, max-age=60"}
     if if_none_match and if_none_match.strip() == tag:

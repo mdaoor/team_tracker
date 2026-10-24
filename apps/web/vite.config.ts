@@ -8,6 +8,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": process.env.TT_API_URL ?? "http://localhost:8000",
+      "/auth": process.env.TT_API_URL ?? "http://localhost:8000",
       "/healthz": process.env.TT_API_URL ?? "http://localhost:8000",
       "/readyz": process.env.TT_API_URL ?? "http://localhost:8000",
     },
