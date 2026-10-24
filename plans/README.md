@@ -29,18 +29,6 @@ Four requirements were added by the product owner during planning and are **not*
 | **HTTPS with PEM certificates on Linux**; sign‑in with **Windows NT (Active Directory) accounts and NT groups** | Phase 4 §4.6, Phase 5 (IdP panel), Phase 12 (deployment) |
 | **Top‑down planning**: a manager builds projects with phases, deliverables and milestones with dates, and can present all of it as a deck even if nobody has logged a task; when tasks exist the same slides add the detail | Phase 1 §1.2 (plan API, derived status), Phase 3 §3.11 (task ↔ deliverable linkage, roll‑ups, plan‑only seed project), Phase 5 (roadmap editor, "Present this plan"), Phase 7 (plan slide kinds, plan‑only rule, "Project plan review" template) |
 
-## Addenda to phases that are already implemented
-
-Phases 0–4 were implemented (PR mdaoor/team_tracker#2, merged into this branch) before the top‑down‑planning requirement was added. The following plan sections therefore describe work that is **not yet built** and must be picked up as a follow‑up before or alongside Phase 5:
-
-| section | missing in the implementation |
-|---|---|
-| Phase 1 §1.2 "Top‑down project plan" | `POST/GET /projects/{key}/plan`, derived plan statuses for deliverables/milestones/projects, `Milestone.kind` in the plan read |
-| Phase 3 §3.11 "Plan ↔ execution linkage" | task → deliverable auto‑parenting, `ReviewItem{kind=unlinked_task}`, plan‑tree roll‑ups, dependency re‑evaluation |
-| Phase 3 scope item 13 | seed project `ERP` (plan‑only, zero tasks) in `tools/seed/demo.py` |
-
-Track them as the first tasks of the Phase 5 branch (they are server‑side prerequisites of the roadmap editor) and tick them off here when done.
-
 ## How to use these plans
 
 1. Read `README.md` (this file), then `00-architecture-and-stack.md`, then the appendices A–C once.

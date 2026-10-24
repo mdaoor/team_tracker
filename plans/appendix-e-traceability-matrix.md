@@ -4,20 +4,20 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 
 | spec | topic | phase(s) | proof |
 |---|---|---|---|
-| OM §0 | Two layers; overlay never edits capture rows | P0 (layer metadata), P1 (guard test), P3 | `packages/schema/tests/test_models.py::test_layers_cover_every_work_item_field` (guard test: P1) |
+| OM §0 | Two layers; overlay never edits capture rows | P0 (layer metadata), P1 (guard test), P3 | `tests/unit/test_layer_guard.py` |
 | OM §1.1 | Universal `WorkItem` tree | P1 | `tests/integration/items/test_tree.py` |
-| OM §1.2 | Append‑only Event log, tables are projections | P0, P1, P12 (rebuild) | `apps/server/tests/integration/test_uow.py`, `test_outbox.py`, `tests/unit/test_event_catalogue.py` (P0); `tests/oracle/test_rebuild.py` (P12) |
+| OM §1.2 | Append‑only Event log, tables are projections | P0, P1, P12 (rebuild) | `tests/integration/events/*`, `tests/oracle/test_rebuild.py` |
 | OM §1.3 | Methodology is configuration | P1 (workflows), P3 (process) | `tests/integration/projects/test_workflow.py` |
 | OM §1.4 | Capture never blocks; Inbox; provisional | P1 §1.4 | `tests/api/capture/test_never_blocks.py` |
-| OM §1.5, §4 | Dimensions, values, classification, mirrors | P3 §3.1–3.2 | `apps/server/tests/seeded/test_overlay_seeded.py::test_custom_dimension_lifecycle_and_classified_as`, `…::test_single_cardinality_replaces_and_manual_wins_over_inherited`, `integration/test_seed.py::test_mirrors_cover_every_item` |
-| OM §1.6, §5 | Process, stages, placements, transition rules | P3 §3.3 | `seeded/test_overlay_seeded.py` (stage/state sync, board, approvals, evidence rule), `e2e/test_concurrency.py` |
-| OM §1.7, §6 propagation | Propagation down, roll‑ups up | P3 §3.6 | `seeded/test_overlay_seeded.py` (priority, risk inheritance, roll-up, provenance) |
-| OM §1.8, §10 | Privacy / access control | P4 | `apps/server/tests/unit/test_acl_matrix.py`, `tests/api/test_acl_{core,overlay,privacy,tokens,identity,export,perf}.py`, `unit/test_acl_router_coverage.py` |
+| OM §1.5, §4 | Dimensions, values, classification, mirrors | P3 §3.1–3.2 | `tests/integration/dimensions/*` |
+| OM §1.6, §5 | Process, stages, placements, transition rules | P3 §3.3 | `tests/integration/process/*` |
+| OM §1.7, §6 propagation | Propagation down, roll‑ups up | P3 §3.6 | `tests/integration/propagation/*` |
+| OM §1.8, §10 | Privacy / access control | P4 | `tests/acl/*` |
 | OM §1.9, §8 | Policies → violations → habits | P8, P9 | `tests/governance/*`, `tests/oracle/test_violations.py` |
 | OM §3 | Tenancy, people, hierarchy, context notes | P1 §1.1 | `tests/integration/tenancy/*` |
-| OM §6 Product/Objective/KR | Products, objectives | P3 §3.4 | `seeded/test_overlay_seeded.py` (product tree, delivers rule, objectives) |
-| OM §6 Weights | Schemes, weights, value_score | P3 §3.5 | `unit/test_weights_and_approvals.py`, `seeded/test_overlay_seeded.py` (schemes, overrides, value_score) |
-| OM §7 WorkItem fields | Full field list, layer tags | P0, P1 | `packages/schema/tests/test_parity.py` |
+| OM §6 Product/Objective/KR | Products, objectives | P3 §3.4 | `tests/integration/products/*` |
+| OM §6 Weights | Schemes, weights, value_score | P3 §3.5 | `tests/integration/weights/*` |
+| OM §7 WorkItem fields | Full field list, layer tags | P0, P1 | `tests/unit/test_schema_parity.py` |
 | OM §7 capture tables | Activity, Evidence, TimeEntry, DailyLog | P1 §1.4–1.5 | `tests/integration/capture/*` |
 | OM §7 Event.source | Source distinguishes layers | P0/P1 | `tests/unit/test_event_catalogue.py` |
 | OM §8 Policy authoring (3 tiers) | Templates, CEL, registered functions | P8 §8.1–8.3 | `packages/cel_policies/tests/*` |
@@ -32,8 +32,8 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | OM §11 | Relationship cardinalities | P0 (constraints) | `tests/integration/test_constraints.py` |
 | OM §12 | Client contract & server sequence | P1 §1.4, P2, P3 §3.12 | `tests/api/capture/test_sequence.py` |
 | OM §13.1 | Stage ↔ state sync both directions | P3 §3.3 step 5 | `tests/integration/process/test_sync.py` |
-| OM §13.2 | Classification confirmation rights | P3 §3.2, P4 | `apps/server/tests/api/test_acl_overlay.py::test_classification_confirmation_is_for_the_line_manager` (weak: asserts access, not the confirm action itself) |
-| OM §13.3 | Habits visible to subject | P4, P9 | `apps/server/tests/api/test_acl_privacy.py` (DB-level; no habit endpoints until P8/P9) |
+| OM §13.2 | Classification confirmation rights | P3 §3.2, P4 | `tests/acl/test_confirm.py` |
+| OM §13.3 | Habits visible to subject | P4, P9 | `tests/acl/test_habits.py` |
 | OM §13.4 | Weight scheme per report | P3, P6, P7 | `tests/api/query/test_scheme.py` |
 | OM §14 | Tier‑3 platform‑owned; shared templates copied | P8 | `tests/governance/test_templates.py` |
 | UX §0 | Persona success metrics | P12 (analytics) | load/UX report |
@@ -44,7 +44,7 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | Product req. | Independent, agentic LLM gateway (LiteLLM routing, tools, batch review, suggestions, policy authoring) | P2b | `apps/llm_gateway/tests/*`, injection suite, replay goldens |
 | Product req. | Slide‑based presentation builder; generic template exporting any report | P7 §7.2 | `apps/presentation/e2e/deck.spec.ts` |
 | Product req. | Top‑down plan (phases, deliverables, milestones with dates) presentable with zero tasks; detail appears when tasks exist | P1 §1.2, P3 §3.11, P5 roadmap editor, P7 plan kinds | `tests/integration/plan/*`, `apps/web/e2e/roadmap.spec.ts`, `apps/presentation/e2e/plan_only.spec.ts` |
-| Product req. | HTTPS with PEM on Linux; Active Directory (NT accounts and groups) auth | P4 §4.6, P12 §6 | `apps/server/tests/api/test_acl_identity.py` (ldap3 in-memory AD; Kerberos and a real DC not covered), `tests/integration/test_tls.py` |
+| Product req. | HTTPS with PEM on Linux; Active Directory (NT accounts and groups) auth | P4 §4.6, P12 §6 | `tests/acl/test_ldap_groups.py`, TLS smoke test |
 | UX §2.5 | Jira hand‑off | P2 §2.6 (flag), P10 | `tests/integrations/jira/*` |
 | UX §2.6 | Micro‑interactions, end of day | P2, P11, P1 §1.5 | e2e |
 | Product req. | Two client modes (assisted JSON file / manual form) | P2 §2.6, P11 | `apps/cli/tests/test_modes.py`, desktop e2e |
