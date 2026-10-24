@@ -10,7 +10,7 @@ from datetime import timedelta
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import utcnow
 
@@ -20,6 +20,7 @@ from tt_server.api.errors import ApiError
 from tt_server.api.session import SLIDE_AFTER_SECONDS, check_csrf, read_session
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
+from tt_server.sso import principal_from
 
 TOKEN_PREFIX = "tt_"  # noqa: S105
 
@@ -80,6 +81,20 @@ async def _authenticate(
         person = await session.get(m.Person, row.person_id)
         assert person is not None  # noqa: S101
         return person, row
+    if (sso := principal_from(request, request.app.state.settings)) is not None and workspace is not None:
+        # proxy-validated Kerberos principal: an existing, active member only (provisioning happens at /auth/sso)
+        res = await session.execute(
+            select(m.Person)
+            .join(m.WorkspaceMember, m.WorkspaceMember.person_id == m.Person.id)
+            .where(
+                m.WorkspaceMember.workspace_id == workspace.id,
+                func.lower(m.Person.email) == sso.email,
+                m.WorkspaceMember.deleted_at.is_(None),
+            )
+        )
+        if (found := res.scalar_one_or_none()) is not None and found.deleted_at is None:
+            return found, None
+        raise ApiError(401, "unauthorized", "the signed-in principal is not a member of this workspace")
     if debug_actor and request.app.state.settings.dev_auth:
         handle = debug_actor if debug_actor.startswith("@") else "@" + debug_actor
         if workspace is None:

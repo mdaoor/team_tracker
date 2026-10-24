@@ -1,0 +1,46 @@
+"""Best-effort sliding-window rate limiting (phase 12 §5): capture per credential, sign-in endpoints per client address.
+
+In-process on purpose: it protects each API process from a runaway client or a credential-stuffing burst without a new moving part.
+The sign-in endpoints also have the database-backed, cluster-wide backoff (`LoginAttempt`); this layer is the cheap first line.
+Behind several replicas the effective limit is `limit x replicas`, which is acceptable for abuse control (not for billing)."""
+
+from __future__ import annotations
+
+import hashlib
+import time
+from collections import deque
+from collections.abc import Callable
+
+
+class SlidingWindow:
+    def __init__(
+        self, limit: int, window_s: float = 60.0, *, clock: Callable[[], float] = time.monotonic
+    ) -> None:
+        self.limit, self.window, self.clock = limit, window_s, clock
+        self._hits: dict[str, deque[float]] = {}
+        self._swept = clock()
+
+    def hit(self, key: str) -> float | None:
+        """Record a request. Returns None when allowed, else the seconds until the oldest hit leaves the window."""
+        now = self.clock()
+        q = self._hits.setdefault(key, deque())
+        while q and now - q[0] >= self.window:
+            q.popleft()
+        if len(q) >= self.limit:
+            return max(0.0, self.window - (now - q[0]))
+        q.append(now)
+        if now - self._swept > self.window * 5:  # forget idle keys so the table cannot grow without bound
+            self._swept = now
+            for k in [k for k, v in self._hits.items() if not v or now - v[-1] >= self.window]:
+                del self._hits[k]
+        return None
+
+
+def credential_key(
+    authorization: str | None, session_cookie: str | None, debug_actor: str | None, client: str | None
+) -> str:
+    """A stable, non-reversible bucket per caller: bearer token > session cookie > debug actor > client address."""
+    for tag, raw in (("t", authorization), ("s", session_cookie), ("d", debug_actor), ("a", client)):
+        if raw:
+            return tag + hashlib.sha256(raw.encode()).hexdigest()[:20]
+    return "anon"

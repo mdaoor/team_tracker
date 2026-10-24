@@ -7,6 +7,7 @@ event_types:
   - member.added
   - member.updated
   - member.removed
+  - person.erased  # GDPR erasure: counts of comments / daily logs / tokens / raw inputs scrubbed
   - team.created
   - team.updated
   - membership.changed
@@ -24,7 +25,7 @@ event_types:
   - milestone.*
   - release.*
   - component.*
-  - recurrence.materialised
+  - recurrence.*  # created, updated, deleted, materialised
   # work items
   - item.created
   - item.matched
@@ -42,6 +43,11 @@ event_types:
   - item.planned_end_set
   - item.field_conflict
   - item.deleted
+  - item.linked
+  - item.unlinked
+  - item.custom_field_set
+  - item.progress_recomputed  # nightly heal of rolled-up progress (before/after)
+  - custom_field.*  # created, updated, deleted
   # capture
   - activity.started
   - activity.paused

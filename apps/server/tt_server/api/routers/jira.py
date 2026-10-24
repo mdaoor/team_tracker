@@ -6,7 +6,7 @@ import hmac
 import secrets
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from tt_schema.base import new_id
@@ -131,7 +131,9 @@ async def test_connection(actor: CurrentActor, uow: Uow, project: str | None = N
 
 
 @router.get("/integrations/jira/log", dependencies=[needs("role.admin")])
-async def sync_log(actor: CurrentActor, uow: Uow, limit: int = 50, item: str | None = None) -> dict[str, Any]:
+async def sync_log(
+    actor: CurrentActor, uow: Uow, limit: int = Query(50, ge=1, le=1000), item: str | None = None
+) -> dict[str, Any]:
     q = select(m.JiraSyncLog).where(m.JiraSyncLog.workspace_id == actor.ws.id)
     if item:
         q = q.where(m.JiraSyncLog.issue_key == item)

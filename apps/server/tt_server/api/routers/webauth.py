@@ -105,7 +105,12 @@ async def _workspace(uow: Uow, slug: str) -> m.Workspace:
 
 @router.get("/providers")
 async def providers(request: Request) -> dict[str, bool]:
-    return {"oidc": request.app.state.oidc is not None, "ldap": request.app.state.ldap is not None}
+    return {
+        "oidc": request.app.state.oidc is not None,
+        "ldap": request.app.state.ldap is not None,
+        "sso": bool(request.app.state.settings.trusted_principal_header),
+        "dev": bool(request.app.state.settings.dev_auth),
+    }
 
 
 # ---------------------------------------------------------------- OIDC
@@ -157,6 +162,64 @@ async def callback(request: Request, uow: Uow, code: str = "", state: str = "") 
     resp = RedirectResponse(data["next"], status_code=302)
     set_session(resp, settings, member.person_id, secure=_secure(request))
     resp.delete_cookie("tt_oidc", path="/auth")
+    return resp
+
+
+# ---------------------------------------------------------------- development / UAT sign-in
+class DevLogin(BaseModel):
+    workspace: str
+    handle: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/dev/login")
+async def dev_login(body: DevLogin, request: Request, response: Response, uow: Uow) -> dict[str, Any]:
+    """Sign in as an existing member without an identity provider. Exists only while `TT_DEV_AUTH` is on (which production refuses to
+    start with), so a local install can be exercised in a browser; it is the cookie equivalent of the `X-Debug-Actor` header."""
+    settings = request.app.state.settings
+    if not settings.dev_auth:
+        raise ApiError(404, "not_found", "dev sign-in is not enabled")
+    ws = await _workspace(uow, body.workspace)
+    handle = body.handle if body.handle.startswith("@") else "@" + body.handle
+    member = await uow.session.scalar(
+        select(m.WorkspaceMember).where(
+            m.WorkspaceMember.workspace_id == ws.id,
+            m.WorkspaceMember.handle == handle,
+            m.WorkspaceMember.deleted_at.is_(None),
+        )
+    )
+    if member is None:
+        raise ApiError(401, "unauthorized", "unknown member")
+    set_session(response, settings, member.person_id, secure=_secure(request))
+    return {"handle": member.handle, "person_id": member.person_id}
+
+
+# ---------------------------------------------------------------- Kerberos / SPNEGO behind a proxy
+@router.get("/sso")
+async def sso_login(request: Request, workspace: str, uow: Uow, next: str | None = None) -> Response:  # noqa: A002
+    """The proxy has already authenticated the user (Negotiate). Turn the trusted principal into a session, exactly as the other sign-in
+    methods do (same provisioning policy: existing member, mapped group, or allowed e-mail domain)."""
+    from tt_server.sso import principal_from
+
+    settings = request.app.state.settings
+    if not settings.trusted_principal_header:
+        raise ApiError(404, "not_found", "SSO is not configured")
+    p = principal_from(request, settings)
+    if p is None:
+        raise ApiError(
+            401, "unauthorized", "no trusted principal: the request did not come through the SSO proxy"
+        )
+    ws = await _workspace(uow, workspace)
+    member = await idp.provision_login(
+        uow,
+        ws,
+        provider="kerberos",
+        email=p.email,
+        display_name=p.handle_hint,
+        handle_hint=p.handle_hint,
+        groups=p.groups,
+    )
+    resp = RedirectResponse(_safe_next(request, next), status_code=302)
+    set_session(resp, settings, member.person_id, secure=_secure(request))
     return resp
 
 

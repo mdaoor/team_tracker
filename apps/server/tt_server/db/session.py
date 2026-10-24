@@ -9,8 +9,11 @@ from tt_server.settings import get_settings
 
 def make_engine(url: str | None = None) -> AsyncEngine:
     # JIT compilation costs more than it saves on our short, wide queries (measured: 175 ms -> ~60 ms on a 50 k-row scan)
+    settings = get_settings()
     return create_async_engine(
-        url or get_settings().database_url, pool_pre_ping=True, connect_args={"options": "-c jit=off"}
+        url or settings.database_url,
+        pool_pre_ping=True,
+        connect_args={"options": "-c jit=off", **settings.db_connect_args()},
     )
 
 

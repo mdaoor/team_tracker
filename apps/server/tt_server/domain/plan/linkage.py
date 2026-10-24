@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import new_id
-from tt_schema.enums import ItemTypeKey, ProgressMode, StateCategory, TargetType
+from tt_schema.enums import EventSource, ItemTypeKey, ProgressMode, StateCategory, TargetType
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
@@ -160,6 +160,52 @@ async def refresh_ancestors(session: AsyncSession, item: m.WorkItem) -> None:
                 done = sum(1 for (c,) in kids if c == StateCategory.DONE)
                 parent.progress_pct = round(done * 100 / len(kids))
         pid, seen = parent.parent_id, seen + 1
+
+
+async def _children_progress(session: AsyncSession, parent: m.WorkItem) -> int | None:
+    kids = (
+        await session.execute(
+            select(m.WorkflowState.category)
+            .join(m.WorkItem, m.WorkItem.state_id == m.WorkflowState.id)
+            .where(m.WorkItem.parent_id == parent.id, m.WorkItem.deleted_at.is_(None))
+        )
+    ).all()
+    return round(sum(1 for (c,) in kids if c == StateCategory.DONE) * 100 / len(kids)) if kids else None
+
+
+async def recompute_all(factory: Any) -> int:
+    """Nightly heal: re-derive every `children`-mode container, deepest first so a phase sees its deliverables' final value.
+    Each correction is an event (`item.progress_recomputed`), so drift is visible rather than silently repaired."""
+    from tt_server.db.uow import UnitOfWork
+    from tt_server.domain.common import emit
+
+    fixed = 0
+    async with factory() as s:
+        ids = (
+            await s.execute(
+                select(m.WorkItem.id, m.Project.workspace_id)
+                .join(m.Project, m.Project.id == m.WorkItem.project_id)
+                .where(m.WorkItem.progress_mode == ProgressMode.CHILDREN, m.WorkItem.deleted_at.is_(None))
+                .order_by(func.nlevel(m.WorkItem.path).desc())
+            )
+        ).all()
+    for item_id, ws_id in ids:
+        async with UnitOfWork(factory) as uow:
+            it = await uow.session.get(m.WorkItem, item_id)
+            if it is None:
+                continue
+            want = await _children_progress(uow.session, it)
+            if want is None or want == it.progress_pct:
+                continue
+            before, it.progress_pct = it.progress_pct, want
+            emit(
+                uow, workspace_id=ws_id, actor_id=it.reporter_id, entity_type=TargetType.WORK_ITEM, entity_id=it.id,
+                event_type="item.progress_recomputed", payload={"before": {"progress_pct": before}, "after": {"progress_pct": want}},
+                source=EventSource.RULE,
+            )  # fmt: skip
+            await uow.commit()
+            fixed += 1
+    return fixed
 
 
 async def on_state_changed(uow: UnitOfWork, item: m.WorkItem, old: StateCategory, new: StateCategory) -> None:

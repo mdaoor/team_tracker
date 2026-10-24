@@ -21,6 +21,7 @@ from tt_server.acl.context import load_context
 from tt_server.api.authz import check, check_project, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
+from tt_server.api.params import enum_param
 from tt_server.api.routers.core import _project, row_dict
 from tt_server.db import models as m
 from tt_server.domain import deckdata, insights
@@ -791,7 +792,7 @@ async def list_insights(
         m.Insight.deleted_at.is_(None),
     )
     if status:
-        stmt = stmt.where(m.Insight.status == InsightStatus(status))
+        stmt = stmt.where(m.Insight.status == enum_param(InsightStatus, status, "status"))
     rows = (await uow.session.scalars(stmt.order_by(m.Insight.generated_at.desc()))).all()
     return {"data": [{**row_dict(r), "project": by_id[r.scope_id]} for r in rows], "next_cursor": None}
 

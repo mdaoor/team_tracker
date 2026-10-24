@@ -88,3 +88,44 @@ async def refresh_snapshots(timestamp: int) -> int:
     finally:
         await engine.dispose()
     return n
+
+
+@app.periodic(cron="*/15 * * * *")
+@app.task(name="recurrence.materialise", queueing_lock="recurrence.materialise")
+async def materialise_recurrences(timestamp: int) -> int:
+    """Every 15 min: create the items of recurrence rules whose next occurrence (minus lead days) has arrived."""
+    from tt_server.domain import recurrence
+
+    engine = make_engine()
+    try:
+        return await recurrence.run_due(
+            make_session_factory(engine), datetime.fromtimestamp(timestamp, tz=UTC)
+        )
+    finally:
+        await engine.dispose()
+
+
+@app.periodic(cron="20 3 * * *")
+@app.task(name="plan.recompute_progress", queueing_lock="plan.recompute_progress")
+async def recompute_progress(timestamp: int) -> int:
+    """Nightly safety net: re-derive `progress_pct` of every rolled-up container (the write path keeps it current; this heals drift)."""
+    from tt_server.domain.plan import linkage
+
+    engine = make_engine()
+    try:
+        return await linkage.recompute_all(make_session_factory(engine))
+    finally:
+        await engine.dispose()
+
+
+@app.periodic(cron="40 3 * * *")
+@app.task(name="retention.purge", queueing_lock="retention.purge")
+async def purge_retention(timestamp: int) -> int:
+    """Nightly: drop `raw_input` older than each workspace's `raw_input_retention_days` (unset = keep)."""
+    from tt_server.domain import privacy
+
+    engine = make_engine()
+    try:
+        return await privacy.purge_all(make_session_factory(engine))
+    finally:
+        await engine.dispose()

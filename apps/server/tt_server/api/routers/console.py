@@ -8,7 +8,7 @@ import json
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -145,7 +145,9 @@ async def reorder_stages(ref: str, body: ReorderIn, actor: CurrentActor, uow: Uo
 
 # ---------------------------------------------------------------- audit trail of one item
 @router.get("/items/{id_or_key}/events")
-async def item_events(id_or_key: str, actor: CurrentActor, uow: Uow, limit: int = 100) -> dict[str, Any]:
+async def item_events(
+    id_or_key: str, actor: CurrentActor, uow: Uow, limit: int = Query(100, ge=1, le=1000)
+) -> dict[str, Any]:
     item = await _item(uow, actor.ws.id, id_or_key)
     stmt = visible(
         select(m.Event).where(m.Event.workspace_id == actor.ws.id, m.Event.entity_id == item.id),

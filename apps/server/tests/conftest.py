@@ -90,7 +90,14 @@ async def client(
     engine: AsyncEngine, migrated_url: str, session_factory: async_sessionmaker[AsyncSession]
 ) -> AsyncIterator[httpx.AsyncClient]:
     """API client whose requests run inside the per-test rolled-back transaction (dev auth on)."""
-    settings = Settings(database_url=migrated_url, log_json=False, log_level="WARNING", dev_auth=True)
+    settings = Settings(
+        database_url=migrated_url,
+        log_json=False,
+        log_level="WARNING",
+        dev_auth=True,
+        rate_capture_per_min=0,
+        rate_auth_per_min=0,
+    )
     app = create_app(settings, engine=engine, session_factory=session_factory)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
         yield c
@@ -155,7 +162,14 @@ def seed_sf(seed_conn: AsyncConnection) -> async_sessionmaker[AsyncSession]:
 async def seed_client(
     seed_engine: AsyncEngine, seeded_url: str, seed_sf: async_sessionmaker[AsyncSession]
 ) -> AsyncIterator[httpx.AsyncClient]:
-    settings = Settings(database_url=seeded_url, log_json=False, log_level="WARNING", dev_auth=True)
+    settings = Settings(
+        database_url=seeded_url,
+        log_json=False,
+        log_level="WARNING",
+        dev_auth=True,
+        rate_capture_per_min=0,
+        rate_auth_per_min=0,
+    )
     app = create_app(settings, engine=seed_engine, session_factory=seed_sf)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
         yield c

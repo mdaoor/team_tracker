@@ -31,6 +31,7 @@ from tt_server.acl.visibility import visible
 from tt_server.api.authz import check, check_project, needs
 from tt_server.api.deps import CurrentActor, Uow, page
 from tt_server.api.errors import ApiError
+from tt_server.api.params import enum_param
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.domain.items import service as items
@@ -586,7 +587,7 @@ async def create_milestone(key: str, body: MilestoneIn, actor: CurrentActor, uow
 
 @router.get("/milestones", tags=["projects"])
 async def list_milestones(
-    actor: CurrentActor, uow: Uow, upcoming: str | None = Query(default=None, pattern=r"^\d+d$")
+    actor: CurrentActor, uow: Uow, upcoming: str | None = Query(default=None, pattern=r"^\d{1,4}d$")
 ) -> dict[str, Any]:
     stmt = (
         select(m.Milestone, m.Project.key)
@@ -851,7 +852,7 @@ async def list_items(
                 frontier = kids
         stmt = stmt.where(m.WorkItem.team_id.in_(ids or {""}), m.Project.kind != ProjectKind.INBOX)
     if state_category:
-        cats = [StateCategory(c) for c in state_category.split(",")]
+        cats = [enum_param(StateCategory, c, "state_category") for c in state_category.split(",")]
         stmt = stmt.where(m.WorkflowState.category.in_(cats))
     if project:
         stmt = stmt.where(func.lower(m.Project.key) == project.lower())
