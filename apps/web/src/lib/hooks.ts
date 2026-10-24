@@ -22,3 +22,15 @@ export function useObj(path: string, query?: Row, enabled = true) {
     enabled: enabled && !!ws,
   });
 }
+
+/** The signed-in person and what they may do (drives which governance controls render). */
+export function useMe() {
+  const ws = useWs();
+  const q = useQuery({
+    queryKey: [ws, "/me"],
+    queryFn: () => api.get<Row>(w(ws, "/me")),
+    enabled: !!ws,
+  });
+  const can = (q.data?.can ?? {}) as Record<string, boolean>;
+  return { me: q.data as Row | undefined, can, admin: !!q.data?.is_admin, loading: q.isLoading };
+}

@@ -347,6 +347,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Digest
+         * @description The manager digest for a team (default: the whole workspace) and a window: daily logs, notable events, pinned notes, insights.
+         */
+        get: operations["digest_api_v1_w__ws__digest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/w/{ws}/dimensions": {
         parameters: {
             query?: never;
@@ -471,6 +491,26 @@ export interface paths {
         head?: never;
         /** Patch Glossary */
         patch: operations["patch_glossary_api_v1_w__ws__glossary__entry_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/governance/context-schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Context Schema
+         * @description Alias of `/meta/policy-context` under the name the editor uses; only v1 exists.
+         */
+        get: operations["context_schema_api_v1_w__ws__governance_context_schema_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/w/{ws}/governance:recompute": {
@@ -1405,6 +1445,48 @@ export interface paths {
          *     matching event inside the window, judged on their *current* state (an approximation; ADR-0013).
          */
         post: operations["test_policy_api_v1_w__ws__policies__pid__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/policies:author": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Author Policy
+         * @description "Describe the rule": the gateway drafts a template choice or CEL; the server then checks the draft itself. The result is only ever
+         *     a draft for the manager to review: `validated` is true only when this server compiled it.
+         */
+        post: operations["author_policy_api_v1_w__ws__policies_author_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/policies:check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Policy
+         * @description Type-check a raw expression, or render + check a template with parameters. Never raises for a bad expression: the editor
+         *     wants positions, so errors come back in the body (`ok: false`).
+         */
+        post: operations["check_policy_api_v1_w__ws__policies_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2713,6 +2795,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/weight-schemes:preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Scheme
+         * @description Weights the formula would give a sample of visible items next to what they carry now (the server's own `evaluate`).
+         */
+        post: operations["preview_scheme_api_v1_w__ws__weight_schemes_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workspaces": {
         parameters: {
             query?: never;
@@ -3002,6 +3104,11 @@ export interface components {
          * @enum {string}
          */
         ApprovalStatus: "pending" | "approved" | "rejected" | "cancelled";
+        /** AuthorIn */
+        AuthorIn: {
+            /** Request */
+            request: string;
+        };
         /** BulkEdit */
         BulkEdit: {
             /** Filter */
@@ -3049,6 +3156,19 @@ export interface components {
          * @enum {string}
          */
         Cardinality: "single" | "multi";
+        /** CheckIn */
+        CheckIn: {
+            /** Cel */
+            cel?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Target */
+            target?: string | null;
+            /** Template */
+            template?: string | null;
+        };
         /** ClassifyIn */
         ClassifyIn: {
             /** Dimension */
@@ -3626,6 +3746,18 @@ export interface components {
             title?: string | null;
             /** Weight Scheme Id */
             weight_scheme_id?: string | null;
+        };
+        /** PreviewIn */
+        PreviewIn: {
+            /** Formula */
+            formula: {
+                [key: string]: unknown;
+            };
+            /**
+             * Sample
+             * @default 20
+             */
+            sample: number;
         };
         /**
          * Priority
@@ -5058,6 +5190,45 @@ export interface operations {
             };
         };
     };
+    digest_api_v1_w__ws__digest_get: {
+        parameters: {
+            query?: {
+                team?: string | null;
+                days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_dimensions_api_v1_w__ws__dimensions_get: {
         parameters: {
             query?: never;
@@ -5462,6 +5633,39 @@ export interface operations {
                 "application/json": components["schemas"]["GlossaryPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    context_schema_api_v1_w__ws__governance_context_schema_get: {
+        parameters: {
+            query?: {
+                version?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -7795,6 +7999,86 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["TestIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    author_policy_api_v1_w__ws__policies_author_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_policy_api_v1_w__ws__policies_check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckIn"];
             };
         };
         responses: {
@@ -11477,6 +11761,46 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_scheme_api_v1_w__ws__weight_schemes_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -166,4 +166,11 @@ async def me(actor: CurrentActor) -> dict[str, Any]:
         "workspace": {"slug": actor.ws.slug, "name": actor.ws.name},
         "is_admin": actor.acl.is_admin,
         "can_review": bool(actor.acl.can("review_queue.resolve") or actor.acl.managed_ids),
-    }
+        "can": {
+            p: bool(actor.acl.can(p))
+            for p in (
+                "policy.read", "policy.write", "policy.admin", "violation.resolve", "violation.waive",
+                "habit.coach", "habit.view_team", "weight.set", "dailylog.review",
+            )
+        },
+    }  # fmt: skip

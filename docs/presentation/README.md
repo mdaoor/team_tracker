@@ -88,6 +88,6 @@ gateway summaries only. `POST /daily-logs/{id}/summarise` re-words a draft day t
 
 ## Measured
 * Page mode vs the prototype: 0.02 % of pixels differ (light and dark), budget 2 %.
-* 50 k-item snapshot (this container): ~2.7 s cold end to end, ~0.5 s cached; the plan asked < 2 s / < 100 ms. A 50 k snapshot is ~25 MB of JSON.
+* 50 k-item snapshot (this container): ~2.7 s cold end to end on the first run, 4.3–6 s after a container restart (cold database caches; the bound asserted is 8 s), ~0.5 s cached; the plan asked < 2 s / < 100 ms. A 50 k snapshot is ~25 MB of JSON.
   Cold went from 11.5 s to 2.7 s by loading ids once into a temp table, joining instead of per-row subqueries, grouped enrichment queries,
   sampling the Pydantic check and bypassing `jsonable_encoder`.

@@ -101,6 +101,21 @@
         "title": "ApprovalStatus",
         "type": "string"
       },
+      "AuthorIn": {
+        "properties": {
+          "request": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Request",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "AuthorIn",
+        "type": "object"
+      },
       "BulkEdit": {
         "properties": {
           "filter": {
@@ -201,6 +216,50 @@
         ],
         "title": "Cardinality",
         "type": "string"
+      },
+      "CheckIn": {
+        "properties": {
+          "cel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cel"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          }
+        },
+        "title": "CheckIn",
+        "type": "object"
       },
       "ClassifyIn": {
         "properties": {
@@ -1957,6 +2016,27 @@
           }
         },
         "title": "PresentationPatch",
+        "type": "object"
+      },
+      "PreviewIn": {
+        "properties": {
+          "formula": {
+            "additionalProperties": true,
+            "title": "Formula",
+            "type": "object"
+          },
+          "sample": {
+            "default": 20,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Sample",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formula"
+        ],
+        "title": "PreviewIn",
         "type": "object"
       },
       "Priority": {
@@ -5661,6 +5741,109 @@
         ]
       }
     },
+    "/api/v1/w/{ws}/digest": {
+      "get": {
+        "description": "The manager digest for a team (default: the whole workspace) and a window: daily logs, notable events, pinned notes, insights.",
+        "operationId": "digest_api_v1_w__ws__digest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "team",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Digest Api V1 W  Ws  Digest Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Digest",
+        "tags": [
+          "governance"
+        ]
+      }
+    },
     "/api/v1/w/{ws}/dimensions": {
       "get": {
         "operationId": "list_dimensions_api_v1_w__ws__dimensions_get",
@@ -6647,6 +6830,52 @@
         "summary": "Patch Glossary",
         "tags": [
           "client"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/governance/context-schema": {
+      "get": {
+        "description": "Alias of `/meta/policy-context` under the name the editor uses; only v1 exists.",
+        "operationId": "context_schema_api_v1_w__ws__governance_context_schema_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Context Schema Api V1 W  Ws  Governance Context Schema Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Context Schema",
+        "tags": [
+          "governance"
         ]
       }
     },
@@ -12134,6 +12363,180 @@
           }
         },
         "summary": "Test Policy",
+        "tags": [
+          "governance"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/policies:author": {
+      "post": {
+        "description": "\"Describe the rule\": the gateway drafts a template choice or CEL; the server then checks the draft itself. The result is only ever\na draft for the manager to review: `validated` is true only when this server compiled it.",
+        "operationId": "author_policy_api_v1_w__ws__policies_author_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Author Policy Api V1 W  Ws  Policies Author Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Author Policy",
+        "tags": [
+          "governance"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/policies:check": {
+      "post": {
+        "description": "Type-check a raw expression, or render + check a template with parameters. Never raises for a bad expression: the editor\nwants positions, so errors come back in the body (`ok: false`).",
+        "operationId": "check_policy_api_v1_w__ws__policies_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Policy Api V1 W  Ws  Policies Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Policy",
         "tags": [
           "governance"
         ]
@@ -20629,6 +21032,93 @@
         "summary": "Recompute Scheme",
         "tags": [
           "overlay"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/weight-schemes:preview": {
+      "post": {
+        "description": "Weights the formula would give a sample of visible items next to what they carry now (the server's own `evaluate`).",
+        "operationId": "preview_scheme_api_v1_w__ws__weight_schemes_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preview Scheme Api V1 W  Ws  Weight Schemes Preview Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Scheme",
+        "tags": [
+          "governance"
         ]
       }
     },

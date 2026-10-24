@@ -3,13 +3,19 @@ import { useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Shell } from "./components/Shell";
 import { ToastProvider } from "./components/Toasts";
-import { ComingSoon } from "./pages/ComingSoon";
 import { HealthPage } from "./pages/HealthPage";
 import { Login } from "./pages/Login";
 import { ReviewQueue } from "./pages/ReviewQueue";
 import { Setup } from "./pages/setup/Setup";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Row } from "./api/http";
+import { PoliciesRoute } from "./pages/governance/Policies";
+import { Violations } from "./pages/governance/Violations";
+import { Habits } from "./pages/governance/Habits";
+import { Performance } from "./pages/governance/Performance";
+import { Digest } from "./pages/governance/Digest";
+import { Insights } from "./pages/governance/Insights";
+import { Weights } from "./pages/governance/Weights";
 import { ViewsRoute, PresentRoute } from "./routes";
 
 function Home() {
@@ -44,8 +50,13 @@ export function App() {
               <Route path="setup/:section?" element={<Setup />} />
               <Route path="views/*" element={<ViewsRoute />} />
               <Route path="present/*" element={<PresentRoute />} />
-              <Route path="policies" element={<ComingSoon name="Policies" />} />
-              <Route path="weights" element={<ComingSoon name="Weights" />} />
+              <Route path="policies/*" element={<PoliciesRoute />} />
+              <Route path="violations" element={<Violations />} />
+              <Route path="habits" element={<Habits />} />
+              <Route path="performance" element={<Performance />} />
+              <Route path="digest" element={<Digest />} />
+              <Route path="insights" element={<Insights />} />
+              <Route path="weights" element={<Weights />} />
             </Route>
           </Routes>
         </BrowserRouter>

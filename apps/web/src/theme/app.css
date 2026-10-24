@@ -520,3 +520,157 @@ ul.plain {
 .menu-item:hover {
   background: var(--surface-2, #f4f4f4);
 }
+
+/* ---- Phase 9: governance screens ---- */
+.gov h1 {
+  margin: 0;
+}
+.gov .gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.gov .tile {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+}
+.gov .tile.on {
+  border-color: var(--s1);
+  box-shadow: 0 0 0 1px var(--s1);
+}
+.cel-editor {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-height: 80px;
+  background: var(--surface);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+.cel-editor .cm-editor {
+  outline: none;
+}
+.cel-editor .cm-editor.cm-focused {
+  outline: 2px solid var(--s1);
+}
+.cel-err {
+  text-decoration: underline wavy var(--crit);
+}
+.problems {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  color: var(--crit);
+}
+.vrow {
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.vrow.focus {
+  background: var(--surface-2, rgba(127, 127, 127, 0.1));
+}
+.vrow .chips {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.bulk {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  padding: 6px 0;
+  z-index: 2;
+}
+.modal {
+  position: fixed;
+  inset: 20% auto auto 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  width: min(420px, 90vw);
+  z-index: 30;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+.modal textarea {
+  width: 100%;
+  min-height: 80px;
+}
+.linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--s1);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+.pol-negative td:first-child {
+  border-left: 3px solid var(--warn);
+}
+.pol-positive td:first-child {
+  border-left: 3px solid var(--good);
+}
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+.charts figure {
+  margin: 0;
+}
+.chart {
+  width: 100%;
+  height: auto;
+}
+.bell {
+  position: relative;
+}
+.bell .badge {
+  margin-left: 2px;
+  background: var(--crit);
+  color: #fff;
+  border-radius: 9px;
+  padding: 0 5px;
+  font-size: 11px;
+}
+.bell-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: 320px;
+  max-height: 360px;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+}
+.bell-menu button {
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+.bell-menu .unread strong::before {
+  content: "● ";
+  color: var(--s1);
+}

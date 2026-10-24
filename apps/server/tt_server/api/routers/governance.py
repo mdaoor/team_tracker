@@ -676,8 +676,10 @@ async def false_positive(vid: str, body: Reason, actor: CurrentActor, uow: Uow) 
 
 
 # ---------------------------------------------------------------- habits
-def habit_view(h: m.Habit, handle: str | None) -> dict[str, Any]:
+def habit_view(h: m.Habit, handle: str | None, actor: Actor | None = None) -> dict[str, Any]:
     d = row_dict(h)
+    if actor is not None and (h.subject_id == actor.person.id or not actor.acl.can("habit.coach")):
+        d.pop("coaching_note", None)  # ADR-0014: coaching notes are manager-only; the subject sees status
     d["subject"] = handle or h.subject_id
     return d
 
@@ -730,7 +732,7 @@ async def list_habits(
         want = subject if subject.startswith("@") else "@" + subject
         stmt = stmt.where(m.Habit.subject_id.in_([p for p, h in handles.items() if h == want]))
     rows = (await uow.session.scalars(stmt.order_by(m.Habit.key, m.Habit.subject_id))).all()
-    return {"data": [habit_view(h, handles.get(h.subject_id)) for h in rows], "next_cursor": None}
+    return {"data": [habit_view(h, handles.get(h.subject_id), actor) for h in rows], "next_cursor": None}
 
 
 class HabitPatch(BaseModel):
@@ -764,7 +766,7 @@ async def patch_habit(hid: str, body: HabitPatch, actor: CurrentActor, uow: Uow)
         note=bool(data.get("coaching_note")),
     )
     await uow.commit()
-    return habit_view(h, None)
+    return habit_view(h, None, actor)
 
 
 # ---------------------------------------------------------------- metrics, notifications, operations

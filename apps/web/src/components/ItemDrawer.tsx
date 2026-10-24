@@ -8,7 +8,7 @@ import { useToasts } from "./Toasts";
 import { Button, Empty, ProvenanceChip } from "./ui";
 
 const PRIORITIES = ["lowest", "low", "medium", "high", "critical"];
-type Tab = "overview" | "activity" | "evidence" | "placements" | "events";
+type Tab = "overview" | "activity" | "evidence" | "placements" | "violations" | "events";
 
 export function ItemDrawer({
   ws,
@@ -44,6 +44,11 @@ export function ItemDrawer({
     enabled: tab === "events",
   });
   const it = item.data?.data;
+  const violations = useQuery({
+    queryKey: [ws, "item-violations", it?.id],
+    queryFn: () => api.get<Row>(w(ws, "/violations"), { target_id: it?.id, limit: 100 }),
+    enabled: tab === "violations" && !!it?.id,
+  });
 
   const save = async (field: string, value: unknown, etag?: string) => {
     if (!item.data) return;
@@ -72,7 +77,9 @@ export function ItemDrawer({
             · {it.hours_logged} h logged
           </p>
           <div role="tablist" className="tabs">
-            {(["overview", "activity", "evidence", "placements", "events"] as Tab[]).map((x) => (
+            {(
+              ["overview", "activity", "evidence", "placements", "violations", "events"] as Tab[]
+            ).map((x) => (
               <button key={x} role="tab" aria-selected={tab === x} onClick={() => setTab(x)}>
                 {x}
               </button>
@@ -182,6 +189,19 @@ export function ItemDrawer({
               </tbody>
             </table>
           )}
+          {tab === "violations" &&
+            (((violations.data?.data as Row[]) ?? []).length === 0 ? (
+              <Empty>No violations on this item.</Empty>
+            ) : (
+              <ul>
+                {((violations.data?.data as Row[]) ?? []).map((v) => (
+                  <li key={v.id}>
+                    {v.severity} · {v.policy} · {v.status}
+                    {v.waive_reason ? ` (waived: ${v.waive_reason})` : ""}
+                  </li>
+                ))}
+              </ul>
+            ))}
           {tab === "events" && (
             <ul>
               {((events.data?.data as Row[]) ?? []).map((e) => (

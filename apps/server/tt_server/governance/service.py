@@ -16,6 +16,7 @@ from tt_schema.base import new_id
 from tt_schema.enums import (
     PolicyCategory,
     PolicyTrigger,
+    ReportingKind,
     ScopeType,
     Severity,
     TargetType,
@@ -193,6 +194,21 @@ def validate_fields(f: dict[str, Any]) -> None:
     bad = set(f.get("notify") or {}) - NOTIFY_KEYS
     if bad:
         raise ApiError(400, "invalid_notify", f"unknown notify keys {sorted(bad)}", pointer="/notify")
+    n = f.get("notify") or {}
+    for k in ("roles", "reporting_line"):
+        v = n.get(k)
+        if v is not None and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
+            raise ApiError(
+                400, "invalid_notify", f"notify.{k} must be a list of names", pointer=f"/notify/{k}"
+            )
+    bad_kinds = [k for k in n.get("reporting_line") or [] if k not in {x.value for x in ReportingKind}]
+    if bad_kinds:
+        raise ApiError(
+            400,
+            "invalid_notify",
+            f"unknown reporting line kinds {bad_kinds}",
+            pointer="/notify/reporting_line",
+        )
     bad = set(f.get("auto_action") or {}) - AUTO_ACTIONS
     if bad:
         raise ApiError(

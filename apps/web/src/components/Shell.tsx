@@ -4,6 +4,7 @@ import { NavLink, Outlet, useNavigate, useParams, useSearchParams } from "react-
 import { api, ApiError, w, type Row } from "../api/http";
 import { useList } from "../lib/hooks";
 import { t } from "../lib/i18n";
+import { NotificationBell } from "../pages/governance/NotificationBell";
 import { CommandPalette } from "./CommandPalette";
 import { ItemDrawer } from "./ItemDrawer";
 import { Chip } from "./ui";
@@ -86,6 +87,7 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
         )}
         <span className="grow" />
         {topbar}
+        <NotificationBell />
         <kbd title="Command palette">⌘K</kbd>
         <span aria-label="Signed in as">{me.data?.handle}</span>
       </header>
@@ -95,6 +97,11 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
         <NavLink to={`${base}/views`}>{t("nav.views")}</NavLink>
         <NavLink to={`${base}/present`}>{t("nav.present")}</NavLink>
         <NavLink to={`${base}/policies`}>{t("nav.policies")}</NavLink>
+        <NavLink to={`${base}/violations`}>{t("nav.violations")}</NavLink>
+        <NavLink to={`${base}/habits`}>{t("nav.habits")}</NavLink>
+        <NavLink to={`${base}/performance`}>{t("nav.performance")}</NavLink>
+        <NavLink to={`${base}/digest`}>{t("nav.digest")}</NavLink>
+        <NavLink to={`${base}/insights`}>{t("nav.insights")}</NavLink>
         <NavLink to={`${base}/weights`}>{t("nav.weights")}</NavLink>
       </nav>
       <main className="content" id="main">
