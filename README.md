@@ -6,4 +6,15 @@ Two-layer work tracking: reporters type one line (or fill a form), a local/indep
 - **Implementation plans (handover to an implementing agent):** `plans/README.md` — start there. 14 phases + 5 appendices.
 - **Tools:** `tools/gen_snapshot.py` — sample snapshot generator used by the prototype and as the test oracle.
 
-Status: planning complete; no application code yet. Phase 0 (`plans/01-phase-0-bootstrap.md`) is the first implementation step.
+Status: Phase 0 (bootstrap) implemented; Phase 1 (`plans/02-phase-1-core-domain-and-capture.md`) is next.
+
+## Quick start
+```
+cp .env.example .env
+make dev        # docker compose: postgres, api (:8000), worker, web (:5173)
+make migrate    # alembic + procrastinate schema          (local Postgres, no Docker)
+make seed       # demo workspace "acme" (tt-admin seed demo --reset to recreate)
+make check      # lint + typecheck + tests
+```
+Tests need Postgres 16 with `pg_trgm`, `ltree`, `btree_gist`: they start a testcontainer, or use an existing empty
+database when `TT_TEST_DATABASE_URL` is set.

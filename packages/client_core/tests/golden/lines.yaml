@@ -1,0 +1,96 @@
+# Golden set for the translator evaluation. `now` = 2026-10-23T12:00:00Z, time zone Asia/Riyadh (UTC+3, Friday 15:00 local).
+# Each case lists the expected messages; only the listed fields are compared.
+# subset: syntax = deterministic syntax forms (the structured parser must pass 100 % of these)
+now: "2026-10-23T12:00:00+00:00"
+tz: Asia/Riyadh
+cases:
+  # ---- the canonical lines of UX §2.2 / §7.1
+  - line: "fix the login redirect loop, took 2h, plan to finish tomorrow 5pm"
+    subset: syntax
+    expect: [{action: log_time, title: "fix the login redirect loop", minutes: 120, planned_end: "2026-10-24T17:00:00+03:00"}]
+  - line: "doing 1. fix login, 2. write tests, 3. deploy | took: 2h | plan: tomorrow 5pm"
+    subset: syntax
+    expect:
+      - {action: start, title: "fix login", minutes: 120, planned_end: "2026-10-24T17:00:00+03:00"}
+      - {action: start, title: "write tests", minutes: null}
+      - {action: start, title: "deploy", minutes: null}
+  - line: "picking up the retry refactor on the pipeline, est 2d"
+    subset: syntax
+    expect: [{action: start, title: "the retry refactor on the pipeline", estimate: {value: 2, unit: days}}]
+  # ---- verbs
+  - {line: "doing fix login", subset: syntax, expect: [{action: start, title: "fix login"}]}
+  - {line: "started the cart rounding bug", subset: syntax, expect: [{action: start, title: "the cart rounding bug"}]}
+  - {line: "working on checkout address form", subset: syntax, expect: [{action: start, title: "checkout address form"}]}
+  - {line: "on session store migration now", subset: syntax, expect: [{action: start, title: "session store migration"}]}
+  - {line: "start WEB-142", subset: syntax, expect: [{action: start, key: WEB-142}]}
+  - {line: "switching to the data backfill", subset: syntax, expect: [{action: start, title: "the data backfill"}]}
+  - {line: "done with WEB-142", subset: syntax, expect: [{action: done, key: WEB-142}]}
+  - {line: "finished the password reset email", subset: syntax, expect: [{action: done, title: "the password reset email"}]}
+  - {line: "shipped rate limiting", subset: syntax, expect: [{action: done, title: "rate limiting"}]}
+  - {line: "closed DATA-12", subset: syntax, expect: [{action: done, key: DATA-12}]}
+  - {line: "done", subset: syntax, expect: [{action: done}]}
+  - {line: "pause WEB-142", subset: syntax, expect: [{action: pause, key: WEB-142}]}
+  - {line: "parking the checkout work", subset: syntax, expect: [{action: pause, title: "the checkout work"}]}
+  - {line: "resume WEB-142", subset: syntax, expect: [{action: resume, key: WEB-142}]}
+  - {line: "back on the OAuth token exchange", subset: syntax, expect: [{action: resume, title: "the OAuth token exchange"}]}
+  - line: "stuck on db access waiting for ops"
+    subset: syntax
+    expect: [{action: blocked, title: "db access", note: "db access waiting for ops"}]
+  - {line: "blocked WEB-142 because the staging env is down", subset: syntax, expect: [{action: blocked, key: WEB-142, note: "because the staging env is down"}]}
+  - {line: "note: found the root cause in the cookie parser", subset: syntax, expect: [{action: note, note: "found the root cause in the cookie parser"}]}
+  - {line: "new task: add retry metrics", subset: syntax, expect: [{action: create, title: "add retry metrics", item_type: task}]}
+  - {line: "add bug: crash on empty queue", subset: syntax, expect: [{action: create, title: "crash on empty queue", item_type: bug}]}
+  - {line: "create story: offline banner", subset: syntax, expect: [{action: create, title: "offline banner", item_type: story}]}
+  - {line: "new epic: push notifications", subset: syntax, expect: [{action: create, title: "push notifications", item_type: epic}]}
+  # ---- time
+  - {line: "took 2h on WEB-142", subset: syntax, expect: [{action: log_time, key: WEB-142, minutes: 120}]}
+  - {line: "spent 45 min on the retry refactor", subset: syntax, expect: [{action: log_time, title: "the retry refactor", minutes: 45}]}
+  - {line: "spent 1h30m on code review", subset: syntax, expect: [{action: log_time, title: "code review", minutes: 90}]}
+  - {line: "spent 1.5h on the design doc", subset: syntax, expect: [{action: log_time, title: "the design doc", minutes: 90}]}
+  - {line: "took 1d on the migration", subset: syntax, expect: [{action: log_time, title: "the migration", minutes: 480}]}
+  - {line: "fix login, 45 min", subset: syntax, expect: [{action: log_time, title: "fix login", minutes: 45}]}
+  - {line: "doing WEB-142, took 30 minutes", subset: syntax, expect: [{action: start, key: WEB-142, minutes: 30}]}
+  - {line: "done with WEB-9 took 3h", subset: syntax, expect: [{action: done, key: WEB-9, minutes: 180}]}
+  - {line: "took 90 minutes on standup notes", subset: syntax, expect: [{action: log_time, title: "standup notes", minutes: 90}]}
+  # ---- plan
+  - {line: "plan: tomorrow 5pm", subset: syntax, expect: [{action: plan, planned_end: "2026-10-24T17:00:00+03:00"}]}
+  - {line: "doing WEB-142, eta tomorrow", subset: syntax, expect: [{action: start, key: WEB-142, planned_end: "2026-10-24T17:00:00+03:00"}]}
+  - {line: "doing WEB-142, by eod", subset: syntax, expect: [{action: start, key: WEB-142, planned_end: "2026-10-23T17:00:00+03:00"}]}
+  - {line: "plan: monday 10am", subset: syntax, expect: [{action: plan, planned_end: "2026-10-26T10:00:00+03:00"}]}
+  - {line: "WEB-142 should be done by monday", subset: syntax, expect: [{action: plan, planned_end: "2026-10-26T17:00:00+03:00"}]}
+  - {line: "start the audit, plan to finish 2026-10-30", subset: syntax, expect: [{action: start, title: "the audit", planned_end: "2026-10-30T17:00:00+03:00"}]}
+  # ---- estimate
+  - {line: "probably 3 days", subset: syntax, expect: [{action: estimate, estimate: {value: 3, unit: days}}]}
+  - {line: "WEB-142, about 5 points", subset: syntax, expect: [{action: estimate, key: WEB-142, estimate: {value: 5, unit: points}}]}
+  - {line: "new task: cache warmup, est 4h", subset: syntax, expect: [{action: create, title: "cache warmup", estimate: {value: 4, unit: hours}}]}
+  - {line: "doing the search index, estimate 2d", subset: syntax, expect: [{action: start, title: "the search index", estimate: {value: 2, unit: days}}]}
+  # ---- tokens
+  - {line: "doing fix login #auth #bug", subset: syntax, expect: [{action: start, title: "fix login", tags: [auth, bug]}]}
+  - {line: "doing fix login p:web", subset: syntax, expect: [{action: start, title: "fix login", project: web}]}
+  - {line: "doing fix login project:WEB", subset: syntax, expect: [{action: start, title: "fix login", project: WEB}]}
+  - {line: "new task: rotate keys !high", subset: syntax, expect: [{action: create, title: "rotate keys", priority: high}]}
+  - {line: "new bug: data loss prio:critical", subset: syntax, expect: [{action: create, title: "data loss", priority: critical}]}
+  - {line: "took 2h on WEB-142 for: @sara", subset: syntax, expect: [{action: log_time, key: WEB-142, minutes: 120, on_behalf_of: "@sara"}]}
+  - {line: "new task: review the PR @ali", subset: syntax, expect: [{action: create, title: "review the PR", assignees: ["@ali"]}]}
+  - line: "note: fixed https://github.com/acme/web/pull/412"
+    subset: syntax
+    expect: [{action: note, note: "fixed", evidence: [{kind: pr}]}]
+  - line: "WEB-142 https://github.com/acme/web/commit/abc1234def"
+    subset: syntax
+    expect: [{action: evidence, key: WEB-142, evidence: [{kind: commit}]}]
+  - {line: "doing fix login p:web #auth !high took 1h", subset: syntax, expect: [{action: start, title: "fix login", project: web, tags: [auth], priority: high, minutes: 60}]}
+  # ---- lists
+  - line: "doing 1) fix login 2) write tests"
+    subset: syntax
+    expect: [{action: start, title: "fix login"}, {action: start, title: "write tests"}]
+  - line: "done 1. WEB-1, 2. WEB-2"
+    subset: syntax
+    expect: [{action: done, key: WEB-1}, {action: done, key: WEB-2}]
+  - line: "new task: 1. a thing, 2. another thing #infra"
+    subset: syntax
+    expect:
+      - {action: create, title: "a thing", tags: [infra]}
+      - {action: create, title: "another thing", tags: [infra]}
+  # ---- free text with no verb (LLM-assisted in production; the parser must still not lose the text)
+  - {line: "the pipeline retry logic is flaky", expect: [{action: note, note: "the pipeline retry logic is flaky"}]}
+  - {line: "need to talk to ops about staging", expect: [{action: note, note: "need to talk to ops about staging"}]}
