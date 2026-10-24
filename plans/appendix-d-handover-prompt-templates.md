@@ -41,3 +41,65 @@ Review PR <link> implementing Phase <N> against plans/<phase file> and the spec 
 ```
 A change to the design is requested: <describe>. Update docs/spec/* only via a new ADR in docs/decisions/ that states the change and the affected sections; then update the affected plans/*.md files and appendix-e. Do not edit code in this session.
 ```
+
+## D.5 Remediation + new‑features prompt (after the 2026‑10‑24 review)
+```
+You are continuing the Team Tracker implementation in repository mdaoor/team_tracker.
+
+Branches
+- Plans and the review live on `main` (merge PR #3 first if it is still open; until then read them from branch `claude/optimistic-pasteur-lb1pvw`).
+- The implementation lives on `claude/listed-plan-implementation-hygguz` (phases 0–9 built, HEAD 584eefb at review time). Work there: create `fix/review-2026-10-24` from it for work packages A–C, then one branch per feature package D–I, each merged by PR into the implementation branch.
+- Never commit to `main` directly; never rewrite history on a branch you did not create.
+
+Read before writing code, in this order
+1. plans/README.md (the seven non‑negotiable rules; the "requirements added during planning" table)
+2. plans/00-architecture-and-stack.md
+3. docs/reviews/2026-10-24-implementation-review.md — your work list for packages A–C; the three slice reports at the end carry file:line evidence for every finding
+4. plans/appendix-a-api-conventions.md, appendix-b-testing-and-dod.md, appendix-c-open-decisions-and-assumptions.md
+5. The plan sections named under each package below, plus docs/spec/team_tracker_object_model.md where they cite it.
+Plans are normative. Where the code already deviates in a way the review calls an "ADR candidate", keep the code and write the ADR (template in appendix C); where the review calls it a defect, fix the code.
+
+Work method (applies to every package)
+- Start each package by writing TESTPLAN.md in the relevant tests folder: one failing test per finding or acceptance criterion, then implement until green. A finding is closed only by a regression test that would fail without the fix.
+- Run `make lint`, `make typecheck`, and the DB suite with `TT_TEST_DATABASE_URL` set (testcontainers is not available everywhere). Add a per‑test timeout (pytest‑timeout, 120 s) to the suite first; investigate the governance test that hangs idle‑in‑transaction on `INSERT INTO violations` and fix the cause.
+- Add `--cov=tt_llm` and `apps/llm_gateway/tt_llm` to the mypy and coverage steps in `.github/workflows/ci.yml`.
+- Small commits, conventional‑commit messages. Update docs/api/openapi.json, docs/api/event-catalogue.md, plans/appendix-e-traceability-matrix.md as you go. When the spec is silent, apply appendix C; if still unresolved, write an ADR and continue; never stop on a product question — list it in your final report.
+
+PACKAGE A — security fixes (one PR, first)
+Review findings 1–7. Required outcomes:
+A1 Deck shell XSS: every path/query value injected into the shell HTML is JSON‑encoded with `<` escaped (as exports/presentation.py already does) or validated against ^[A-Za-z0-9_-]+$ → 404. Tests for `/p/t/{token}` and `/p/{ws}/{pid}` with `"`, `<`, `%22`, `%3C`.
+A2 Token minting: `POST /auth/tokens` requires requested scopes ⊆ presenting token's scopes (session/debug actor may mint any); test "capture token cannot mint read/manage/admin".
+A3 Review‑queue resolve/bulk: load targets through `visible()` and assert `review_owner(...) == actor` or `acl.can("review_queue.resolve", item)`; negative tests for non‑owner and invisible item; move the check into the service, not the router.
+A4 Role assignments: add `workspace_id` to `role_assignments` (migration + backfill from scope) and scope list/delete by it; cross‑workspace negative test.
+A5 LDAP StartTLS: raise when `start_tls()` returns False; test with a mocked connection.
+A6 PPTX export: empty chart/explorer data renders a "No data in scope." text box; test with an empty snapshot and with a restricted viewer.
+A7 Layout endpoints and CSV: counts via COUNT … GROUP BY (or `bulk_items()`), cards paged; CSV streams every row; test with 250+ items that WIP breach and row count are correct.
+
+PACKAGE B — access‑control completeness and robustness (second PR)
+Review findings 8–23. Required outcomes: share‑token decks drop wellbeing rows and redact people/now for anonymous viewers (B1); insight/project_detail slide data resolved through `visible()` (B2); notification recipients filtered by workspace (B3); `/metric-snapshots` behind `habit.view_team`/`visible()` and wellbeing keys stripped for non‑line‑managers (B4); capture by `item.key` through `visible()` (B5); gateway budget keyed by a workspace derived from the core token or per‑workspace gateway tokens (B6); CEL evaluation under a wall‑clock budget and `matches()` restricted or rejected for nested quantifiers (B7); IdP sync stamps `source="idp:<provider>"` and removes only its own provider's rows (B8); fail fast at startup when env != dev and the session secret is the default or shorter than 32 bytes (B9); product reads, `/classifications?target_type=project|product`, and roll‑ups apply visibility (B10); deck `?src=` honoured only when `__DECK_SRC__` is unset and same‑origin, `image.url` limited to data:/same‑origin (B11); PDF/PNG export via a Procrastinate job with a download URL, or at minimum a bounded semaphore returning 503 (B12); `allowed_roles` enforced in `place()` and the four missing propagation triggers implemented with tests (B13); separate `agent_timeout` (~20 s) in tt_client/tt_cli (B14); migration adding the FK/lookup indexes listed in the P0–2b report M4 (B15); team habit trend computed from team‑aggregated previous window (B16); login throttle keyed by IP+username with backoff, stored in the DB (B17). Also the Low items that are cheap: 400 instead of 500 on bad cursor/size/enum input; `include_inbox` honoured when nested; `MissingEventError` after token bookkeeping; concurrent duplicate `client_id` → `deduplicated`.
+
+PACKAGE C — ADRs for recorded deviations (same PR as B)
+Write one ADR each, in docs/decisions/, for the list in §4 of the review (synchronous propagation; router‑level permission checks plus the new rule "any service entry reachable from more than one route checks itself"; workspace manager sees members‑tier items; Inbox invisible to admins; SHA‑256 token hashing; capture hints as source=client; state_id moved by capture; LiteLLM Router not used; in‑memory agent runs; filter compiler location, CTE for `under`, EXISTS for `touched`; static CEL checker and limits; snapshot range as days+as_of; presentation events on SAVED_VIEW; client‑side nested AD groups). Kerberos SSO, Postgres verify‑full and certificate reload stay deferred only if the product owner confirms; otherwise add them to package I.
+
+PACKAGE D — top‑down plan API (plans/02-phase-1-core-domain-and-capture.md §1.2 "Top‑down project plan")
+`POST/GET /projects/{key}/plan` creating phases → deliverables → milestones → finish_to_start links in one transaction with `plan.created` events; derived statuses for deliverables, milestones and projects exactly as specified; baseline capture as plan approval and variance in the read; `Milestone.kind` in the API. Tests: a project planned with zero capture rows returns a full tree with `not_started` statuses and null roll‑ups; statuses flip as dates and tasks change.
+
+PACKAGE E — plan ↔ execution linkage and the plan‑only seed (plans/04-phase-3-management-overlay.md §3.11 and scope items 13–14)
+Auto‑parenting of captured tasks under deliverables (LLM hint → glossary → trigram ≥ 0.5 → `ReviewItem{kind=unlinked_task}` with top‑3 suggestions, refined by the gateway); `progress_mode=children` default for phase/deliverable types; plan‑tree roll‑ups; dependency re‑evaluation marking `at_risk`; `plan_slip` review kind. Seed: add project `ERP` (3 phases, 9 deliverables, 4 milestones, 2 dependencies, a baseline, zero tasks) and make every list/board/pipeline/snapshot endpoint pass against it.
+
+PACKAGE F — plan slide kinds and the plan‑only rule (plans/08-phase-7-snapshot-presentation-insights.md scope item 2, §7.1 extended snapshot fields, §7.2)
+Snapshot gains `phases[]`, `deliverables[]`, milestone `kind/status/completed_at/deliverables_done/total`, project `owner/planned_start/planned_end/status/health/baseline_name`. New slide kinds roadmap, milestones, deliverables, plan_vs_actual, phase_status, project_overview with renderers, config schemas, PPTX mappings. Every slide kind declares `requires` and `render_empty`; activity kinds render "No work reported yet for this scope". Templates "Project plan review" and "Programme roadmap". Acceptance: the ERP deck renders every slide, exports PDF/PPTX, and after two tasks are logged shows progress without editing the presentation.
+
+PACKAGE G — templates as data (plans/08… §7.5)
+`presentation_templates` table and `PresentationTemplate` JSON schema (docs/api/presentation-template-schema.json); builtin templates moved from Python constants to apps/presentation/templates/*.json and upserted idempotently at startup; CRUD + :validate/:preview/:export/:import/:duplicate/:share; `POST /presentations/{id}:save-as-template`; `GET /presentation/slide-kinds` publishing config schemas; copy‑on‑instantiate semantics; builder "Templates" tab with form editor, JSON editor with inline errors, import/export. Acceptance criteria are listed in the plan file; all must have tests.
+
+PACKAGE H — external‑LLM generation pack and import (plans/08… §7.6; plans/14-phase-2b-llm-gateway.md author tasks)
+`POST /presentations:generation-pack` producing data/, context/, prompt/, template/, manifest.json with redaction levels and stamping; `POST /presentations:import` with schema validation, key resolution against the pack, markdown sanitising, provenance, `--lenient`; gateway tasks `/v1/presentation/author` and `/v1/presentation/template-author` with prompts under prompts/presentation/*/v1 and golden sets; builder "Generate with AI" = pack → gateway → import → preview. The echo round‑trip contract test (pack of an existing deck + echo model → identical deck) is mandatory. Workspace switch to disable external packs.
+
+PACKAGE I — remaining plan scope that is missing
+Roadmap editor and "Present this plan" (plans/06-phase-5-web-shell-and-manager-console.md, Setup → Project plan); "Add to presentation" on P9 governance screens; P1 scope never built: RecurrenceRule job and endpoints, Attachment StorageAdapter (local disk), progress_pct recompute job, Comment/Checklist/WorkItemLink/CustomFieldDefinition CRUD; P9 thin editors (scope picker, candidate‑filter builder, notify/auto‑action editors, version history, habit sparklines); accessibility audit (axe in Playwright, ≥ 95) and Storybook/Ladle stories; Schemathesis contract tests for core and gateway; real‑model golden run recorded in docs/llm/gateway.md; Kerberos/Postgres TLS/cert reload if not waived in package C.
+
+Done means, per package: TESTPLAN items all green, `make check` green, DB suite green with timeouts, acceptance criteria of the cited plan sections checked with linked tests, ADRs written, docs and appendix E updated, PR opened against the implementation branch with the review finding numbers or plan sections it closes in the description.
+
+Final report: per package — what changed (by module), tests added and results (counts, coverage per package against appendix B floors), findings closed by number, ADRs written, deviations from the plan and why, and open product questions (at minimum: Kerberos/Postgres TLS deferral, external packs default on/off, share‑token redaction level).
+```
