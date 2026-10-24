@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError, type Row } from "../api/http";
 import { t } from "../lib/i18n";
@@ -10,6 +10,25 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const nav = useNavigate();
+  const [dev, setDev] = useState(false);
+  useEffect(() => {
+    api
+      .get<Row>("/auth/providers")
+      .then((p) => setDev(!!p.dev))
+      .catch(() => setDev(false));
+  }, []);
+  const devSignIn = async () => {
+    setError(null);
+    try {
+      await api.post<Row>("/auth/dev/login", {
+        workspace: workspace || "acme",
+        handle: username || "@mahmoud",
+      });
+      nav(`/w/${workspace || "acme"}/review`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    }
+  };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -58,6 +77,17 @@ export function Login() {
           Sign in
         </Button>
       </form>
+      {dev && (
+        <p>
+          <Button onClick={() => void devSignIn()}>
+            Development sign-in as {username || "@mahmoud"} in {workspace || "acme"}
+          </Button>
+          <br />
+          <small>
+            Local installs only (TT_DEV_AUTH). Type a handle above, or accept the default.
+          </small>
+        </p>
+      )}
       <p>
         <a href={`/auth/login?workspace=${encodeURIComponent(workspace || "")}`}>
           Sign in with single sign-on

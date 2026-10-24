@@ -2,10 +2,22 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api, w, type Row } from "../../api/http";
 import { Drawer } from "../../components/Drawer";
+import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
+import { Sparkline } from "../../components/Sparkline";
 import { Button, Empty } from "../../components/ui";
 import { HABIT_FLOW, habitsCsv, trendGlyph } from "../../lib/governance";
 import { useList, useMe, useWs } from "../../lib/hooks";
+
+function HabitSpark({ id, name }: { id: string; name: string }) {
+  const series = useList(`/habits/${id}/series`, { points: 8 });
+  const values = (series.data ?? []).map((p) => (p.rate == null ? null : Number(p.rate)));
+  return values.length ? (
+    <Sparkline values={values} label={`${name}, last 8 weeks`} />
+  ) : (
+    <small>—</small>
+  );
+}
 
 export function Habits() {
   const ws = useWs();
@@ -64,6 +76,7 @@ export function Habits() {
     <div className="gov">
       <div className="row">
         <h1>Habits</h1>
+        <AddToPresentation build={() => ({ kind: "habits", title: "Habits", config: {} })} />
         <span className="grow" />
         <input
           aria-label="Person"
@@ -93,6 +106,7 @@ export function Habits() {
                   <th>Count</th>
                   <th>Rate</th>
                   <th>Trend</th>
+                  <th>8 weeks</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -110,6 +124,9 @@ export function Habits() {
                       <td>{h.occurrences}</td>
                       <td>{Number(h.rate).toFixed(2)}</td>
                       <td aria-label={h.trend}>{trendGlyph(h.trend)}</td>
+                      <td>
+                        <HabitSpark id={h.id} name={h.key} />
+                      </td>
                       <td>{h.status.replace("_", " ")}</td>
                     </tr>
                   ))}

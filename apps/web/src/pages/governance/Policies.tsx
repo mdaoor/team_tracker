@@ -6,12 +6,31 @@ import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty, Field, Pill } from "../../components/ui";
 import type { Severity } from "../../lib/confidence";
 import {
+  autoBody,
+  autoFrom,
   canActivate,
+  chipsFromFilter,
   controlFor,
+  emptyAuto,
+  emptyNotify,
+  notifyBody,
+  notifyFrom,
   paramsFrom,
+  restoreBody,
+  type AutoAction,
   type CelProblem,
   type Control,
+  type Notify,
+  type Scope,
 } from "../../lib/governance";
+import { chipId, toFilter, type Chip } from "../../lib/viewState";
+import {
+  AutoActionEditor,
+  CandidateFilter,
+  NotifyEditor,
+  ScopePicker,
+  VersionHistory,
+} from "./PolicyEditors";
 import { useList, useMe, useObj, useWs } from "../../lib/hooks";
 import { CelEditor } from "./CelEditor";
 
@@ -103,11 +122,6 @@ function PolicyList() {
   );
 }
 
-const AUTO = [
-  ["", "Nothing"],
-  ["priority_high", "Raise priority to high"],
-] as const;
-
 function PolicyForm({ existing }: { existing?: string }) {
   const ws = useWs();
   const nav = useNavigate();
@@ -128,8 +142,12 @@ function PolicyForm({ existing }: { existing?: string }) {
   const [key, setKey] = useState("");
   const [sev, setSev] = useState("");
   const [grace, setGrace] = useState("");
-  const [auto, setAuto] = useState("");
-  const [notifyLine, setNotifyLine] = useState(true);
+  const [scope, setScope] = useState<Scope>({ type: "workspace", id: "" });
+  const [chips, setChips] = useState<Chip[]>([]);
+  const [notify, setNotify] = useState<Notify>({ ...emptyNotify(), reporting_line: ["line"] });
+  const [auto, setAuto] = useState<AutoAction>(emptyAuto());
+  const versions = useList(`/policies/${existing}/versions`, undefined, !!existing);
+  const projectKeys = (useList("/projects").data ?? []).map((p) => p.key as string);
   const [problems, setProblems] = useState<CelProblem[]>([]);
   const [compiled, setCompiled] = useState("");
   const [describe, setDescribe] = useState("");
@@ -162,8 +180,13 @@ function PolicyForm({ existing }: { existing?: string }) {
         Object.entries(policy.template_params ?? {}).map(([k, v]) => [k, String(v)]),
       ),
     );
-    setAuto(policy.auto_action?.set?.priority === "high" ? "priority_high" : "");
-    setNotifyLine((policy.notify?.reporting_line ?? []).length > 0);
+    setAuto(autoFrom(policy.auto_action));
+    setNotify(notifyFrom(policy.notify));
+    setScope({
+      type: policy.scope_type ?? "workspace",
+      id: policy.scope_ref ?? policy.scope_id ?? "",
+    });
+    setChips(chipsFromFilter(policy.candidate_filter, chipId) as Chip[]);
   }, [policy, templates.data]);
 
   // debounce 400 ms → /policies:check (Phase 9: inline errors within 1 s of typing)
@@ -193,8 +216,11 @@ function PolicyForm({ existing }: { existing?: string }) {
     name,
     severity: sev || undefined,
     grace_period: grace || undefined,
-    notify: notifyLine ? { reporting_line: ["line"] } : {},
-    auto_action: auto === "priority_high" ? { set: { priority: "high" } } : undefined,
+    notify: notifyBody(notify),
+    auto_action: autoBody(auto),
+    scope_type: scope.type,
+    scope_id: scope.id || undefined,
+    candidate_filter: chips.length ? toFilter(chips) : undefined,
     ...(mode === "template"
       ? { template: tplKey, params: paramsFrom(controls, values) }
       : { condition_cel: cel }),
@@ -209,6 +235,9 @@ function PolicyForm({ existing }: { existing?: string }) {
           grace_period: b.grace_period ?? null,
           notify: b.notify,
           auto_action: b.auto_action ?? null,
+          scope_type: b.scope_type,
+          scope_id: b.scope_id ?? null,
+          candidate_filter: b.candidate_filter ?? null,
           ...(mode === "template" ? { params: b.params } : { condition_cel: cel }),
         });
       }
@@ -217,6 +246,7 @@ function PolicyForm({ existing }: { existing?: string }) {
     onSuccess: (p) => {
       void qc.invalidateQueries({ queryKey: [ws, "/policies"] });
       void qc.invalidateQueries({ queryKey: [ws, `/policies/${p.key}`] });
+      void qc.invalidateQueries({ queryKey: [ws, `/policies/${p.key}/versions`] });
       toasts.push("Saved");
       if (!existing) nav(`../${p.key}`, { relative: "path" });
     },
@@ -237,6 +267,16 @@ function PolicyForm({ existing }: { existing?: string }) {
       void qc.invalidateQueries({ queryKey: [ws, `/policies/${existing}`] });
       void qc.invalidateQueries({ queryKey: [ws, "/policies"] });
       toasts.push("Policy activated");
+    },
+    onError: (e) => toasts.error(e),
+  });
+  const restore = useMutation({
+    mutationFn: (v: Row) =>
+      api.patch<Row>(w(ws, `/policies/${existing}`), restoreBody(v.definition)),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [ws, `/policies/${existing}`] });
+      void qc.invalidateQueries({ queryKey: [ws, `/policies/${existing}/versions`] });
+      toasts.push("Restored. Run a dry run before activating again.");
     },
     onError: (e) => toasts.error(e),
   });
@@ -402,25 +442,19 @@ function PolicyForm({ existing }: { existing?: string }) {
         <Field label="Grace period (e.g. 2d)">
           <input value={grace} onChange={(e) => setGrace(e.target.value)} placeholder="none" />
         </Field>
-        <Field label="Notify">
-          <label>
-            <input
-              type="checkbox"
-              checked={notifyLine}
-              onChange={(e) => setNotifyLine(e.target.checked)}
-            />{" "}
-            The accountable person’s manager
-          </label>
-        </Field>
-        <Field label="Automatic action">
-          <select value={auto} onChange={(e) => setAuto(e.target.value)}>
-            {AUTO.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <ScopePicker value={scope} onChange={setScope} />
+        <CandidateFilter chips={chips} onChange={setChips} />
+        <NotifyEditor
+          value={notify}
+          onChange={setNotify}
+          wellbeing={policy?.category === "wellbeing"}
+        />
+        <AutoActionEditor
+          value={auto}
+          onChange={setAuto}
+          stages={stages.map((x) => x.key as string)}
+          projects={projectKeys}
+        />
         <div className="row">
           <Button
             variant="primary"
@@ -484,6 +518,15 @@ function PolicyForm({ existing }: { existing?: string }) {
               )}
             </div>
           )}
+        </Card>
+      )}
+      {existing && policy && (
+        <Card title="Version history">
+          <VersionHistory
+            versions={versions.data ?? []}
+            canWrite={canWrite}
+            onRestore={(v) => restore.mutate(v)}
+          />
         </Card>
       )}
     </div>

@@ -17,6 +17,7 @@ import { Digest } from "./pages/governance/Digest";
 import { Insights } from "./pages/governance/Insights";
 import { Weights } from "./pages/governance/Weights";
 import { ViewsRoute, PresentRoute } from "./routes";
+import { PlanRoute } from "./pages/plan/PlanPage";
 
 function Home() {
   const q = useQuery({
@@ -50,6 +51,7 @@ export function App() {
               <Route path="setup/:section?" element={<Setup />} />
               <Route path="views/*" element={<ViewsRoute />} />
               <Route path="present/*" element={<PresentRoute />} />
+              <Route path="plan/*" element={<PlanRoute />} />
               <Route path="policies/*" element={<PoliciesRoute />} />
               <Route path="violations" element={<Violations />} />
               <Route path="habits" element={<Habits />} />

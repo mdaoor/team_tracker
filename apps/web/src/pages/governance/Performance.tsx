@@ -1,3 +1,4 @@
+import { AddToPresentation } from "../../components/AddToPresentation";
 import { useMemo, useState } from "react";
 import type { Row } from "../../api/http";
 import { Empty } from "../../components/ui";
@@ -104,6 +105,9 @@ export function Performance() {
     <div className="gov">
       <div className="row">
         <h1>Team performance</h1>
+        <AddToPresentation
+          build={() => ({ kind: "kpis", title: "Team performance", config: {} })}
+        />
         <span className="grow" />
         <select aria-label="Scope" value={scope} onChange={(e) => setScope(e.target.value)}>
           <option value={"workspace:" + ws}>Workspace</option>

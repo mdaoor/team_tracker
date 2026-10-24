@@ -136,3 +136,74 @@ describe("weights and metrics", () => {
     ).toBe(3);
   });
 });
+
+import {
+  autoBody,
+  autoFrom,
+  changedLabel,
+  chipsFromFilter,
+  emptyAuto,
+  emptyNotify,
+  notifyBody,
+  notifyFrom,
+  restoreBody,
+  sparkPoints,
+} from "./governance";
+
+describe("policy editors", () => {
+  it("notify round-trips and an empty editor is {}", () => {
+    expect(notifyBody(emptyNotify())).toEqual({});
+    const n = {
+      person: true,
+      reporting_line: ["line", "senior"],
+      roles: ["manager"],
+      channel: "slack",
+    };
+    expect(notifyBody(notifyFrom(notifyBody(n)))).toEqual(notifyBody(n));
+    expect(notifyFrom(null)).toEqual(emptyNotify());
+  });
+  it("auto action round-trips every kind and is undefined when empty", () => {
+    expect(autoBody(emptyAuto())).toBeUndefined();
+    const a = { priority: "high", stage: "test", createTitle: "Follow up", createProject: "WEB" };
+    expect(autoFrom(autoBody(a))).toEqual(a);
+    expect(autoBody({ ...emptyAuto(), createTitle: "  " })).toBeUndefined();
+  });
+  it("candidate filter becomes one removable chip per clause", () => {
+    let n = 0;
+    const chips = chipsFromFilter(
+      { project: { in: ["WEB"] }, and: [{ text: "x" }, { tags: { any: ["a"] } }] },
+      () => `c${n++}`,
+    );
+    expect(chips).toHaveLength(3);
+    expect(chips[0].clause).toEqual({ project: { in: ["WEB"] } });
+    expect(chipsFromFilter(null, () => "x")).toEqual([]);
+  });
+  it("restore writes back the definition: params for template rules, raw CEL otherwise", () => {
+    expect(
+      restoreBody({
+        name: "n",
+        severity: "info",
+        condition_template_id: "t",
+        template_params: { a: 1 },
+        condition_cel: "x",
+      }),
+    ).toEqual({
+      name: "n",
+      severity: "info",
+      params: { a: 1 },
+    });
+    expect(restoreBody({ name: "n", condition_cel: "item.age > 1" })).toEqual({
+      name: "n",
+      condition_cel: "item.age > 1",
+    });
+    expect(changedLabel([])).toBe("no field changes");
+    expect(changedLabel(["grace_period", "scope_id"])).toBe("grace period, scope id");
+  });
+  it("sparkline leaves a gap for a null week and ends on the last real point", () => {
+    const { segments, last } = sparkPoints([0.1, 0.2, null, 0.4, 0.3]);
+    expect(segments).toHaveLength(2);
+    expect(last).not.toBeNull();
+    expect(sparkPoints([null, null])).toEqual({ segments: [], last: null });
+    expect(sparkPoints([0.5]).segments).toHaveLength(1);
+  });
+});

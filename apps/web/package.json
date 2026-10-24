@@ -11,7 +11,9 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "e2e": "playwright test",
-    "gen:api": "openapi-typescript ../../docs/api/openapi.json -o src/api/schema.d.ts"
+    "gen:api": "openapi-typescript ../../docs/api/openapi.json -o src/api/schema.d.ts",
+    "stories": "ladle serve",
+    "stories:build": "ladle build"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",
@@ -28,7 +30,9 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^9.9.0",
+    "@ladle/react": "^5.1.1",
     "@playwright/test": "^1.47.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",

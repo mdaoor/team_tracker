@@ -46,6 +46,7 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
     { label: "Review queue", to: `${base}/review` },
     { label: "Views", to: `${base}/views` },
     { label: "Present", to: `${base}/present` },
+    { label: "Project plans", to: `${base}/plan` },
   ];
   return (
     <div className="shell">
@@ -95,6 +96,7 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
         <NavLink to={`${base}/setup/projects`}>{t("nav.setup")}</NavLink>
         <NavLink to={`${base}/review`}>{t("nav.review")}</NavLink>
         <NavLink to={`${base}/views`}>{t("nav.views")}</NavLink>
+        <NavLink to={`${base}/plan`}>{t("nav.plan")}</NavLink>
         <NavLink to={`${base}/present`}>{t("nav.present")}</NavLink>
         <NavLink to={`${base}/policies`}>{t("nav.policies")}</NavLink>
         <NavLink to={`${base}/violations`}>{t("nav.violations")}</NavLink>
