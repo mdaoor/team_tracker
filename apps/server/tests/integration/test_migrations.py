@@ -29,6 +29,7 @@ def test_every_model_has_a_table(migrated_url: str) -> None:
         "jira_links",
         "jira_worklogs",
         "jira_sync_log",
+        "login_attempts",
         "policy_match_state",
         "notifications",
     }  # server-owned tables
