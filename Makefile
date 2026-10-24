@@ -15,7 +15,7 @@ seed:           ## demo workspace "acme" (use SEED_ARGS=--reset to recreate)
 	$(PY) tt-admin seed demo $(SEED_ARGS)
 
 test:           ## pytest (uses TT_TEST_DATABASE_URL, else testcontainers) + vitest
-	$(PY) pytest -q --cov=tt_schema --cov=tt_server --cov=tt_client --cov=tt_cli --cov-report=term-missing:skip-covered
+	$(PY) pytest -q --cov=tt_schema --cov=tt_server --cov=tt_client --cov=tt_cli --cov=tt_llm --cov-report=term-missing:skip-covered
 	pnpm --filter @tt/web test
 
 lint:
@@ -29,7 +29,7 @@ fmt:
 	pnpm --filter @tt/web format
 
 typecheck:
-	$(PY) mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server
+	$(PY) mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server apps/llm_gateway/tt_llm
 	pnpm --filter @tt/web typecheck
 
 openapi:        ## docs/api/openapi.json + generated web client types

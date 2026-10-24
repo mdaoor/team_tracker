@@ -33,7 +33,12 @@ def emit(
     client_id: str | None = None,
     raw_input: str | None = None,
 ) -> Event:
-    """Append an Event to the unit of work. `source` must be explicit outside the ingestion path."""
+    """Append an Event to the unit of work. `source` must be explicit outside the ingestion path.
+
+    Writes made on behalf of the LLM gateway carry `payload.agent_run_id` (set from `X-Agent-Run-Id`).
+    """
+    if (run_id := uow.context.get("agent_run_id")) and "agent_run_id" not in (payload or {}):
+        payload = {**(payload or {}), "agent_run_id": run_id}
     event = Event(
         workspace_id=workspace_id,
         actor_id=actor_id,

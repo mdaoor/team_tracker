@@ -486,5 +486,30 @@ def login(
     typer.echo(f"saved {path} (mode 600)")
 
 
+gateway_app = typer.Typer(help="The LLM gateway (sidecar for this laptop)", no_args_is_help=True)
+app.add_typer(gateway_app, name="gateway")
+
+
+@gateway_app.command("serve")
+def gateway_serve(
+    local_only: Annotated[bool, typer.Option("--local-only/--allow-cloud", help="Local models only")] = True,
+    port: Annotated[int, typer.Option(help="Loopback port")] = 8700,
+    config: Annotated[Path | None, typer.Option(help="llm_gateway.yaml")] = None,
+) -> None:
+    """Run the same gateway the team uses, bound to 127.0.0.1 with Ollama; then `tt login --gateway-url`."""
+    try:
+        import uvicorn
+        from tt_llm.config import load_config
+        from tt_llm.main import apply_local_only, build_app
+    except ImportError:
+        typer.echo("the gateway is not installed: pip install tt-llm-gateway", err=True)
+        raise typer.Exit(1) from None
+    cfg = load_config(config)
+    if local_only:
+        cfg = apply_local_only(cfg, "127.0.0.1")
+    typer.echo(f"gateway on http://127.0.0.1:{port} (privacy_mode={cfg.privacy_mode})")
+    uvicorn.run(build_app(cfg), host="127.0.0.1", port=port)
+
+
 if __name__ == "__main__":
     app()

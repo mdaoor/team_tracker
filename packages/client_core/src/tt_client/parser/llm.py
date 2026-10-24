@@ -6,6 +6,7 @@ only (1) calls it, (2) repairs/validates what comes back, (3) falls back to the 
 
 from __future__ import annotations
 
+import ssl
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -52,10 +53,16 @@ class GatewayTranslator:
         timeout: float = 1.5,
         token: str | None = None,
         client: httpx.Client | None = None,
-        verify: str | bool = True,
+        verify: ssl.SSLContext | str | bool = True,
+        workspace: str = "",
+        core_token: str | None = None,
     ) -> None:
         self.url = gateway_url.rstrip("/")
         self.mode = mode
+        self.workspace = workspace
+        self.core_token = (
+            core_token  # only ever sent in agent mode, where the gateway calls tools as the caller
+        )
         self.http = client or httpx.Client(
             timeout=timeout, verify=verify, headers={"Authorization": f"Bearer {token}"} if token else {}
         )
@@ -68,9 +75,11 @@ class GatewayTranslator:
             "now": ctx.now.isoformat(),
             "time_zone": ctx.tz,
             "pack": pack.compact() if pack else {},
+            "workspace": self.workspace,
         }
+        headers = {"X-TT-Core-Token": self.core_token} if self.mode == "agent" and self.core_token else {}
         try:
-            r = self.http.post(self.url + endpoint, json=body)
+            r = self.http.post(self.url + endpoint, json=body, headers=headers)
             r.raise_for_status()
             payload = r.json()
             return ClientBatch.model_validate(payload.get("batch", payload))
@@ -81,7 +90,9 @@ class GatewayTranslator:
 def batch_review(gateway: GatewayTranslator, batches: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """`tt sync --assist`: ask the gateway to merge fragments / fill gaps in pending batches (Phase 2b)."""
     try:
-        r = gateway.http.post(gateway.url + "/v1/agent/batch-review", json={"batches": batches})
+        r = gateway.http.post(
+            gateway.url + "/v1/agent/batch-review", json={"batches": batches, "workspace": gateway.workspace}
+        )
         r.raise_for_status()
         cleaned = r.json()["batches"]
         for b in cleaned:

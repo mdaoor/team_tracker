@@ -86,3 +86,5 @@ Views (P6), presentation page (P7), policy editor (P9), Jira sync UI beyond fiel
 
 ## Handover notes
 P6 adds the Views area and reuses the shell, top bar, drawer and filter chips; keep the filter chip state in the URL (`?f=` base64 JSON of the `SavedView.filter`) from day one so views are shareable URLs (UX §4).
+
+> **Update (Phase 2b built):** review-queue suggestions arrive stored on the row (`ReviewItem.suggestion.llm`, `GET/PATCH /review-items/{id}`); translator-rules dry-run is `POST /v1/rules/dry-run` on the gateway.

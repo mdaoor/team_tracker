@@ -48,5 +48,7 @@ only the failed messages after a 207, quarantines on 422. `client_id` makes deli
 ## Evaluation
 `tt-eval translator --golden packages/client_core/tests/golden/lines.yaml [--subset syntax]` prints per-field accuracy.
 Structured parser, 59 cases: **1.000** on every field (the syntax subset is a CI gate). Model-in-the-loop numbers
-(target: action ≥ 0.9, item ≥ 0.85, minutes ≥ 0.9, planned_end day ≥ 0.85) are produced by the gateway's harness in
-Phase 2b; no model was available when this phase was built, so those targets are **not yet measured**.
+(target: action ≥ 0.9, item ≥ 0.85, minutes ≥ 0.9, planned_end day ≥ 0.85) need a real model and are **still not
+measured**. Phase 2b (`docs/llm/gateway.md`) adds the harness side: the same 59-case golden set is replayed through the gateway
+with a deliberately bad scripted model and the syntax subset stays at 1.000 on every field, because minutes, dates, estimates, tags
+and typed keys always come from the parser.

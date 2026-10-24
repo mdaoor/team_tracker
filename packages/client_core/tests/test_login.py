@@ -76,3 +76,39 @@ def test_verify_context_adds_a_ca_and_rejects_missing_files(tmp_path: object) ->
     assert verify_context(None).verify_mode.name == "CERT_REQUIRED"
     with pytest.raises(FileNotFoundError):
         verify_context("/nonexistent.pem")
+
+
+def test_gateway_translator_sends_the_core_token_only_in_agent_mode_and_falls_back_on_429() -> None:
+    import json
+
+    from tt_client.pack import ContextPack
+    from tt_client.parser.llm import GatewayTranslator, translate_line
+    from tt_client.parser.structured import ParseContext
+
+    seen: list[httpx.Request] = []
+
+    def budget_spent(req: httpx.Request) -> httpx.Response:
+        seen.append(req)
+        return httpx.Response(
+            429, headers={"Retry-After": "3600"}, json={"error": {"code": "budget_exceeded"}}
+        )
+
+    ctx = ParseContext(
+        actor="@sara",
+        now=__import__("datetime").datetime(2026, 10, 23, 12, 0, tzinfo=__import__("datetime").UTC),
+        tz="UTC",
+    )
+    pack = ContextPack({"projects": [], "my_open_items": [], "people": []})
+    for mode, expect_header in (("translate", False), ("agent", True)):
+        gw = GatewayTranslator(
+            "http://gw",
+            mode=mode,
+            workspace="acme",
+            core_token="tt_core",
+            client=httpx.Client(transport=httpx.MockTransport(budget_spent)),
+        )
+        res = translate_line("doing fix login, took 2h", ctx, pack=pack, translator=gw)
+        assert res.source == "structured" and res.batch.messages[0].minutes == 120  # the parser carried on
+        assert any("model unavailable" in n for n in res.notes)
+        assert ("x-tt-core-token" in seen[-1].headers) is expect_header
+        assert json.loads(seen[-1].content)["workspace"] == "acme"

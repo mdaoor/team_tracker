@@ -23,12 +23,13 @@ dev-dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/*", "apps/server", "apps/cli", "apps/worker"]
+members = ["packages/*", "apps/server", "apps/cli", "apps/worker", "apps/llm_gateway"]
 
 [tool.uv.sources]
 tt-schema = { workspace = true }
 tt-server = { workspace = true }
 tt-client = { workspace = true }
+tt-llm-gateway = { workspace = true }
 
 [tool.ruff]
 line-length = 110
@@ -40,6 +41,7 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S", "E501"]
+"**/gateway_tests/**" = ["S", "E501"]
 "tools/**" = ["S"]
 "packages/schema/src/tt_schema/*.py" = ["F403", "F405", "UP007", "UP042", "UP045", "S101"]
 
@@ -56,7 +58,7 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["tt_schema.testing.*", "factory.*", "ldap3.*"]
+module = ["tt_schema.testing.*", "factory.*", "ldap3.*", "jsonschema.*", "litellm.*"]
 ignore_errors = true
 ignore_missing_imports = true
 

@@ -41,7 +41,7 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | UX §2.2 | Capture palette behaviour | P2 (preview rows), P11 | `apps/desktop/e2e/palette.spec.ts` |
 | UX §2.3 | Verb table | P2 §2.2 | `packages/client_core/tests/test_structured_parser.py` |
 | UX §2.4 | Local LLM translator + ContextPack | P2 §2.1, 2.3, P2b `/v1/translate` | golden harness, `tests/api/test_context_pack.py` |
-| Product req. | Independent, agentic LLM gateway (LiteLLM routing, tools, batch review, suggestions, policy authoring) | P2b | `apps/llm_gateway/tests/*`, injection suite, replay goldens |
+| Product req. | Independent, agentic LLM gateway (LiteLLM routing, tools, batch review, suggestions, policy authoring) | P2b | `apps/llm_gateway/gateway_tests/*` (routing/privacy/budget, 31 recorded agent scenarios, golden set through the gateway, injection in `test_translate.py` and `test_capture_agent.py`, batch review), `apps/server/tests/e2e/test_gateway_e2e.py`, `apps/server/tests/api/test_acl_llm.py`; real-model accuracy and latency not measured |
 | Product req. | Slide‑based presentation builder; generic template exporting any report | P7 §7.2 | `apps/presentation/e2e/deck.spec.ts` |
 | Product req. | HTTPS with PEM on Linux; Active Directory (NT accounts and groups) auth | P4 §4.6, P12 §6 | `apps/server/tests/api/test_acl_identity.py` (ldap3 in-memory AD; Kerberos and a real DC not covered), `tests/integration/test_tls.py` |
 | UX §2.5 | Jira hand‑off | P2 §2.6 (flag), P10 | `tests/integrations/jira/*` |

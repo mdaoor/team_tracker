@@ -60,6 +60,18 @@ services:
     volumes: [".:/app"]
     depends_on: [server]
 
+  llm-gateway:
+    profiles: ["llm"]
+    build: { context: ., dockerfile: apps/llm_gateway/Dockerfile }
+    environment:
+      TT_LLM_CONFIG: /etc/tt/llm_gateway.yaml
+      TT_LLM_GATEWAY_TOKENS: dev-gateway-token
+      TT_LLM_SERVER_URL: http://server:8000
+      TT_LLM_STORAGE_URL: postgresql+psycopg://tt:tt@db:5432/tt
+    volumes: ["./apps/llm_gateway/llm_gateway.example.yaml:/etc/tt/llm_gateway.yaml:ro"]
+    ports: ["8700:8700"]
+    depends_on: { db: { condition: service_healthy } }
+
   ollama:
     profiles: ["llm"]
     image: ollama/ollama

@@ -49,3 +49,5 @@ Slack delivery of notifications (P11); new engine features.
 - [ ] `docs/web/governance.md` (screens, permissions, keyboard map).
 - [ ] ADR‑0014 coaching note visibility.
 - [ ] Storybook stories for policy form, CEL editor states, violation row kinds, habit row.
+
+> **Update (Phase 2b built):** the policy editor's "describe the rule" calls `POST /v1/policy/author`; its `policy_check`/`policy_test` tools are stubs returning `not_available` until the Phase 8 engine exists, and `validated` stays false until they work.

@@ -85,6 +85,7 @@ event_types:
   - risk_action.*
   - review.created
   - review.resolved
+  - review.updated
   - glossary.learned
   - translator_rule.*
   # governance
@@ -112,6 +113,7 @@ event_types:
   # auth
   - token.created
   - auth.login
+  - agent.suggestion_written
   - auth.access_requested
   - idp.groups_applied
   - idp.synced

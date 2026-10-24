@@ -15,10 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from tt_schema import client_message_json_schema
 
 from tt_server.api.errors import install_error_handlers
-from tt_server.api.routers import access, auth, capture, client, core, identity, overlay, webauth
+from tt_server.api.routers import access, auth, capture, client, core, identity, llm, overlay, webauth
 from tt_server.api.session import CSRF_COOKIE, set_session
 from tt_server.db.session import make_engine, make_session_factory
 from tt_server.integrations.ldap import ldap_provider_from_settings
+from tt_server.integrations.llm import gateway_from_settings
 from tt_server.integrations.oidc import oidc_provider_from_settings
 from tt_server.logging import configure_logging
 from tt_server.settings import Settings, get_settings
@@ -48,11 +49,13 @@ def create_app(
     app.state.session_factory = session_factory or make_session_factory(db_engine)
     app.state.ldap = ldap_provider_from_settings(settings)
     app.state.oidc = oidc_provider_from_settings(settings)
+    app.state.llm = gateway_from_settings(settings)
     install_error_handlers(app)
     for r in (
         auth.router,
         webauth.router,
         identity.router,
+        llm.router,  # before core: `/items/search` must win over `/items/{id_or_key}`
         capture.router,
         core.router,
         client.router,

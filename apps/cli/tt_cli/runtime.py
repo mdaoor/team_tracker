@@ -15,6 +15,7 @@ from tt_client.outbox import Outbox
 from tt_client.pack import ContextPack, PackCache
 from tt_client.parser.llm import GatewayTranslator, LLMTranslator, NullTranslator
 from tt_client.parser.structured import ParseContext
+from tt_client.tls import verify_context
 
 GHOST_EXAMPLES = [
     "fix the login redirect loop, took 2h, plan to finish tomorrow 5pm",
@@ -46,7 +47,9 @@ class Runtime:
                 self.cfg.gateway_url,
                 mode=self.cfg.llm_mode,
                 timeout=self.cfg.llm_timeout,
-                verify=self.cfg.ca_bundle or True,
+                verify=verify_context(self.cfg.ca_bundle),
+                workspace=self.cfg.workspace,
+                core_token=self.cfg.token or None,
             )
         return NullTranslator()
 

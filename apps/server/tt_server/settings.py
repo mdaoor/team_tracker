@@ -10,13 +10,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Features(BaseSettings):
     insights_llm: bool = False
+    llm_suggestions: bool = False  # review-queue suggestions + classification pre-fill via the LLM gateway
     jira_sync: bool = False
     habits_nightly: bool = False
     slack_bot: bool = False
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="TT_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="TT_", env_file=".env", extra="ignore", env_nested_delimiter="__"
+    )
 
     env: str = "dev"
     database_url: str = "postgresql+psycopg://tt:tt@localhost:5432/tt"
@@ -46,6 +49,14 @@ class Settings(BaseSettings):
     ldap_bind_password: str | None = None
     ldap_base_dn: str | None = None
     ldap_workspace: str | None = Field(default=None, description="Workspace slug that LDAP users sign in to.")
+
+    # --- LLM gateway (Phase 2b); unset = every LLM-backed feature stays off
+    llm_gateway_url: str | None = None
+    llm_gateway_token: str | None = None
+    llm_gateway_ca_bundle: str | None = None
+    llm_service_token: str | None = Field(
+        default=None, description="Read-only core token the gateway may use."
+    )
 
     # --- transport (§4.6)
     tls_certfile: str | None = None

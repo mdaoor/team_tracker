@@ -82,3 +82,5 @@ Mapping rules: `stages`/`stage_expected_days` from the scope's dominant `Process
 - [ ] `docs/presentation/README.md`: slide kinds, config schemas, template authoring, export mapping table, keyboard map.
 - [ ] ADR‑0011 "Prototype renderers are the spec for sections; additive changes only"; ADR‑0021 "Presentation entity and generic slide template".
 - [ ] P9 TODO: governance screens get the "Add to presentation" menu.
+
+> **Update (Phase 2b built):** generate insight text through `LLMGatewayClient.summarise` (`/v1/summarise/*`); the gateway already flags ungrounded ids, grounding checks stay in the core server.

@@ -51,7 +51,12 @@ async def post_batch(request: Request, actor: CurrentActor) -> JSONResponse:
         return JSONResponse(
             error_body("workspace_mismatch", "batch.workspace does not match the URL", "/workspace"), 422
         )
-    results = await ingest_batch(get_session_factory(request), actor.ws.id, batch)
+    results = await ingest_batch(
+        get_session_factory(request),
+        actor.ws.id,
+        batch,
+        agent_run_id=request.headers.get("X-Agent-Run-Id"),
+    )
     status = 207 if any(r.status == "failed" for r in results) else 200
     return JSONResponse({"results": [r.as_dict() for r in results]}, status)
 

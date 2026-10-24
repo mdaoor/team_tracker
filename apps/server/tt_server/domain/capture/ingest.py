@@ -1012,6 +1012,7 @@ async def ingest_batch(
     ws_id: str,
     batch: ClientBatch,
     batch_id: str | None = None,
+    agent_run_id: str | None = None,
 ) -> list[MessageResult]:
     """One transaction per message; a failing message never fails the batch."""
     batch_id = batch_id or new_id()
@@ -1020,6 +1021,8 @@ async def ingest_batch(
         try:
             uow = UnitOfWork(session_factory)
             async with uow:
+                if agent_run_id:  # written on behalf of the LLM gateway: every event carries the run id
+                    uow.context["agent_run_id"] = agent_run_id
                 ws = await uow.session.get(m.Workspace, ws_id)
                 assert ws is not None  # noqa: S101
                 result = await _process(uow, ws, msg, batch.client_version, batch_id, batch.mode)

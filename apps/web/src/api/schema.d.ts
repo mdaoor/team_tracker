@@ -75,6 +75,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/auth/service-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Service Token
+         * @description A `read`-scoped token the gateway may use for tools when the *core server* initiates the work.
+         */
+        post: operations["create_service_token_api_v1_w__ws__auth_service_tokens_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/w/{ws}/capture/batches": {
         parameters: {
             query?: never;
@@ -158,6 +178,26 @@ export interface paths {
         put?: never;
         /** Confirm Classification */
         post: operations["confirm_classification_api_v1_w__ws__classifications__cid__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/classifications:suggested": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Suggested
+         * @description Store pre-filled, *unconfirmed* classifications; the review queue shows them with confidence.
+         */
+        post: operations["bulk_suggested_api_v1_w__ws__classifications_suggested_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -518,6 +558,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/items/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Items
+         * @description Fuzzy title search with trigram similarity scores (pg_trgm) -- the agent's `search_items` tool.
+         */
+        get: operations["search_items_api_v1_w__ws__items_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/w/{ws}/items/{id_or_key}": {
         parameters: {
             query?: never;
@@ -703,6 +763,40 @@ export interface paths {
         put?: never;
         /** Iteration State */
         post: operations["iteration_state_api_v1_w__ws__iterations__iteration_id__state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/llm/prefill-classifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prefill Now */
+        post: operations["prefill_now_api_v1_w__ws__llm_prefill_classifications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/llm/suggest-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suggest Reviews Now */
+        post: operations["suggest_reviews_now_api_v1_w__ws__llm_suggest_reviews_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1146,6 +1240,27 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/review-items/{rid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review Item */
+        get: operations["get_review_item_api_v1_w__ws__review_items__rid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Review Item
+         * @description Edit the stored suggestion / confidence (or ignore the row) -- only by the manager who owns it.
+         */
+        patch: operations["patch_review_item_api_v1_w__ws__review_items__rid__patch"];
         trace?: never;
     };
     "/api/v1/w/{ws}/review-queue": {
@@ -2259,6 +2374,17 @@ export interface components {
             /** Ref */
             ref: string;
         };
+        /** ReviewPatch */
+        ReviewPatch: {
+            /** Confidence */
+            confidence?: number | null;
+            /** Status */
+            status?: ("open" | "ignored") | null;
+            /** Suggestion */
+            suggestion?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /**
          * RiskCategory
          * @enum {string}
@@ -2381,6 +2507,19 @@ export interface components {
          * @enum {string}
          */
         ScopeType: "none" | "workspace" | "project" | "team" | "person" | "product" | "process" | "iteration";
+        /** ServiceTokenIn */
+        ServiceTokenIn: {
+            /**
+             * Expires In Days
+             * @default 365
+             */
+            expires_in_days: number;
+            /**
+             * Name
+             * @default llm_gateway
+             */
+            name: string;
+        };
         /** StageIn */
         StageIn: {
             /** Category */
@@ -2422,6 +2561,24 @@ export interface components {
          * @enum {string}
          */
         SubjectType: "person" | "team" | "role";
+        /** SuggestedBulk */
+        SuggestedBulk: {
+            /** Agent Run Id */
+            agent_run_id?: string | null;
+            /** Suggestions */
+            suggestions: components["schemas"]["SuggestedIn"][];
+        };
+        /** SuggestedIn */
+        SuggestedIn: {
+            /** Confidence */
+            confidence: number;
+            /** Dimension */
+            dimension: string;
+            /** Target */
+            target: string;
+            /** Value */
+            value: string;
+        };
         /**
          * TargetType
          * @enum {string}
@@ -2689,6 +2846,46 @@ export interface operations {
             };
         };
     };
+    create_service_token_api_v1_w__ws__auth_service_tokens_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceTokenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     post_batch_api_v1_w__ws__capture_batches_post: {
         parameters: {
             query?: never;
@@ -2891,6 +3088,46 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_suggested_api_v1_w__ws__classifications_suggested_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuggestedBulk"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3987,6 +4224,48 @@ export interface operations {
             };
         };
     };
+    search_items_api_v1_w__ws__items_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                project?: string | null;
+                assignee?: string | null;
+                state_category?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_item_api_v1_w__ws__items__id_or_key__get: {
         parameters: {
             query?: never;
@@ -4435,6 +4714,78 @@ export interface operations {
                 "application/json": components["schemas"]["IterationState_"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prefill_now_api_v1_w__ws__llm_prefill_classifications_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_reviews_now_api_v1_w__ws__llm_suggest_reviews_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5716,6 +6067,84 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_item_api_v1_w__ws__review_items__rid__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                rid: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_review_item_api_v1_w__ws__review_items__rid__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                rid: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
