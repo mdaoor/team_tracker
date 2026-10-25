@@ -535,11 +535,13 @@ def register_commands(app: typer.Typer) -> None:
         picks: list[tuple[str, str]] = []
         for r in rows:
             rid = str(r.get("id"))
-            default = str(r.get("default_choice") or (r.get("choices") or [""])[0])
-            typer.echo(f"{rid}  {r.get('summary') or r.get('title') or ''}  → default: {default or '?'}")
+            raw_default = r.get("default_choice") or (r.get("choices") or [""])[0]
+            default = json.dumps(raw_default) if isinstance(raw_default, dict) else str(raw_default)
+            typer.echo(
+                f"{rid}  {r.get('summary') or r.get('title') or ''}  → default: {default or 'suggested'}"
+            )
             if accept_defaults or yes:
-                if default:
-                    picks.append((rid, default))
+                picks.append((rid, default))  # an empty choice means "the server's suggested resolution"
             elif is_interactive():
                 answer = typer.prompt(
                     "  accept default, type another choice, or [s]kip", default=default or "s"
@@ -604,7 +606,10 @@ def register_commands(app: typer.Typer) -> None:
             if not is_interactive():
                 raise typer.Exit(0)
             approval = typer.prompt("approve which id?")
-        args: dict[str, Any] = {"approval": approval.upper(), "decision": "reject" if reject else "approve"}
+        args: dict[str, Any] = {
+            "approval": approval.upper(),
+            "decision": "rejected" if reject else "approved",
+        }
         if comment:
             args["comment"] = comment
         run_commands(

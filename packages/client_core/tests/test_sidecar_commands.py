@@ -100,15 +100,15 @@ def test_manual_fields_and_build(ctx: CommandContext) -> None:
         ok["command"]["args"]["members"] == ["@sara", "@ali"]
         and ok["command"]["args"]["_meta"]["mode"] == "manual"
     )
-    bad = dispatch("cmd-build", {"op": "team.create", "answers": {"name": "p"}}, ctx)
-    assert bad["errors"][0]["pointer"] == "/kind"
+    bad = dispatch("cmd-build", {"op": "team.create", "answers": {"kind": "virtual"}}, ctx)
+    assert bad["errors"][0]["pointer"] == "/name"
 
 
 def test_incomplete_phrase_returns_a_prefilled_form(ctx: CommandContext) -> None:
-    prop = dispatch("cmd-propose", {"text": "move WEB-1 to test"}, ctx)
-    assert not prop["commands"] and prop["incomplete"][0]["op"] == "stage.move"
-    assert prop["incomplete"][0]["args"]["keys"] == ["WEB-1"] and any(
-        f["name"] == "reason" for f in prop["incomplete"][0]["form"]["fields"]
+    prop = dispatch("cmd-propose", {"text": "waive violation V-9"}, ctx)
+    assert not prop["commands"] and prop["incomplete"][0]["op"] == "violation.waive"
+    assert prop["incomplete"][0]["args"]["id"] == "V-9" and any(
+        f["name"] == "reason" and f["required"] for f in prop["incomplete"][0]["form"]["fields"]
     )
 
 
@@ -120,7 +120,7 @@ def test_queue_team_now_and_resolve(ctx: CommandContext, server: FakeServer) -> 
     res: Any = dispatch("cmd-resolve", {"rows": [{"id": "RV-3", "choice": "accept"}]}, ctx)
     assert res["status"] == "sent" and server.state["commands"][-1]["args"] == {
         "row": "RV-3",
-        "choice": "accept",
+        "choice": {"choice": "accept"},
     }
 
 

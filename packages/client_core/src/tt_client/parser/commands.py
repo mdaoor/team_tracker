@@ -27,7 +27,7 @@ PROJ = (
     r"(?-i:[A-Z][A-Z0-9]{1,9})|[A-Za-z][A-Za-z0-9 ]{1,30}?"  # key, or an alias/name resolved through the pack
 )
 DATE = r"\d{4}-\d{2}-\d{2}"
-PRIORITIES = "lowest|low|medium|high|critical"
+PRIORITIES = "lowest|low|medium|high|highest|critical"
 HANDLE_OR_ME = r"@[A-Za-z0-9_.-]+|me"
 KEYS = rf"(?:{KEY}(?:\s*(?:,|and|&)?\s*{KEY})*)"
 HANDLES = r"(?:@[A-Za-z0-9_.-]+(?:\s*(?:,|and|&)?\s*@[A-Za-z0-9_.-]+)*)"
@@ -154,12 +154,10 @@ def _item_create(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
 
 
 @rule(
-    r"^(?:create|new|add)\s+project\s+(.+?)\s+(?:key\s+)?((?-i:[A-Z][A-Z0-9]{1,9}))(?:\s+(scrum|kanban|waterfall|hybrid))?$"
+    r"^(?:create|new|add)\s+project\s+(.+?)\s+(?:key\s+)?((?-i:[A-Z][A-Z0-9]{1,9}))(?:\s+(?:scrum|kanban|waterfall|hybrid))?$"
 )
 def _project_create(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
     args: dict[str, Any] = {"name": _clean(m.group(1)), "key": m.group(2)}
-    if m.group(3):
-        args["methodology"] = m.group(3).lower()
     return [("project.create", args)]
 
 
@@ -180,20 +178,26 @@ def _baseline(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
     return [("project.baseline.capture", args)]
 
 
+ROLE_MAP = {"member": "contributor", "lead": "manager"}  # the server's ProjectRole enum
+
+
 @rule(rf"^add\s+({HANDLES})\s+to\s+(?:project\s+)?({PROJ})\s+as\s+(member|lead|viewer|owner)$")
 def _project_member(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
     proj = _project(m.group(2), ctx)
     if not proj:
         return None
     return [
-        ("project.add_member", {"project": proj, "person": h, "role": m.group(3).lower()})
+        (
+            "project.add_member",
+            {"project": proj, "person": h, "role": ROLE_MAP.get(m.group(3).lower(), m.group(3).lower())},
+        )
         for h in _handles(m.group(1), ctx)
     ]
 
 
 @rule(r"^merge\s+tags?\s+#?(\S+)\s+into\s+#?(\S+)$")
 def _tag_merge(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("tag.merge", {"sources": [m.group(1).lstrip("#")], "target": m.group(2).lstrip("#")})]
+    return [("tag.merge", {"tag": m.group(1).lstrip("#"), "into": m.group(2).lstrip("#")})]
 
 
 @rule(
@@ -240,7 +244,7 @@ def _tag_create(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
 
 @rule(r"^add\s+value\s+(.+?)\s+to\s+dimension\s+(\S+)$")
 def _dim_value(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("dimension.value.add", {"dimension": m.group(2), "value": _clean(m.group(1))})]
+    return [("dimension.value.add", {"dimension": m.group(2), "name": _clean(m.group(1))})]
 
 
 @rule(rf"^classify\s+({KEY})\s+(\S+)\s+(.+)$")
@@ -282,7 +286,9 @@ def _reporting(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
             {
                 "person": _person(m.group(1), ctx),
                 "manager": _person(m.group(2), ctx),
-                "kind": (m.group(3) or "solid").lower(),
+                "kind": {"solid": "line"}.get(
+                    (m.group(3) or "solid").lower(), (m.group(3) or "solid").lower()
+                ),
             },
         )
     ]
@@ -319,7 +325,10 @@ def _move(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
     r"^(approve|reject)\s+(?:approval\s+)?([A-Za-z]{1,6}-\d+)(?:\s*(?::|,|-|because|with\s+comment)\s*(.+))?$"
 )
 def _approval(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    args: dict[str, Any] = {"approval": m.group(2).upper(), "decision": m.group(1).lower()}
+    args: dict[str, Any] = {
+        "approval": m.group(2).upper(),
+        "decision": "approved" if m.group(1).lower() == "approve" else "rejected",
+    }
     if m.group(3):
         args["comment"] = _clean(m.group(3))
     return [("approval.decide", args)]
@@ -358,34 +367,34 @@ def _review_bulk(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
         return None
     args: dict[str, Any] = {"rows": rows}
     if m.group(2):
-        args["choice"] = m.group(2).lower()
+        args["action"] = m.group(2).lower()
     return [("review.bulk", args)]
 
 
 @rule(r"^resolve\s+(?:review\s+)?(?:row\s+)?([A-Za-z]{1,4}-\d+)\s+(\S+)$")
 def _review_resolve(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("review.resolve", {"row": m.group(1).upper(), "choice": m.group(2).lower()})]
+    return [("review.resolve", {"row": m.group(1).upper(), "choice": {"choice": m.group(2).lower()}})]
 
 
-@rule(rf"^assign\s+({KEYS})\s+to\s+({HANDLE_OR_ME})(?:\s+as\s+(owner|contributor|reviewer))?$")
+@rule(rf"^assign\s+({KEYS})\s+to\s+({HANDLE_OR_ME})$")
 def _assign(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    who, role = _person(m.group(2), ctx), (m.group(3) or "owner").lower()
-    return [("item.assign", {"key": k, "person": who, "role": role}) for k in _keys(m.group(1))]
+    who = _person(m.group(2), ctx)
+    return [("item.assign", {"key": k, "person": who}) for k in _keys(m.group(1))]
 
 
 @rule(rf"^(?:set\s+)?priority\s+(?:of\s+)?({KEY})\s+(?:to\s+)?({PRIORITIES})$")
 def _priority_a(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("item.set_priority", {"key": m.group(1).upper(), "priority": m.group(2).lower()})]
+    return [("item.set_priority", {"keys": [m.group(1).upper()], "priority": m.group(2).lower()})]
 
 
 @rule(rf"^({KEY})\s+priority\s+({PRIORITIES})$")
 def _priority_b(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("item.set_priority", {"key": m.group(1).upper(), "priority": m.group(2).lower()})]
+    return [("item.set_priority", {"keys": [m.group(1).upper()], "priority": m.group(2).lower()})]
 
 
-@rule(rf"^({KEY})\s+impact\s+(low|medium|high)$")
+@rule(rf"^({KEY})\s+impact\s+(\d)$")
 def _impact(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("item.set_impact", {"key": m.group(1).upper(), "impact": m.group(2).lower()})]
+    return [("item.set_impact", {"keys": [m.group(1).upper()], "impact": int(m.group(2))})]
 
 
 @rule(rf"^({KEY})\s+weight\s+(\d{{1,3}})$")
@@ -405,7 +414,7 @@ def _state(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
 
 @rule(rf"^({KEY})\s+due\s+({DATE})$")
 def _due(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("item.set_dates", {"key": m.group(1).upper(), "end": m.group(2)})]
+    return [("item.set_dates", {"key": m.group(1).upper(), "due_date": m.group(2)})]
 
 
 @rule(rf"^({KEY})\s+estimate\s+(\d+(?:\.\d+)?)\s*(hours?|days?|points?|pts?|h|d)$")
@@ -424,16 +433,11 @@ def _estimate(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
 def _link(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
     kind = {
         "blocks": "blocks",
-        "relates to": "relates",
+        "relates to": "relates_to",
         "duplicates": "duplicates",
         "depends on": "depends_on",
     }[re.sub(r"\s+", " ", m.group(2).lower())]
     return [("item.link", {"from": m.group(1).upper(), "to": m.group(3).upper(), "type": kind})]
-
-
-@rule(rf"^rename\s+({KEY})\s+to\s+(.+)$")
-def _rename(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("item.update", {"key": m.group(1).upper(), "fields": {"title": _clean(m.group(2))}})]
 
 
 @rule(rf"^(?:new|create)\s+(sprint|iteration)\s+(.+?)\s+on\s+({PROJ})(?:\s+({DATE})\s+(?:to|-)\s+({DATE}))?$")
@@ -443,7 +447,7 @@ def _iteration_create(m: re.Match[str], ctx: CommandParseContext) -> Built | Non
         return None
     args: dict[str, Any] = {"name": _sprint(m.group(1), m.group(2)), "project": proj}
     if m.group(4):
-        args["start"], args["end"] = m.group(4), m.group(5)
+        args["start_date"], args["end_date"] = m.group(4), m.group(5)
     return [("iteration.create", args)]
 
 
@@ -466,34 +470,38 @@ def _milestone_create(m: re.Match[str], ctx: CommandParseContext) -> Built | Non
         return None
     args: dict[str, Any] = {"name": _clean(m.group(1)), "project": proj}
     if m.group(3):
-        args["due"] = m.group(3)
+        args["due_date"] = m.group(3)
     return [("milestone.create", args)]
 
 
-@rule(r"^(?:complete|finish|close)\s+milestone\s+(.+)$")
+@rule(rf"^(?:complete|finish|close)\s+milestone\s+(.+?)(?:\s+on\s+({PROJ}))?$")
 def _milestone_complete(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("milestone.complete", {"milestone": _clean(m.group(1))})]
+    args: dict[str, Any] = {"milestone": _clean(m.group(1))}
+    if m.group(2):
+        proj = _project(m.group(2), ctx)
+        if not proj:
+            return None
+        args["project"] = proj
+    return [("milestone.complete", args)]
 
 
-@rule(rf"^(?:new|open|add)\s+risk\s+(.+?)\s+on\s+({PROJ})(?:\s+({PRIORITIES.replace('lowest|', '')}))?$")
+@rule(rf"^(?:new|open|add)\s+risk\s+(.+?)\s+on\s+({PROJ})$")
 def _risk_create(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
     proj = _project(m.group(2), ctx)
     if not proj:
         return None
     args: dict[str, Any] = {"title": _clean(m.group(1)), "project": proj}
-    if m.group(3):
-        args["severity"] = m.group(3).lower()
     return [("risk.create", args)]
 
 
 @rule(rf"^link\s+risk\s+(\S+)\s+to\s+({KEYS})$")
 def _risk_link(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("risk.link", {"risk": m.group(1).upper(), "keys": _keys(m.group(2))})]
+    return [("risk.link", {"risk": m.group(1).upper(), "item": k}) for k in _keys(m.group(2))]
 
 
 @rule(r"^risk\s+(\S+)\s+action\s+(.+)$")
 def _risk_action(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("risk.action.add", {"risk": m.group(1).upper(), "action": _clean(m.group(2))})]
+    return [("risk.action.add", {"risk": m.group(1).upper(), "description": _clean(m.group(2))})]
 
 
 @rule(r"^confirm\s+(?:my\s+)?(?:day|daily\s+log|log)$")
@@ -503,22 +511,29 @@ def _confirm_day(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
 
 @rule(r"^note\s+on\s+(\S+?)\s*:\s*(.+)$")
 def _context_note(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    return [("context_note.add", {"target": m.group(1), "note": _clean(m.group(2))})]
+    target, text = m.group(1), _clean(m.group(2))
+    args: dict[str, Any] = {"title": text[:60], "body": text, "scope_type": "workspace"}
+    is_key = bool(KEY_RE.fullmatch(target))
+    proj = target.upper().rsplit("-", 1)[0] if is_key else _project(target, ctx)
+    if is_key:
+        args["title"] = f"{target.upper()}: {text}"[:60]
+    if proj:
+        args["scope_type"], args["scope"] = "project", proj
+    return [("context_note.add", args)]
 
 
 @rule(rf"^coach\s+note\s+on\s+(\S+)(?:\s+for\s+({HANDLE_OR_ME}))?\s*:\s*(.+)$")
 def _coach_note(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
     args: dict[str, Any] = {"habit": m.group(1), "note": _clean(m.group(3))}
-    if m.group(2):
-        args["person"] = _person(m.group(2), ctx)
     return [("habit.coach_note", args)]
 
 
-@rule(r"^(pause|retire|resume|activate)\s+habit\s+(\S+)$")
+@rule(r"^(resolve|dismiss|acknowledge|ack|improving)\s+habit\s+(\S+)$")
 def _habit_status(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    status = {"pause": "paused", "retire": "retired", "resume": "active", "activate": "active"}[
-        m.group(1).lower()
-    ]
+    status = {
+        "resolve": "resolved", "dismiss": "dismissed", "acknowledge": "acknowledged",
+        "ack": "acknowledged", "improving": "improving",
+    }[m.group(1).lower()]  # fmt: skip
     return [("habit.set_status", {"habit": m.group(2), "status": status})]
 
 

@@ -146,9 +146,9 @@ def test_approvals_are_message_buttons_that_decide_in_one_click(bot: SlackBot, s
     assert set(b) == {cb.ACTION_APPROVE, cb.ACTION_REJECT} and "AP-12" in json.dumps(listing.blocks)
     r = bot.handle_action("U1", cb.ACTION_APPROVE, "AP-12")
     assert r.replace and ":white_check_mark: `approval.decide`" in r.text
-    assert server.state["commands"][-1]["args"] == {"approval": "AP-12", "decision": "approve"}
+    assert server.state["commands"][-1]["args"] == {"approval": "AP-12", "decision": "approved"}
     bot.handle_action("U1", cb.ACTION_REJECT, "AP-13")
-    assert server.state["commands"][-1]["args"]["decision"] == "reject"
+    assert server.state["commands"][-1]["args"]["decision"] == "rejected"
     blocks = cb.approval_message({"id": "AP-1", "title": "x"})
     assert (
         buttons(blocks)[cb.ACTION_APPROVE]["style"] == "primary"

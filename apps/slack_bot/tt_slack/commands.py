@@ -224,7 +224,7 @@ class CommandHandlers:
             return err  # type: ignore[return-value]
         if action_id in (cb.ACTION_APPROVE, cb.ACTION_REJECT):
             return self._decide(
-                rt, cat, role, value, "approve" if action_id == cb.ACTION_APPROVE else "reject"
+                rt, cat, role, value, "approved" if action_id == cb.ACTION_APPROVE else "rejected"
             )
         if action_id == cb.ACTION_WAIVE:
             return self._reply(modal=cb.waive_modal(value))

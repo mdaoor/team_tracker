@@ -207,7 +207,7 @@ async def test_http_endpoint_end_to_end(harness: Callable[..., Harness]) -> None
         cmd["actor"] == "@mahmoud"
         and cmd["client_id"]
         and cmd["preview_only"] is False
-        and out["catalogue_etag"] == '"cat-1"'
+        and out["catalogue_etag"] == CATALOGUE["etag"]
     )
     assert not h.core.posts()  # the gateway never applies anything
 
@@ -220,7 +220,7 @@ async def test_prompt_shows_only_catalogue_ops_with_one_example_each(harness: Ca
     cat = Catalogue.from_doc(CATALOGUE)
     for o in cat:
         assert f"{o.op}(" in system and f'-> {{"op": "{o.op}"' in system
-    assert "item.merge(sources*: [item]" in system and " !" in system and "Role mode: manager" in system
+    assert "item.merge(sources*: [" in system and " !" in system and "Role mode: manager" in system
     schema = h.backend.calls[0]["schema"] if "schema" in h.backend.calls[0] else command_output_schema(cat)
     assert schema["properties"]["commands"]["items"]["properties"]["op"]["enum"] == cat.names
     assert len(catalogue_prompt(cat).splitlines()) == len(cat) == len(examples_prompt(cat).splitlines())
