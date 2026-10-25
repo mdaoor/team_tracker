@@ -1,4 +1,4 @@
-import type { Json } from "../api/http";
+import type { GanttDep, GanttRow, Milestone } from "../api/types";
 
 export type Zoom = "day" | "week" | "month";
 const DAY = 86_400_000;
@@ -29,13 +29,16 @@ export interface GanttModel {
  * diamonds and elbow arrows for dependencies. All coordinates are pixels, so the SVG component only draws.
  */
 export function layoutGantt(
-  rows: Json[],
-  deps: Json[],
-  milestones: Json[],
+  rows: GanttRow[],
+  deps: GanttDep[],
+  milestones: Milestone[],
   today: string | null,
   zoom: Zoom,
 ): GanttModel {
-  const scheduled = rows.filter((r) => r.planned_start && r.planned_end);
+  const scheduled = rows.filter(
+    (r): r is GanttRow & { planned_start: string; planned_end: string } =>
+      !!(r.planned_start && r.planned_end),
+  );
   const points = [
     ...scheduled.flatMap((r) => [ms(r.planned_start), ms(r.planned_end), ...(r.baseline ? [ms(r.baseline.planned_start), ms(r.baseline.planned_end)] : [])]),
     ...milestones.filter((m) => m.due).map((m) => ms(m.due)),

@@ -25,7 +25,7 @@ export interface AuthProviders extends Json {
 
 // -- items -----------------------------------------------------------------------------------------------------------
 export interface Item extends Json {
-  id: string;
+  id?: string;
   key: string;
   title: string;
   type?: string;
@@ -57,16 +57,16 @@ export interface BoardResult extends Json {
   columns?: BoardColumn[];
 }
 export interface AggregateResult extends Json {
-  rows?: Json[];
-  cols?: Json[];
+  rows: Json[];
+  cols: string[];
 }
 export interface CalendarResult extends Json {
   days?: Record<string, Item[]>;
 }
 export interface GanttResult extends Json {
-  rows?: Json[];
-  deps?: Json[];
-  milestones?: Json[];
+  rows?: GanttRow[];
+  deps?: GanttDep[];
+  milestones?: Milestone[];
 }
 
 // -- setup -----------------------------------------------------------------------------------------------------------
@@ -183,3 +183,24 @@ export interface ReviewRow extends Json {
 }
 export type ReviewChoice = Json;
 export type Row = Json;
+
+// -- views and gantt -------------------------------------------------------------------------------------------------
+export interface SavedView extends Json {
+  id: string;
+  name: string;
+  filter: Json;
+  layout?: string;
+  weight_scheme_id?: string | null;
+}
+export interface GanttRow extends Json {
+  planned_start?: string | null;
+  planned_end?: string | null;
+  baseline?: { planned_start: string; planned_end: string } | null;
+}
+export interface GanttDep extends Json {
+  from: string;
+  to: string;
+}
+export interface Milestone extends Json {
+  due: string;
+}

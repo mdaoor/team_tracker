@@ -1,7 +1,8 @@
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Json } from "../../api/http";
+import * as itemsApi from "../../api/items";
+import type { BoardColumn, Item, Json } from "../../api/types";
 import { Empty } from "../../components/ui";
 import { useWs } from "../../lib/hooks";
 import { chipId, toFilter, type Chip, type ViewState } from "../../lib/viewState";
@@ -20,7 +21,7 @@ function useItems(st: ViewState) {
   };
   return useQuery({
     queryKey: [ws, "query/items", body],
-    queryFn: () => api.post<Json>(w(ws, "/query/items"), body),
+    queryFn: () => itemsApi.queryItems(ws, body),
     enabled: !!ws,
   });
 }
@@ -29,7 +30,7 @@ export function ListLayout({ st }: { st: ViewState }) {
   const q = useItems(st);
   if (q.isLoading) return <p>Loading…</p>;
   if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
-  const items: Json[] = q.data?.items ?? [];
+  const items: Item[] = q.data?.items ?? [];
   if (!items.length) return <Empty>No items match these filters.</Empty>;
   const groups = st.groupBy
     ? [...new Set(items.map((i) => (i.dims?.[st.groupBy!] ?? [])[0] ?? i[st.groupBy!] ?? "—"))]
@@ -83,7 +84,7 @@ export function ListLayout({ st }: { st: ViewState }) {
 }
 
 /** The drag handle is its own button, a sibling of the card's link (axe `nested-interactive`; keyboard drag works from it). */
-function DragCard({ item }: { item: Json }) {
+function DragCard({ item }: { item: Item }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform } = useDraggable({
     id: item.key,
   });
@@ -162,15 +163,15 @@ export function Columns({
   const path = kind === "board" ? `/projects/${ref_}/board` : `/processes/${ref_}/pipeline`;
   const q = useQuery({
     queryKey: [ws, path, st.chips],
-    queryFn: () => api.get<Json>(w(ws, path), { filter: JSON.stringify(toFilter(st.chips)) }),
+    queryFn: () => itemsApi.getBoard(ws, path, JSON.stringify(toFilter(st.chips))),
     enabled: !!ws && !!ref_,
   });
   const [err, setErr] = useState<string | null>(null);
   const move = useMutation({
     mutationFn: ({ key, to }: { key: string; to: string }) =>
       kind === "board"
-        ? api.post(w(ws, `/items/${key}/state`), { state: to })
-        : api.put(w(ws, `/items/${key}/stage`), { process: ref_, stage: to }),
+        ? itemsApi.setItemState(ws, key, to)
+        : itemsApi.setItemStage(ws, key, ref_, to),
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: [ws, path] });
@@ -183,8 +184,8 @@ export function Columns({
   if (!ref_) return <Empty>Pick a {kind === "board" ? "project" : "process"} first.</Empty>;
   if (q.isLoading) return <p>Loading…</p>;
   if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
-  const cols: Json[] = q.data?.columns ?? [];
-  const idOf = (c: Json) => (kind === "board" ? c.state : c.stage);
+  const cols: BoardColumn[] = q.data?.columns ?? [];
+  const idOf = (c: BoardColumn) => (kind === "board" ? c.state : c.stage) as string;
   return (
     <>
       {err && <p role="alert">{err}</p>}
@@ -220,7 +221,7 @@ export function Columns({
                   {c.over_expected ? ` · ${c.over_expected} over expected` : ""}
                 </small>
               )}
-              {c.items.map((i: Json) => (
+              {c.items.map((i) => (
                 <DragCard key={i.key} item={i} />
               ))}
             </Col>
@@ -242,7 +243,7 @@ export function MatrixLayout({ st, drill }: { st: ViewState; drill: Drill }) {
   };
   const q = useQuery({
     queryKey: [ws, "query/aggregate", body],
-    queryFn: () => api.post<Json>(w(ws, "/query/aggregate"), body),
+    queryFn: () => itemsApi.queryAggregate(ws, body),
     enabled: !!ws,
   });
   if (q.isLoading) return <p>Loading…</p>;
@@ -328,7 +329,7 @@ export function CalendarLayout({ st }: { st: ViewState }) {
   };
   const q = useQuery({
     queryKey: [ws, "query/calendar", body],
-    queryFn: () => api.post<Json>(w(ws, "/query/calendar"), body),
+    queryFn: () => itemsApi.queryCalendar(ws, body),
     enabled: !!ws,
   });
   const label = anchor.toLocaleString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
@@ -348,7 +349,7 @@ export function CalendarLayout({ st }: { st: ViewState }) {
   );
   if (q.isLoading) return <p>Loading…</p>;
   if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
-  const days: Record<string, Json[]> = q.data?.days ?? {};
+  const days: Record<string, Item[]> = q.data?.days ?? {};
   const cells: (string | null)[] = [
     ...Array((from.getUTCDay() + 6) % 7).fill(null),
     ...Array.from({ length: to.getUTCDate() }, (_, i) =>
@@ -384,11 +385,11 @@ export function NowLayout() {
   const ws = useWs();
   const q = useQuery({
     queryKey: [ws, "now"],
-    queryFn: () => api.get<Json>(w(ws, "/now")),
+    queryFn: () => itemsApi.getNow(ws),
     enabled: !!ws,
     refetchInterval: 30000,
   });
-  const rows: Json[] = q.data?.data ?? [];
+  const rows: Item[] = q.data?.data ?? [];
   if (!rows.length) return <Empty>Nobody is working on anything right now.</Empty>;
   return (
     <ul>

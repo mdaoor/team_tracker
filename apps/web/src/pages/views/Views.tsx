@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, w, type Json } from "../../api/http";
+import { w } from "../../api/http";
+import { createView } from "../../api/views";
+import type { SavedView } from "../../api/types";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button } from "../../components/ui";
@@ -45,7 +47,7 @@ export function ViewsPage() {
   const schemes = useList("/weight-schemes");
   const projects = useList("/projects");
   const processes = useList("/processes");
-  const views = useList("/views");
+  const views = useList<SavedView>("/views");
   const [target, setTarget] = useState("");
   const [name, setName] = useState("");
 
@@ -69,7 +71,7 @@ export function ViewsPage() {
   }, [st.ignored, toasts]);
   const save = useMutation({
     mutationFn: (shared: boolean) =>
-      api.post(w(ws, "/views"), {
+      createView(ws, {
         name,
         filter: toFilter(st.chips),
         group_by: st.groupBy ? [st.groupBy] : [],
@@ -93,7 +95,7 @@ export function ViewsPage() {
       "items.csv",
       "CSV",
     );
-  const open = (v: Json) =>
+  const open = (v: SavedView) =>
     set({
       chips: [{ id: `v${v.id}`, label: `view: ${v.name}`, clause: v.filter }],
       layout: (v.layout as Layout) ?? "list",

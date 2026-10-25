@@ -6,3 +6,4 @@ export * as review from "./review";
 export * as jira from "./jira";
 export * as governance from "./governance";
 export * as present from "./present";
+export * as views from "./views";
