@@ -538,7 +538,6 @@ async def team_add_members(ctx: Ctx, a: TeamMembers) -> Outcome:
             )
             n += 1
     emit(ctx.uow, workspace_id=ctx.actor.ws.id, actor_id=ctx.actor.person.id, entity_type=TargetType.TEAM, entity_id=team.id, event_type="team.members_changed", payload={"after": {"added": n}})  # fmt: skip
-    await ctx.uow.commit()
     return Outcome(result={"team": team.slug, "added": n})
 
 

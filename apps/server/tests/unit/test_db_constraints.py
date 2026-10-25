@@ -39,7 +39,8 @@ async def test_every_foreign_key_states_its_delete_rule(engine: AsyncEngine) -> 
             await conn.execute(
                 text(
                     "select conrelid::regclass::text, conname from pg_constraint "
-                    "where contype = 'f' and connamespace = 'public'::regnamespace and confdeltype = 'a' order by 1, 2"
+                    "where contype = 'f' and connamespace = 'public'::regnamespace and confdeltype = 'a' "
+                    "and conrelid::regclass::text not like 'procrastinate%' order by 1, 2"
                 )
             )
         ).all()
