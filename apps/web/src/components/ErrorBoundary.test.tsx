@@ -42,3 +42,16 @@ test("navigating (a new resetKey) clears the error by itself", () => {
   );
   expect(screen.getByText("fine")).toBeInTheDocument();
 });
+
+test("onError is called once with the error, so the shell can raise a toast; Reload is offered", () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const onError = vi.fn();
+  render(
+    <ErrorBoundary onError={onError}>
+      <Bomb boom />
+    </ErrorBoundary>,
+  );
+  expect(onError).toHaveBeenCalledTimes(1);
+  expect(onError.mock.calls[0][0]).toHaveProperty("message", "kaboom");
+  expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+});

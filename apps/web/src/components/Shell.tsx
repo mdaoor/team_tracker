@@ -17,6 +17,7 @@ import { NotificationBell } from "../pages/governance/NotificationBell";
 import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ItemDrawer } from "./ItemDrawer";
+import { useToasts } from "./Toasts";
 import { Chip } from "./ui";
 
 /** Direct URLs to areas the viewer cannot use show an explanation, not an empty page (UX 12). */
@@ -42,6 +43,18 @@ export function RequireAccess({ area, children }: { area: string; children: Reac
   return <>{children}</>;
 }
 
+/** Shown while a lazy route group's chunk loads: a skeleton, not an empty content area. */
+function RouteFallback() {
+  return (
+    <div className="route-fallback" aria-busy="true" role="status" aria-label="Loading">
+      <span className="sk sk-title" />
+      <span className="sk" />
+      <span className="sk" />
+      <span className="sk sk-short" />
+    </div>
+  );
+}
+
 export function Shell({ topbar }: { topbar?: ReactNode }) {
   const { ws = "" } = useParams();
   const nav = useNavigate();
@@ -50,6 +63,7 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
   useEffect(() => setNavOpen(false), [loc.pathname]);
   const [sp, setSp] = useSearchParams();
   const qc = useQueryClient();
+  const toasts = useToasts();
   const me = useQuery({
     queryKey: [ws, "me"],
     queryFn: () => getMe(ws),
@@ -162,8 +176,11 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
         {me.isError ? (
           <p role="alert">Could not load your session.</p>
         ) : (
-          <ErrorBoundary resetKey={loc.pathname}>
-            <Suspense fallback={<p aria-busy="true">Loading…</p>}>
+          <ErrorBoundary
+            resetKey={loc.pathname}
+            onError={(e) => toasts.error(new Error(`This screen failed to render: ${e.message}`))}
+          >
+            <Suspense fallback={<RouteFallback />}>
               <Outlet />
             </Suspense>
           </ErrorBoundary>
