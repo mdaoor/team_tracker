@@ -1,12 +1,16 @@
 {{- $c := dict "root" . "component" "web" }}
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: {{ include "tt.name" $c }}, labels: {{ include "tt.labels" $c | nindent 4 }}}
+metadata:
+  name: {{ include "tt.name" $c }}
+  labels:{{ include "tt.labels" $c | nindent 4 }}
 spec:
   replicas: {{ .Values.replicas.web }}
-  selector: {matchLabels: {{ include "tt.labels" $c | nindent 6 }}}
+  selector:
+    matchLabels:{{ include "tt.labels" $c | nindent 6 }}
   template:
-    metadata: {labels: {{ include "tt.labels" $c | nindent 8 }}}
+    metadata:
+      labels:{{ include "tt.labels" $c | nindent 8 }}
     spec:
       containers:
         - name: web
