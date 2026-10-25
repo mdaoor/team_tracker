@@ -1,7 +1,13 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "./ui";
 
-type Props = { children: ReactNode; label?: string; resetKey?: string };
+type Props = {
+  children: ReactNode;
+  label?: string;
+  resetKey?: string;
+  /** Called once per caught error, e.g. to raise a toast. */
+  onError?: (error: Error) => void;
+};
 type State = { error: Error | null };
 
 /** A render error in one screen shows this instead of a blank app (review T12). Navigating elsewhere clears it. */
@@ -14,6 +20,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("render error", error, info.componentStack);
+    this.props.onError?.(error);
   }
 
   componentDidUpdate(prev: Props) {

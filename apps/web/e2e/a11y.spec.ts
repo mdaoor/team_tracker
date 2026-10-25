@@ -101,12 +101,21 @@ test("axe: review queue with rows", async ({ page, request }) => {
   ).toEqual([]);
 });
 
-/** Phase 13 R5.3: at 390 px no console screen scrolls sideways, and navigation is a drawer. */
-const MOBILE: [string, string][] = [...SCREENS, ...LAYOUT_SCREENS];
-test.describe("mobile 390 px", () => {
+/** Phase 13 R5.3: at 390x844 no console screen scrolls sideways (document scrollWidth <= innerWidth), none has a
+ * serious/critical axe violation, and navigation is a drawer. Covers the 14 screens above plus the data layouts. */
+const SETUP_SECTIONS: [string, string][] = [
+  "projects",
+  "process",
+  "dimensions",
+  "people",
+  "planning",
+  "risks",
+].map((s) => [`setup ${s}`, `/w/acme/setup/${s}`]);
+const MOBILE: [string, string][] = [...SCREENS, ...LAYOUT_SCREENS, ...SETUP_SECTIONS];
+test.describe("mobile 390x844", () => {
   test.use({ viewport: { width: 390, height: 844 } });
   for (const [name, url] of MOBILE) {
-    test(`no horizontal scroll: ${name}`, async ({ page }) => {
+    test(`mobile: ${name}`, async ({ page }) => {
       await page.goto(url);
       await page.waitForLoadState("networkidle");
       await page.waitForTimeout(300);
@@ -115,6 +124,14 @@ test.describe("mobile 390 px", () => {
         return { scrollWidth: de.scrollWidth, innerWidth: window.innerWidth };
       });
       expect(over.scrollWidth, JSON.stringify(over)).toBeLessThanOrEqual(over.innerWidth);
+      const res = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+        .analyze();
+      expect(
+        res.violations
+          .filter((v) => v.impact === "serious" || v.impact === "critical")
+          .map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 120)}`),
+      ).toEqual([]);
     });
   }
   test("the menu button opens the navigation drawer", async ({ page }) => {

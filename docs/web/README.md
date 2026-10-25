@@ -13,16 +13,57 @@ React 18 + Vite + TypeScript, React Router, TanStack Query. Tokens come from the
 * **Live data**: the review queue subscribes to `GET /review-queue/stream` (SSE, ADR-0009) and polls every 30 s as a fallback.
 * **i18n/RTL**: strings go through `src/lib/i18n.ts`; layout uses logical CSS properties.
 
+## Typed API wrapper modules (`src/api/`)
+Screens never call `api.get/post` with a string path and an untyped body; they import a function from a wrapper module that owns the
+path, the request body and the response type (all derived from `schema.d.ts`, so `make openapi` breaks the build when the server changes):
+`session` (me, workspaces), `projects`, `teams` (process/stages, dimensions, risks, people), `items` (items, ETag patches), `views`,
+`review`, `present`, `governance` (policies, habits, digest, weights), `jira`; `types.ts` re-exports the named schema types and `http.ts`
+is the only module that touches `fetch`. The untyped `Row` type in `http.ts` is a legacy escape hatch for the generic setup forms; do not add new uses.
+
+## Lazy route groups and the bundle budget
+`src/App.tsx` loads each route group with `React.lazy`: **setup**, **views**, **present**, **plan** and **governance** (policies,
+violations, habits, performance, digest, insights, weights), so the entry chunk carries only the shell and the review queue. CodeMirror
+is imported only by `pages/governance/CelEditor.tsx` and therefore ships only in the policy chunk. The shell wraps the outlet in an
+`ErrorBoundary` (a render error or a failed chunk load shows "Something went wrong" with **Reload** / **Try again** and raises an error
+toast; navigating clears it) and a `Suspense` skeleton. `scripts/check-bundle.mjs` runs at the end of `pnpm build` (and so in CI) and fails
+the build if the entry chunk is 250 kB gzip or more, a route-group chunk is missing, or CodeMirror appears outside the policy chunk
+(today: entry 84 kB gzip, 246 kB for all chunks).
+
+## Responsive shell
+Below 900 px the side navigation becomes a drawer opened by the **Menu** button in the top bar (closes on navigation); toolbars and
+`.row`s wrap, grid children carry `min-width: 0` (`minmax(0, 1fr)` tracks), and wide tables, boards, matrices and the Gantt scroll inside
+their own focusable `region`, never the page. Acceptance: at 390x844 no console screen has `scrollWidth > innerWidth`
+(`e2e/a11y.spec.ts`, "mobile 390x844", all 14 screens, the six Views layouts and six Setup sections, each also axe serious/critical clean).
+
+## Setup editors
+Process: stage chip opens an editor (duration, WIP, approval, category) with a live mini-pipeline; Projects: product tree (products/projects) with
+drag-to-reparent and Alt+Left/Right; Planning: milestone and iteration month calendar; Risks: heat map with probability/impact axis labels,
+a cell filters the register, drag a risk onto an item to link it; People: org tree with per-person and team capacity; Dimensions: paste a
+list (lines, commas, quotes; de-duplicated, with a live count). Covered by `e2e/setup-editors.spec.ts` and `e2e/console.spec.ts`.
+
 ## Add a screen
 1. Create `src/pages/<Name>.tsx` using `useList/useObj` and `api.*`.
 2. Add a `<Route>` under `/w/:ws` in `src/App.tsx` and a nav link in `components/Shell.tsx` (and a command in the palette list).
 3. Cover logic with a vitest test next to it; add a Playwright flow in `e2e/` for anything that crosses the API.
 
 ## Running
-`pnpm dev` (proxy to `TT_API_URL`), `pnpm test` (vitest), `pnpm e2e` (Playwright: starts a dev-auth API on :8010 against a freshly seeded
-`tt_e2e` database; set `TT_CHROMIUM` if the preinstalled Chromium differs from Playwright's expected build).
+`pnpm dev` (proxy to `TT_API_URL`), `pnpm test` (vitest), `pnpm build` (typecheck, bundle, bundle budget), `pnpm stories:build`.
 
-## Not done in Phase 5
-Storybook/Ladle stories, a Lighthouse accessibility run, drag-to-reparent on the project tree, the milestone calendar editor with drag,
-the allocation-% and validity editors for reporting lines, per-project required-field overrides and custom field definitions, and the
-3-second undo of a resolved review row (the server has no un-resolve). The Setup screens are forms and tables, not the full visual editors.
+### End-to-end (Playwright)
+`pnpm e2e` starts a dev-auth API on :8010 (from `<repo>/.venv`) and Vite on :5173, and `e2e/global-setup.ts` recreates and seeds the
+`tt_e2e` database. Prerequisites: Postgres on localhost with role `tt`/`tt`; `uv sync --frozen --all-packages --all-groups`; `make presentation`
+(the deck bundle, for the present specs). Then:
+
+```sh
+export TT_DATABASE_URL=postgresql+psycopg://tt:tt@localhost/tt_e2e
+export TT_CHROMIUM=/path/to/chrome   # when the installed Chromium differs from Playwright's expected build
+make migrate && make seed SEED_ARGS=--reset
+cd apps/web && pnpm exec playwright test            # all
+pnpm exec playwright test a11y.spec.ts -g mobile    # the 390x844 pass
+```
+Set `TT_WEB_URL` to test an already running stack, `TT_VIDEO=1` to record the walkthrough.
+
+## Not done
+A Lighthouse accessibility run, dragging on the milestone calendar, the allocation-% and validity editors for reporting lines, and
+per-project required-field overrides and custom field definitions. (Stories, the project tree, review undo and the visual setup editors
+landed in Phase 13.)

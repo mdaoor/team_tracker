@@ -6,6 +6,9 @@ import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
 import { CreateForm, Table } from "./common";
 
+const P_LABEL = ["rare", "unlikely", "possible", "likely", "almost certain"];
+const I_LABEL = ["minor", "moderate", "serious", "major", "severe"];
+
 export function Risks() {
   const ws = useWs();
   const qc = useQueryClient();
@@ -65,10 +68,17 @@ export function Risks() {
         <table className="heat" aria-label="Risk heat map">
           <thead>
             <tr>
-              <th scope="col">Impact ↓ / Probability →</th>
+              <td />
+              <th scope="colgroup" colSpan={5} className="heat-axis">
+                Probability →
+              </th>
+            </tr>
+            <tr>
+              <th scope="col">Impact ↓</th>
               {[1, 2, 3, 4, 5].map((p) => (
-                <th key={p} scope="col">
+                <th key={p} scope="col" title={P_LABEL[p - 1]}>
                   P{p}
+                  <small> {P_LABEL[p - 1]}</small>
                 </th>
               ))}
             </tr>
@@ -76,7 +86,10 @@ export function Risks() {
           <tbody>
             {[5, 4, 3, 2, 1].map((i) => (
               <tr key={i}>
-                <th scope="row">I{i}</th>
+                <th scope="row">
+                  I{i}
+                  <small> {I_LABEL[i - 1]}</small>
+                </th>
                 {[1, 2, 3, 4, 5].map((p) => {
                   const n = count(p, i);
                   return (
