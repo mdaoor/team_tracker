@@ -9,8 +9,8 @@ export function mountDeck(root, ctx, { print = false } = {}) {
   const slides = expandSlides(ctx.presentation.slides, ctx);
   const total = slides.length;
   root.innerHTML = `<div class="deck ${print ? "print" : ""}" tabindex="-1">
-    <div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${total}"><i></i></div>
-    <div class="viewport"></div>
+    <div class="progress" role="progressbar" aria-label="Slide progress" aria-valuemin="1" aria-valuemax="${total}"><i></i></div>
+    <main class="viewport" aria-label="Slide"></main>
     <nav class="deck-nav"><button class="ghost" data-nav="prev" aria-label="Previous slide">←</button><span class="counter" aria-live="polite"></span><button class="ghost" data-nav="next" aria-label="Next slide">→</button><button class="ghost" data-nav="grid" aria-label="Slide overview" title="Overview (G)">▦</button><button class="ghost" data-nav="notes" aria-label="Speaker notes" title="Notes (N)">✎</button><button class="ghost" data-nav="full" aria-label="Fullscreen" title="Fullscreen (F)">⛶</button></nav>
     <aside class="notes" hidden></aside>
     <div class="grid-overview" hidden role="dialog" aria-label="Slide overview"></div>

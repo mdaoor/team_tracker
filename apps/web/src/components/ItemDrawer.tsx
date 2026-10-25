@@ -64,7 +64,7 @@ export function ItemDrawer({
     }
     await qc.invalidateQueries({ queryKey: [ws, "item", itemKey] });
     await qc.invalidateQueries({ queryKey: [ws, "prov", itemKey] });
-    toasts.push(`${field} → ${String(value)}`, { undo: () => void save(field, before) });
+    toasts.push(`${field} → ${String(value)}`, { key: `edit:${field}`, undo: () => void save(field, before) });
   };
 
   return (
@@ -90,6 +90,8 @@ export function ItemDrawer({
               field={conflict.field}
               mine={conflict.mine}
               theirs={conflict.current[conflict.field]}
+              changedBy={conflict.changedBy}
+              changedAt={conflict.changedAt}
               onKeepMine={async () => {
                 const f = conflict.field;
                 const v = conflict.mine;

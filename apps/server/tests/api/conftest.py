@@ -38,8 +38,8 @@ class Api:
         return r.json()["results"][0]  # type: ignore[no-any-return]
 
 
-@pytest.fixture
-async def api(client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]) -> Api:
+async def bootstrap_workspace(client: httpx.AsyncClient) -> Api:
+    """The standard test workspace: acme, @mahmoud (admin), @sara, @ali, projects DATA and WEB."""
     r = await client.post(
         "/api/v1/workspaces",
         json={
@@ -70,9 +70,21 @@ async def api(client: httpx.AsyncClient, session_factory: async_sessionmaker[Asy
     assert r.status_code == 201, r.text
     r = await a.call("POST", "/projects", json={"name": "Website Refresh", "key": "WEB"})
     assert r.status_code == 201, r.text
+    return a
+
+
+@pytest.fixture
+async def api(client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]) -> Api:
+    a = await bootstrap_workspace(client)
     async with session_factory() as s:
         ws = await s.scalar(select(m.Workspace).where(m.Workspace.slug == "acme"))
         assert ws is not None
         ws.settings = {**ws.settings, "glossary": {"the pipeline": "DATA"}}
         await s.commit()
     return a
+
+
+@pytest.fixture
+async def committed_api(committed_client: httpx.AsyncClient) -> Api:
+    """Same workspace over committing sessions: use it when the test fires requests in parallel (asyncio.gather)."""
+    return await bootstrap_workspace(committed_client)

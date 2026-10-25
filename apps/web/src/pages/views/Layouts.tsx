@@ -285,7 +285,10 @@ export function MatrixLayout({ st, drill }: { st: ViewState; drill: Drill }) {
                     key={c}
                     className="cell"
                     data-cell={`${r.value}|${c}`}
-                    style={{ background: level ? `var(--seq${level})` : undefined }}
+                    style={{
+                      background: level ? `var(--seq${level})` : undefined,
+                      color: level ? `var(--seq${level}-fg)` : undefined,
+                    }}
                     onClick={() =>
                       v &&
                       drill(`${r.value} × ${c}`, [
@@ -381,10 +384,15 @@ export function GanttLayout({ st }: { st: ViewState }) {
   );
 }
 
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** Month grid with titles and previous/next/today navigation (UX review: calendar showed bare keys and had no month nav). */
 export function CalendarLayout({ st }: { st: ViewState }) {
   const ws = useWs();
-  const [anchor] = useState(() => new Date());
-  const from = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
+  const [offset, setOffset] = useState(0);
+  const now = new Date();
+  const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
+  const from = anchor;
   const to = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 0));
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   const body = {
@@ -398,6 +406,21 @@ export function CalendarLayout({ st }: { st: ViewState }) {
     queryFn: () => api.post<Row>(w(ws, "/query/calendar"), body),
     enabled: !!ws,
   });
+  const label = anchor.toLocaleString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+  const nav = (
+    <div className="row" role="group" aria-label="Month">
+      <button className="btn" aria-label="Previous month" onClick={() => setOffset((o) => o - 1)}>
+        ‹
+      </button>
+      <strong aria-live="polite">{label}</strong>
+      <button className="btn" aria-label="Next month" onClick={() => setOffset((o) => o + 1)}>
+        ›
+      </button>
+      <button className="btn btn-ghost" onClick={() => setOffset(0)} disabled={offset === 0}>
+        Today
+      </button>
+    </div>
+  );
   if (q.isLoading) return <p>Loading…</p>;
   if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
   const days: Record<string, Row[]> = q.data?.days ?? {};
@@ -408,17 +431,26 @@ export function CalendarLayout({ st }: { st: ViewState }) {
     ),
   ];
   return (
-    <div className="vcal">
-      {cells.map((d, i) => (
-        <div key={i} data-day={d ?? ""}>
-          {d && <strong>{d.slice(8)}</strong>}
-          {(d ? (days[d] ?? []) : []).map((e, j) => (
-            <div key={j} className={`ev ${e.kind}`}>
-              {e.key ?? e.title}
-            </div>
-          ))}
-        </div>
-      ))}
+    <div>
+      {nav}
+      <div className="vcal" role="group" aria-label={label}>
+        {WEEKDAYS.map((d) => (
+          <div key={d} className="vcal-h" aria-hidden>
+            {d}
+          </div>
+        ))}
+        {cells.map((d, i) => (
+          <div key={i} data-day={d ?? ""} className={d === iso(now) ? "today" : ""}>
+            {d && <strong>{d.slice(8)}</strong>}
+            {(d ? (days[d] ?? []) : []).map((e, j) => (
+              <div key={j} className={`ev ${e.kind}`} title={`${e.key ?? e.kind}: ${e.title ?? ""}`}>
+                {e.key && <span className="key">{e.key} </span>}
+                {e.title}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

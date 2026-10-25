@@ -47,7 +47,7 @@ export function renderKpis(ctx) {
       "of finished items",
       ["late", { late: true }],
     ],
-    ["Violations", v.length, "open", null],
+    ["Violations", v.length, "open", ["with violations", { violated: true }]],
     [
       "Risk exposure",
       exposure,

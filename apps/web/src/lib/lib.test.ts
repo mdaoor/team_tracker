@@ -78,3 +78,10 @@ test("a garbage ?f= is reported, a good one is not", () => {
   expect(undecodable(null)).toBe(false);
   expect(undecodable(btoa(JSON.stringify([{ id: "a" }])))).toBe(false);
 });
+
+import { PRESETS, toFilter } from "./viewState";
+test("the next-week preset compiles to an OR over planned_end and due_date using next-week tokens", () => {
+  const f = toFilter([PRESETS[0].chip()]);
+  expect(JSON.stringify(f)).toContain("start_of_next_week");
+  expect(f.or).toHaveLength(2);
+});

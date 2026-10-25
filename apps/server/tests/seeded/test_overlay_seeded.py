@@ -408,6 +408,7 @@ async def test_optimistic_concurrency_and_conflict_event(sapi: Api, seed_sf: SF)
     assert stale.status_code == 409
     err = stale.json()["error"]
     assert err["code"] == "conflict" and err["details"]["current"]["description"] == "from manager A"
+    assert err["details"]["changed_by"] == "@mahmoud" and err["details"]["changed_at"]  # who and when (UX review "also")
     assert [e.event_type for e in await events_of(seed_sf, key, "item.field_conflict")] == [
         "item.field_conflict"
     ]
@@ -651,3 +652,11 @@ async def test_milestone_completion_is_gated_by_an_approval(sapi: Api) -> None:
     ok = await sapi.call("POST", f"/approvals/{req.json()['id']}/decisions", json={"decision": "approved"})
     assert ok.json()["status"] == "approved"
     assert (await sapi.call("POST", f"/milestones/{gov['id']}/complete")).json()["completed_at"]
+
+
+async def test_new_items_continue_the_seeded_key_sequence(sapi: Api) -> None:
+    """UX review "also": a new WEB item must not be WEB-1 beside the seeded WEB-131."""
+    rows = (await sapi.call("GET", "/items", params={"project": "WEB", "limit": 200})).json()["data"]
+    top = max(int(r["key"].rsplit("-", 1)[1]) for r in rows)
+    res = await sapi.send(action="create", item={"title": "continues the sequence"}, project="WEB")
+    assert int(res["item"]["key"].rsplit("-", 1)[1]) == top + 1

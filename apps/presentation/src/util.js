@@ -26,6 +26,7 @@ export function applyFilter(items, f, D) {
     if (f.hours && !(i.hours_logged > 0)) return false;
     if (f.late && !(i.actual_end && i.actual_end > i.planned_end)) return false;
     if (f.risk && !i.risks.length) return false;
+    if (f.violated && !violationsOf(D, [i]).length) return false;
     if (f.overdue && !(i.state !== "done" && i.planned_end < f.overdue))
       return false;
     if (f.dims)

@@ -118,3 +118,47 @@ export const sortParam = (s: string): { field: string; dir: string }[] => {
 
 let n = 0;
 export const chipId = () => `c${Date.now().toString(36)}${n++}`;
+
+/** Preset chips for the Views landing (UX review, persona metric: "what ships next week?"). */
+export const PRESETS: { id: string; label: string; layout: Layout; chip: () => Chip }[] = [
+  {
+    id: "next-week",
+    label: "What's shipping next week",
+    layout: "list",
+    chip: () => ({
+      id: chipId(),
+      label: "due next week",
+      clause: {
+        or: [
+          { planned_end: { between: ["start_of_next_week", "end_of_next_week"] } },
+          { due_date: { between: ["start_of_next_week", "end_of_next_week"] } },
+        ],
+      },
+    }),
+  },
+  {
+    id: "this-week",
+    label: "Due this week",
+    layout: "calendar",
+    chip: () => ({
+      id: chipId(),
+      label: "due this week",
+      clause: {
+        or: [
+          { planned_end: { between: ["start_of_week", "end_of_week"] } },
+          { due_date: { between: ["start_of_week", "end_of_week"] } },
+        ],
+      },
+    }),
+  },
+  {
+    id: "overdue",
+    label: "Overdue",
+    layout: "list",
+    chip: () => ({
+      id: chipId(),
+      label: "overdue",
+      clause: { due_date: { before: "today" }, state: { category: ["open", "active"] } },
+    }),
+  },
+];

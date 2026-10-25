@@ -8,6 +8,7 @@ from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_filter import FilterError
 from tt_schema.base import new_id, utcnow
@@ -77,22 +78,19 @@ async def get_snapshot(
     if body.get("processes") is None:
         body.pop("processes", None)
     if cache:
-        if row is None:
-            s.add(
-                m.SnapshotCache(
-                    id=new_id(),
-                    workspace_id=ws.id,
-                    cache_key=key,
-                    person_id=qc.person_id,
-                    scope=scope,
-                    days=days,
-                    scheme_id=scheme.id if scheme else None,
-                    as_of=utcnow(),
-                    body=body,
-                )
+        # one statement, so two requests assembling the same snapshot at once (builder preview + export) cannot collide
+        now = utcnow()
+        values = dict(
+            workspace_id=ws.id, cache_key=key, person_id=qc.person_id, scope=scope, days=days,
+            scheme_id=scheme.id if scheme else None, as_of=now, body=body,
+        )  # fmt: skip
+        await s.execute(
+            pg_insert(m.SnapshotCache)
+            .values(id=new_id(), **values)
+            .on_conflict_do_update(
+                index_elements=["workspace_id", "cache_key"], set_={"body": body, "as_of": now, "deleted_at": None}
             )
-        else:
-            row.body, row.as_of = body, utcnow()
+        )
         await s.commit()
     return body
 

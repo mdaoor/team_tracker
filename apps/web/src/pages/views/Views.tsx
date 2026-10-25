@@ -9,6 +9,7 @@ import { useList, useWs } from "../../lib/hooks";
 import { slideFromView } from "../../lib/slides";
 import {
   LAYOUTS,
+  PRESETS,
   sortParam,
   toFilter,
   useDrillPath,
@@ -203,6 +204,15 @@ export function ViewsPage() {
         <Button onClick={() => void exportCsv()}>Export CSV</Button>
         <AddToPresentation build={() => slideFromView(st)} />
       </div>
+      {st.chips.length === 0 && (
+        <div className="row presets" role="group" aria-label="Quick views">
+          {PRESETS.map((p) => (
+            <Button key={p.id} onClick={() => set({ chips: [p.chip()], layout: p.layout })}>
+              {p.label}
+            </Button>
+          ))}
+        </div>
+      )}
       <FilterBar
         chips={st.chips}
         onChange={(chips) =>

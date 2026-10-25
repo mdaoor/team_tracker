@@ -375,7 +375,7 @@ function Builder({ id }: { id: string }) {
               {admin ? (
                 <button
                   className="btn btn-ghost"
-                  onClick={() => void api.patch(w(ws, "/settings"), { external_share: true }).then(() => qc.invalidateQueries({ queryKey: [ws, "me"] }))}
+                  onClick={() => void api.patch(w(ws, "/settings"), { external_share: true }).then(() => Promise.all([qc.invalidateQueries({ queryKey: [ws, "/me"] }), qc.invalidateQueries({ queryKey: [ws, "me"] })]))}
                 >
                   Turn it on
                 </button>

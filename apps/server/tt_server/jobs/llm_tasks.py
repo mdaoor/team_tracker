@@ -5,10 +5,12 @@ from __future__ import annotations
 from sqlalchemy import select
 
 from tt_server.db import models as m
-from tt_server.db.session import make_engine, make_session_factory
+from tt_server.db.session import make_session_factory
 from tt_server.domain.overlay import suggestions
 from tt_server.integrations.llm import gateway_from_settings
 from tt_server.jobs.app import app
+from tt_server.jobs.engine import shared_engine
+from tt_server.jobs.retry import EVENT_RETRY
 from tt_server.settings import get_settings
 
 
@@ -19,7 +21,7 @@ async def nightly(timestamp: int) -> dict[str, int]:
     client = gateway_from_settings(get_settings())
     if client is None:
         return {"written": 0}
-    engine = make_engine()
+    engine = shared_engine()
     factory = make_session_factory(engine)
     written = 0
     try:
@@ -30,17 +32,16 @@ async def nightly(timestamp: int) -> dict[str, int]:
             written += (await suggestions.prefill_classifications(factory, client, ws_id)).written
     finally:
         await client.aclose()
-        await engine.dispose()
     return {"written": written}
 
 
-@app.task(name="llm.suggest_for_event")
+@app.task(name="llm.suggest_for_event", retry=EVENT_RETRY)
 async def suggest_for_event(event_id: str) -> str:
     """After `review.created`: suggest right away so the row arrives in the queue with a default."""
     client = gateway_from_settings(get_settings())
     if client is None:
         return "disabled"
-    engine = make_engine()
+    engine = shared_engine()
     factory = make_session_factory(engine)
     try:
         async with factory() as s:
@@ -56,7 +57,6 @@ async def suggest_for_event(event_id: str) -> str:
         return await suggestions.suggest_one(factory, client, ev.workspace_id, slug, rid)
     finally:
         await client.aclose()
-        await engine.dispose()
 
 
 @app.periodic(cron="45 3 * * *")
@@ -68,7 +68,7 @@ async def nightly_insights(timestamp: int) -> dict[str, int]:
     client = gateway_from_settings(get_settings())
     if client is None:
         return {"written": 0}
-    engine = make_engine()
+    engine = shared_engine()
     factory = make_session_factory(engine)
     written = 0
     try:
@@ -78,5 +78,4 @@ async def nightly_insights(timestamp: int) -> dict[str, int]:
             written += await insights.nightly(factory, client, ws_id)
     finally:
         await client.aclose()
-        await engine.dispose()
     return {"written": written}

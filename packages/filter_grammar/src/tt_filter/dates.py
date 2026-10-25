@@ -1,6 +1,7 @@
 """Relative date tokens (ADR-0010): resolved in the *viewer's* time zone, at query time, never stored.
 
-Tokens: today, tomorrow, yesterday, start_of_week (Monday), end_of_week, start_of_month, end_of_month,
+Tokens: today, tomorrow, yesterday, start_of_week (Monday), end_of_week, start_of_next_week, end_of_next_week,
+start_of_month, end_of_month,
 `+Nd`/`-Nd` (days), `+Nw`/`-Nw`, and ISO dates (`2026-10-23`).
 """
 
@@ -12,7 +13,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _REL = re.compile(r"^([+-])(\d{1,4})([dw])$")
 TOKENS = (
-    "today", "tomorrow", "yesterday", "start_of_week", "end_of_week", "start_of_month", "end_of_month",
+    "today", "tomorrow", "yesterday", "start_of_week", "end_of_week", "start_of_next_week", "end_of_next_week",
+    "start_of_month", "end_of_month",
 )  # fmt: skip
 
 
@@ -49,6 +51,10 @@ def resolve(text: str, today: date) -> date:
         return today - timedelta(days=today.weekday())
     if text == "end_of_week":
         return today + timedelta(days=6 - today.weekday())
+    if text == "start_of_next_week":
+        return today - timedelta(days=today.weekday()) + timedelta(days=7)
+    if text == "end_of_next_week":
+        return today + timedelta(days=13 - today.weekday())
     if text == "start_of_month":
         return today.replace(day=1)
     if text == "end_of_month":

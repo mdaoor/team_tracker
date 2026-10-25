@@ -346,11 +346,11 @@ function PolicyForm({ existing }: { existing?: string }) {
         {mode === "template" ? (
           <>
             {!existing && (
-              <div className="gallery" role="list" aria-label="Templates">
+              <div className="gallery" role="group" aria-label="Templates">
                 {(templates.data ?? []).map((t) => (
                   <button
                     key={t.key}
-                    role="listitem"
+                    aria-pressed={t.key === tplKey}
                     className={`tile ${t.key === tplKey ? "on" : ""}`}
                     onClick={() => {
                       setTplKey(t.key);

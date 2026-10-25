@@ -86,6 +86,24 @@ def _dt(d: str | date) -> datetime:
     return datetime(day.year, day.month, day.day, 12, 0, tzinfo=UTC)
 
 
+async def sync_key_sequences(session_factory: async_sessionmaker[AsyncSession]) -> None:
+    """Seeded items carry the generator's keys (WEB-131); the next new item must continue after them (UX review "also")."""
+    from sqlalchemy import text
+
+    async with session_factory() as s:
+        await s.execute(
+            text(
+                """
+                INSERT INTO project_key_sequences (project_id, next)
+                SELECT project_id, MAX(NULLIF(substring(key from '-([0-9]+)$'), '')::int) + 1
+                FROM work_items GROUP BY project_id
+                ON CONFLICT (project_id) DO UPDATE SET next = GREATEST(project_key_sequences.next, EXCLUDED.next)
+                """
+            )
+        )
+        await s.commit()
+
+
 async def persist_demo(
     session_factory: async_sessionmaker[AsyncSession], snapshot: dict[str, Any] | None = None
 ) -> int:
@@ -421,6 +439,7 @@ async def persist_demo(
             build.wip_limit = 4
         await uow.commit(allow_unlogged=True)
     await seed_governance(session_factory, ids)
+    await sync_key_sequences(session_factory)
     return created
 
 

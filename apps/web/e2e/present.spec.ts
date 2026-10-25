@@ -81,7 +81,9 @@ test("the served deck shell carries a CSP and renders with zero violations (phas
   });
   const resp = await page.goto(`/p/acme/${id}`);
   const csp = resp!.headers()["content-security-policy"];
-  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toContain("frame-ancestors 'self'");
+  expect(csp).toMatch(/script-src 'self' 'nonce-/);
+  expect(csp).not.toMatch(/script-src[^;]*unsafe-inline/);
   expect(csp).not.toMatch(/https?:\/\//);
   await expect(page.locator("html")).toHaveAttribute("data-ready", "1");
   await page.keyboard.press("ArrowRight");

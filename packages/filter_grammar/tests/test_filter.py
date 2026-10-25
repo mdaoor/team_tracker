@@ -106,6 +106,10 @@ def test_relative_date_tokens_resolve_in_the_viewers_zone() -> None:
     assert resolve("start_of_week", fri) == date(2026, 10, 19) and resolve("end_of_week", fri) == date(
         2026, 10, 25
     )
+    assert resolve("start_of_next_week", fri) == date(2026, 10, 26) and resolve("end_of_next_week", fri) == date(
+        2026, 11, 1
+    )
+    assert resolve("start_of_next_week", date(2026, 10, 26)) == date(2026, 11, 2)  # a Monday
     assert resolve("start_of_month", fri) == date(2026, 10, 1) and resolve("end_of_month", fri) == date(
         2026, 10, 31
     )

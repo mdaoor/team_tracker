@@ -34,6 +34,7 @@ from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import _item, _project, row_dict
 from tt_server.db import models as m
+from tt_server.domain.names import Names
 from tt_server.domain.common import emit
 from tt_server.domain.items import service as items
 from tt_server.domain.overlay import approvals, bulk, mirrors, products, propagation, review, risks, weights
@@ -1359,6 +1360,19 @@ async def patch_item(
             source=EventSource.OVERLAY,
         )
         current = {k: getattr(item, k) for k in data}
+        last = (
+            await uow.session.execute(
+                select(m.Event.actor_id, m.Event.occurred_at)
+                .where(
+                    m.Event.entity_type == TargetType.WORK_ITEM,
+                    m.Event.entity_id == item.id,
+                    m.Event.event_type != "item.field_conflict",
+                )
+                .order_by(m.Event.occurred_at.desc(), m.Event.id.desc())
+                .limit(1)
+            )
+        ).first()
+        who = (await Names.load(uow.session, actor.ws.id, [("person", last[0])])).person(last[0]) if last else None
         await uow.commit()  # keep the conflict event even though the write is refused
         raise ApiError(
             409,
@@ -1370,6 +1384,8 @@ async def patch_item(
                     for k, v in current.items()
                 },
                 "etag": etag_of(item),
+                "changed_by": who,
+                "changed_at": last[1].isoformat() if last else None,
             },
         )
     priority = data.pop("priority", None)

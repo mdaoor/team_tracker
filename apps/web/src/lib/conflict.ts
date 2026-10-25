@@ -1,6 +1,12 @@
 import { api, ApiError, type Row } from "../api/http";
 
-export type Conflict = { current: Row; etag: string; attempted: Row };
+export type Conflict = {
+  current: Row;
+  etag: string;
+  attempted: Row;
+  changedBy?: string;
+  changedAt?: string;
+};
 
 /** PATCH with `If-Match`; a 409 becomes a `Conflict` the dialog can resolve (keep mine / take theirs / revert). */
 export async function patchWithEtag(
@@ -15,7 +21,13 @@ export async function patchWithEtag(
       const d = e.body?.error?.details ?? e.body?.error ?? {};
       return {
         ok: false,
-        conflict: { current: d.current ?? {}, etag: d.etag ?? etag, attempted: body },
+        conflict: {
+          current: d.current ?? {},
+          etag: d.etag ?? etag,
+          attempted: body,
+          changedBy: d.changed_by ?? undefined,
+          changedAt: d.changed_at ?? undefined,
+        },
       };
     }
     throw e;

@@ -25,6 +25,17 @@ from tt_server.settings import Settings
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
 
+# Hermetic settings (Phase 13 R3.2, review T2): a developer's .env or exported TT_* variables must not change what a test
+# asserts about configuration. Tests that need a setting pass it explicitly or monkeypatch it.
+Settings.model_config["env_file"] = None
+_KEEP_ENV = {"TT_TEST_DATABASE_URL", "TT_CHROMIUM", "TT_E2E_ADMIN_URL"}
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in [k for k in os.environ if k.startswith("TT_") and k not in _KEEP_ENV]:
+        monkeypatch.delenv(name, raising=False)
+
 
 @pytest.fixture(scope="session")
 def database_url() -> Iterator[str]:
@@ -101,6 +112,46 @@ async def client(
     app = create_app(settings, engine=engine, session_factory=session_factory)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
         yield c
+
+
+# --------------------------------------------------------------------------- committed engine (concurrency tests)
+
+_KEEP_TABLES = ("alembic_version",)
+
+
+async def truncate_all(engine: AsyncEngine) -> None:
+    """Empty every application table (not the schema, alembic or procrastinate bookkeeping)."""
+    async with engine.begin() as conn:
+        names = [
+            r[0]
+            for r in (
+                await conn.execute(
+                    text(
+                        "select tablename from pg_tables where schemaname = 'public' "
+                        "and tablename not like 'procrastinate%' and tablename <> all(:keep)"
+                    ),
+                    {"keep": list(_KEEP_TABLES)},
+                )
+            ).all()
+        ]
+        if names:
+            await conn.execute(text("TRUNCATE " + ", ".join(f'"{n}"' for n in names) + " RESTART IDENTITY CASCADE"))
+
+
+@pytest.fixture
+async def committed_client(engine: AsyncEngine, migrated_url: str) -> AsyncIterator[httpx.AsyncClient]:
+    """For tests that run requests *concurrently*: real committing sessions on separate connections (the per-test savepoint
+    connection cannot be shared by parallel requests). Everything is truncated afterwards, so tests stay independent."""
+    await truncate_all(engine)
+    settings = Settings(
+        database_url=migrated_url, log_json=False, log_level="WARNING", dev_auth=True,
+        rate_capture_per_min=0, rate_auth_per_min=0,
+    )  # fmt: skip
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    app = create_app(settings, engine=engine, session_factory=factory)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+    await truncate_all(engine)
 
 
 # --------------------------------------------------------------------------- seeded database (Appendix B `seed_workspace`)
