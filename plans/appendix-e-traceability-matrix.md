@@ -80,4 +80,11 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | P12 §4 | Retention, export, erase, verify | 12 | `tests/api/test_acl_retention.py`, `test_acl_verify.py` |
 | P12 §5 | Rate limits, CSP/headers, threat model | 12 | `tests/api/test_acl_hardening.py`, `docs/security/threat-model.md` |
 | P12 §6–7 | Deployment artefacts, config reference, docs | 12 | `tests/unit/test_config_reference.py`, `deploy/`, `docs/ops/`, `docs/runbooks/`, `docs/guides/` |
-
+| Product req. (P14) | The client app serves employees and managers: role modes, assisted and manual management commands | P14 | `docs/client/management-commands.md`; `packages/client_core/tests/test_commands.py`, `test_sidecar_commands.py`; `apps/cli/tests/test_commands_cli.py` |
+| P14 §1 | `ClientCommand`, `ClientBatch.commands`, schema 0.2 | 14 | `packages/schema/tests/test_parity.py`; ADR‑0051 |
+| P14 §4 | Gateway `/v1/translate/command`, `/v1/agent/command`: catalogue-constrained, golden ≥ 80 lines | 14 | `apps/llm_gateway/gateway_tests/test_translate_command.py` (84 lines, op ≥ 0.85, args ≥ 0.90), `test_real_model_golden.py` (opt-in) |
+| P14 §5 | Catalogue cache, forms from schema, role lens, previews, confirmation policy, `on_behalf_of` | 14 | `packages/client_core/tests/test_commands.py` (every catalogue op → valid form → valid command; role matrix; `--yes`/`--force`) |
+| P14 §6 | CLI `tt role / do / cmd / preview / send / queue / team now / approve / waive / ops` | 14 | `apps/cli/tests/test_commands_cli.py` (e2e `tt do "merge WEB-101 and WEB-105"` → preview → confirm → sent) |
+| P14 §7 | Desktop role switch, chips, command card, forms, queue, team now; Slack `/tt do`, modals, approval and waive buttons | 14 | `apps/desktop/src/palette/commands/commands.test.tsx` (16, axe), `apps/slack_bot/slack_tests/test_slack_commands.py` (13) |
+| P14 §8 | Audit and safety (`_meta`, destructive confirmation, rejected ≠ capture) | 14 | ADR‑0052; `test_commands.py::test_destructive_needs_confirmation_even_with_yes`, `test_commands_cli.py` |
+| UX addendum | Role switch, command card, effect preview | P14 | `docs/spec/team_tracker_ux_addendum_roles.md` |

@@ -4,6 +4,7 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow `docs/op
 
 ## [1.0.0-rc1] - unreleased
 ### Added
+* Phase 14 (client half): `ClientCommand` and `ClientBatch.commands` (schema 0.2, ADR-0051/0052), command catalogue cache, role modes (`tt role`), `tt do` (assisted, deterministic parser + gateway `/v1/translate/command`), `tt cmd` (forms generated from JSON Schema), effect previews, destructive confirmation (`--yes` is not enough, `--force` is logged), `tt queue / team now / approve / waive / ops`, desktop role switch + command card + panels, Slack `/tt do` + approval/waive buttons, `docs/client/management-commands.md`.
 * Phases 0-10 (capture, overlay, access control, web console, query/views, snapshot/presentations/insights, governance, governance UI, Jira projection).
 * Review packages A-I (see `docs/reviews/`): security fixes, access-control completeness, ADR-0016..0040, top-down plan API and linkage, plan slide kinds and plan-only rule,
   presentation templates as data, external-LLM generation pack/import and "Generate with AI", item companions (comments, checklists, links, custom fields, attachments),

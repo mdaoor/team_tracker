@@ -434,3 +434,71 @@ def test_parser_never_invents_projects_and_handles_on_behalf_of(pack: ContextPac
         "activate policy x", CommandParseContext(actor="@m", now=NOW, catalogue=Catalogue([]))
     )
     assert not off_menu.commands and off_menu.unmatched
+
+
+# ------------------------------------------------------------------ HTTP face: real TTApi against the fake, gateway client
+def test_ttapi_catalogue_etag_roundtrip_and_commands_endpoint(tmp_path: Path, cat: Catalogue) -> None:
+    import httpx
+    from tt_client.api import TTApi
+    from tt_client.config import ClientConfig
+
+    server = FakeServer(cat)
+    cfg = ClientConfig(server_url="http://tt", workspace="acme", handle="@m", token="t")
+    api = TTApi(cfg, client=httpx.Client(transport=httpx.MockTransport(server.handle), base_url="http://tt"))
+    doc, etag = api.catalogue()
+    assert doc is not None and etag == '"cat-1"' and len(doc["ops"]) == len(cat)
+    again, same = api.catalogue(etag)
+    assert again is None and same == etag  # 304
+    cmd = new_command("tag.create", {"name": "q4"}, actor="@m", now=NOW, client_id="h1")
+    status, body = api.post_commands([cmd.model_dump(mode="json")])
+    assert status == 200 and body["results"][0]["status"] == "applied"
+    bad = new_command(
+        "item.merge", {"sources": ["A-1"]}, actor="@m", now=NOW, client_id="h2"
+    )  # schema-invalid args
+    status, body = api.post_commands([bad.model_dump(mode="json")])
+    assert status == 207 and body["results"][0]["status"] == "rejected" and body["results"][0]["errors"]
+    assert api.me()["role_modes"] == ["reporter", "manager"]
+
+
+def test_gateway_command_translator_client(cat: Catalogue, mpack: ContextPack) -> None:
+    import httpx
+    from tt_client.command_flow import GatewayCommandTranslator, propose
+
+    seen: list[httpx.Request] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req)
+        body = {
+            "output": {"commands": [{"op": "tag.create", "args": {"name": "q4"}}, {"op": "x.y", "args": {}}]},
+            "warnings": ["w"],
+        }
+        return httpx.Response(200, json=body)
+
+    tr = GatewayCommandTranslator(
+        "http://gw",
+        core_token="core-tok",
+        workspace="acme",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    p = propose(
+        "please make us a q4 tag",
+        cat=cat,
+        pack=mpack,
+        actor="@mahmoud",
+        now=NOW,
+        role_mode="manager",
+        translator=tr,
+    )
+    assert [c.op for c in p.commands] == ["tag.create"] and p.source == "gateway"
+    assert any("x.y" in n for n in p.notes) and "w" in p.notes
+    assert seen[0].url.path == "/v1/translate/command" and seen[0].headers["x-tt-core-token"] == "core-tok"
+    assert json.loads(seen[0].content)["role_mode"] == "manager"
+    deterministic = propose("new tag q4", cat=cat, pack=mpack, actor="@m", now=NOW, translator=tr)
+    assert (
+        deterministic.source == "parser" and len(seen) == 1
+    )  # the parser answered; the gateway was not asked
+    down = GatewayCommandTranslator(
+        "http://gw", client=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(503)))
+    )
+    p = propose("make everybody happy", cat=cat, pack=mpack, actor="@m", now=NOW, translator=down)
+    assert not p.commands and any("gateway unavailable" in n for n in p.notes)

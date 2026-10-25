@@ -68,7 +68,9 @@ class CommandHandlers:
 
     def role_of(self, slack_user: str, rt: Any) -> str:
         try:
-            return roles.normalise(str(self.roles.get(slack_user) or getattr(rt.cfg, "role_mode", "reporter")))
+            return roles.normalise(
+                str(self.roles.get(slack_user) or getattr(rt.cfg, "role_mode", "reporter"))
+            )
         except ValueError:
             return roles.DEFAULT_MODE
 
