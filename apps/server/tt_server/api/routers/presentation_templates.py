@@ -19,7 +19,7 @@ from tt_server.db import models as m
 from tt_server.domain import deckdata
 from tt_server.domain import presentation_templates as tpl
 from tt_server.domain import presentations as pres
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit_after
 from tt_server.domain.snapshot import assembler
 from tt_server.query import service
 
@@ -27,9 +27,9 @@ router = APIRouter(prefix="/api/v1/w/{ws}", tags=["presentation-templates"])
 
 
 def _ev(uow: Uow, actor: Actor, row: m.PresentationTemplate, event: str, **after: Any) -> None:
-    emit(
+    emit_after(
         uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.SAVED_VIEW, entity_id=row.id,
-        event_type=event, payload={"after": {"key": row.key, "version": row.version, **after}},
+        event_type=event, key=row.key, version=row.version, **after,
     )  # fmt: skip
 
 

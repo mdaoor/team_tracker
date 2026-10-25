@@ -17,7 +17,7 @@ from tt_schema.enums import EventSource, TargetType, ValueSource
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, rowcount
 from tt_server.domain.errors import Invalid, NotFound
 
 
@@ -90,6 +90,7 @@ async def plan(
     new_title: str | None,
     allow_cross_project: bool = False,
 ) -> MergePlan:
+    """Work out what merging `sources` into `target` would move, without writing anything."""
     uniq = {x.id: x for x in sources}
     sources = list(uniq.values())
     if target is not None:
@@ -132,7 +133,7 @@ async def apply(
     # capture rows: same rows, new parent (content and identity untouched)
     for key, model in (("activities", m.Activity), ("time", m.TimeEntry), ("evidence", m.Evidence)):
         res = await s.execute(update(model).where(model.work_item_id.in_(sid)).values(work_item_id=target.id))
-        moved[key] = res.rowcount or 0  # type: ignore[attr-defined]
+        moved[key] = rowcount(res)
     for model2 in (m.Comment, m.Attachment):
         await s.execute(
             update(model2)

@@ -15,9 +15,8 @@ from tt_server.api.authz import needs
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.routers.access import _resolve_scope
-from tt_server.api.routers.core import row_dict
 from tt_server.db import models as m
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, row_dict
 from tt_server.integrations import idp
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["identity"])

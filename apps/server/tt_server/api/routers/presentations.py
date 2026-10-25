@@ -15,28 +15,21 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
-from tt_schema.enums import DailyLogStatus, InsightStatus, ScopeType, TargetType
+from tt_schema.enums import TargetType
 
 from tt_server.acl.context import load_context
-from tt_server.acl.visibility import visible
-from tt_server.api.authz import check, check_project, needs
+from tt_server.api.authz import check, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.params import enum_param
-from tt_server.api.routers.core import _project, row_dict
 from tt_server.api.routers.presentation_templates import _variables
 from tt_server.csp import add_nonce, html_csp, new_nonce
 from tt_server.db import models as m
-from tt_server.domain import deckdata, insights
-from tt_server.domain import generation_pack as gen
+from tt_server.domain import deckdata
 from tt_server.domain import presentation_templates as ptpl
 from tt_server.domain import presentations as pres
-from tt_server.domain.capture import dailylog
-from tt_server.domain.common import emit
-from tt_server.domain.errors import DomainError
+from tt_server.domain.common import emit_after
 from tt_server.domain.snapshot import json_schema, parse_scope
 from tt_server.exports import presentation as exp
-from tt_server.integrations.llm import GatewayBudgetExceeded, GatewayUnavailable
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["presentation"])
 
@@ -54,9 +47,9 @@ BUNDLE = Path(__file__).resolve().parents[4] / "presentation" / "dist" / "presen
 
 def _ev(uow: Uow, actor: Actor, p: m.Presentation, event: str, **payload: Any) -> None:
     # a presentation is a saved, shareable bundle of views: its events ride on the `saved_view` entity type (ADR-0021)
-    emit(
+    emit_after(
         uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.SAVED_VIEW,
-        entity_id=p.id, event_type=event, payload={"after": {"title": p.title, **payload}},
+        entity_id=p.id, event_type=event, title=p.title, **payload,
     )  # fmt: skip
 
 
@@ -233,198 +226,6 @@ async def from_template(body: FromTemplate, actor: CurrentActor, uow: Uow) -> di
     )
     await uow.commit()
     return deckdata.presentation_dict(p)
-
-
-# ---------------------------------------------------------------- generation pack / import / author (plan P7 §7.6)
-class PackIn(BaseModel):
-    scope: str = "workspace"
-    range_days: int = Field(default=14, ge=1, le=366)
-    weight_scheme_id: str | None = None
-    brief: str = Field(default="", max_length=4000)
-    redaction: str | None = None
-    format: str = Field(default="zip", pattern="^(zip|json)$")
-
-
-@router.post("/presentations:generation-pack", dependencies=[needs("view.share")])
-async def generation_pack(body: PackIn, actor: CurrentActor, uow: Uow) -> Response:
-    """Everything an outside LLM needs to draft a deck, as a zip (or the same files as JSON). Off unless the workspace allows it."""
-    settings = actor.ws.settings or {}
-    if not settings.get("external_packs"):
-        raise ApiError(
-            403,
-            "external_packs_disabled",
-            "this workspace does not allow exporting data for external LLMs; an admin can enable it",
-        )
-    level = body.redaction or str(settings.get("external_pack_redaction", "standard"))
-    if level not in gen.REDACTIONS:
-        raise ApiError(
-            400, "invalid_redaction", f"redaction must be one of {list(gen.REDACTIONS)}", pointer="/redaction"
-        )
-    await _check_refs(uow, actor, body.scope, body.weight_scheme_id)
-    scheme = await deckdata.scheme_by_ref(uow.session, actor.ws.id, body.weight_scheme_id)
-    qc = deckdata.qctx(
-        uow.session, actor.ws, actor.person, actor.member, actor.acl, scheme.id if scheme else None
-    )
-    snap = await deckdata.get_snapshot(
-        qc,
-        actor.ws,
-        scope=body.scope,
-        days=body.range_days,
-        scheme=scheme,
-        viewer=actor.handle,
-        fresh=True,
-        cache=False,
-    )
-    redacted = deckdata.redact_for_share({"snapshot": json.loads(json.dumps(snap, default=str))}, level)
-    rows = await uow.session.scalars(
-        select(m.PresentationTemplate).where(m.PresentationTemplate.workspace_id.is_(None))
-    )
-    examples = [r.body for r in rows.all()]
-    pack_id = new_id()
-    files = gen.build_pack(
-        snapshot=redacted["snapshot"], workspace_name=actor.ws.name, viewer=actor.handle, scope=body.scope,
-        range_days=body.range_days, redaction=level, brief=body.brief, examples=examples, pack_id=pack_id,
-    )  # fmt: skip
-    emit(
-        uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.SAVED_VIEW, entity_id=pack_id,
-        event_type="presentation.pack_generated",
-        payload={"after": {"scope": body.scope, "range_days": body.range_days, "redaction": level, "files": len(files)}},
-    )  # fmt: skip
-    await uow.commit()
-    if body.format == "json":
-        return _json({"pack_id": pack_id, "files": {k: v.decode() for k, v in files.items()}})
-    return Response(
-        gen.to_zip(files), media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="tt-generation-pack-{pack_id[-8:]}.zip"'},
-    )  # fmt: skip
-
-
-class ImportIn(BaseModel):
-    deck: dict[str, Any]
-    scope: str = "workspace"
-    range_days: int = Field(default=14, ge=1, le=366)
-    weight_scheme_id: str | None = None
-    lenient: bool = False
-    dry_run: bool = False
-
-
-async def _known_projects(uow: Uow, actor: Actor, deck: dict[str, Any]) -> set[str]:
-    keys = {
-        (s.get("config") or {}).get("project_key")
-        for s in deck.get("slides", [])
-        if isinstance(s, dict) and isinstance(s.get("config"), dict)
-    }
-    ok: set[str] = set()
-    for k in keys:
-        if not isinstance(k, str) or not k:
-            continue
-        try:
-            p = await _project(uow, actor.ws.id, k)
-            await check_project(actor, uow, "item.read", p)
-            ok.add(k)
-        except DomainError:
-            pass  # unknown and forbidden look the same: the deck cannot name a project the importer cannot read
-    return ok
-
-
-@router.post("/presentations:import", status_code=201, dependencies=[needs("view.save")])
-async def import_deck(body: ImportIn, actor: CurrentActor, uow: Uow) -> Response:
-    """Turn a deck an external model drafted into a presentation. Strict by default: every problem comes back with a JSON pointer."""
-    await _check_refs(uow, actor, body.scope, body.weight_scheme_id)
-    deck, errors, warnings = gen.check_deck(
-        body.deck, lenient=body.lenient, known_projects=await _known_projects(uow, actor, body.deck)
-    )
-    if deck is None:
-        raise ApiError(
-            422,
-            "invalid_deck",
-            f"{len(errors)} problem(s) in the imported deck",
-            details={"errors": errors, "warnings": warnings},
-        )
-    if body.dry_run:
-        return _json({"valid": True, "slides": len(deck.slides), "warnings": warnings})
-    p = m.Presentation(
-        id=new_id(), workspace_id=actor.ws.id, owner_id=actor.person.id, title=deck.title, scope=body.scope,
-        range_days=body.range_days, weight_scheme_id=body.weight_scheme_id, slides=pres.normalise_slides(deck.slides),
-        source={"kind": "external_llm", "pack_id": deck.pack_id, "imported_at": utcnow().isoformat(), "lenient": body.lenient},
-    )  # fmt: skip
-    uow.session.add(p)
-    await uow.session.flush()
-    _ev(
-        uow,
-        actor,
-        p,
-        "presentation.created",
-        slides=len(p.slides),
-        source="external_llm",
-        pack_id=deck.pack_id,
-    )
-    await uow.commit()
-    return Response(
-        json.dumps({**deckdata.presentation_dict(p), "warnings": warnings}, default=str),
-        status_code=201, media_type="application/json",
-    )  # fmt: skip
-
-
-class AuthorIn(BaseModel):
-    brief: str = Field(min_length=3, max_length=4000)
-    scope: str = "workspace"
-    range_days: int = Field(default=14, ge=1, le=366)
-    weight_scheme_id: str | None = None
-
-
-@router.post("/presentations:author", status_code=201, dependencies=[needs("view.save")])
-async def author(body: AuthorIn, request: Request, actor: CurrentActor, uow: Uow) -> Response:
-    """ "Generate with AI": the gateway drafts a deck from a brief and the viewer's own snapshot digest; the draft goes through the same
-    validation as an import (lenient), then lands as an ordinary deck the user can edit."""
-
-    gateway = request.app.state.llm
-    if gateway is None:
-        raise ApiError(503, "gateway_unavailable", "no LLM gateway is configured")
-    await _check_refs(uow, actor, body.scope, body.weight_scheme_id)
-    scheme = await deckdata.scheme_by_ref(uow.session, actor.ws.id, body.weight_scheme_id)
-    qc = deckdata.qctx(
-        uow.session, actor.ws, actor.person, actor.member, actor.acl, scheme.id if scheme else None
-    )
-    snap = await deckdata.get_snapshot(
-        qc, actor.ws, scope=body.scope, days=body.range_days, scheme=scheme, viewer=actor.handle
-    )
-    digest = {"projects": [{"key": p.get("key"), "name": p.get("name")} for p in snap.get("projects", [])]}
-    try:
-        ans = await gateway.presentation_author(actor.ws.slug, body.brief, ptpl.slide_kinds(), digest)
-    except GatewayBudgetExceeded as exc:
-        raise ApiError(
-            429,
-            "budget_exceeded",
-            "the LLM budget is used up for now",
-            details={"retry_after_s": exc.retry_after},
-        ) from exc
-    except GatewayUnavailable as exc:
-        raise ApiError(503, "gateway_unavailable", str(exc)) from exc
-    draft = ans.output if isinstance(ans.output, dict) else {}
-    deck, errors, warnings = gen.check_deck(
-        draft, lenient=True, known_projects=await _known_projects(uow, actor, draft)
-    )
-    if deck is None:
-        raise ApiError(
-            422,
-            "invalid_deck",
-            "the model's draft was not usable",
-            details={"errors": errors, "warnings": ans.warnings + warnings},
-        )
-    p = m.Presentation(
-        id=new_id(), workspace_id=actor.ws.id, owner_id=actor.person.id, title=deck.title, scope=body.scope,
-        range_days=body.range_days, weight_scheme_id=body.weight_scheme_id, slides=pres.normalise_slides(deck.slides),
-        source={"kind": "gateway_llm", "run_id": ans.run_id, "model": ans.model, "brief": body.brief[:500]},
-    )  # fmt: skip
-    uow.session.add(p)
-    await uow.session.flush()
-    _ev(uow, actor, p, "presentation.created", slides=len(p.slides), source="gateway_llm", run_id=ans.run_id)
-    await uow.commit()
-    return Response(
-        json.dumps({**deckdata.presentation_dict(p), "warnings": ans.warnings + warnings}, default=str),
-        status_code=201, media_type="application/json",
-    )  # fmt: skip
 
 
 @router.get("/presentations")
@@ -753,142 +554,3 @@ async def shell_token(token: str) -> HTMLResponse:
 @shell.get("/p/{ws}/{pid}")
 async def shell_session(ws: str, pid: str) -> HTMLResponse:
     return _src("/api/v1/w/{}/presentations/{}/data", ws, pid, framable=True)
-
-
-# ---------------------------------------------------------------- insights
-class InsightGen(BaseModel):
-    scope: str = Field(description="project key, or `all` for every visible project")
-
-
-@router.post("/insights:generate", status_code=201, dependencies=[needs("view.save")])
-async def generate(body: InsightGen, request: Request, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    keys = [body.scope]
-    if body.scope == "all":
-        keys = [
-            p.key
-            for p in (
-                await uow.session.scalars(
-                    select(m.Project).where(
-                        m.Project.workspace_id == actor.ws.id, m.Project.deleted_at.is_(None)
-                    )
-                )
-            ).all()
-        ]
-    out = []
-    for k in keys:
-        proj, facts = await insights.facts_for_project(
-            deckdata.qctx(uow.session, actor.ws, actor.person, actor.member, actor.acl), actor.ws, k
-        )
-        row, source = await insights.generate_project_insight(
-            uow.session, actor.ws, proj, facts, request.app.state.llm, period=utcnow().date().isoformat()
-        )
-        emit(
-            uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.PROJECT, entity_id=proj.id,
-            event_type="insight.generated", payload={"after": {"insight_id": row.id, "source": source}},
-        )  # fmt: skip
-        out.append({**row_dict(row), "project": proj.key, "source": source})
-    await uow.commit()
-    return {"data": out, "next_cursor": None}
-
-
-@router.get("/insights")
-async def list_insights(
-    actor: CurrentActor, uow: Uow, project: str | None = None, status: str | None = None
-) -> dict[str, Any]:
-
-    projs = (
-        await uow.session.scalars(
-            visible(
-                select(m.Project).where(
-                    m.Project.workspace_id == actor.ws.id, m.Project.deleted_at.is_(None)
-                ),
-                actor.acl,
-                m.Project,
-            )
-        )
-    ).all()
-    by_id = {p.id: p.key for p in projs if project is None or p.key == project.upper()}
-    stmt = select(m.Insight).where(
-        m.Insight.scope_type == ScopeType.PROJECT,
-        m.Insight.scope_id.in_(list(by_id)),
-        m.Insight.deleted_at.is_(None),
-    )
-    if status:
-        stmt = stmt.where(m.Insight.status == enum_param(InsightStatus, status, "status"))
-    rows = (await uow.session.scalars(stmt.order_by(m.Insight.generated_at.desc()))).all()
-    return {"data": [{**row_dict(r), "project": by_id[r.scope_id]} for r in rows], "next_cursor": None}
-
-
-class InsightPatch(BaseModel):
-    status: InsightStatus
-
-
-@router.patch("/insights/{iid}")
-async def patch_insight(iid: str, body: InsightPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-
-    row = await uow.session.get(m.Insight, iid)
-    proj = (
-        await uow.session.scalar(
-            visible(
-                select(m.Project).where(m.Project.id == row.scope_id, m.Project.workspace_id == actor.ws.id),
-                actor.acl,
-                m.Project,
-            )
-        )
-        if row is not None
-        else None
-    )
-    if row is None or proj is None:
-        raise ApiError(404, "not_found", "insight not found")
-    before = row.status
-    row.status = body.status
-    emit(
-        uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.PROJECT, entity_id=proj.id,
-        event_type="insight.status_changed", payload={"before": {"status": before.value}, "after": {"status": body.status.value, "insight_id": row.id}},
-    )  # fmt: skip
-    await uow.commit()
-    return row_dict(row)
-
-
-# ---------------------------------------------------------------- daily-log LLM summary (deferred from Phase 1)
-@router.post("/daily-logs/{log_id}/summarise")
-async def summarise_daily_log(log_id: str, request: Request, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    row = await dailylog.get_for(uow, actor.ws.id, log_id)
-    if row.person_id != actor.person.id:
-        raise ApiError(404, "not_found", "daily log not found")
-    if row.status != DailyLogStatus.DRAFT:
-        raise ApiError(409, "not_draft", "only a draft daily log can be re-summarised")
-    gw = request.app.state.llm
-    if gw is None:
-        raise ApiError(409, "not_configured", "the LLM gateway is not configured")
-    items = (
-        await uow.session.execute(
-            select(m.WorkItem.key, m.WorkItem.title).where(m.WorkItem.id.in_(row.item_ids or []))
-        )
-    ).all()
-    facts = {
-        "date": row.date.isoformat(),
-        "minutes_total": row.minutes_total,
-        "blockers": row.blockers,
-        "items": [{"key": k, "title": t} for k, t in items],
-    }
-
-    try:
-        ans = await gw.summarise_daily_log(actor.ws.slug, facts)
-    except (GatewayUnavailable, GatewayBudgetExceeded) as exc:
-        raise ApiError(503, "gateway_unavailable", str(exc)) from exc
-    out = ans.output or {}
-    allowed = {k for k, _ in items}
-    if not out.get("body") or not set(out.get("supporting_ids", [])) <= allowed:
-        return {
-            **dailylog.to_dict(row),
-            "source": "deterministic",
-            "warnings": ["summary not grounded in the day's items"],
-        }
-    row.summary = str(out["body"]).strip()
-    emit(
-        uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.DAILY_LOG, entity_id=row.id,
-        event_type="dailylog.summarised", payload={"after": {"date": row.date.isoformat(), "run_id": ans.run_id}},
-    )  # fmt: skip
-    await uow.commit()
-    return {**dailylog.to_dict(row), "source": "gateway", "warnings": ans.warnings}

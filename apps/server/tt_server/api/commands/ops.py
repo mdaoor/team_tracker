@@ -32,7 +32,18 @@ from tt_schema.enums import (
 
 from tt_server.api.commands.registry import Ctx, Outcome, command
 from tt_server.api.errors import ApiError
-from tt_server.api.routers import access, core, governance, item_extras, overlay, plan
+from tt_server.api.routers import (
+    access,
+    core,
+    core_projects,
+    core_tenancy,
+    governance,
+    governance_habits,
+    governance_violations,
+    item_extras,
+    overlay,
+    plan,
+)
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.domain.errors import Invalid, NotFound
@@ -106,14 +117,14 @@ async def project_create(ctx: Ctx, a: ProjectCreate) -> Outcome:
                 + ([f"inherits process {a.process}"] if a.process else []),
             }
         )
-    body = core.ProjectIn(
+    body = core_projects.ProjectIn(
         name=a.name,
         key=a.key,
         process=a.process,
         team_id=team.id if team else None,
         description=a.description,
     )
-    return _res(await core.create_project(body, ctx.actor, ctx.uow))
+    return _res(await core_projects.create_project(body, ctx.actor, ctx.uow))
 
 
 class ProjectUpdate(BaseModel):
@@ -128,8 +139,8 @@ class ProjectUpdate(BaseModel):
     example_args={"project": "PAY", "name": "Payments v2"}, example_text="rename project PAY to Payments v2",
 )  # fmt: skip
 async def project_update(ctx: Ctx, a: ProjectUpdate) -> Outcome:
-    body = core.ProjectPatch(**a.model_dump(exclude={"project"}, exclude_none=True))
-    return _res(await core.patch_project(a.project, body, ctx.actor, ctx.uow))
+    body = core_projects.ProjectPatch(**a.model_dump(exclude={"project"}, exclude_none=True))
+    return _res(await core_projects.patch_project(a.project, body, ctx.actor, ctx.uow))
 
 
 class ProjectAddMember(BaseModel):
@@ -175,7 +186,7 @@ class BaselineCapture(BaseModel):
     example_args={"project": "PAY", "name": "kickoff"}, example_text="baseline PAY as kickoff",
 )  # fmt: skip
 async def baseline_capture(ctx: Ctx, a: BaselineCapture) -> Outcome:
-    return _res(await core.capture_baseline(a.project, a.name, ctx.actor, ctx.uow))
+    return _res(await core_projects.capture_baseline(a.project, a.name, ctx.actor, ctx.uow))
 
 
 # ------------------------------------------------------------------ items
@@ -604,11 +615,13 @@ async def team_create(ctx: Ctx, a: TeamCreate) -> Outcome:
                 "will_create": [f"{a.kind.value} team {a.name}"] + [f"member {h}" for h in a.members],
             }
         )
-    team = await core.create_team(
-        core.TeamIn(name=a.name, slug=_slug(a.name), kind=a.kind, lead_id=lead), ctx.actor, ctx.uow
+    team = await core_tenancy.create_team(
+        core_tenancy.TeamIn(name=a.name, slug=_slug(a.name), kind=a.kind, lead_id=lead), ctx.actor, ctx.uow
     )
     for pid in dict.fromkeys(people):
-        await core.add_membership(team["id"], core.MembershipIn(person_id=pid), ctx.actor, ctx.uow)
+        await core_tenancy.add_membership(
+            team["id"], core_tenancy.MembershipIn(person_id=pid), ctx.actor, ctx.uow
+        )
     emit(ctx.uow, workspace_id=ctx.actor.ws.id, actor_id=ctx.actor.person.id, entity_type=TargetType.TEAM, entity_id=team["id"], event_type="team.members_changed", payload={"after": {"added": len(people)}})  # fmt: skip
     return Outcome(result={**team, "members": len(people)})
 
@@ -629,8 +642,11 @@ async def team_add_members(ctx: Ctx, a: TeamMembers) -> Outcome:
         pid = await _person(ctx, h)
         live = await ctx.uow.session.scalar(select(m.Membership.id).where(m.Membership.team_id == team.id, m.Membership.person_id == pid, m.Membership.left_at.is_(None)))  # fmt: skip
         if live is None:
-            await core.add_membership(
-                team.id, core.MembershipIn(person_id=pid, role=MembershipRole.MEMBER), ctx.actor, ctx.uow
+            await core_tenancy.add_membership(
+                team.id,
+                core_tenancy.MembershipIn(person_id=pid, role=MembershipRole.MEMBER),
+                ctx.actor,
+                ctx.uow,
             )
             n += 1
     emit(ctx.uow, workspace_id=ctx.actor.ws.id, actor_id=ctx.actor.person.id, entity_type=TargetType.TEAM, entity_id=team.id, event_type="team.members_changed", payload={"after": {"added": n}})  # fmt: skip
@@ -670,13 +686,13 @@ class ReportingLineSet(BaseModel):
     example_args={"person": "@sara", "manager": "@mia", "is_primary": True}, example_text="@sara reports to @mia",
 )  # fmt: skip
 async def reporting_line_set(ctx: Ctx, a: ReportingLineSet) -> Outcome:
-    body = core.ReportingLineIn(
+    body = core_tenancy.ReportingLineIn(
         person_id=await _person(ctx, a.person),
         manager_id=await _person(ctx, a.manager),
         kind=a.kind,
         is_primary=a.is_primary,
     )
-    return _res(await core.add_reporting_line(body, ctx.actor, ctx.uow))
+    return _res(await core_tenancy.add_reporting_line(body, ctx.actor, ctx.uow))
 
 
 # ------------------------------------------------------------------ dimensions & tags
@@ -922,7 +938,7 @@ class ViolationReason(ViolationRef):
     example_args={"id": "<violation id>"}, example_text="acknowledge violation",
 )  # fmt: skip
 async def violation_ack(ctx: Ctx, a: ViolationRef) -> Outcome:
-    return _res(await governance.acknowledge(a.id, ctx.actor, ctx.uow))
+    return _res(await governance_violations.acknowledge(a.id, ctx.actor, ctx.uow))
 
 
 @command(
@@ -930,7 +946,9 @@ async def violation_ack(ctx: Ctx, a: ViolationRef) -> Outcome:
     example_args={"id": "<violation id>", "note": "fixed"}, example_text="resolve violation, fixed",
 )  # fmt: skip
 async def violation_resolve(ctx: Ctx, a: ViolationNote) -> Outcome:
-    return _res(await governance.resolve(a.id, governance.Note(note=a.note), ctx.actor, ctx.uow))
+    return _res(
+        await governance_violations.resolve(a.id, governance_violations.Note(note=a.note), ctx.actor, ctx.uow)
+    )
 
 
 @command(
@@ -938,7 +956,11 @@ async def violation_resolve(ctx: Ctx, a: ViolationNote) -> Outcome:
     example_args={"id": "<violation id>", "reason": "customer approved exception"}, example_text="waive violation, customer approved exception",
 )  # fmt: skip
 async def violation_waive(ctx: Ctx, a: ViolationReason) -> Outcome:
-    return _res(await governance.waive(a.id, governance.Reason(reason=a.reason), ctx.actor, ctx.uow))
+    return _res(
+        await governance_violations.waive(
+            a.id, governance_violations.Reason(reason=a.reason), ctx.actor, ctx.uow
+        )
+    )
 
 
 class HabitCoachNote(BaseModel):
@@ -952,7 +974,9 @@ class HabitCoachNote(BaseModel):
 )  # fmt: skip
 async def habit_coach_note(ctx: Ctx, a: HabitCoachNote) -> Outcome:
     return _res(
-        await governance.patch_habit(a.habit, governance.HabitPatch(coaching_note=a.note), ctx.actor, ctx.uow)
+        await governance_habits.patch_habit(
+            a.habit, governance_habits.HabitPatch(coaching_note=a.note), ctx.actor, ctx.uow
+        )
     )
 
 
@@ -967,8 +991,8 @@ class HabitSetStatus(BaseModel):
 )  # fmt: skip
 async def habit_set_status(ctx: Ctx, a: HabitSetStatus) -> Outcome:
     return _res(
-        await governance.patch_habit(
-            a.habit, governance.HabitPatch.model_validate({"status": a.status}), ctx.actor, ctx.uow
+        await governance_habits.patch_habit(
+            a.habit, governance_habits.HabitPatch.model_validate({"status": a.status}), ctx.actor, ctx.uow
         )
     )
 
@@ -1020,8 +1044,8 @@ class IterationCreate(BaseModel):
 )  # fmt: skip
 async def iteration_create(ctx: Ctx, a: IterationCreate) -> Outcome:
     return _res(
-        await core.create_iteration(
-            a.project, core.IterationIn(**a.model_dump(exclude={"project"})), ctx.actor, ctx.uow
+        await core_projects.create_iteration(
+            a.project, core_projects.IterationIn(**a.model_dump(exclude={"project"})), ctx.actor, ctx.uow
         )
     )
 
@@ -1046,8 +1070,8 @@ async def _iteration(ctx: Ctx, project: str, ref: str) -> m.Iteration:
 async def iteration_start(ctx: Ctx, a: IterationRef) -> Outcome:
     it = await _iteration(ctx, a.project, a.iteration)
     return _res(
-        await core.iteration_state(
-            it.id, core.IterationState_(state=IterationState.ACTIVE), ctx.actor, ctx.uow
+        await core_projects.iteration_state(
+            it.id, core_projects.IterationState_(state=IterationState.ACTIVE), ctx.actor, ctx.uow
         )
     )
 
@@ -1059,8 +1083,8 @@ async def iteration_start(ctx: Ctx, a: IterationRef) -> Outcome:
 async def iteration_close(ctx: Ctx, a: IterationRef) -> Outcome:
     it = await _iteration(ctx, a.project, a.iteration)
     return _res(
-        await core.iteration_state(
-            it.id, core.IterationState_(state=IterationState.CLOSED), ctx.actor, ctx.uow
+        await core_projects.iteration_state(
+            it.id, core_projects.IterationState_(state=IterationState.CLOSED), ctx.actor, ctx.uow
         )
     )
 
@@ -1078,8 +1102,8 @@ class MilestoneCreate(BaseModel):
 )  # fmt: skip
 async def milestone_create(ctx: Ctx, a: MilestoneCreate) -> Outcome:
     return _res(
-        await core.create_milestone(
-            a.project, core.MilestoneIn(**a.model_dump(exclude={"project"})), ctx.actor, ctx.uow
+        await core_projects.create_milestone(
+            a.project, core_projects.MilestoneIn(**a.model_dump(exclude={"project"})), ctx.actor, ctx.uow
         )
     )
 
@@ -1098,7 +1122,7 @@ async def milestone_complete(ctx: Ctx, a: MilestoneRef) -> Outcome:
     ms = await ctx.uow.session.scalar(select(m.Milestone).where(m.Milestone.project_id == p.id, (m.Milestone.name == a.milestone) | (m.Milestone.id == a.milestone)))  # fmt: skip
     if ms is None:
         raise NotFound("not_found", f"no milestone {a.milestone!r} in {p.key}", pointer="/args/milestone")
-    return _res(await core.complete_milestone(ms.id, ctx.actor, ctx.uow))
+    return _res(await core_projects.complete_milestone(ms.id, ctx.actor, ctx.uow))
 
 
 # ------------------------------------------------------------------ personal (any role)
@@ -1122,10 +1146,10 @@ async def context_note_add(ctx: Ctx, a: ContextNoteAdd) -> Outcome:
         sid = (await core._project(ctx.uow, ctx.actor.ws.id, a.scope)).id
     elif a.scope_type == ScopeType.TEAM and a.scope:
         sid = (await _team(ctx, a.scope)).id
-    body = core.ContextNoteIn(
+    body = core_tenancy.ContextNoteIn(
         scope_type=a.scope_type, scope_id=sid, title=a.title, body=a.body, pinned=a.pinned
     )
-    return _res(await core.create_note(body, ctx.actor, ctx.uow))
+    return _res(await core_tenancy.create_note(body, ctx.actor, ctx.uow))
 
 
 class DailyLogConfirm(BaseModel):

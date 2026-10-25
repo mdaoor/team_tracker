@@ -9,7 +9,7 @@ from typing import Any
 from tests.api.conftest import Api
 from tests.api.test_acl_governance import active_item, make_policy, pid
 
-ROUTERS_COVERED = ("governance",)
+ROUTERS_COVERED = ("governance", "governance_habits", "governance_violations")
 
 
 async def test_policy_versions_record_who_changed_what_and_restore_by_patch(api: Api) -> None:

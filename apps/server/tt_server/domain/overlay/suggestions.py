@@ -131,6 +131,7 @@ async def _commit_marker(
 async def run_review_suggestions(
     factory: async_sessionmaker[AsyncSession], client: LLMGatewayClient, ws_id: str, limit: int = 25
 ) -> RunSummary:
+    """Ask the LLM gateway for suggestions for open review rows of a workspace (at most `limit`) and store them."""
     out = RunSummary()
     todo: list[str] = []
     async with factory() as s:

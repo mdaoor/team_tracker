@@ -185,6 +185,7 @@ async def _owned_rows(session: AsyncSession, ws_id: str, actor_id: str) -> list[
 async def list_queue(
     session: AsyncSession, ws_id: str, actor_id: str, kind: str | None = None
 ) -> list[dict[str, Any]]:
+    """The review queue for a person: open suggestions and anomalies, optionally of one kind."""
     rows = await _owned_rows(session, ws_id, actor_id)
     return [r for r in rows if kind is None or r["kind"] == kind]
 
@@ -563,6 +564,7 @@ def func_lower(col: Any) -> Any:
 async def bulk(
     uow: UnitOfWork, ws: m.Workspace, refs: list[str], action: str, *, actor_id: str
 ) -> dict[str, Any]:
+    """Resolve many review rows with one action (confirm or ignore), returning the count done and the failures."""
     done, failed = 0, []
     for ref in refs:
         try:
@@ -579,6 +581,7 @@ async def bulk(
 
 
 async def confirm_all_suggested(uow: UnitOfWork, ws: m.Workspace, actor_id: str) -> int:
+    """Confirm every pending suggestion in the queue; returns how many were confirmed."""
     rows = [
         r for r in await list_queue(uow.session, ws.id, actor_id) if r["kind"] == "unconfirmed_classification"
     ]

@@ -13,7 +13,7 @@ from tt_server.storage.adapter import LocalDiskStorage, StorageError
 
 from tests.api.conftest import Api
 
-ROUTERS_COVERED = ("item_extras",)
+ROUTERS_COVERED = ("item_extras", "item_fields", "item_attachments")
 
 
 def blobs(root: Path) -> list[Path]:

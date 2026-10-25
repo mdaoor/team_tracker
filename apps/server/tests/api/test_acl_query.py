@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from tests.api.conftest import Api
 
-ROUTERS_COVERED = ("query",)
+ROUTERS_COVERED = ("query", "query_layouts", "saved_views")
 
 
 async def test_queries_only_return_what_the_caller_may_see(api: Api) -> None:

@@ -44,6 +44,7 @@ SW_DELIVERY: list[tuple[str, str, StageCategory, StateCategory, int | None]] = [
 
 
 async def ensure_default_process(session: AsyncSession, ws_id: str, owner_id: str | None = None) -> m.Process:
+    """The workspace's default process, created with its stages the first time it is needed."""
     proc = await session.scalar(
         select(m.Process).where(
             m.Process.workspace_id == ws_id, m.Process.is_default, m.Process.deleted_at.is_(None)
@@ -80,6 +81,7 @@ async def ensure_default_process(session: AsyncSession, ws_id: str, owner_id: st
 
 
 async def get_process(session: AsyncSession, ws_id: str, ref: str | None = None) -> m.Process:
+    """A process by id or key (the default process when `ref` is None); 404 when absent."""
     stmt = select(m.Process).where(m.Process.workspace_id == ws_id, m.Process.deleted_at.is_(None))
     stmt = (
         stmt.where((m.Process.id == ref) | (m.Process.key == ref))
@@ -93,6 +95,7 @@ async def get_process(session: AsyncSession, ws_id: str, ref: str | None = None)
 
 
 async def stages_of(session: AsyncSession, process_id: str) -> list[m.Stage]:
+    """The stages of a process in position order."""
     return list(
         (
             await session.scalars(
@@ -105,6 +108,7 @@ async def stages_of(session: AsyncSession, process_id: str) -> list[m.Stage]:
 
 
 async def get_stage(session: AsyncSession, process: m.Process, ref: str) -> m.Stage:
+    """A stage of the process by key or id; 404 when absent."""
     for s in await stages_of(session, process.id):
         if s.key == ref or s.id == ref:
             return s
@@ -114,6 +118,7 @@ async def get_stage(session: AsyncSession, process: m.Process, ref: str) -> m.St
 async def current_placement(
     session: AsyncSession, target_type: TargetType, target_id: str, process_id: str | None = None
 ) -> m.StagePlacement | None:
+    """The open placement of a target in a process, if any."""
     stmt = select(m.StagePlacement).where(
         m.StagePlacement.target_type == target_type,
         m.StagePlacement.target_id == target_id,
@@ -426,6 +431,7 @@ items.on_state_category_changed.append(state_to_stage)
 
 
 async def wip_count(session: AsyncSession, stage_id: str) -> int:
+    """How many not-done work items currently sit in the stage."""
     return int(
         await session.scalar(
             select(func.count())
@@ -449,6 +455,7 @@ async def wip_count(session: AsyncSession, stage_id: str) -> int:
 async def board(
     session: AsyncSession, ws_id: str, process: m.Process, now: datetime | None = None, acl: Any = None
 ) -> dict[str, Any]:
+    """The board of a process: stages with the visible targets in each, WIP counts and ageing."""
     now = now or utcnow()
     cols = []
     for st in await stages_of(session, process.id):

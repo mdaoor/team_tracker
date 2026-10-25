@@ -18,6 +18,50 @@ from tt_server.db.uow import UnitOfWork
 SYSTEM_EMAIL = "system@tt.local"
 
 
+def emit_after(
+    uow: UnitOfWork,
+    *,
+    workspace_id: str,
+    actor_id: str,
+    entity_type: TargetType,
+    entity_id: str,
+    event_type: str,
+    **after: Any,
+) -> Event:
+    """Emit an overlay event whose payload is `{"after": {...}}`: the common shape of audit events from the routers."""
+    return emit(
+        uow,
+        workspace_id=workspace_id,
+        actor_id=actor_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        event_type=event_type,
+        payload={"after": after},
+    )
+
+
+def emit_admin(
+    uow: UnitOfWork,
+    *,
+    workspace_id: str,
+    actor_id: str,
+    event_type: str,
+    payload: dict[str, Any] | None = None,
+    source: EventSource = EventSource.OVERLAY,
+) -> Event:
+    """Emit an event whose subject is the acting person: configuration changes with no better entity."""
+    return emit(
+        uow,
+        workspace_id=workspace_id,
+        actor_id=actor_id,
+        entity_type=TargetType.PERSON,
+        entity_id=actor_id,
+        event_type=event_type,
+        payload=payload,
+        source=source,
+    )
+
+
 def emit(
     uow: UnitOfWork,
     *,
@@ -87,3 +131,35 @@ def aware(dt: datetime) -> datetime:
 def ltree_label(row_id: str) -> str:
     """ltree labels allow only [A-Za-z0-9_]; ids go into `WorkItem.path` with '-' replaced by '_'."""
     return row_id.replace("-", "_")
+
+
+def rowcount(result: Any) -> int:
+    """Rows affected by an UPDATE/DELETE `execute` result (the typed `Result` does not expose `rowcount`)."""
+    return int(getattr(result, "rowcount", 0) or 0)
+
+
+async def team_subtree_ids(session: AsyncSession, ws_id: str, roots: set[str]) -> set[str]:
+    """`roots` plus every descendant team of the workspace (breadth-first over `parent_team_id`)."""
+    ids, frontier = set(roots), set(roots)
+    while frontier:
+        kids = set(
+            (
+                await session.scalars(
+                    select(m.Team.id).where(m.Team.workspace_id == ws_id, m.Team.parent_team_id.in_(frontier))
+                )
+            ).all()
+        )
+        frontier = kids - ids
+        ids |= frontier
+    return ids
+
+
+def row_dict(row: Any, *exclude: str) -> dict[str, Any]:
+    """Serialise a model row to a dict of its columns (enums as their values), minus `exclude`."""
+    out: dict[str, Any] = {}
+    for col in row.__table__.columns:
+        if col.name in exclude:
+            continue
+        v = getattr(row, col.name)
+        out[col.name] = v.value if hasattr(v, "value") and not isinstance(v, (str, int)) else v
+    return out

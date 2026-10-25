@@ -23,6 +23,7 @@ ALLOWED = {"priority", "impact", "stage", "weight"}
 async def resolve_targets(
     uow: UnitOfWork, ws: m.Workspace, *, ids: list[str] | None, filt: dict[str, Any] | None
 ) -> list[m.WorkItem]:
+    """The visible work items selected by explicit ids or by a filter."""
     s = uow.session
     stmt = (
         select(m.WorkItem)
@@ -82,6 +83,7 @@ async def _descendants(uow: UnitOfWork, item: m.WorkItem) -> list[m.WorkItem]:
 async def preview(
     uow: UnitOfWork, ws: m.Workspace, targets: list[m.WorkItem], changes: dict[str, Any]
 ) -> dict[str, Any]:
+    """Describe what a bulk edit would change per item without writing anything."""
     _validate(changes)
     target_ids = {t.id for t in targets}
     changed: set[str] = set()
@@ -116,6 +118,7 @@ async def preview(
 async def apply(
     uow: UnitOfWork, ws: m.Workspace, targets: list[m.WorkItem], changes: dict[str, Any], *, actor: str
 ) -> dict[str, Any]:
+    """Apply a bulk edit to the targets under one correlation id and report what changed."""
     _validate(changes)
     corr = new_id()
     uow.context["correlation_id"] = corr

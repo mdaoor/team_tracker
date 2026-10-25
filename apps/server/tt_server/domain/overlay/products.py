@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import select
 from tt_schema.base import new_id
 from tt_schema.enums import EventSource, ProductLinkRole, ScopeType, TargetType, ValueSource
 
+from tt_server.acl.context import AclContext
 from tt_server.acl.grants import on_team_linked_to_product
+from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
@@ -39,6 +43,7 @@ async def create_product(
     description: str | None = None,
     default_process_id: str | None = None,
 ) -> m.Product:
+    """Create a product (optionally under a parent) with its dimension value and audit event."""
     s = uow.session
     key = key.upper()
     if await s.scalar(
@@ -88,6 +93,7 @@ async def create_product(
 async def reparent(
     uow: UnitOfWork, ws: m.Workspace, product: m.Product, parent_id: str | None, *, actor_id: str
 ) -> None:
+    """Move a product under another one (or to the top), refusing cycles and refreshing inherited classifications."""
     if await _would_cycle(uow, product.id, parent_id):
         raise Invalid("cycle", "a product cannot be its own ancestor", pointer="/parent_product_id")
     product.parent_product_id = parent_id
@@ -173,6 +179,7 @@ async def link(
 
 
 async def delivering_product(session: object, project_id: str) -> m.Product | None:
+    """The product that delivers a project, if any."""
     from sqlalchemy.ext.asyncio import AsyncSession
 
     assert isinstance(session, AsyncSession)  # noqa: S101
@@ -243,6 +250,7 @@ async def create_objective(
     owner_id: str,
     actor_id: str,
 ) -> m.Objective:
+    """Create an objective with its backing dimension value and audit event."""
     s = uow.session
     obj = m.Objective(
         id=new_id(),
@@ -270,3 +278,57 @@ async def create_objective(
         source=EventSource.OVERLAY,
     )
     return obj
+
+
+async def get_product(uow: UnitOfWork, ws_id: str, ref: str) -> m.Product:
+    """A visible product by id or (upper-cased) key; invisible or absent is a 404."""
+    stmt = select(m.Product).where(
+        m.Product.workspace_id == ws_id,
+        m.Product.deleted_at.is_(None),
+        (m.Product.id == ref) | (m.Product.key == ref.upper()),
+    )
+    acl = uow.context.get("acl")
+    p: m.Product | None
+    p = await uow.session.scalar(visible(stmt, acl, m.Product) if acl is not None else stmt)
+    if p is None:
+        raise NotFound("not_found", "product not found")
+    return p
+
+
+async def list_products(uow: UnitOfWork, ws_id: str, acl: AclContext) -> list[m.Product]:
+    """Live products the caller can see, by key."""
+    return list(
+        (
+            await uow.session.scalars(
+                visible(
+                    select(m.Product).where(m.Product.workspace_id == ws_id, m.Product.deleted_at.is_(None)),
+                    acl,
+                    m.Product,
+                ).order_by(m.Product.key)
+            )
+        ).all()
+    )
+
+
+async def patch_product(
+    uow: UnitOfWork, ws: m.Workspace, actor_id: str, p: m.Product, data: dict[str, Any]
+) -> m.Product:
+    """Edit a product; a parent change goes through `reparent` (cycle check, inheritance refresh)."""
+    if "parent_product_id" in data:
+        await reparent(uow, ws, p, data.pop("parent_product_id"), actor_id=actor_id)
+    for k, v in data.items():
+        setattr(p, k, v)
+    return p
+
+
+async def list_links(uow: UnitOfWork, p: m.Product) -> list[m.ProductLink]:
+    """Live links of a product."""
+    return list(
+        (
+            await uow.session.scalars(
+                select(m.ProductLink).where(
+                    m.ProductLink.product_id == p.id, m.ProductLink.deleted_at.is_(None)
+                )
+            )
+        ).all()
+    )

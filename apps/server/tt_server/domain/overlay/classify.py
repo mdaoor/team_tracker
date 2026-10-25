@@ -162,12 +162,14 @@ def _emit(
 async def remove_rule_classification(
     uow: UnitOfWork, ws: m.Workspace, target_type: TargetType, target_id: str, dimension: m.Dimension
 ) -> None:
+    """Soft-delete the active rule-sourced classifications of a dimension on a target (manual ones stay)."""
     for c in await _active(uow, target_type, target_id, dimension.id):
         if c.source == ValueSource.RULE:
             c.deleted_at = utcnow()
 
 
 async def unclassify(uow: UnitOfWork, ws: m.Workspace, cls: m.Classification, *, by: str) -> None:
+    """Soft-delete a classification and record the removal."""
     dim = await uow.session.get(m.Dimension, cls.dimension_id)
     value = await uow.session.get(m.DimensionValue, cls.value_id)
     cls.deleted_at = utcnow()

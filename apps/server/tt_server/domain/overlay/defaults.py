@@ -79,6 +79,7 @@ async def _team_project(s: AsyncSession, ws_id: str, person_id: str) -> m.Projec
 async def suggest_project(
     s: AsyncSession, ws_id: str, item: m.WorkItem, phrase: str
 ) -> dict[str, Any] | None:
+    """Suggest a project for an inbox item: its parent's project, the glossary, the reporter's most-used project, then their team's."""
     reporter = item.reporter_id
     if item.parent_id:
         parent = await s.get(m.WorkItem, item.parent_id)
@@ -107,6 +108,7 @@ async def suggest_project(
 
 
 async def suggest_person(s: AsyncSession, ws_id: str, heard: str) -> dict[str, Any] | None:
+    """Suggest the workspace member whose handle is closest to a heard name."""
     handles = list(
         (
             await s.scalars(select(m.WorkspaceMember.handle).where(m.WorkspaceMember.workspace_id == ws_id))
@@ -123,6 +125,7 @@ async def suggest_person(s: AsyncSession, ws_id: str, heard: str) -> dict[str, A
 async def suggest_default(
     s: AsyncSession, ws_id: str, kind: str, item: m.WorkItem, suggestion: dict[str, Any]
 ) -> dict[str, Any] | None:
+    """A suggested choice for an `unclassified_project` or `unknown_person` review row, if one can be derived."""
     if kind == "unclassified_project":
         return await suggest_project(s, ws_id, item, str(suggestion.get("phrase") or ""))
     if kind == "unknown_person" and (heard := suggestion.get("name") or suggestion.get("handle")):
