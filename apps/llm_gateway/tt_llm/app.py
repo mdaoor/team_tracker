@@ -25,6 +25,7 @@ from tt_llm.tasks import rules as t_rules
 from tt_llm.tasks import suggest as t_suggest
 from tt_llm.tasks import summarise as t_sum
 from tt_llm.tasks import translate as t_translate
+from tt_llm.tasks import translate_command as t_command
 from tt_llm.tasks.base import CoreFactory, Deps
 from tt_llm.telemetry import COST, LATENCY, REQUESTS
 
@@ -93,6 +94,16 @@ def create_app(
     @app.post("/v1/translate", dependencies=[Caller], tags=["tasks"])
     async def translate(req: TaskRequest) -> TaskResponse:
         return await timed("translate", req, lambda: t_translate.translate(deps, req))
+
+    @app.post("/v1/translate/command", dependencies=[Caller], tags=["tasks"])
+    async def translate_command(req: TaskRequest, core_token: CoreToken = None) -> TaskResponse:
+        return await timed(
+            "translate_command", req, lambda: t_command.translate_command(deps, req, core_token)
+        )
+
+    @app.post("/v1/agent/command", dependencies=[Caller], tags=["tasks"])
+    async def agent_command(req: TaskRequest, core_token: CoreToken = None) -> TaskResponse:
+        return await timed("agent_command", req, lambda: t_command.agent_command(deps, req, core_token))
 
     @app.post("/v1/agent/capture", dependencies=[Caller], tags=["tasks"])
     async def agent_capture(req: TaskRequest, core_token: CoreToken = None) -> TaskResponse:

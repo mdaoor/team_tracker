@@ -79,7 +79,7 @@ def _humanise(name: str) -> str:
     return name.replace("_", " ").replace(".", " ").strip().capitalize()
 
 
-def _picker_for(name: str, prop: dict[str, Any]) -> str | None:
+def _picker_for(name: str, prop: dict[str, Any], op: str = "") -> str | None:
     hint = prop.get("x-picker") or prop.get("format")
     if hint in PICKERS:
         return str(hint)
@@ -89,6 +89,8 @@ def _picker_for(name: str, prop: dict[str, Any]) -> str | None:
             return str(sub)
     if prop.get("enum") or prop.get("items", {}).get("enum"):
         return None
+    if name == "key" and op and not op.startswith("item."):
+        return None  # project.create's `key` is a new project key, not an item
     return _NAME_HINTS.get(name)
 
 
@@ -129,11 +131,13 @@ def _constraints(prop: dict[str, Any]) -> dict[str, Any]:
     return {k: prop[k] for k in keys if k in prop}
 
 
-def field_for(name: str, prop: dict[str, Any], required: bool, pack: ContextPack | None) -> FieldSpec:
+def field_for(
+    name: str, prop: dict[str, Any], required: bool, pack: ContextPack | None, op: str = ""
+) -> FieldSpec:
     multi = prop.get("type") == "array"
     inner = prop.get("items", {}) if multi else prop
     enum = inner.get("enum")
-    picker = _picker_for(name, prop)
+    picker = _picker_for(name, prop, op)
     kind = "enum" if enum else _kind(inner)
     if multi and inner.get("type") == "object":
         kind = "json"
@@ -159,7 +163,7 @@ def fields_for(meta: OpMeta, pack: ContextPack | None = None) -> list[FieldSpec]
     """Required fields first (schema order), then the optional ones."""
     props, required = meta.properties, set(meta.required)
     ordered = [n for n in props if n in required] + [n for n in props if n not in required]
-    return [field_for(n, props[n], n in required, pack) for n in ordered]
+    return [field_for(n, props[n], n in required, pack, meta.op) for n in ordered]
 
 
 def fields_spec(meta: OpMeta, pack: ContextPack | None = None) -> dict[str, Any]:

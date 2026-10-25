@@ -43,6 +43,9 @@ class TaskRequest(BaseModel):
     request: str | None = None
     rules: list[str] = Field(default_factory=list)
     texts: list[str] = Field(default_factory=list)
+    role_mode: str | None = (
+        None  # Phase 14: the client's role lens (a hint for the command translator, never a permission)
+    )
 
     def all_lines(self) -> list[str]:
         return [x for x in ([self.line] if self.line else []) + self.lines if x and x.strip()]
@@ -64,7 +67,9 @@ def model_batch_schema() -> dict[str, Any]:
     """`ClientBatch` schema as the *model* sees it: identity fields are filled in by code."""
     schema: dict[str, Any] = copy.deepcopy(dict(client_message_json_schema(batch=True)))
     schema["required"] = [r for r in schema.get("required", []) if r != "workspace"]
-    schema["properties"].pop("commands", None)  # capture translation never emits management commands (ADR-0052)
+    schema["properties"].pop(
+        "commands", None
+    )  # capture translation never emits management commands (ADR-0052)
     msgs = schema["properties"]["messages"]["items"]
     msgs["required"] = [r for r in msgs.get("required", []) if r not in {"actor", "at", "client_id"}]
     return schema
