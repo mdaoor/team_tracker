@@ -1,0 +1,131 @@
+# Role modes are a LENS, not a permission (plan 16, principle 4): they decide which verbs and forms the client offers first.
+# The server still decides with the person's real roles and grants; `tt cmd <op>` can always reach any op in the catalogue.
+#
+#   first:         ops pinned at the top, in this order (only those present in the catalogue are shown)
+#   groups:        catalogue groups surfaced next, in this order
+#   hidden_groups: groups never listed in this mode (still reachable with `tt ops --all` / `tt cmd`)
+#   hidden_perms:  ops whose catalogue `permission` is listed here are hidden (coach: no item writes)
+#   chips:         one-tap verbs for the palette header / Slack: label + op + text to prefill
+modes:
+  reporter:
+    label: Reporter
+    description: Capture your own work. No management verbs.
+    first: [dailylog.confirm, context_note.add]
+    groups: [personal]
+    hidden_groups: [projects, items, teams, tags, process, governance, iterations]
+    chips:
+      - {label: Confirm my day, op: dailylog.confirm, text: "confirm my day"}
+      - {label: Add a note, op: context_note.add, text: "note on "}
+
+  manager:
+    label: Manager
+    description: Run your teams and projects day to day.
+    first:
+      - item.create
+      - item.merge
+      - item.tag
+      - item.assign
+      - item.reparent
+      - stage.move
+      - team.create
+      - team.add_members
+      - approval.decide
+      - review.resolve
+      - violation.waive
+    groups: [items, teams, process, governance, projects, tags, iterations, personal]
+    chips:
+      - {label: New epic, op: item.create, text: "new epic "}
+      - {label: Merge, op: item.merge, text: "merge "}
+      - {label: Tag, op: item.tag, text: "tag "}
+      - {label: New team, op: team.create, text: "create virtual team "}
+      - {label: Move stage, op: stage.move, text: "move "}
+      - {label: Approve, op: approval.decide, text: "approve "}
+      - {label: Waive, op: violation.waive, text: "waive violation "}
+
+  scrum_master:
+    label: Scrum master
+    description: Iterations, stage moves, WIP and the review queue first.
+    first:
+      - iteration.create
+      - iteration.start
+      - iteration.close
+      - item.move_to_iteration
+      - stage.move
+      - item.set_stage
+      - item.set_state
+      - review.resolve
+      - review.bulk
+      - approval.decide
+      - item.assign
+    groups: [iterations, process, governance, items, personal]
+    hidden_groups: [teams, tags]
+    chips:
+      - {label: New sprint, op: iteration.create, text: "new sprint "}
+      - {label: Start sprint, op: iteration.start, text: "start sprint "}
+      - {label: Close sprint, op: iteration.close, text: "close sprint "}
+      - {label: Move to sprint, op: item.move_to_iteration, text: "move "}
+      - {label: Move stage, op: stage.move, text: "move "}
+      - {label: Review queue, op: review.resolve, text: "resolve "}
+
+  coach:
+    label: Coach
+    description: Habits and coaching notes. No item writes.
+    first: [habit.coach_note, habit.set_status, violation.ack, context_note.add, dailylog.confirm]
+    groups: [governance, personal]
+    hidden_groups: [projects, items, teams, tags, process, iterations]
+    hidden_perms: [item.write_overlay]
+    chips:
+      - {label: Coach note, op: habit.coach_note, text: "coach note on "}
+      - {label: Pause habit, op: habit.set_status, text: "pause habit "}
+      - {label: Add a note, op: context_note.add, text: "note on "}
+
+  pm:
+    label: Project manager
+    description: Projects, plans, milestones, risks.
+    first:
+      - project.create
+      - project.plan.create
+      - item.create
+      - milestone.create
+      - milestone.complete
+      - risk.create
+      - risk.link
+      - project.add_member
+      - project.baseline.capture
+    groups: [projects, iterations, process, items, governance, personal]
+    hidden_groups: [tags]
+    chips:
+      - {label: New project, op: project.create, text: "new project "}
+      - {label: New epic, op: item.create, text: "new epic "}
+      - {label: Milestone, op: milestone.create, text: "new milestone "}
+      - {label: New risk, op: risk.create, text: "new risk "}
+      - {label: Add member, op: project.add_member, text: "add "}
+
+  admin:
+    label: Admin
+    description: Teams, reporting lines, tags, dimensions and policies.
+    first:
+      - team.create
+      - team.add_members
+      - team.remove_members
+      - reporting_line.set
+      - tag.create
+      - tag.merge
+      - dimension.value.add
+      - policy.activate
+      - policy.deactivate
+    groups: [teams, tags, governance, projects, items, process, iterations, personal]
+    chips:
+      - {label: New team, op: team.create, text: "create virtual team "}
+      - {label: Reporting line, op: reporting_line.set, text: ""}
+      - {label: New tag, op: tag.create, text: "new tag "}
+      - {label: Policy on, op: policy.activate, text: "activate policy "}
+
+aliases:
+  scrum: scrum_master
+  sm: scrum_master
+  project_manager: pm
+  project-manager: pm
+  projectmanager: pm
+  lead: manager
+  employee: reporter

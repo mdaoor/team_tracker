@@ -4067,6 +4067,7 @@ source = { editable = "packages/client_core" }
 dependencies = [
     { name = "dateparser" },
     { name = "httpx" },
+    { name = "jsonschema" },
     { name = "pyyaml" },
     { name = "tt-schema" },
 ]
@@ -4080,6 +4081,7 @@ dev = [
 requires-dist = [
     { name = "dateparser", specifier = ">=1.2" },
     { name = "httpx", specifier = ">=0.27" },
+    { name = "jsonschema", specifier = ">=4.20" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "tt-schema", editable = "packages/schema" },
 ]

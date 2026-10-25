@@ -1,0 +1,152 @@
+# Golden set for the deterministic management-command parser (tt_client.parser.commands).
+# Each case: the typed line -> the exact commands (op + args, `_meta` ignored). `commands: []` = must fall through to the gateway.
+# Pack used: tests/conftest.py (projects WEB, DATA; people @sara @ali; iteration "Sprint 14").
+actor: "@mahmoud"
+now: "2026-10-23T12:00:00+00:00"
+cases:
+  - line: "new epic Checkout redesign under WEB"
+    commands: [{op: item.create, args: {title: Checkout redesign, type: epic, project: WEB}}]
+  - line: "create a story Guest checkout in WEB"
+    commands: [{op: item.create, args: {title: Guest checkout, type: story, project: WEB}}]
+  - line: "new task fix the bug in login under WEB-142"
+    commands: [{op: item.create, args: {title: fix the bug in login, type: task, project: WEB, parent: WEB-142}}]
+  - line: "add deliverable Data contract for the pipeline"
+    commands: [{op: item.create, args: {title: Data contract, type: deliverable, project: DATA}}]
+  - line: "new project Payments key PAY scrum"
+    commands: [{op: project.create, args: {name: Payments, key: PAY, methodology: scrum}}]
+  - line: "create project Billing BIL"
+    commands: [{op: project.create, args: {name: Billing, key: BIL}}]
+  - line: "rename project WEB to Website 2"
+    commands: [{op: project.update, args: {project: WEB, name: Website 2}}]
+  - line: "baseline WEB as Q4 baseline"
+    commands: [{op: project.baseline.capture, args: {project: WEB, name: Q4 baseline}}]
+  - line: "add @sara to WEB as member"
+    commands: [{op: project.add_member, args: {project: WEB, person: "@sara", role: member}}]
+  - line: "add @sara and @ali to project DATA as lead"
+    commands:
+      - {op: project.add_member, args: {project: DATA, person: "@sara", role: lead}}
+      - {op: project.add_member, args: {project: DATA, person: "@ali", role: lead}}
+  - line: "merge WEB-101 and WEB-105"
+    commands: [{op: item.merge, args: {sources: [WEB-101, WEB-105], target: WEB-101}}]
+  - line: "merge WEB-101, WEB-105 and WEB-107"
+    commands: [{op: item.merge, args: {sources: [WEB-101, WEB-105, WEB-107], target: WEB-101}}]
+  - line: "merge WEB-101 and WEB-105 into WEB-110"
+    commands: [{op: item.merge, args: {sources: [WEB-101, WEB-105], target: WEB-110}}]
+  - line: "merge web-101 and web-105 into one"
+    commands: [{op: item.merge, args: {sources: [WEB-101, WEB-105], target: WEB-101}}]
+  - line: "merge WEB-101 and WEB-105 as Unified login flow"
+    commands: [{op: item.merge, args: {sources: [WEB-101, WEB-105], new_title: Unified login flow}}]
+  - line: "merge tag q-4 into q4"
+    commands: [{op: tag.merge, args: {sources: [q-4], target: q4}}]
+  - line: "split WEB-7 into Design and Build"
+    commands: [{op: item.split, args: {key: WEB-7, titles: [Design, Build]}}]
+  - line: "tag DATA-1 DATA-2 #q4"
+    commands: [{op: item.tag, args: {keys: [DATA-1, DATA-2], add: [q4]}}]
+  - line: "tag DATA-1 DATA-2 DATA-3 #q4 #infra"
+    commands: [{op: item.tag, args: {keys: [DATA-1, DATA-2, DATA-3], add: [q4, infra]}}]
+  - line: "untag DATA-1 #q4"
+    commands: [{op: item.tag, args: {keys: [DATA-1], remove: [q4]}}]
+  - line: "tag all open DATA items #q4"
+    commands: []
+  - line: "new tag q4"
+    commands: [{op: tag.create, args: {name: q4}}]
+  - line: "add value ACME to dimension customer"
+    commands: [{op: dimension.value.add, args: {dimension: customer, value: ACME}}]
+  - line: "classify WEB-1 customer ACME"
+    commands: [{op: classify, args: {target: WEB-1, dimension: customer, value: ACME}}]
+  - line: "create virtual team payments with @sara @ali led by me"
+    commands: [{op: team.create, args: {name: payments, kind: virtual, members: ["@sara", "@ali"], lead: "@mahmoud"}}]
+  - line: "new ad hoc team launch with @sara"
+    commands: [{op: team.create, args: {name: launch, kind: ad_hoc, members: ["@sara"]}}]
+  - line: "create team platform"
+    commands: [{op: team.create, args: {name: platform, kind: virtual}}]
+  - line: "add @ali to team payments"
+    commands: [{op: team.add_members, args: {team: payments, members: ["@ali"]}}]
+  - line: "remove @ali from team payments"
+    commands: [{op: team.remove_members, args: {team: payments, members: ["@ali"]}}]
+  - line: "@sara reports to me"
+    commands: [{op: reporting_line.set, args: {person: "@sara", manager: "@mahmoud", kind: solid}}]
+  - line: "@sara reports to @ali dotted"
+    commands: [{op: reporting_line.set, args: {person: "@sara", manager: "@ali", kind: dotted}}]
+  - line: "move WEB-1 WEB-2 to test because failed QA"
+    commands: [{op: stage.move, args: {keys: [WEB-1, WEB-2], stage: test, reason: failed QA}}]
+  - line: "move WEB-1, WEB-2 and WEB-3 to stage build reason: environment fixed"
+    commands: [{op: stage.move, args: {keys: [WEB-1, WEB-2, WEB-3], stage: build, reason: environment fixed}}]
+  - line: "move WEB-4 to Sprint 15"
+    commands: [{op: item.move_to_iteration, args: {keys: [WEB-4], iteration: Sprint 15}}]
+  - line: "move WEB-4 WEB-5 to Sprint 14"
+    commands: [{op: item.move_to_iteration, args: {keys: [WEB-4, WEB-5], iteration: Sprint 14}}]
+  - line: "move WEB-2 and WEB-3 under WEB-1"
+    commands: [{op: item.reparent, args: {keys: [WEB-2, WEB-3], parent: WEB-1}}]
+  - line: "approve AP-12"
+    commands: [{op: approval.decide, args: {approval: AP-12, decision: approve}}]
+  - line: "approve AP-12: scope is fine"
+    commands: [{op: approval.decide, args: {approval: AP-12, decision: approve, comment: scope is fine}}]
+  - line: "reject AP-13 because estimate is missing"
+    commands: [{op: approval.decide, args: {approval: AP-13, decision: reject, comment: estimate is missing}}]
+  - line: "waive violation V-9 because holiday week"
+    commands: [{op: violation.waive, args: {id: V-9, reason: holiday week}}]
+  - line: "ack violation V-9"
+    commands: [{op: violation.ack, args: {id: V-9}}]
+  - line: "resolve violation V-9: fixed in sprint"
+    commands: [{op: violation.resolve, args: {id: V-9, note: fixed in sprint}}]
+  - line: "resolve RV-3 accept"
+    commands: [{op: review.resolve, args: {row: RV-3, choice: accept}}]
+  - line: "resolve review rows RV-3 RV-4 RV-5 accept"
+    commands: [{op: review.bulk, args: {rows: [RV-3, RV-4, RV-5], choice: accept}}]
+  - line: "assign WEB-1 to @sara"
+    commands: [{op: item.assign, args: {key: WEB-1, person: "@sara", role: owner}}]
+  - line: "assign WEB-1 and WEB-2 to me as reviewer"
+    commands:
+      - {op: item.assign, args: {key: WEB-1, person: "@mahmoud", role: reviewer}}
+      - {op: item.assign, args: {key: WEB-2, person: "@mahmoud", role: reviewer}}
+  - line: "WEB-1 priority high"
+    commands: [{op: item.set_priority, args: {key: WEB-1, priority: high}}]
+  - line: "set priority of WEB-2 to critical"
+    commands: [{op: item.set_priority, args: {key: WEB-2, priority: critical}}]
+  - line: "WEB-1 is blocked"
+    commands: [{op: item.set_state, args: {key: WEB-1, state: blocked}}]
+  - line: "WEB-1 due 2026-11-30"
+    commands: [{op: item.set_dates, args: {key: WEB-1, end: "2026-11-30"}}]
+  - line: "WEB-1 estimate 3 days"
+    commands: [{op: item.set_estimate, args: {key: WEB-1, value: 3, unit: days}}]
+  - line: "WEB-1 blocks WEB-2"
+    commands: [{op: item.link, args: {from: WEB-1, to: WEB-2, type: blocks}}]
+  - line: "rename WEB-1 to Better title"
+    commands: [{op: item.update, args: {key: WEB-1, fields: {title: Better title}}}]
+  - line: "new sprint Sprint 15 on WEB 2026-11-02 to 2026-11-13"
+    commands: [{op: iteration.create, args: {name: Sprint 15, project: WEB, start: "2026-11-02", end: "2026-11-13"}}]
+  - line: "new sprint 16 on WEB"
+    commands: [{op: iteration.create, args: {name: Sprint 16, project: WEB}}]
+  - line: "start sprint 15"
+    commands: [{op: iteration.start, args: {iteration: Sprint 15}}]
+  - line: "close Sprint 14 on WEB"
+    commands: [{op: iteration.close, args: {iteration: Sprint 14, project: WEB}}]
+  - line: "new milestone Beta on WEB due 2026-12-01"
+    commands: [{op: milestone.create, args: {name: Beta, project: WEB, due: "2026-12-01"}}]
+  - line: "complete milestone Beta"
+    commands: [{op: milestone.complete, args: {milestone: Beta}}]
+  - line: "new risk Vendor slips on WEB high"
+    commands: [{op: risk.create, args: {title: Vendor slips, project: WEB, severity: high}}]
+  - line: "link risk WEB-R7 to WEB-1 WEB-2"
+    commands: [{op: risk.link, args: {risk: WEB-R7, keys: [WEB-1, WEB-2]}}]
+  - line: "confirm my day"
+    commands: [{op: dailylog.confirm, args: {}}]
+  - line: "note on WEB-1: waiting on legal"
+    commands: [{op: context_note.add, args: {target: WEB-1, note: waiting on legal}}]
+  - line: "coach note on daily-log for @sara: great streak"
+    commands: [{op: habit.coach_note, args: {habit: daily-log, person: "@sara", note: great streak}}]
+  - line: "pause habit daily-log"
+    commands: [{op: habit.set_status, args: {habit: daily-log, status: paused}}]
+  - line: "activate policy wip-limit"
+    commands: [{op: policy.activate, args: {policy: wip-limit}}]
+  - line: "deactivate policy wip-limit"
+    commands: [{op: policy.deactivate, args: {policy: wip-limit}}]
+  - line: "new epic Checkout redesign under WEB; tag WEB-1 #q4"
+    commands:
+      - {op: item.create, args: {title: Checkout redesign, type: epic, project: WEB}}
+      - {op: item.tag, args: {keys: [WEB-1], add: [q4]}}
+  - line: "what is the weather in Riyadh"
+    commands: []
+  - line: "move everything in test older than a week to build with reason 'failed QA'"
+    commands: []

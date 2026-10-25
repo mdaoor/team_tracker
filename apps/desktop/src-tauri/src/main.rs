@@ -39,6 +39,17 @@ bridge!(tt_resend, "resend");
 bridge!(tt_discard, "discard");
 bridge!(tt_open_editor, "open-editor");
 bridge!(tt_active, "active");
+// Phase 14: management commands (verbs implemented by tt_client.sidecar_commands)
+bridge!(tt_cmd_state, "cmd-state");
+bridge!(tt_cmd_role, "cmd-role");
+bridge!(tt_cmd_propose, "cmd-propose");
+bridge!(tt_cmd_fields, "cmd-fields");
+bridge!(tt_cmd_build, "cmd-build");
+bridge!(tt_cmd_preview, "cmd-preview");
+bridge!(tt_cmd_send, "cmd-send");
+bridge!(tt_cmd_queue, "cmd-queue");
+bridge!(tt_cmd_resolve, "cmd-resolve");
+bridge!(tt_cmd_team_now, "cmd-team-now");
 
 #[tauri::command]
 fn hotkey(state: State<Hotkey>) -> String {
@@ -52,7 +63,9 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Hotkey("CommandOrControl+Shift+Space".into()))
         .invoke_handler(tauri::generate_handler![
-            tt_parse, tt_pack, tt_send, tt_build_manual, tt_outbox, tt_resend, tt_discard, tt_open_editor, tt_active, hotkey
+            tt_parse, tt_pack, tt_send, tt_build_manual, tt_outbox, tt_resend, tt_discard, tt_open_editor, tt_active, hotkey,
+            tt_cmd_state, tt_cmd_role, tt_cmd_propose, tt_cmd_fields, tt_cmd_build, tt_cmd_preview, tt_cmd_send, tt_cmd_queue,
+            tt_cmd_resolve, tt_cmd_team_now
         ])
         .setup(|app| {
             if let Some(w) = app.get_webview_window("palette") {

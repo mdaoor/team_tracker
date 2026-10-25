@@ -91,9 +91,11 @@ class Say:
 
 
 def test_every_slack_entry_point_is_registered(app: FakeBoltApp) -> None:
-    want = {"event:message", f"view:{bk.MODAL_CALLBACK}", "command:/tt"} | {
+    from tt_slack import command_blocks as cbk
+
+    want = {"event:message", f"view:{bk.MODAL_CALLBACK}", f"view:{cbk.MODAL_CALLBACK}", "command:/tt"} | {
         f"action:{a}"
-        for a in (bk.ACTION_SEND, bk.ACTION_EDIT, bk.ACTION_DISCARD, bk.ACTION_MANUAL, bk.ACTION_JIRA)
+        for a in (bk.ACTION_SEND, bk.ACTION_EDIT, bk.ACTION_DISCARD, bk.ACTION_MANUAL, bk.ACTION_JIRA, *cbk.COMMAND_ACTIONS)
     }
     assert set(app.handlers) == want
     assert app.token == "xoxb-1" and app.secret == "sig"

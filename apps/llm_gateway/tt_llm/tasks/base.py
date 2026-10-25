@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -26,6 +26,9 @@ class Deps:
     router: Router
     storage: Storage
     core_factory: CoreFactory
+    catalogues: dict[str, tuple[str | None, dict[str, Any]]] = field(
+        default_factory=dict
+    )  # workspace -> (etag, doc)
 
 
 def new_run(task: str, req: TaskRequest, alias: str) -> Run:

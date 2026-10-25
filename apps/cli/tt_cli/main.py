@@ -539,5 +539,9 @@ def gateway_serve(
     uvicorn.run(build_app(cfg), host="127.0.0.1", port=port)
 
 
+from tt_cli.commands_cli import register_commands  # noqa: E402  (Phase 14: role, do, cmd, ops, queue, ... one additive call)
+
+register_commands(app)
+
 if __name__ == "__main__":
     app()

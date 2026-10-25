@@ -52,3 +52,11 @@ Structured parser, 59 cases: **1.000** on every field (the syntax subset is a CI
 measured**. Phase 2b (`docs/llm/gateway.md`) adds the harness side: the same 59-case golden set is replayed through the gateway
 with a deliberately bad scripted model and the syntax subset stays at 1.000 on every field, because minutes, dates, estimates, tags
 and typed keys always come from the parser.
+
+## Management commands (phase 14)
+
+`POST /v1/translate/command` (and the agentic `/v1/agent/command`) turn a management request into `ClientCommand[]`. The gateway reads the
+command catalogue from the core server with the caller's token (`X-TT-Core-Token`, cached per workspace by ETag), shows the model only those
+ops (prompt `prompts/translate_command/v1.md`, one few-shot example per op taken from the catalogue), validates every command against its
+schema and grounds people / projects / keys. It never applies anything. Golden: `packages/client_core/tests/golden/command_lines.yaml`
+(84 lines); scripted-model gate op ≥ 0.85, args ≥ 0.90; opt-in real-model run in `test_real_model_golden.py`.

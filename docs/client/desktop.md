@@ -16,3 +16,11 @@ Tests: `pnpm --filter @tt/desktop test` (13, scripted bridge). Run the UI in a b
 **Not done here (needs toolchains/hardware):** compiling `src-tauri` (scaffold only), the `tt-sidecar` PyInstaller entry point, signed
 installers for three OSs, the updater, tray icon, notifications, iOS/Android builds, voice-to-text and the share sheet, and the 6 s
 end-to-end measurement with a local model. These stay open acceptance items for phase 11.
+
+## Management commands (phase 14)
+
+`palette/commands/` adds the role switch, verb chips, the command card with its Effect preview and two-step confirmation for destructive
+commands, forms generated from the catalogue (`SchemaForm`), and the My queue / Team now panels. They talk to the sidecar through
+`commandBridge` (`cmd-*` verbs implemented in `tt_client.sidecar_commands`; the Tauri scaffold forwards them like the capture verbs). A
+reporter with no other role sees none of it. Tests: `palette/commands/commands.test.tsx` (16, including axe over header, card, destructive
+confirmation, form and panels). See `docs/client/management-commands.md`.

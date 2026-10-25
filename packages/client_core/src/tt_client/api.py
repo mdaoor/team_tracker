@@ -68,6 +68,34 @@ class TTApi:
     def post_feedback(self, items: list[dict[str, Any]]) -> None:
         self._json(self._req("POST", "/capture/feedback", json=items))
 
+    # -- management commands (Phase 14)
+    def post_commands(self, commands: list[dict[str, Any]]) -> tuple[int, dict[str, Any]]:
+        """`POST /commands`. Per-command status in `results[]`; the batch is 207 when any command was rejected."""
+        r = self._req("POST", "/commands", json={"workspace": self.cfg.workspace, "commands": commands})
+        try:
+            return r.status_code, r.json()
+        except ValueError:
+            return r.status_code, {"error": {"code": "bad_response", "message": r.text[:200]}}
+
+    def catalogue(self, etag: str | None = None) -> tuple[dict[str, Any] | None, str | None]:
+        headers = {"If-None-Match": etag} if etag else {}
+        r = self._req("GET", "/commands/catalogue", headers=headers)
+        if r.status_code == 304:
+            return None, etag
+        body = self._json(r)
+        return body, r.headers.get("etag") or body.get("etag")
+
+    def me(self) -> dict[str, Any]:
+        return dict(self._json(self._req("GET", "/me")))
+
+    def review_queue(self) -> list[dict[str, Any]]:
+        data = self._json(self._req("GET", "/review-queue", params={"mine": "true"}))
+        return list(data["data"] if isinstance(data, dict) else data)
+
+    def team_now(self) -> list[dict[str, Any]]:
+        data = self._json(self._req("GET", "/activities", params={"team": "mine", "status": "active"}))
+        return list(data["data"])
+
     # -- reads
     def active_activities(self) -> list[dict[str, Any]]:
         data = self._json(self._req("GET", "/activities", params={"status": "active", "person": "me"}))

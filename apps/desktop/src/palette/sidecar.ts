@@ -1,3 +1,4 @@
+import type { CommandBridge } from "./commands/types";
 import type { Bridge } from "./types";
 
 /** The real bridge: Tauri commands that talk to the `tt_client` Python sidecar (ADR-0016). It is only usable inside the Tauri
@@ -29,4 +30,32 @@ export const sidecarBridge: Bridge = {
   openInEditor: (batch) =>
     invoke("tt_open_editor", { batch }) as ReturnType<Bridge["openInEditor"]>,
   active: () => invoke("tt_active") as ReturnType<Bridge["active"]>,
+};
+
+/** Management commands (Phase 14): the same sidecar, `cmd-*` verbs (tt_client.sidecar_commands). */
+export const commandBridge: CommandBridge = {
+  state: () => invoke("tt_cmd_state") as ReturnType<CommandBridge["state"]>,
+  setRole: (mode) =>
+    invoke("tt_cmd_role", { mode }) as ReturnType<CommandBridge["setRole"]>,
+  propose: (text) =>
+    invoke("tt_cmd_propose", { text }) as ReturnType<CommandBridge["propose"]>,
+  fields: (op) =>
+    invoke("tt_cmd_fields", { op }) as ReturnType<CommandBridge["fields"]>,
+  build: (op, answers) =>
+    invoke("tt_cmd_build", { op, answers }) as ReturnType<
+      CommandBridge["build"]
+    >,
+  preview: (commands) =>
+    invoke("tt_cmd_preview", { commands }) as ReturnType<
+      CommandBridge["preview"]
+    >,
+  send: (commands, opts) =>
+    invoke("tt_cmd_send", { commands, ...opts }) as ReturnType<
+      CommandBridge["send"]
+    >,
+  queue: () => invoke("tt_cmd_queue") as ReturnType<CommandBridge["queue"]>,
+  resolve: (rows) =>
+    invoke("tt_cmd_resolve", { rows }) as ReturnType<CommandBridge["resolve"]>,
+  teamNow: () =>
+    invoke("tt_cmd_team_now") as ReturnType<CommandBridge["teamNow"]>,
 };

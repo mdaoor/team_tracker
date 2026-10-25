@@ -13,6 +13,15 @@ from pydantic import ValidationError
 from tt_schema.client import ClientBatch
 
 
+def _batch_id(batch: dict[str, Any]) -> str:
+    """First message's client_id, else the first command's (a commands-only batch is a valid outbox file)."""
+    if batch.get("messages"):
+        return str(batch["messages"][0]["client_id"])
+    if batch.get("commands"):
+        return str(batch["commands"][0]["client_id"])
+    raise ValueError("empty batch: no messages and no commands")
+
+
 @dataclass
 class Entry:
     batch_id: str
@@ -29,7 +38,10 @@ class Outbox:
         self.dir = data_dir / "outbox"
         self.sent_dir = self.dir / "sent"
         self.quarantine_dir = self.dir / "quarantine"
-        for d in (self.dir, self.sent_dir, self.quarantine_dir):
+        self.rejected_dir = (
+            self.dir / "rejected"
+        )  # commands the server refused (ADR-0052): kept for the person to fix
+        for d in (self.dir, self.sent_dir, self.quarantine_dir, self.rejected_dir):
             d.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(data_dir / "queue.db")
         self.db.execute(
@@ -42,7 +54,7 @@ class Outbox:
     # -- writing
     def write(self, batch: dict[str, Any], preview: dict[str, Any] | None = None) -> Entry:
         """Persist a batch as a pretty-printed JSON file and register it in the queue."""
-        batch_id = batch["messages"][0]["client_id"]
+        batch_id = _batch_id(batch)
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f")
         path = self.dir / f"{stamp}-{batch_id}.json"
         doc = {**batch, **({"_preview": preview} if preview else {})}
@@ -137,6 +149,8 @@ class Outbox:
 class SyncReport:
     sent: int = 0
     failed_messages: int = 0
+    rejected_commands: int = 0  # Phase 14: refused by the server; never retried blindly, never block the rest
+    applied_commands: int = 0
     quarantined: int = 0
     offline: bool = False
     kept: int = 0
@@ -171,10 +185,29 @@ def sync(api: Any, outbox: Outbox, only: list[Entry] | None = None) -> SyncRepor
         elif status in (200, 207):
             results = body.get("results", [])
             report.results.extend(results)  # type: ignore[union-attr]
-            failed = [r for r in results if r.get("status") == "failed"]
+            command_ids = {c["client_id"] for c in batch.get("commands", [])}
+            failed = [
+                r for r in results if r.get("status") == "failed" and r.get("client_id") not in command_ids
+            ]
+            rejected = [
+                r for r in results if r.get("status") == "rejected" and r.get("client_id") in command_ids
+            ]
+            report.applied_commands += sum(
+                1
+                for r in results
+                if r.get("client_id") in command_ids and r.get("status") in ("applied", "deduplicated")
+            )
+            if rejected:
+                report.rejected_commands += len(rejected)
+                _park_rejected(outbox, entry, batch, rejected)
             if failed:
                 report.failed_messages += len(failed)
                 outbox.mark_error(entry, json.dumps(failed))
+                batch["_done"] = [
+                    r["client_id"]
+                    for r in results
+                    if r.get("status") in ("applied", "applied_with_warnings", "deduplicated", "rejected")
+                ]
                 _drop_applied(outbox, entry, batch, failed)
             else:
                 outbox.mark_sent(entry)
@@ -186,7 +219,25 @@ def sync(api: Any, outbox: Outbox, only: list[Entry] | None = None) -> SyncRepor
 
 
 def _drop_applied(outbox: Outbox, entry: Entry, batch: dict[str, Any], failed: list[dict[str, Any]]) -> None:
-    """After a 207, keep only the failed messages so a retry never re-sends applied ones."""
-    failed_ids = {f["client_id"] for f in failed}
-    batch["messages"] = [m for m in batch["messages"] if m["client_id"] in failed_ids]
+    """After a 207, keep only what the server did not finish: failed messages and anything it never answered.
+
+    Applied / deduplicated messages and commands are done, rejected commands were parked: a retry never re-sends them."""
+    del failed  # the caller already counted them; `batch["_done"]` carries the finished ids
+    done: set[str] = set(batch.pop("_done", []))
+    batch["messages"] = [m for m in batch["messages"] if m["client_id"] not in done]
+    batch["commands"] = [c for c in batch.get("commands", []) if c["client_id"] not in done]
     entry.path.write_text(json.dumps(batch, indent=2, default=str))
+
+
+def _park_rejected(
+    outbox: Outbox, entry: Entry, batch: dict[str, Any], rejected: list[dict[str, Any]]
+) -> None:
+    """A rejected command is a final answer: write it with the server's reasons next to the outbox, drop it from the queue."""
+    by_id = {r["client_id"]: r for r in rejected}
+    parked = [
+        {"command": c, "rejection": by_id[c["client_id"]]}
+        for c in batch.get("commands", [])
+        if c["client_id"] in by_id
+    ]
+    (outbox.rejected_dir / entry.path.name).write_text(json.dumps(parked, indent=2, default=str))
+    batch["commands"] = [c for c in batch.get("commands", []) if c["client_id"] not in by_id]
