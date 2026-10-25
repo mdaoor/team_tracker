@@ -1,0 +1,15 @@
+{
+  "id": "report-1",
+  "attendanceRecords": [
+    {
+      "emailAddress": "sara@acme.com",
+      "totalAttendanceInSeconds": 3500,
+      "role": "Organizer"
+    },
+    {
+      "emailAddress": "mahmoud@acme.com",
+      "totalAttendanceInSeconds": 2700,
+      "role": "Attendee"
+    }
+  ]
+}
