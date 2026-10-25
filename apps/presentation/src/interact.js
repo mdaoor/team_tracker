@@ -1,4 +1,4 @@
-import { applyFilter } from "./util.js";
+import { applyFilter, esc } from "./util.js";
 import { itemsTable } from "./renderers/explore.js";
 
 /**
@@ -47,6 +47,6 @@ export function drillList(ctx, spec) {
   const items = applyFilter(ctx.items, spec.f, ctx.D);
   return {
     items,
-    html: `<h2>Items in selection <span class="sub">${items.length} · ${spec.label.replace(/[<>&]/g, "")}</span></h2>${itemsTable(ctx, items)}`,
+    html: `<h2>Items in selection <span class="sub">${items.length} · ${esc(spec.label)}</span></h2>${spec.note ? `<p class="drill-note">${esc(spec.note)}</p>` : ""}${itemsTable(ctx, items)}`,
   };
 }

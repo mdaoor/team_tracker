@@ -382,3 +382,10 @@ select:disabled {
 .s-body[data-shrink] {
   zoom: var(--fit, 1);
 }
+
+/* KPI drill: how the tile number relates to the list it opens (UX 14) */
+.drill-note {
+  margin: 0 0 10px;
+  color: var(--text-2);
+  font-size: 13px;
+}

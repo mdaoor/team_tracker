@@ -21,6 +21,8 @@ export function renderKpis(ctx) {
   const exposure = D.risks
     .filter((r) => riskKeys.has(r.key))
     .reduce((s, r) => s + r.p * r.i, 0);
+  const n = (f) => applyFilter(items, f, D).length;
+  const of = (f, what) => `${n(f)} item${n(f) === 1 ? "" : "s"} ${what}`;
   const tiles = [
     [
       "Open",
@@ -35,31 +37,61 @@ export function renderKpis(ctx) {
       ["active", { state: "active" }],
     ],
     ["Done", done.length, "in range", ["done", { state: "done" }]],
-    ["Hours", hours.toFixed(0), "logged", ["with hours", { hours: true }]],
+    [
+      "Hours",
+      hours.toFixed(0),
+      "logged",
+      [
+        "with hours",
+        { hours: true },
+        `${hours.toFixed(0)} h logged: ${of({ hours: true }, "with time")}`,
+      ],
+    ],
     [
       "Weighted throughput",
       wt,
       "Σ weight of done",
-      ["done", { state: "done" }],
+      [
+        "done",
+        { state: "done" },
+        `weight ${wt} over ${of({ state: "done" }, "done")}`,
+      ],
     ],
     [
       "On-time",
       done.length ? Math.round((onTime.length / done.length) * 100) + "%" : "—",
       "of finished items",
-      ["late", { late: true }],
+      [
+        "late",
+        { late: true },
+        `${n({ late: true })} of ${done.length} finished items were late`,
+      ],
     ],
-    ["Violations", v.length, "open", ["with violations", { violated: true }]],
+    [
+      "Violations",
+      v.length,
+      "open",
+      [
+        "with violations",
+        { violated: true },
+        `${v.length} open violation${v.length === 1 ? "" : "s"} on ${of({ violated: true }, "")}`.trim(),
+      ],
+    ],
     [
       "Risk exposure",
       exposure,
       "Σ p×i of linked risks",
-      ["with risk", { risk: true }],
+      [
+        "with risk",
+        { risk: true },
+        `exposure ${exposure} (Σ p×i): ${of({ risk: true }, "linked to a risk")}`,
+      ],
     ],
   ];
   return `<div class="kpis">${tiles
     .map(
       ([l, val, d, drill]) =>
-        `<div class="kpi" ${drill ? drillAttr(drill[0], drill[1]) : ""} tabindex="0" role="button"><div class="v">${val}</div><div class="l">${l}</div><div class="d">${d}</div></div>`,
+        `<div class="kpi" ${drill ? drillAttr(drill[0], drill[1], drill[2]) : ""} tabindex="0" role="button"><div class="v">${val}</div><div class="l">${l}</div><div class="d">${d}</div></div>`,
     )
     .join("")}</div>`;
 }

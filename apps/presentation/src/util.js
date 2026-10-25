@@ -35,8 +35,9 @@ export function applyFilter(items, f, D) {
     return true;
   });
 }
-export const drillAttr = (label, f) =>
-  `data-drill="${esc(JSON.stringify({ label, f }))}"`;
+/** `note` says how the number on the tile relates to the list it opens (e.g. "36 violations on 31 items"). */
+export const drillAttr = (label, f, note) =>
+  `data-drill="${esc(JSON.stringify(note ? { label, f, note } : { label, f }))}"`;
 
 export function keysOf(i, dim) {
   return dim === "tags" ? (i.tags.length ? i.tags : ["—"]) : [i[dim] ?? "—"];

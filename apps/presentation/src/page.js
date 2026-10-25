@@ -47,7 +47,13 @@ export function mountPage(root, ctx) {
       ]),
     ].join(" ");
     drillEl.innerHTML = state.path.length
-      ? `<section>${drillList(ctx, { f: {}, label: "" }).html}</section>`
+      ? `<section>${
+          drillList(ctx, {
+            f: {},
+            label: state.path.at(-1).label,
+            note: state.path.at(-1).note,
+          }).html
+        }</section>`
       : "";
     merged.forEach((s) => {
       const host = root.querySelector(
