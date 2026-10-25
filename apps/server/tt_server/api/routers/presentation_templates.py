@@ -7,21 +7,18 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from tt_schema.base import new_id
 from tt_schema.enums import TargetType
 
 from tt_server.api.authz import needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.clock import person_today
 from tt_server.db import models as m
-from tt_server.domain import deckdata
 from tt_server.domain import presentation_templates as tpl
 from tt_server.domain import presentations as pres
 from tt_server.domain.common import emit_after
-from tt_server.domain.snapshot import assembler
-from tt_server.query import service
+from tt_server.domain.deck_variables import template_variables
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["presentation-templates"])
 
@@ -248,48 +245,7 @@ class StatsScope(BaseModel):
 async def _variables(
     uow: Uow, actor: Actor, scope: str, range_days: int
 ) -> tuple[dict[str, Any], dict[str, int]]:
-    kind, ref = assembler.parse_scope(scope)
-    qc = deckdata.qctx(uow.session, actor.ws, actor.person, actor.member, actor.acl)
-    flt, label = await assembler._scope_filter(qc, kind, ref)  # noqa: SLF001
-
-    stmt = await service.filtered_items(
-        qc, {"and": [flt, {"not": {"type": {"in": ["epic", "phase", "deliverable"]}}}]}, m.WorkItem.id
-    )
-    items = int(await uow.session.scalar(select(func.count()).select_from(stmt.subquery())) or 0)
-    plan_stmt = await service.filtered_items(
-        qc, {"and": [flt, {"type": {"in": ["phase", "deliverable"]}}]}, m.WorkItem.id
-    )
-    plan_items = int(await uow.session.scalar(select(func.count()).select_from(plan_stmt.subquery())) or 0)
-    projects = (
-        (
-            await uow.session.scalar(
-                select(func.count())
-                .select_from(m.Project)
-                .where(m.Project.workspace_id == actor.ws.id, m.Project.deleted_at.is_(None))
-            )
-            or 0
-        )
-        if kind == "workspace"
-        else 1
-    )
-    pname = ""
-    if kind == "project":
-        pname = (
-            await uow.session.scalar(
-                select(m.Project.name).where(
-                    m.Project.workspace_id == actor.ws.id, m.Project.key == ref.upper()
-                )
-            )
-            or ""
-        )
-    today = person_today(actor.person)
-    variables = {
-        "scope.label": label, "scope.kind": kind, "scope.ref": ref, "scope.items": items, "scope.projects": projects,
-        "project.key": ref.upper() if kind == "project" else "", "project.name": pname, "range.days": range_days,
-        "range.from": (today.fromordinal(today.toordinal() - range_days)).isoformat(), "range.to": today.isoformat(),
-        "viewer.handle": actor.handle, "workspace.name": actor.ws.name, "today": today.isoformat(),
-    }  # fmt: skip
-    return variables, {"scope.items": items, "scope.projects": projects, "scope.plan_items": plan_items}
+    return await template_variables(uow, actor.ws, actor.person, actor.member, actor.acl, scope, range_days)
 
 
 class InstantiateIn(BaseModel):

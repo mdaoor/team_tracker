@@ -5,29 +5,22 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-import secrets
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
-from tt_schema.base import new_id, utcnow
-from tt_schema.enums import TargetType
 
-from tt_server.acl.context import load_context
 from tt_server.api.authz import check, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.presentation_templates import _variables
 from tt_server.csp import add_nonce, html_csp, new_nonce
 from tt_server.db import models as m
 from tt_server.domain import deckdata
-from tt_server.domain import presentation_templates as ptpl
+from tt_server.domain import presentation_service as svc
 from tt_server.domain import presentations as pres
-from tt_server.domain.common import emit_after
 from tt_server.domain.snapshot import json_schema, parse_scope
 from tt_server.exports import presentation as exp
 
@@ -46,11 +39,7 @@ BUNDLE = Path(__file__).resolve().parents[4] / "presentation" / "dist" / "presen
 
 
 def _ev(uow: Uow, actor: Actor, p: m.Presentation, event: str, **payload: Any) -> None:
-    # a presentation is a saved, shareable bundle of views: its events ride on the `saved_view` entity type (ADR-0021)
-    emit_after(
-        uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.SAVED_VIEW,
-        entity_id=p.id, event_type=event, title=p.title, **payload,
-    )  # fmt: skip
+    svc.announce(uow, actor.ws.id, actor.person.id, p, event, **payload)
 
 
 # ---------------------------------------------------------------- snapshot
@@ -109,18 +98,7 @@ class PresentationPatch(BaseModel):
 
 
 async def _get(actor: Actor, uow: Uow, pid: str, *, write: bool = False) -> m.Presentation:
-    p = await uow.session.scalar(
-        select(m.Presentation).where(
-            m.Presentation.id == pid,
-            m.Presentation.workspace_id == actor.ws.id,
-            m.Presentation.deleted_at.is_(None),
-        )
-    )
-    if p is None or not (p.owner_id == actor.person.id or p.is_shared or p.is_template or actor.acl.is_admin):
-        raise ApiError(404, "not_found", "presentation not found")
-    if write and p.owner_id != actor.person.id and not actor.acl.is_admin:
-        raise ApiError(403, "forbidden", "only the owner may change a presentation")
-    return p
+    return await svc.get_visible(uow, actor.ws.id, actor.person.id, actor.acl.is_admin, pid, write=write)
 
 
 def _check_shared(actor: Actor, shared: bool) -> None:
@@ -129,61 +107,33 @@ def _check_shared(actor: Actor, shared: bool) -> None:
 
 
 async def _check_refs(uow: Uow, actor: Actor, scope: str, scheme_id: str | None) -> None:
-    pres.parse_scope_ref(scope)
-    if scheme_id:
-        await deckdata.scheme_by_ref(uow.session, actor.ws.id, scheme_id)
+    await svc.check_refs(uow, actor.ws.id, scope, scheme_id)
 
 
 @router.get("/presentations/templates")
 async def templates(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """The gallery as the builder's "Start from template" list (the full CRUD lives under /presentation-templates)."""
-    rows = (
-        await uow.session.scalars(
-            select(m.PresentationTemplate)
-            .where(
-                (m.PresentationTemplate.workspace_id == actor.ws.id)
-                | m.PresentationTemplate.workspace_id.is_(None),
-                m.PresentationTemplate.deleted_at.is_(None),
-            )
-            .order_by(
-                m.PresentationTemplate.is_builtin.desc(),
-                m.PresentationTemplate.key,
-                m.PresentationTemplate.version.desc(),
-            )
-        )
-    ).all()
-    seen: set[str] = set()
-    data = []
-    for r in rows:
-        if r.key in seen or not (
-            r.is_builtin or r.is_shared or r.owner_id == actor.person.id or actor.acl.is_admin
-        ):
-            continue
-        seen.add(r.key)
-        data.append(
-            {
-                "key": r.key,
-                "title": r.body["name"],
-                "slides": [s["kind"] for s in r.body["slides"]],
-                "params": r.body.get("params", []),
-                "builtin": r.is_builtin,
-            }
-        )
-    return {"data": data, "next_cursor": None}
+    return {
+        "data": await svc.template_gallery(uow, actor.ws.id, actor.person.id, actor.acl.is_admin),
+        "next_cursor": None,
+    }
 
 
 @router.post("/presentations", status_code=201, dependencies=[needs("view.save")])
 async def create(body: PresentationIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     _check_shared(actor, body.is_shared)
-    await _check_refs(uow, actor, body.scope, body.weight_scheme_id)
-    p = m.Presentation(
-        id=new_id(), workspace_id=actor.ws.id, owner_id=actor.person.id, title=body.title, scope=body.scope,
-        range_days=body.range_days, weight_scheme_id=body.weight_scheme_id, theme=body.theme,
-        slides=pres.normalise_slides(body.slides), is_shared=body.is_shared,
-    )  # fmt: skip
-    uow.session.add(p)
-    await uow.session.flush()
-    _ev(uow, actor, p, "presentation.created", slides=len(p.slides))
+    p = await svc.create(
+        uow,
+        actor.ws.id,
+        actor.person.id,
+        title=body.title,
+        scope=body.scope,
+        range_days=body.range_days,
+        weight_scheme_id=body.weight_scheme_id,
+        theme=body.theme,
+        slides=body.slides,
+        is_shared=body.is_shared,
+    )
     await uow.commit()
     return deckdata.presentation_dict(p)
 
@@ -201,28 +151,18 @@ class FromTemplate(BaseModel):
 async def from_template(body: FromTemplate, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """Copy a template into a new deck. The deck keeps `template_id`/`template_version` as provenance only (copy semantics)."""
 
-    await _check_refs(uow, actor, body.scope, body.weight_scheme_id)
-    row = await ptpl.find(uow.session, actor.ws.id, body.template, viewer_id=actor.person.id)
-    parsed, errors = ptpl.validate_body(row.body)
-    if parsed is None:
-        raise ApiError(500, "invalid_template", errors[0]["message"])
-    variables, stats = await _variables(uow, actor, body.scope, body.range_days)
-    title, slides = ptpl.instantiate(parsed, body.params, variables, stats)
-    p = m.Presentation(
-        id=new_id(), workspace_id=actor.ws.id, owner_id=actor.person.id, title=body.title or title, scope=body.scope,
-        range_days=body.range_days, weight_scheme_id=body.weight_scheme_id, slides=pres.normalise_slides(slides),
-        template_id=row.id, template_version=row.version,
-    )  # fmt: skip
-    uow.session.add(p)
-    await uow.session.flush()
-    _ev(
+    p = await svc.create_from_template(
         uow,
-        actor,
-        p,
-        "presentation.created",
-        template=row.key,
-        template_version=row.version,
-        slides=len(p.slides),
+        actor.ws,
+        actor.person,
+        actor.member,
+        actor.acl,
+        template=body.template,
+        title=body.title,
+        scope=body.scope,
+        range_days=body.range_days,
+        weight_scheme_id=body.weight_scheme_id,
+        params=body.params,
     )
     await uow.commit()
     return deckdata.presentation_dict(p)
@@ -230,22 +170,8 @@ async def from_template(body: FromTemplate, actor: CurrentActor, uow: Uow) -> di
 
 @router.get("/presentations")
 async def list_presentations(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    rows = (
-        await uow.session.scalars(
-            select(m.Presentation)
-            .where(
-                m.Presentation.workspace_id == actor.ws.id,
-                m.Presentation.deleted_at.is_(None),
-                m.Presentation.is_template.is_(False),
-            )
-            .order_by(m.Presentation.updated_at.desc())
-        )
-    ).all()
-    mine = [r for r in rows if r.owner_id == actor.person.id or r.is_shared or actor.acl.is_admin]
-    return {
-        "data": [{**deckdata.presentation_dict(p), "mine": p.owner_id == actor.person.id} for p in mine],
-        "next_cursor": None,
-    }
+    data = await svc.list_visible(uow, actor.ws.id, actor.person.id, actor.acl.is_admin)
+    return {"data": data, "next_cursor": None}
 
 
 @router.get("/presentations/{pid}")
@@ -261,19 +187,7 @@ async def patch_presentation(
     data = body.model_dump(exclude_unset=True)
     if data.get("is_shared"):
         _check_shared(actor, True)
-    await _check_refs(uow, actor, data.get("scope", p.scope), data.get("weight_scheme_id"))
-    if "slides" in data:
-        p.slides = pres.normalise_slides(body.slides or [])
-        data.pop("slides")
-    for k, v in data.items():
-        setattr(p, k, v)
-    _ev(
-        uow,
-        actor,
-        p,
-        "presentation.updated",
-        fields=sorted([*data, *(["slides"] if body.slides is not None else [])]),
-    )
+    await svc.update(uow, actor.ws.id, actor.person.id, p, data, body.slides)
     await uow.commit()
     return deckdata.presentation_dict(p)
 
@@ -281,9 +195,7 @@ async def patch_presentation(
 @router.delete("/presentations/{pid}", status_code=204)
 async def delete_presentation(pid: str, actor: CurrentActor, uow: Uow) -> Response:
     p = await _get(actor, uow, pid, write=True)
-    p.deleted_at = utcnow()
-    p.share_token = None
-    _ev(uow, actor, p, "presentation.deleted")
+    svc.delete(uow, actor.ws.id, actor.person.id, p)
     await uow.commit()
     return Response(status_code=204)
 
@@ -291,17 +203,7 @@ async def delete_presentation(pid: str, actor: CurrentActor, uow: Uow) -> Respon
 @router.post("/presentations/{pid}:restore")
 async def restore_presentation(pid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """Undo a delete (UX 6). The share link stays revoked: re-share explicitly."""
-    p = await uow.session.scalar(
-        select(m.Presentation).where(
-            m.Presentation.id == pid,
-            m.Presentation.workspace_id == actor.ws.id,
-            m.Presentation.deleted_at.is_not(None),
-        )
-    )
-    if p is None or not (p.owner_id == actor.person.id or actor.acl.is_admin):
-        raise ApiError(404, "not_found", "presentation not found")
-    p.deleted_at = None
-    _ev(uow, actor, p, "presentation.restored")
+    p = await svc.restore(uow, actor.ws.id, actor.person.id, actor.acl.is_admin, pid)
     await uow.commit()
     return deckdata.presentation_dict(p)
 
@@ -309,14 +211,7 @@ async def restore_presentation(pid: str, actor: CurrentActor, uow: Uow) -> dict[
 @router.post("/presentations/{pid}:duplicate", status_code=201, dependencies=[needs("view.save")])
 async def duplicate(pid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     src = await _get(actor, uow, pid)
-    p = m.Presentation(
-        id=new_id(), workspace_id=actor.ws.id, owner_id=actor.person.id, title=f"{src.title} (copy)", scope=src.scope,
-        range_days=src.range_days, weight_scheme_id=src.weight_scheme_id, theme=src.theme,
-        slides=[{**s, "id": new_id()} for s in src.slides],
-    )  # fmt: skip
-    uow.session.add(p)
-    await uow.session.flush()
-    _ev(uow, actor, p, "presentation.created", duplicated_from=src.id)
+    p = await svc.duplicate(uow, actor.ws.id, actor.person.id, src)
     await uow.commit()
     return deckdata.presentation_dict(p)
 
@@ -329,11 +224,7 @@ class SlideAdd(BaseModel):
 @router.post("/presentations/{pid}/slides", status_code=201)
 async def add_slide(pid: str, body: SlideAdd, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _get(actor, uow, pid, write=True)
-    cur = [pres.SlideIn(**{k: v for k, v in s.items() if k != "position"}) for s in p.slides]
-    at = len(cur) if body.position is None else max(0, min(body.position, len(cur)))
-    cur.insert(at, body.slide)
-    p.slides = pres.normalise_slides(cur)
-    _ev(uow, actor, p, "presentation.slide_added", kind=body.slide.kind)
+    svc.add_slide(uow, actor.ws.id, actor.person.id, p, body.slide, body.position)
     await uow.commit()
     return deckdata.presentation_dict(p)
 
@@ -351,15 +242,7 @@ class SlidePatch(BaseModel):
 @router.patch("/presentations/{pid}/slides/{sid}")
 async def patch_slide(pid: str, sid: str, body: SlidePatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _get(actor, uow, pid, write=True)
-    if sid not in {s["id"] for s in p.slides}:
-        raise ApiError(404, "not_found", "slide not found")
-    upd = body.model_dump(exclude_unset=True)
-    cur = [
-        pres.SlideIn(**{k: v for k, v in ({**s, **upd} if s["id"] == sid else s).items() if k != "position"})
-        for s in p.slides
-    ]
-    p.slides = pres.normalise_slides(cur)
-    _ev(uow, actor, p, "presentation.updated", slide=sid)
+    svc.patch_slide(uow, actor.ws.id, actor.person.id, p, sid, body.model_dump(exclude_unset=True))
     await uow.commit()
     return deckdata.presentation_dict(p)
 
@@ -367,13 +250,7 @@ async def patch_slide(pid: str, sid: str, body: SlidePatch, actor: CurrentActor,
 @router.delete("/presentations/{pid}/slides/{sid}")
 async def delete_slide(pid: str, sid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _get(actor, uow, pid, write=True)
-    keep = [s for s in p.slides if s["id"] != sid]
-    if len(keep) == len(p.slides):
-        raise ApiError(404, "not_found", "slide not found")
-    p.slides = pres.normalise_slides(
-        [pres.SlideIn(**{k: v for k, v in s.items() if k != "position"}) for s in keep]
-    )
-    _ev(uow, actor, p, "presentation.updated", removed=sid)
+    svc.delete_slide(uow, actor.ws.id, actor.person.id, p, sid)
     await uow.commit()
     return deckdata.presentation_dict(p)
 
@@ -385,13 +262,7 @@ class Reorder(BaseModel):
 @router.put("/presentations/{pid}/slides:reorder")
 async def reorder(pid: str, body: Reorder, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _get(actor, uow, pid, write=True)
-    by_id = {s["id"]: s for s in p.slides}
-    if sorted(body.ids) != sorted(by_id):
-        raise ApiError(400, "invalid_order", "ids must list every slide exactly once", pointer="/ids")
-    p.slides = pres.normalise_slides(
-        [pres.SlideIn(**{k: v for k, v in by_id[i].items() if k != "position"}) for i in body.ids]
-    )
-    _ev(uow, actor, p, "presentation.updated", reordered=True)
+    svc.reorder_slides(uow, actor.ws.id, actor.person.id, p, body.ids)
     await uow.commit()
     return deckdata.presentation_dict(p)
 
@@ -464,54 +335,18 @@ class ShareIn(BaseModel):
 async def share(pid: str, body: ShareIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _get(actor, uow, pid, write=True)
     check(actor, "view.share")
-    if body.enabled:
-        if not (actor.ws.settings or {}).get("external_share"):
-            raise ApiError(
-                409,
-                "not_enabled",
-                "external sharing is disabled for this workspace (settings.external_share)",
-            )
-        p.share_token = "pt_" + secrets.token_urlsafe(24)
-        p.share_expires_at = utcnow() + timedelta(days=body.expires_in_days) if body.expires_in_days else None
-    else:
-        p.share_token, p.share_expires_at = None, None
-    _ev(uow, actor, p, "presentation.shared", enabled=body.enabled)
+    out = svc.set_sharing(
+        uow, actor.ws, actor.person.id, p, enabled=body.enabled, expires_in_days=body.expires_in_days
+    )
     await uow.commit()
-    return {
-        "token": p.share_token,
-        "url": f"/p/t/{p.share_token}" if p.share_token else None,
-        "expires_at": p.share_expires_at,
-    }
+    return out
 
 
 # ---------------------------------------------------------------- public (token) + deck shell
 @public.get("/api/v1/public/p/{token}/data")
 async def public_data(token: str, request: Request) -> dict[str, Any]:
     """Read-only external viewing: the deck is rendered with its *owner's* visibility, only while the token is live."""
-    async with request.app.state.session_factory() as session:
-        p = await session.scalar(
-            select(m.Presentation).where(
-                m.Presentation.share_token == token, m.Presentation.deleted_at.is_(None)
-            )
-        )
-        if p is None or (p.share_expires_at and p.share_expires_at < utcnow()):
-            raise ApiError(404, "not_found", "this link is not valid")
-        ws = await session.get(m.Workspace, p.workspace_id)
-        member = await session.scalar(
-            select(m.WorkspaceMember).where(
-                m.WorkspaceMember.workspace_id == p.workspace_id, m.WorkspaceMember.person_id == p.owner_id
-            )
-        )
-        person = await session.get(m.Person, p.owner_id)
-        if ws is None or member is None or person is None or not (ws.settings or {}).get("external_share"):
-            raise ApiError(404, "not_found", "this link is not valid")
-        acl = await load_context(session, ws.id, person.id)
-        qc = deckdata.qctx(session, ws, person, member, acl)
-        out = await deckdata.deck_data(qc, ws, p, viewer=f"shared by {member.handle}")
-        out["presentation"].pop("owner_id", None)
-        return deckdata.redact_for_share(
-            out, str((ws.settings or {}).get("external_share_redaction", "standard"))
-        )
+    return await svc.public_data(request.app.state.session_factory, token)
 
 
 def _shell(extra: str, *, framable: bool = False) -> HTMLResponse:
