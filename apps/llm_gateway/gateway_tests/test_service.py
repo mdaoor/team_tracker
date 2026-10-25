@@ -93,7 +93,9 @@ async def test_sql_storage_round_trips_runs_and_budgets() -> None:
         )
         assert sorted(held) == [False, False, False, True]
         assert await store.spent("acme", day) == Decimal("1.0")
-        assert await store.reserve("tiny", day, Decimal("0.5"), Decimal("0.1")) is False  # a hold larger than the limit
+        assert (
+            await store.reserve("tiny", day, Decimal("0.5"), Decimal("0.1")) is False
+        )  # a hold larger than the limit
     finally:
         import sqlalchemy as sa
 

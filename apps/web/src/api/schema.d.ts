@@ -88,7 +88,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Activities */
+        /**
+         * List Activities
+         * @description My activities, one person's, or (`team=mine`) the active work of the people I manage or lead (Phase 14 "team now").
+         */
         get: operations["list_activities_api_v1_w__ws__activities_get"];
         put?: never;
         post?: never;
@@ -197,7 +200,10 @@ export interface paths {
         put?: never;
         /**
          * Post Batch
-         * @description Apply a ClientBatch: 200 applied/deduplicated, 207 if any message failed, 422 on schema violation.
+         * @description Apply a ClientBatch: messages first, then commands, in order and under one correlation id.
+         *
+         *     200 applied/deduplicated, 207 if any message failed or any command was rejected, 422 on schema violation, 403 when the token
+         *     may only capture but the batch carries commands.
          */
         post: operations["post_batch_api_v1_w__ws__capture_batches_post"];
         delete?: never;
@@ -324,6 +330,46 @@ export interface paths {
          * @description Store pre-filled, *unconfirmed* classifications; the review queue shows them with confidence.
          */
         post: operations["bulk_suggested_api_v1_w__ws__classifications_suggested_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Commands
+         * @description Apply or preview commands in order; a rejected command never fails the others. 207 when any was rejected.
+         */
+        post: operations["post_commands_api_v1_w__ws__commands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/commands/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Catalogue
+         * @description Every op with its JSON Schema, permission and safety flags. Conditional on `If-None-Match`.
+         */
+        get: operations["get_catalogue_api_v1_w__ws__commands_catalogue_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1343,6 +1389,26 @@ export interface paths {
         put?: never;
         /** Add Link */
         post: operations["add_link_api_v1_w__ws__items__ref__links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/items:merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Items
+         * @description Direct form of `item.merge` (same service, same permission, same events).
+         */
+        post: operations["merge_items_api_v1_w__ws__items_merge_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4227,6 +4293,45 @@ export interface components {
             /** Value */
             value: string;
         };
+        /**
+         * ClientCommand
+         * @description A management command (Phase 14, ADR-0051/0052): unlike a capture message it is authorised and validated
+         *     server-side and MAY be rejected. `args` is validated against the op's `args_schema` from `GET /commands/catalogue`.
+         *
+         *     `args["_meta"]` (optional) carries `{"client_version", "mode", "role_mode", "forced"}`; the server records it in the
+         *     event payload (audit). `preview_only=True` asks for the effect without writing anything.
+         */
+        ClientCommand: {
+            /** Actor */
+            actor: string;
+            /** Args */
+            args?: {
+                [key: string]: unknown;
+            };
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Client Id */
+            client_id: string;
+            /** On Behalf Of */
+            on_behalf_of?: string | null;
+            /** Op */
+            op: string;
+            /**
+             * Preview Only
+             * @default false
+             */
+            preview_only: boolean;
+        };
+        /** CommandsIn */
+        CommandsIn: {
+            /** Commands */
+            commands: components["schemas"]["ClientCommand"][];
+            /** Workspace */
+            workspace?: string | null;
+        };
         /** CommentIn */
         CommentIn: {
             /** Body */
@@ -4749,6 +4854,25 @@ export interface components {
          * @enum {string}
          */
         MembershipRole: "lead" | "member" | "viewer";
+        /** MergeIn */
+        MergeIn: {
+            /**
+             * Allow Cross Project
+             * @default false
+             */
+            allow_cross_project: boolean;
+            /** New Title */
+            new_title?: string | null;
+            /**
+             * Preview
+             * @default false
+             */
+            preview: boolean;
+            /** Sources */
+            sources: string[];
+            /** Target */
+            target?: string | null;
+        };
         /**
          * MilestoneKind
          * @enum {string}
@@ -5962,6 +6086,7 @@ export interface operations {
                 status?: components["schemas"]["ActivityStatus"] | null;
                 person?: string;
                 limit?: number;
+                team?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -6551,6 +6676,78 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_commands_api_v1_w__ws__commands_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_catalogue_api_v1_w__ws__commands_catalogue_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -9402,6 +9599,44 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_items_api_v1_w__ws__items_merge_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

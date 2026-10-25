@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from tt_schema import client_message_json_schema
 
+from tt_server.api.commands.router import router as commands_router
 from tt_server.api.errors import error_body, install_error_handlers
 from tt_server.api.routers import (
     access,
@@ -101,6 +102,7 @@ def create_app(
         presentations.router,
         presentations.public,
         presentations.shell,
+        commands_router,  # `/items:merge` and `/commands/*` before core's `/items/{id_or_key}`
         llm.router,  # before core: `/items/search` must win over `/items/{id_or_key}`
         capture.router,
         privacy.router,

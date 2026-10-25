@@ -165,7 +165,9 @@ async def test_concurrent_requests_cannot_overspend_at_the_boundary() -> None:
         privacy_mode="cloud",
         budgets={"default_usd_per_workspace_per_day": 0.01, "reserve_usd_per_request": 0.01},
     )
-    r = router(cfg, SlowBackend(default=lambda kw: Completion(content="{}", model=kw["model"], cost_usd=0.01)))
+    r = router(
+        cfg, SlowBackend(default=lambda kw: Completion(content="{}", model=kw["model"], cost_usd=0.01))
+    )
     results = await asyncio.gather(
         *(r.complete("agent", [{"role": "user", "content": "x"}], workspace="acme") for _ in range(6)),
         return_exceptions=True,

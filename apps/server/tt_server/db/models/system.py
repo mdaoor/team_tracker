@@ -93,3 +93,15 @@ class IdpGroupMapping(WorkspaceScopedMixin, RowBase):
     scope_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
     team_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("teams.id"), nullable=True)
     __table_args__ = (sa.Index("ix_idp_group_mappings_group", "workspace_id", sa.text('lower("group")')),)
+
+
+class CommandLog(WorkspaceScopedMixin, RowBase):
+    """Idempotency + audit of management commands: one row per (workspace, client_id), holding the stored result."""
+
+    __tablename__ = "command_log"
+    client_id: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    actor_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=False)
+    op: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    status: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    result: Mapped[Any] = mapped_column(JSONB(), nullable=False, default=dict)
+    __table_args__ = (sa.UniqueConstraint("workspace_id", "client_id", name="uq_command_log_client"),)

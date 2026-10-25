@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from tt_schema.enums import TargetType
 
+from tt_server.acl.modes import modes_for, role_keys
 from tt_server.acl.visibility import redact_event, visible
 from tt_server.api.authz import needs, needs_review
 from tt_server.api.deps import CurrentActor, Uow
@@ -190,7 +191,7 @@ def nav_access(actor: Any) -> dict[str, bool]:
 
 
 @router.get("/me")
-async def me(actor: CurrentActor) -> dict[str, Any]:
+async def me(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     return {
         "person_id": actor.person.id,
         "handle": actor.member.handle,
@@ -200,6 +201,8 @@ async def me(actor: CurrentActor) -> dict[str, Any]:
         "can_review": bool(actor.acl.can("review_queue.resolve") or actor.acl.managed_ids),
         "can": {p: bool(actor.acl.can(p)) for p in _CAN},
         "nav": nav_access(actor),
+        "roles": role_keys(actor.acl),
+        "role_modes": await modes_for(uow.session, actor.acl),
         "settings": {"external_share": bool((actor.ws.settings or {}).get("external_share"))},
     }
 

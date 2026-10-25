@@ -23,7 +23,9 @@ async def test_every_non_native_enum_column_has_a_check_constraint(engine: Async
             r[0]
             for r in (
                 await conn.execute(
-                    text("select conname from pg_constraint where contype = 'c' and connamespace = 'public'::regnamespace")
+                    text(
+                        "select conname from pg_constraint where contype = 'c' and connamespace = 'public'::regnamespace"
+                    )
                 )
             ).all()
         }

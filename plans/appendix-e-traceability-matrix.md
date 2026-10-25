@@ -81,3 +81,7 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | P12 §5 | Rate limits, CSP/headers, threat model | 12 | `tests/api/test_acl_hardening.py`, `docs/security/threat-model.md` |
 | P12 §6–7 | Deployment artefacts, config reference, docs | 12 | `tests/unit/test_config_reference.py`, `deploy/`, `docs/ops/`, `docs/runbooks/`, `docs/guides/` |
 
+| P14 | Role modes, command catalogue and endpoint, `POST /commands`, commands in `/capture/batches` | 14 | `apps/server/tests/api/test_commands.py`, `docs/client/management-commands.md`, ADR‑0050, ADR‑0056 |
+| P14 | `item.merge` / `item.split` services, direct `POST /items:merge`, merge property test | 14 | `tests/api/test_commands.py` (merge, split, property), `domain/items/merge.py`, ADR‑0050 |
+| P14 | ContextPack role context, `GET /activities?team=mine`, `GET /me` role modes | 14 | `tests/api/test_commands.py::test_context_pack_carries_role_context_and_team_now` |
+| P14 | Role presets (scrum master, coach, project manager) and the role × op authorisation matrix | 14 | `tests/api/test_commands.py` (matrix, scrum master, coach, forged capture token) |

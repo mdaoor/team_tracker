@@ -10,6 +10,8 @@ from pydantic import Field
 from tt_schema.base import TTModel as _Client
 from tt_schema.enums import ItemTypeKey, Priority, StrEnum
 
+CLIENT_SCHEMA_VERSION = "0.2"  # ADR-0051: ClientBatch gains `commands[]`
+
 
 class ClientAction(StrEnum):
     START = "start"
@@ -67,12 +69,35 @@ class ClientMessage(_Client):
     jira: Optional[dict[str, Any]] = None  # {"project":"WEB","issuetype":"Task"} pass-through
 
 
+class ClientCommand(_Client):
+    """A management command (Phase 14, ADR-0051/0052): unlike a capture message it is authorised and validated
+    server-side and MAY be rejected. `args` is validated against the op's `args_schema` from `GET /commands/catalogue`.
+
+    `args["_meta"]` (optional) carries `{"client_version", "mode", "role_mode", "forced"}`; the server records it in the
+    event payload (audit). `preview_only=True` asks for the effect without writing anything."""
+
+    client_id: str  # idempotency key
+    actor: str  # "@handle"
+    at: datetime
+    op: str  # e.g. "project.create"
+    args: dict[str, Any] = Field(default_factory=dict)
+    on_behalf_of: Optional[str] = None
+    preview_only: bool = False
+
+
 class ClientBatch(_Client):
-    """A client can send several messages at once (offline sync, 'doing 1,2,3')."""
+    """A client can send several messages at once (offline sync, 'doing 1,2,3').
+
+    Schema 0.2 (ADR-0051): `commands[]` sits next to `messages[]`; the server runs messages first, then commands, in order."""
 
     workspace: str
     messages: list[ClientMessage]
-    client_version: str = "0.1"
+    client_version: str = (
+        "0.1"  # spec default (parity); clients that know commands send CLIENT_SCHEMA_VERSION
+    )
+    commands: list[ClientCommand] = Field(
+        default_factory=list
+    )  # ADR-0051: schema addition, backwards compatible
     mode: Optional[Literal["assisted", "manual"]] = None  # ADR-0004: schema addition, backwards compatible
 
 

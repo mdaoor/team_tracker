@@ -330,7 +330,10 @@ async def test_capture_pipeline_completion_in_one_correlation(sapi: Api, seed_sf
     assert prov["product"][0]["value"] == "DPLAT" and prov["product"][0]["source"] == "inherited"
     assert prov["stage"][0]["value"] == "discovery"
     w = (await sapi.call("GET", f"/items/{key}/weights")).json()
-    assert sorted(r["scheme"] for r in w["data"]) == ["default", "effort-only"] and Decimal(w["item_weight"]) == 1
+    assert (
+        sorted(r["scheme"] for r in w["data"]) == ["default", "effort-only"]
+        and Decimal(w["item_weight"]) == 1
+    )
     evs = await events_of(seed_sf, key)
     assert {"item.created", "stage.moved"} <= {e.event_type for e in evs}
     assert len({e.correlation_id for e in evs}) == 1

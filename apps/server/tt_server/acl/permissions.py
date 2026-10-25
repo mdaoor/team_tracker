@@ -71,6 +71,21 @@ class RoleSpec:
     scoped: bool = False  # may be assigned at project/team/product scope
 
 
+SCRUM_MASTER = "scrum_master"
+COACH = "coach"
+PROJECT_MANAGER = "project_manager"
+
+_SCRUM_MASTER = _CONTRIBUTOR | {
+    "item.write_overlay",
+    "classification.write",
+    "iteration.write",
+    "milestone.write",
+    "approval.request",
+    "review_queue.resolve",
+}
+# a coach reads people-and-habit data and writes notes, never items (Phase 14 role presets)
+_COACH = _CONTRIBUTOR - {"item.write_capture"} | {"habit.view_team", "habit.coach", "context_note.write"}
+
 ROLES: dict[str, RoleSpec] = {
     r.key: r
     for r in (
@@ -78,6 +93,9 @@ ROLES: dict[str, RoleSpec] = {
         RoleSpec(MANAGER, "Manager", _MANAGER, scoped=True),
         RoleSpec(PROJECT_OWNER, "Project owner", _PROJECT_OWNER, scoped=True),
         RoleSpec(CONTRIBUTOR, "Contributor", _CONTRIBUTOR, scoped=True),
+        RoleSpec(SCRUM_MASTER, "Scrum master", _SCRUM_MASTER, scoped=True),
+        RoleSpec(COACH, "Coach", frozenset(_COACH), scoped=True),
+        RoleSpec(PROJECT_MANAGER, "Project manager", _PROJECT_OWNER, scoped=True),
         RoleSpec(VIEWER, "Viewer", frozenset({"item.read", "view.read"}), scoped=True),
         RoleSpec("feature_admin:dimensions", "Dimension admin", frozenset({"dimension.admin"})),
         RoleSpec("feature_admin:process", "Process admin", frozenset({"process.admin"})),

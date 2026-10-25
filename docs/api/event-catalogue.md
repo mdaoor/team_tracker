@@ -12,6 +12,8 @@ event_types:
   - team.created
   - team.updated
   - membership.changed
+  - team.members_changed  # command-level summary of a team membership change (Phase 14)
+  - command.previewed  # optional audit of a preview (off by default)
   - reporting_line.changed
   - context_note.*
   # projects
@@ -44,6 +46,8 @@ event_types:
   - item.planned_end_set
   - item.field_conflict
   - item.deleted
+  - item.merged  # sources folded into a target (Phase 14, ADR-0050)
+  - item.split  # an item split into siblings (Phase 14)
   - item.linked
   - item.unlinked
   - item.custom_field_set

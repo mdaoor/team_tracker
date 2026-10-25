@@ -12,6 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow `docs/op
 * Phase 11 shells: Slack bot logic, desktop/mobile palette package (Tauri shell scaffolded, not built).
 * Phase 12: rate limiting, security headers/CSP, Prometheus metrics + Grafana/alert rules, retention purge, GDPR export/erase, `verify-projection`, backup/restore drill scripts,
   systemd units, Helm chart (unverified), config reference generated from `Settings`, threat model, runbooks, guides.
+* Phase 14 (server): management commands (`GET /commands/catalogue`, `POST /commands`, commands inside `/capture/batches`, `POST /items:merge`) with 45 ops over the same services as the web console, `item.merge`/`item.split`, role presets (scrum master, coach, project manager) and role modes in `GET /me`, ContextPack role context, `GET /activities?team=mine`, migration 0013 (`command_log`).
 ### Changed
 * Light-theme text colours darkened to meet WCAG AA contrast.
 ### Fixed

@@ -39,6 +39,10 @@ def emit(
     """
     if (run_id := uow.context.get("agent_run_id")) and "agent_run_id" not in (payload or {}):
         payload = {**(payload or {}), "agent_run_id": run_id}
+    if (cmd := uow.context.get("command")) and "command" not in (payload or {}):
+        # a management command from a client: every event it causes says which op, from which client and mode (Phase 14)
+        payload = {**(payload or {}), "command": cmd}
+        source = EventSource.CLIENT
     event = Event(
         workspace_id=workspace_id,
         actor_id=actor_id,

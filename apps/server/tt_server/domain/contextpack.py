@@ -13,6 +13,7 @@ from tt_schema.base import utcnow
 from tt_schema.enums import ActivityStatus, Priority, ProjectKind, StateCategory, TargetType
 
 from tt_server.db import models as m
+from tt_server.domain.contextpack_roles import role_context
 
 SCHEMA_VERSION = 1
 MAX_ITEMS, MAX_TAGS, MAX_PEOPLE = 200, 300, 300
@@ -288,6 +289,7 @@ async def build_pack(
 
     truncated = len(item_rows) > MAX_ITEMS or len(tag_rows) >= MAX_TAGS or len(people_rows) >= MAX_PEOPLE
     return {
+        **await role_context(session, ws, person_id),
         "context_schema_version": SCHEMA_VERSION,
         "actor": member.handle,
         "workspace": ws.slug,

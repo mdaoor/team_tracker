@@ -364,6 +364,87 @@
         "title": "ClassifyIn",
         "type": "object"
       },
+      "ClientCommand": {
+        "additionalProperties": false,
+        "description": "A management command (Phase 14, ADR-0051/0052): unlike a capture message it is authorised and validated\nserver-side and MAY be rejected. `args` is validated against the op's `args_schema` from `GET /commands/catalogue`.\n\n`args[\"_meta\"]` (optional) carries `{\"client_version\", \"mode\", \"role_mode\", \"forced\"}`; the server records it in the\nevent payload (audit). `preview_only=True` asks for the effect without writing anything.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "args": {
+            "additionalProperties": true,
+            "title": "Args",
+            "type": "object"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          },
+          "on_behalf_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "On Behalf Of"
+          },
+          "op": {
+            "title": "Op",
+            "type": "string"
+          },
+          "preview_only": {
+            "default": false,
+            "title": "Preview Only",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "client_id",
+          "actor",
+          "at",
+          "op"
+        ],
+        "title": "ClientCommand",
+        "type": "object"
+      },
+      "CommandsIn": {
+        "properties": {
+          "commands": {
+            "items": {
+              "$ref": "#/components/schemas/ClientCommand"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Commands",
+            "type": "array"
+          },
+          "workspace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace"
+          }
+        },
+        "required": [
+          "commands"
+        ],
+        "title": "CommandsIn",
+        "type": "object"
+      },
       "CommentIn": {
         "properties": {
           "body": {
@@ -1852,6 +1933,55 @@
         ],
         "title": "MembershipRole",
         "type": "string"
+      },
+      "MergeIn": {
+        "properties": {
+          "allow_cross_project": {
+            "default": false,
+            "title": "Allow Cross Project",
+            "type": "boolean"
+          },
+          "new_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Title"
+          },
+          "preview": {
+            "default": false,
+            "title": "Preview",
+            "type": "boolean"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "sources"
+        ],
+        "title": "MergeIn",
+        "type": "object"
       },
       "MilestoneKind": {
         "enum": [
@@ -5256,6 +5386,7 @@
     },
     "/api/v1/w/{ws}/activities": {
       "get": {
+        "description": "My activities, one person's, or (`team=mine`) the active work of the people I manage or lead (Phase 14 \"team now\").",
         "operationId": "list_activities_api_v1_w__ws__activities_get",
         "parameters": [
           {
@@ -5301,6 +5432,22 @@
               "default": 50,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "team",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team"
             }
           },
           {
@@ -5809,7 +5956,7 @@
     },
     "/api/v1/w/{ws}/capture/batches": {
       "post": {
-        "description": "Apply a ClientBatch: 200 applied/deduplicated, 207 if any message failed, 422 on schema violation.",
+        "description": "Apply a ClientBatch: messages first, then commands, in order and under one correlation id.\n\n200 applied/deduplicated, 207 if any message failed or any command was rejected, 422 on schema violation, 403 when the token\nmay only capture but the batch carries commands.",
         "operationId": "post_batch_api_v1_w__ws__capture_batches_post",
         "parameters": [
           {
@@ -6696,6 +6843,162 @@
         "summary": "Bulk Suggested",
         "tags": [
           "llm"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/commands": {
+      "post": {
+        "description": "Apply or preview commands in order; a rejected command never fails the others. 207 when any was rejected.",
+        "operationId": "post_commands_api_v1_w__ws__commands_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Commands",
+        "tags": [
+          "commands"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/commands/catalogue": {
+      "get": {
+        "description": "Every op with its JSON Schema, permission and safety flags. Conditional on `If-None-Match`.",
+        "operationId": "get_catalogue_api_v1_w__ws__commands_catalogue_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Catalogue",
+        "tags": [
+          "commands"
         ]
       }
     },
@@ -13491,6 +13794,89 @@
         "summary": "Add Link",
         "tags": [
           "items"
+        ]
+      }
+    },
+    "/api/v1/w/{ws}/items:merge": {
+      "post": {
+        "description": "Direct form of `item.merge` (same service, same permission, same events).",
+        "operationId": "merge_items_api_v1_w__ws__items_merge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Merge Items",
+        "tags": [
+          "commands"
         ]
       }
     },
