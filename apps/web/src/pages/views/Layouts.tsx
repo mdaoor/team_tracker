@@ -266,7 +266,7 @@ export function MatrixLayout({ st, drill }: { st: ViewState; drill: Drill }) {
           : { dims: { [dim]: { in: [v] } } },
   });
   return (
-    <div className="vmatrix">
+    <div className="vmatrix" role="region" aria-label="Matrix" tabIndex={0}>
       <table>
         <thead>
           <tr>
