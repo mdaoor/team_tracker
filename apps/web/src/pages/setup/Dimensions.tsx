@@ -6,6 +6,19 @@ import { useList, useWs } from "../../lib/hooks";
 import { CreateForm } from "./common";
 import { useQueryClient } from "@tanstack/react-query";
 
+/** Pasted text (one per line, or comma separated; quotes stripped) to a de-duplicated list, order kept. */
+export function parseValues(text: string): string[] {
+  const seen = new Set<string>();
+  for (const raw of text.split(/[\n,;\t]/)) {
+    const v = raw
+      .trim()
+      .replace(/^"(.*)"$/, "$1")
+      .trim();
+    if (v) seen.add(v);
+  }
+  return [...seen];
+}
+
 export function Dimensions() {
   const ws = useWs();
   const qc = useQueryClient();
@@ -13,10 +26,7 @@ export function Dimensions() {
   const dims = useList("/dimensions");
   const [csv, setCsv] = useState<Record<string, string>>({});
   const paste = async (key: string) => {
-    const values = (csv[key] ?? "")
-      .split(/[\n,]/)
-      .map((x) => x.trim())
-      .filter(Boolean);
+    const values = parseValues(csv[key] ?? "");
     try {
       await bulkDimensionValues(ws, key, values);
       setCsv({ ...csv, [key]: "" });
@@ -53,9 +63,18 @@ export function Dimensions() {
                 value={csv[d.key] ?? ""}
                 onChange={(e) => setCsv({ ...csv, [d.key]: e.target.value })}
               />
-              <button className="btn" onClick={() => paste(d.key)}>
+              <button
+                className="btn"
+                disabled={!parseValues(csv[d.key] ?? "").length}
+                onClick={() => paste(d.key)}
+              >
                 Add values
               </button>
+              <small className="muted" aria-live="polite">
+                {parseValues(csv[d.key] ?? "").length
+                  ? `${parseValues(csv[d.key] ?? "").length} values to add`
+                  : ""}
+              </small>
             </div>
           )}
         </Card>
