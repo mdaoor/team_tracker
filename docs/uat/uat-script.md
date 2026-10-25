@@ -66,6 +66,19 @@ As `@ali` (no roles) open a project he is not on: **expected 404**, not 403. Try
 ## 14. Operations
 `/readyz`, `/metrics` (with `TT_METRICS_TOKEN`), rate limit (hammer `POST /capture/batches`: **expected 429 + Retry-After**), certificate reload (`kill -HUP`).
 
+## 15. Management commands from the client (Phase 14)
+Sign in as `@mahmoud` (admin) and, with a `manage`-scoped token (`"scopes":["manage"]`), log the CLI in with it.
+- [ ] `tt role manager`, then `tt ops` lists the catalogue (51 ops); `tt role` shows only the modes the person has (`@ali` sees only reporter).
+- [ ] `tt do "create project Payments PAY"` shows an **Effect preview**, asks once, then creates PAY; the web console shows it, and the event log has `payload.command`.
+- [ ] `tt do "new epic Checkout redesign under PAY"`, `tt cmd team.create --arg name=payments --arg members=@sara,@ali`, tag ten items (`item.tag`).
+- [ ] `tt do "merge WEB-101 and WEB-105 into one"`: preview lists minutes/evidence moved; `--yes` alone does **not** confirm a destructive op, a second confirmation (or `--force`) does; the source disappears, totals are unchanged.
+- [ ] A reporter (`@ali`) running `tt cmd project.create ...` gets a readable "missing permission" rejection and nothing is written.
+- [ ] A `capture`-scoped token cannot send commands (`403 insufficient_scope`).
+- [ ] `tt queue` resolves review rows; `tt team now` shows the active work of the people you manage; `tt approve` / `tt waive` work.
+
+## 16. Personal time tracker (Phase 15)
+See `docs/uat/uat-personal-tracker.md`.
+
 ## Sign-off
 | # | Scenario | Pass / Fail | Notes | Tester | Date |
 | --- | --- | --- | --- | --- | --- |
