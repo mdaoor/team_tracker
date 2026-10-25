@@ -47,7 +47,13 @@ export function mountPage(root, ctx) {
       ]),
     ].join(" ");
     drillEl.innerHTML = state.path.length
-      ? `<section>${drillList(ctx, { f: {}, label: "" }).html}</section>`
+      ? `<section>${
+          drillList(ctx, {
+            f: {},
+            label: state.path.at(-1).label,
+            note: state.path.at(-1).note,
+          }).html
+        }</section>`
       : "";
     merged.forEach((s) => {
       const host = root.querySelector(
@@ -58,7 +64,9 @@ export function mountPage(root, ctx) {
   }
   function rerender(ctl) {
     if (ctl) {
-      const sl = merged.find((s) => s.kind === "explorer");
+      const sl = ctl.slide
+        ? merged.find((s) => s.id === ctl.slide)
+        : merged.find((s) => s.kind === "explorer");
       if (sl) sl.config = { ...sl.config, [ctl.ctl]: ctl.value };
     }
     paint();
