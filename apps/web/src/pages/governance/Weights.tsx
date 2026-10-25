@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Field } from "../../components/ui";
@@ -20,7 +20,7 @@ export function Weights() {
   const [rows, setRows] = useState<MultRow[]>([]);
   const [lo, setLo] = useState("");
   const [hi, setHi] = useState("");
-  const [prev, setPrev] = useState<Row | null>(null);
+  const [prev, setPrev] = useState<Json | null>(null);
   const cur = (schemes.data ?? []).find((s) => s.id === sel);
   useEffect(() => {
     if (!cur) return;
@@ -33,13 +33,13 @@ export function Weights() {
   }, [cur]);
   const formula = formulaFrom(base, constant, rows, lo, hi);
   const preview = useMutation({
-    mutationFn: () => api.post<Row>(w(ws, "/weight-schemes:preview"), { formula, sample: 20 }),
+    mutationFn: () => api.post<Json>(w(ws, "/weight-schemes:preview"), { formula, sample: 20 }),
     onSuccess: setPrev,
     onError: (e) => toasts.error(e),
   });
   const create = useMutation({
     mutationFn: async () => {
-      const s = await api.post<Row>(w(ws, "/weight-schemes"), { name, formula });
+      const s = await api.post<Json>(w(ws, "/weight-schemes"), { name, formula });
       await api.post(w(ws, `/weight-schemes/${s.id}/recompute`));
       return s;
     },
@@ -204,7 +204,7 @@ export function Weights() {
               </tr>
             </thead>
             <tbody>
-              {prev.data.map((r: Row) => (
+              {prev.data.map((r: Json) => (
                 <tr key={r.key}>
                   <td>
                     {r.key} <small>{r.title}</small>

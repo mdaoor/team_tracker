@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, w, type Row } from "../api/http";
+import { api, w, type Json } from "../api/http";
 import { Button, ConfidenceCue, Empty, Pill } from "../components/ui";
 import { useToasts } from "../components/Toasts";
 import { useList, useWs } from "../lib/hooks";
@@ -10,7 +10,7 @@ import { t } from "../lib/i18n";
 export const DEFAULT_THRESHOLD = 0.7;
 
 /** The suggestion's primary choice for a row, if any (stored suggestion or the LLM gateway's best guess). */
-export function suggestedChoice(row: Row): Row | null {
+export function suggestedChoice(row: Json): Json | null {
   const det = row.suggested?.choice;
   if (!row.suggestion?.llm?.suggestions?.[0]?.choice && det) return det;
   const llm = row.suggestion?.llm?.suggestions?.[0]?.choice;
@@ -60,9 +60,9 @@ export function ReviewQueue() {
   }, [ws, qc]);
 
   const resolve = useCallback(
-    async (row: Row, choice: Row) => {
+    async (row: Json, choice: Json) => {
       try {
-        const done = await api.post<Row>(w(ws, "/review-queue/resolve"), { ref: row.ref, choice });
+        const done = await api.post<Json>(w(ws, "/review-queue/resolve"), { ref: row.ref, choice });
         await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
         const phrase = row.suggestion?.phrase;
         const text =
@@ -138,7 +138,7 @@ export function ReviewQueue() {
 
   const confirmAll = async () => {
     try {
-      const done = await api.post<Row>(w(ws, "/review-queue/confirm-all-suggested"), {});
+      const done = await api.post<Json>(w(ws, "/review-queue/confirm-all-suggested"), {});
       toasts.push(`Confirmed ${done.confirmed} suggested`);
       await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
     } catch (e) {
@@ -263,11 +263,11 @@ function RowActions({
   people,
   onResolve,
 }: {
-  row: Row;
-  choice: Row | null;
-  projects: Row[];
-  people: Row[];
-  onResolve: (r: Row, c: Row) => void;
+  row: Json;
+  choice: Json | null;
+  projects: Json[];
+  people: Json[];
+  onResolve: (r: Json, c: Json) => void;
 }) {
   const label = choice ? Object.values(choice)[0] : null;
   return (
@@ -324,7 +324,7 @@ function RowActions({
 }
 
 /** One-click mapping fix for a Jira gap: name the Jira value (outbound) or the Team Tracker state (inbound status). */
-function JiraGapFix({ row, onResolve }: { row: Row; onResolve: (r: Row, c: Row) => void }) {
+function JiraGapFix({ row, onResolve }: { row: Json; onResolve: (r: Json, c: Json) => void }) {
   const [v, setV] = useState("");
   const s = row.suggestion ?? {};
   const inbound = s.jira_status != null;

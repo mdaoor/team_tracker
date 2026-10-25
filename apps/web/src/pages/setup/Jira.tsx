@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty, Field } from "../../components/ui";
 import { useList, useObj, useWs } from "../../lib/hooks";
@@ -32,7 +32,7 @@ export function Jira() {
   const [token, setToken] = useState("");
   const [secret, setSecret] = useState("");
   const [project, setProject] = useState("");
-  const [opts, setOpts] = useState<Row | null>(null);
+  const [opts, setOpts] = useState<Json | null>(null);
 
   useEffect(() => {
     if (conn.data?.configured) {
@@ -43,7 +43,7 @@ export function Jira() {
 
   const save = useMutation({
     mutationFn: () =>
-      api.put<Row>(w(ws, "/integrations/jira"), {
+      api.put<Json>(w(ws, "/integrations/jira"), {
         base_url: baseUrl,
         email,
         api_token: token || undefined,
@@ -59,7 +59,7 @@ export function Jira() {
   });
   const test = useMutation({
     mutationFn: () =>
-      api.post<Row>(w(ws, `/integrations/jira:test${project ? `?project=${project}` : ""}`)),
+      api.post<Json>(w(ws, `/integrations/jira:test${project ? `?project=${project}` : ""}`)),
     onSuccess: (r) => {
       if (r.ok) {
         setOpts(r.options ?? null);
@@ -70,7 +70,7 @@ export function Jira() {
     onError: (e) => toasts.error(e),
   });
   const rotate = useMutation({
-    mutationFn: () => api.post<Row>(w(ws, "/integrations/jira:rotate-secret")),
+    mutationFn: () => api.post<Json>(w(ws, "/integrations/jira:rotate-secret")),
     onSuccess: (r) => setSecret(r.webhook_secret),
     onError: (e) => toasts.error(e),
   });
@@ -190,21 +190,21 @@ function Mapping({
   onFetch,
 }: {
   project: string;
-  opts: Row | null;
+  opts: Json | null;
   onFetch: () => void;
 }) {
   const ws = useWs();
   const qc = useQueryClient();
   const toasts = useToasts();
   const cur = useObj(`/projects/${project}/jira`);
-  const [cfg, setCfg] = useState<Row>({});
+  const [cfg, setCfg] = useState<Json>({});
   const [maps, setMaps] = useState<Record<MapName, Pair[]>>({
     issuetype_map: [],
     priority_map: [],
     status_map: [],
   });
   useEffect(() => {
-    const c = (cur.data?.config ?? {}) as Row;
+    const c = (cur.data?.config ?? {}) as Json;
     setCfg(c);
     setMaps({
       issuetype_map: toPairs(c.issuetype_map),
@@ -214,7 +214,7 @@ function Mapping({
   }, [cur.data]);
   const save = useMutation({
     mutationFn: () =>
-      api.put<Row>(w(ws, `/projects/${project}/jira`), {
+      api.put<Json>(w(ws, `/projects/${project}/jira`), {
         ...cfg,
         enabled: !!cfg.enabled,
         auto_send: !!cfg.auto_send,

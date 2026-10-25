@@ -1,4 +1,4 @@
-import type { Row } from "../api/http";
+import type { Json } from "../api/http";
 
 export interface TemplateError {
   pointer: string;
@@ -6,7 +6,7 @@ export interface TemplateError {
 }
 
 /** Parse the JSON editor's text; a syntax error is reported like a schema error (a pointer and a message). */
-export function parseBody(text: string): { body: Row | null; errors: TemplateError[] } {
+export function parseBody(text: string): { body: Json | null; errors: TemplateError[] } {
   try {
     const body = JSON.parse(text);
     if (body === null || typeof body !== "object" || Array.isArray(body))
@@ -24,7 +24,7 @@ export function parseBody(text: string): { body: Row | null; errors: TemplateErr
 export const errorsAt = (errors: TemplateError[], prefix: string): TemplateError[] =>
   errors.filter((e) => e.pointer === prefix || e.pointer.startsWith(prefix + "/"));
 
-export function blankTemplate(): Row {
+export function blankTemplate(): Json {
   return {
     schema_version: 1,
     key: "my_template",
@@ -36,7 +36,7 @@ export function blankTemplate(): Row {
   };
 }
 
-export function moveSlide(body: Row, from: number, to: number): Row {
+export function moveSlide(body: Json, from: number, to: number): Json {
   const slides = [...(body.slides ?? [])];
   if (to < 0 || to >= slides.length) return body;
   const [s] = slides.splice(from, 1);

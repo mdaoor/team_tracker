@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty } from "../../components/ui";
@@ -50,7 +50,7 @@ export function Insights() {
         <span className="grow" />
         <select aria-label="Project" value={project} onChange={(e) => setProject(e.target.value)}>
           <option value="">All projects</option>
-          {(projects.data ?? []).map((p: Row) => (
+          {(projects.data ?? []).map((p: Json) => (
             <option key={p.id} value={p.key}>
               {p.key}
             </option>

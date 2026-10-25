@@ -1,6 +1,6 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { Tree, buildForest, type TreeNode } from "../../components/Tree";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
@@ -20,19 +20,19 @@ export function ProjectTree() {
   const links = useQueries({
     queries: prods.map((p) => ({
       queryKey: [ws, `/products/${p.key}/links`],
-      queryFn: async () => ((await api.get<Row>(w(ws, `/products/${p.key}/links`))).data ?? []) as Row[],
+      queryFn: async () => ((await api.get<Json>(w(ws, `/products/${p.key}/links`))).data ?? []) as Json[],
     })),
   });
   const epics = useQuery({
     queryKey: [ws, "setup-epics"],
-    queryFn: () => api.post<Row>(w(ws, "/query/items"), { filter: { type: { in: ["epic"] } }, page: { size: 200 } }),
+    queryFn: () => api.post<Json>(w(ws, "/query/items"), { filter: { type: { in: ["epic"] } }, page: { size: 200 } }),
   });
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
 
   const projectById = new Map((projects.data ?? []).map((p) => [p.id, p]));
-  const epicsBy = new Map<string, Row[]>();
-  for (const e of (epics.data?.items ?? []) as Row[])
+  const epicsBy = new Map<string, Json[]>();
+  for (const e of (epics.data?.items ?? []) as Json[])
     epicsBy.set(e.project, [...(epicsBy.get(e.project) ?? []), e]);
 
   const reparent = async (key: string, parentId: string | null) => {
@@ -44,7 +44,7 @@ export function ProjectTree() {
       toasts.error(e);
     }
   };
-  const keyMove = (e: React.KeyboardEvent, p: Row) => {
+  const keyMove = (e: React.KeyboardEvent, p: Json) => {
     if (!e.altKey || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
     e.preventDefault();
     const target = moveTarget(prods as { id: string; parent_product_id?: string | null }[], p as { id: string; parent_product_id?: string | null }, e.key === "ArrowRight" ? "in" : "out");
@@ -54,7 +54,7 @@ export function ProjectTree() {
 
   const projectsOf = (productKey: string): TreeNode[] => {
     const idx = prods.findIndex((p) => p.key === productKey);
-    const rows = ((links[idx]?.data ?? []) as Row[]).filter((l) => l.target_type === "project");
+    const rows = ((links[idx]?.data ?? []) as Json[]).filter((l) => l.target_type === "project");
     return rows.flatMap((l) => {
       const proj = projectById.get(l.target_id);
       if (!proj) return [];

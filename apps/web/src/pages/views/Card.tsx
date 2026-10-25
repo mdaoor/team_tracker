@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import type { Row } from "../../api/http";
+import type { Json } from "../../api/http";
 import { stageAgeColor } from "../../lib/confidence";
 
 const PRIO: Record<string, string> = {
@@ -12,7 +12,7 @@ const PRIO: Record<string, string> = {
 };
 
 /** Card anatomy (UX §4.2): key · priority dot · weight · risk chip / title / assignee · stage age · time / tags. */
-export function Card({ item }: { item: Row }) {
+export function Card({ item }: { item: Json }) {
   const loc = useLocation();
   const sp = new URLSearchParams(loc.search);
   sp.set("item", item.key);

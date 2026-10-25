@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { useConfirm } from "../../components/Confirm";
 import { useToasts } from "../../components/Toasts";
 import { downloadPost } from "../../lib/download";
@@ -76,7 +76,7 @@ function PresentList() {
   const tpls = useList("/presentations/templates");
   const fromTemplate = useMutation({
     mutationFn: (template: string) =>
-      api.post<Row>(w(ws, "/presentations:from-template"), { template }),
+      api.post<Json>(w(ws, "/presentations:from-template"), { template }),
     onSuccess: (p) => {
       void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
       nav(p.id);
@@ -85,19 +85,19 @@ function PresentList() {
   });
   const [brief, setBrief] = useState("");
   const [importText, setImportText] = useState("");
-  const done = (p: Row) => {
+  const done = (p: Json) => {
     void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
     nav(p.id);
   };
   const author = useMutation({
-    mutationFn: () => api.post<Row>(w(ws, "/presentations:author"), { brief }),
+    mutationFn: () => api.post<Json>(w(ws, "/presentations:author"), { brief }),
     onSuccess: done,
     onError: (e) => toasts.error(e),
   });
   const importDeck = useMutation({
     mutationFn: () => {
       const deck: unknown = JSON.parse(importText);
-      return api.post<Row>(w(ws, "/presentations:import"), { deck, lenient: true });
+      return api.post<Json>(w(ws, "/presentations:import"), { deck, lenient: true });
     },
     onSuccess: done,
     onError: (e) => toasts.error(e),
@@ -211,8 +211,8 @@ function Builder({ id }: { id: string }) {
   const [kind, setKind] = useState("kpis");
   const [rev, setRev] = useState(0);
   const [previewLoaded, setPreviewLoaded] = useState("");
-  const p = deck.data as Row | undefined;
-  const slides = useMemo<Row[]>(() => p?.slides ?? [], [p]);
+  const p = deck.data as Json | undefined;
+  const slides = useMemo<Json[]>(() => p?.slides ?? [], [p]);
   const cur = slides.find((s) => s.id === sel) ?? slides[0];
 
   const refresh = () => {
@@ -232,8 +232,8 @@ function Builder({ id }: { id: string }) {
     onSuccess: refresh,
     onError: (e) => toasts.error(e),
   });
-  const patch = (body: Row) => save.mutate({ path: `/presentations/${id}`, body, method: "patch" });
-  const patchSlide = (sid: string, body: Row) =>
+  const patch = (body: Json) => save.mutate({ path: `/presentations/${id}`, body, method: "patch" });
+  const patchSlide = (sid: string, body: Json) =>
     save.mutate({ path: `/presentations/${id}/slides/${sid}`, body, method: "patch" });
   const move = (i: number, d: number) => {
     const ids = slides.map((s) => s.id);
@@ -274,7 +274,7 @@ function Builder({ id }: { id: string }) {
   };
   const share = useMutation({
     mutationFn: (enabled: boolean) =>
-      api.post<Row>(w(ws, `/presentations/${id}/share`), { enabled }),
+      api.post<Json>(w(ws, `/presentations/${id}/share`), { enabled }),
     onSuccess: (r) => (
       refresh(),
       toasts.push(r.url ? `Link: ${location.origin}${r.url}` : "Link disabled", { ms: 12000 })
@@ -468,7 +468,7 @@ function Builder({ id }: { id: string }) {
           </select>
           <Button
             onClick={() => {
-              const cfg: Row =
+              const cfg: Json =
                 kind === "markdown"
                   ? { text: "New slide" }
                   : kind === "project_detail"

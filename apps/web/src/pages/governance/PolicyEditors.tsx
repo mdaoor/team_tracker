@@ -13,9 +13,9 @@ import {
 } from "../../lib/governance";
 import type { Chip } from "../../lib/viewState";
 import { useList } from "../../lib/hooks";
-import type { Row } from "../../api/http";
+import type { Json } from "../../api/http";
 
-const LISTS: Record<string, { path: string; id: (r: Row) => string }> = {
+const LISTS: Record<string, { path: string; id: (r: Json) => string }> = {
   project: { path: "/projects", id: (r) => r.key },
   team: { path: "/teams", id: (r) => r.slug },
   product: { path: "/products", id: (r) => r.key },
@@ -220,8 +220,8 @@ export function VersionHistory({
   onRestore,
   canWrite,
 }: {
-  versions: Row[];
-  onRestore: (v: Row) => void;
+  versions: Json[];
+  onRestore: (v: Json) => void;
   canWrite: boolean;
 }) {
   if (versions.length === 0) return <small>No history yet.</small>;

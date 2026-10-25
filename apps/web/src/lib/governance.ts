@@ -1,4 +1,4 @@
-import type { Row } from "../api/http";
+import type { Json } from "../api/http";
 
 /** A template parameter (`int | number | string | ident`) becomes an input spec the form renders (Phase 9 §form generation). */
 export type Control = {
@@ -12,7 +12,7 @@ export type Control = {
   options?: string[];
 };
 
-export function controlFor(p: Row, stages: string[] = []): Control {
+export function controlFor(p: Json, stages: string[] = []): Control {
   const base = { name: p.name as string, help: (p.help as string) ?? "" };
   const lname = String(p.name);
   if (p.type === "int" || p.type === "number") {
@@ -63,11 +63,11 @@ export const sevRank = (s: string): number => SEVERITIES.indexOf(s as (typeof SE
 
 /** Group by severity, then policy (the inbox default). */
 export function groupViolations(
-  rows: Row[],
-): { severity: string; policies: { policy: string; rows: Row[] }[] }[] {
-  const by = new Map<string, Map<string, Row[]>>();
+  rows: Json[],
+): { severity: string; policies: { policy: string; rows: Json[] }[] }[] {
+  const by = new Map<string, Map<string, Json[]>>();
   for (const r of rows) {
-    const p = by.get(r.severity) ?? new Map<string, Row[]>();
+    const p = by.get(r.severity) ?? new Map<string, Json[]>();
     p.set(r.policy ?? "?", [...(p.get(r.policy ?? "?") ?? []), r]);
     by.set(r.severity, p);
   }
@@ -80,7 +80,7 @@ export function groupViolations(
 }
 
 /** `Violation.evidence` as "field: value" chips; internal keys and objects are dropped. */
-export function evidenceChips(ev: Row | null | undefined): string[] {
+export function evidenceChips(ev: Json | null | undefined): string[] {
   return Object.entries(ev ?? {})
     .filter(
       ([k, v]) => !["policy", "placement_id"].includes(k) && v != null && typeof v !== "object",
@@ -93,7 +93,7 @@ export const trendGlyph = (t: string | null | undefined): string =>
   t === "improving" ? "↑" : t === "worsening" ? "↓" : "→";
 
 /** CSV for a 1:1, stamped with who exported it and when (the plan's "export for 1:1"). */
-export function habitsCsv(rows: Row[], by: string, at = new Date()): string {
+export function habitsCsv(rows: Json[], by: string, at = new Date()): string {
   const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const head = ["subject", "habit", "polarity", "window", "occurrences", "rate", "trend", "status"];
   return [
@@ -115,7 +115,7 @@ export function ageLabel(iso: string, now = Date.now()): string {
 }
 
 /** Dry-run gate: activation needs a run after the last edit (admins may override). */
-export function canActivate(p: Row, admin: boolean): "yes" | "force" | "no" {
+export function canActivate(p: Json, admin: boolean): "yes" | "force" | "no" {
   const ran = p.last_test?.ran_at ? Date.parse(p.last_test.ran_at) : 0;
   if (ran >= Date.parse(p.updated_at)) return "yes";
   return admin ? "force" : "no";
@@ -133,7 +133,7 @@ export const METRICS: { key: string; label: string; fmt?: (v: number) => string 
 ];
 
 /** One series from snapshot rows; nested `violation_count` collapses to its total. */
-export function seriesOf(rows: Row[], key: string): { date: string; v: number | null }[] {
+export function seriesOf(rows: Json[], key: string): { date: string; v: number | null }[] {
   return rows.map((r) => {
     const raw = key === "violations" ? r.metrics?.violation_count : r.metrics?.[key];
     const v =
@@ -154,17 +154,17 @@ export function formulaFrom(
   rows: MultRow[],
   clampLo: string,
   clampHi: string,
-): Row {
+): Json {
   const multipliers: Record<string, number> = {};
   for (const r of rows)
     if (r.key.trim() && r.factor.trim() !== "" && !Number.isNaN(Number(r.factor)))
       multipliers[r.key.trim()] = Number(r.factor);
-  const f: Row = { base, multipliers };
+  const f: Json = { base, multipliers };
   if (base === "constant") f.constant = Number(constant || 1);
   if (clampLo.trim() !== "" && clampHi.trim() !== "") f.clamp = [Number(clampLo), Number(clampHi)];
   return f;
 }
-export function rowsFrom(f: Row | null | undefined): MultRow[] {
+export function rowsFrom(f: Json | null | undefined): MultRow[] {
   return Object.entries(f?.multipliers ?? {}).map(([key, v]) => ({ key, factor: String(v) }));
 }
 
@@ -194,7 +194,7 @@ export const emptyNotify = (): Notify => ({
   channel: "in_app",
 });
 
-export function notifyFrom(n: Row | null | undefined): Notify {
+export function notifyFrom(n: Json | null | undefined): Notify {
   return {
     person: !!n?.person,
     reporting_line: [...(n?.reporting_line ?? [])],
@@ -203,8 +203,8 @@ export function notifyFrom(n: Row | null | undefined): Notify {
   };
 }
 /** Only what is set goes out, so an empty editor round-trips to `{}`. */
-export function notifyBody(n: Notify): Row {
-  const out: Row = {};
+export function notifyBody(n: Notify): Json {
+  const out: Json = {};
   if (n.person) out.person = true;
   if (n.reporting_line.length) out.reporting_line = n.reporting_line;
   if (n.roles.length) out.roles = n.roles;
@@ -224,7 +224,7 @@ export const emptyAuto = (): AutoAction => ({
   createTitle: "",
   createProject: "",
 });
-export function autoFrom(a: Row | null | undefined): AutoAction {
+export function autoFrom(a: Json | null | undefined): AutoAction {
   return {
     priority: a?.set?.priority ?? "",
     stage: a?.move_stage ?? "",
@@ -232,8 +232,8 @@ export function autoFrom(a: Row | null | undefined): AutoAction {
     createProject: a?.create_item?.project ?? "",
   };
 }
-export function autoBody(a: AutoAction): Row | undefined {
-  const out: Row = {};
+export function autoBody(a: AutoAction): Json | undefined {
+  const out: Json = {};
   if (a.priority) out.set = { priority: a.priority };
   if (a.stage) out.move_stage = a.stage;
   if (a.createTitle.trim())
@@ -246,13 +246,13 @@ export function autoBody(a: AutoAction): Row | undefined {
 
 /** A stored candidate filter back into removable chips: one chip per top-level clause (the grammar is AND across keys). */
 export function chipsFromFilter(
-  f: Row | null | undefined,
+  f: Json | null | undefined,
   id: () => string,
-): { id: string; label: string; clause: Row }[] {
+): { id: string; label: string; clause: Json }[] {
   if (!f) return [];
   return Object.entries(f).flatMap(([k, v]) =>
     k === "and" && Array.isArray(v)
-      ? v.map((c: Row) => ({ id: id(), label: JSON.stringify(c), clause: c }))
+      ? v.map((c: Json) => ({ id: id(), label: JSON.stringify(c), clause: c }))
       : [{ id: id(), label: `${k} ${JSON.stringify(v)}`, clause: { [k]: v } }],
   );
 }
@@ -263,8 +263,8 @@ export function changedLabel(changed: string[]): string {
 }
 
 /** Fields a restore writes back (a subset of the stored definition; the server re-validates all of it). */
-export function restoreBody(def: Row): Row {
-  const out: Row = {};
+export function restoreBody(def: Json): Json {
+  const out: Json = {};
   for (const k of [
     "name",
     "severity",
@@ -310,22 +310,22 @@ export function sparkPoints(
 }
 
 /** The digest as notes for a slide (the plain facts; nothing that is not on the screen). */
-export function digestMarkdown(d: Row): string {
+export function digestMarkdown(d: Json): string {
   const part = (title: string, lines: string[]) =>
     lines.length ? `## ${title}\n${lines.map((l) => `- ${l}`).join("\n")}\n` : "";
   return (
     [
       part(
         "Insights",
-        (d.insights ?? []).map((i: Row) => `**${i.project}** ${i.body}`),
+        (d.insights ?? []).map((i: Json) => `**${i.project}** ${i.body}`),
       ),
       part(
         "Notable events",
-        (d.events ?? []).map((e: Row) => `${String(e.occurred_at).slice(0, 10)} ${e.event_type}`),
+        (d.events ?? []).map((e: Json) => `${String(e.occurred_at).slice(0, 10)} ${e.event_type}`),
       ),
       part(
         "Pinned notes",
-        (d.notes ?? []).map((n: Row) => `**${n.title}** ${n.body}`),
+        (d.notes ?? []).map((n: Json) => `**${n.title}** ${n.body}`),
       ),
     ]
       .filter(Boolean)

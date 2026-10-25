@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { Button, Card, Empty } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
@@ -12,14 +12,14 @@ export function Rules() {
   const toasts = useToasts();
   const rules = useList("/translator-rules");
   const [draft, setDraft] = useState("");
-  const [result, setResult] = useState<Row | null>(null);
+  const [result, setResult] = useState<Json | null>(null);
   const active = (rules.data ?? [])
     .filter((r) => r.is_active !== false)
     .map((r) => r.text as string);
   const dry = async () => {
     try {
       setResult(
-        await api.post<Row>(w(ws, "/translator-rules:dry-run"), {
+        await api.post<Json>(w(ws, "/translator-rules:dry-run"), {
           rules: draft ? [...active, draft] : active,
         }),
       );
@@ -75,7 +75,7 @@ export function Rules() {
               Would change {result.changed} of {result.checked} lines.
             </p>
             <ul>
-              {(result.results as Row[]).map((r) => (
+              {(result.results as Json[]).map((r) => (
                 <li key={r.line}>
                   {r.line} → {(r.fields as string[]).join(", ")}
                 </li>

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button } from "../../components/ui";
@@ -93,7 +93,7 @@ export function ViewsPage() {
       "items.csv",
       "CSV",
     );
-  const open = (v: Row) =>
+  const open = (v: Json) =>
     set({
       chips: [{ id: `v${v.id}`, label: `view: ${v.name}`, clause: v.filter }],
       layout: (v.layout as Layout) ?? "list",

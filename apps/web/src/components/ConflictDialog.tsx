@@ -1,4 +1,4 @@
-import type { Row } from "../api/http";
+import type { Json } from "../api/http";
 import { ago } from "../lib/format";
 import { Button } from "./ui";
 
@@ -45,4 +45,4 @@ export function ConflictDialog({
   );
 }
 
-export const conflictFields = (current: Row): string[] => Object.keys(current);
+export const conflictFields = (current: Json): string[] => Object.keys(current);

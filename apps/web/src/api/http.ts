@@ -5,8 +5,10 @@
  */
 import createClient from "openapi-fetch";
 import type { paths } from "./schema";
+import type { Json } from "./types";
 
-export type Row = Record<string, any>;
+export type { Json, Row } from "./types";
+
 
 export class ApiError extends Error {
   constructor(
@@ -42,7 +44,7 @@ client.use({
   },
 });
 
-type Opts = { query?: Row; body?: unknown; headers?: Record<string, string> };
+type Opts = { query?: Json; body?: unknown; headers?: Record<string, string> };
 type Result<T> = { data: T; etag: string | null };
 
 async function call<T>(
@@ -83,13 +85,13 @@ async function call<T>(
 }
 
 export const api = {
-  get: <T = Row>(path: string, query?: Row) => call<T>("GET", path, { query }).then((r) => r.data),
-  getWithEtag: <T = Row>(path: string, query?: Row) => call<T>("GET", path, { query }),
-  post: <T = Row>(path: string, body?: unknown) =>
+  get: <T = Json>(path: string, query?: Json) => call<T>("GET", path, { query }).then((r) => r.data),
+  getWithEtag: <T = Json>(path: string, query?: Json) => call<T>("GET", path, { query }),
+  post: <T = Json>(path: string, body?: unknown) =>
     call<T>("POST", path, { body }).then((r) => r.data),
-  patch: <T = Row>(path: string, body: unknown, headers?: Record<string, string>) =>
+  patch: <T = Json>(path: string, body: unknown, headers?: Record<string, string>) =>
     call<T>("PATCH", path, { body, headers }).then((r) => r.data),
-  put: <T = Row>(path: string, body: unknown, headers?: Record<string, string>) =>
+  put: <T = Json>(path: string, body: unknown, headers?: Record<string, string>) =>
     call<T>("PUT", path, { body, headers }).then((r) => r.data),
   postBlob: async (path: string, body: unknown): Promise<Blob> => {
     // openapi-fetch with parseAs "blob" has already consumed the body into `data`; reading the response again throws

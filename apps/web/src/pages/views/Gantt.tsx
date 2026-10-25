@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { Empty } from "../../components/ui";
 import { layoutGantt, AXIS_H, LABEL_W, ROW_H, type Zoom } from "../../lib/gantt";
 import { useWs } from "../../lib/hooks";
@@ -20,7 +20,7 @@ export function GanttLayout({ st }: { st: ViewState }) {
   const body = { filter: toFilter(st.chips), baseline: "baseline-1", rows: rowsKind };
   const q = useQuery({
     queryKey: [ws, "query/gantt", body],
-    queryFn: () => api.post<Row>(w(ws, "/query/gantt"), body),
+    queryFn: () => api.post<Json>(w(ws, "/query/gantt"), body),
     enabled: !!ws,
   });
   const controls = (

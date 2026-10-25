@@ -1,4 +1,4 @@
-import type { Row } from "../api/http";
+import type { Json } from "../api/http";
 
 export type Zoom = "day" | "week" | "month";
 const DAY = 86_400_000;
@@ -29,9 +29,9 @@ export interface GanttModel {
  * diamonds and elbow arrows for dependencies. All coordinates are pixels, so the SVG component only draws.
  */
 export function layoutGantt(
-  rows: Row[],
-  deps: Row[],
-  milestones: Row[],
+  rows: Json[],
+  deps: Json[],
+  milestones: Json[],
   today: string | null,
   zoom: Zoom,
 ): GanttModel {

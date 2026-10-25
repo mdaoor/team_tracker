@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty } from "../../components/ui";
@@ -16,7 +16,7 @@ export function Digest() {
   const [team, setTeam] = useState("");
   const [days, setDays] = useState(14);
   const d = useObj("/digest", { days, ...(team ? { team } : {}) }, !!can["dailylog.review"]);
-  const data = d.data as Row | undefined;
+  const data = d.data as Json | undefined;
   const review = useMutation({
     mutationFn: (id: string) => api.post(w(ws, `/daily-logs/${id}/review`)),
     onSuccess: () => void qc.invalidateQueries({ queryKey: [ws, "/digest"] }),
@@ -39,7 +39,7 @@ export function Digest() {
         )}
         <select aria-label="Team" value={team} onChange={(e) => setTeam(e.target.value)}>
           <option value="">Whole workspace</option>
-          {(teams.data ?? []).map((t: Row) => (
+          {(teams.data ?? []).map((t: Json) => (
             <option key={t.id} value={t.slug}>
               {t.name}
             </option>
@@ -60,7 +60,7 @@ export function Digest() {
               <Empty>No daily logs in this window.</Empty>
             ) : (
               <ul className="plain">
-                {data.daily_logs.map((l: Row) => (
+                {data.daily_logs.map((l: Json) => (
                   <li key={l.id} className="row">
                     <strong>{l.person}</strong>{" "}
                     <small>
@@ -80,7 +80,7 @@ export function Digest() {
               <Empty>Nothing notable.</Empty>
             ) : (
               <ul className="plain">
-                {data.events.map((e: Row) => (
+                {data.events.map((e: Json) => (
                   <li key={e.id}>
                     <small>{String(e.occurred_at).slice(0, 10)}</small> {e.event_type} ·{" "}
                     {e.entity}
@@ -95,7 +95,7 @@ export function Digest() {
               <Empty>No pinned notes.</Empty>
             ) : (
               <ul className="plain">
-                {data.notes.map((n: Row) => (
+                {data.notes.map((n: Json) => (
                   <li key={n.id}>
                     <strong>{n.title}</strong> {n.body}
                   </li>
@@ -108,7 +108,7 @@ export function Digest() {
               <Empty>No insights in this window.</Empty>
             ) : (
               <ul className="plain">
-                {data.insights.map((i: Row) => (
+                {data.insights.map((i: Json) => (
                   <li key={i.id}>
                     <strong>{i.project}</strong> {i.body}
                   </li>

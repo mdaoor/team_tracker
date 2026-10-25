@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../api/http";
+import { api, w, type Json } from "../api/http";
 import { patchWithEtag, type Conflict } from "../lib/conflict";
 import { Drawer } from "./Drawer";
 import { ConflictDialog } from "./ConflictDialog";
@@ -27,26 +27,26 @@ export function ItemDrawer({
   );
   const item = useQuery({
     queryKey: [ws, "item", itemKey],
-    queryFn: () => api.getWithEtag<Row>(w(ws, `/items/${itemKey}`)),
+    queryFn: () => api.getWithEtag<Json>(w(ws, `/items/${itemKey}`)),
   });
   const prov = useQuery({
     queryKey: [ws, "prov", itemKey],
-    queryFn: () => api.get<Row>(w(ws, `/items/${itemKey}/provenance`)),
+    queryFn: () => api.get<Json>(w(ws, `/items/${itemKey}/provenance`)),
   });
   const placements = useQuery({
     queryKey: [ws, "placements", itemKey],
-    queryFn: () => api.get<Row>(w(ws, `/items/${itemKey}/placements`)),
+    queryFn: () => api.get<Json>(w(ws, `/items/${itemKey}/placements`)),
     enabled: tab === "placements",
   });
   const events = useQuery({
     queryKey: [ws, "events", itemKey],
-    queryFn: () => api.get<Row>(w(ws, `/items/${itemKey}/events`)),
+    queryFn: () => api.get<Json>(w(ws, `/items/${itemKey}/events`)),
     enabled: tab === "events",
   });
   const it = item.data?.data;
   const violations = useQuery({
     queryKey: [ws, "item-violations", it?.id],
-    queryFn: () => api.get<Row>(w(ws, "/violations"), { target_id: it?.id, limit: 100 }),
+    queryFn: () => api.get<Json>(w(ws, "/violations"), { target_id: it?.id, limit: 100 }),
     enabled: tab === "violations" && !!it?.id,
   });
 
@@ -155,7 +155,7 @@ export function ItemDrawer({
                   <div key={dim} className="dimrow">
                     <dt>{dim}</dt>
                     <dd>
-                      {(vals as Row[]).map((v) => (
+                      {(vals as Json[]).map((v) => (
                         <span key={v.value}>
                           {v.value}{" "}
                           <ProvenanceChip
@@ -181,7 +181,7 @@ export function ItemDrawer({
           {tab === "placements" && (
             <table>
               <tbody>
-                {((placements.data?.data as Row[]) ?? []).map((p) => (
+                {((placements.data?.data as Json[]) ?? []).map((p) => (
                   <tr key={p.id}>
                     <td>{p.stage}</td>
                     <td>{p.entered_at}</td>
@@ -192,11 +192,11 @@ export function ItemDrawer({
             </table>
           )}
           {tab === "violations" &&
-            (((violations.data?.data as Row[]) ?? []).length === 0 ? (
+            (((violations.data?.data as Json[]) ?? []).length === 0 ? (
               <Empty>No violations on this item.</Empty>
             ) : (
               <ul>
-                {((violations.data?.data as Row[]) ?? []).map((v) => (
+                {((violations.data?.data as Json[]) ?? []).map((v) => (
                   <li key={v.id}>
                     {v.severity} · {v.policy} · {v.status}
                     {v.waive_reason ? ` (waived: ${v.waive_reason})` : ""}
@@ -206,7 +206,7 @@ export function ItemDrawer({
             ))}
           {tab === "events" && (
             <ul>
-              {((events.data?.data as Row[]) ?? []).map((e) => (
+              {((events.data?.data as Json[]) ?? []).map((e) => (
                 <li key={e.id}>
                   {e.occurred_at?.slice(0, 16)} · {e.event_type}
                 </li>

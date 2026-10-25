@@ -4,7 +4,7 @@ import { StreamLanguage, syntaxHighlighting, HighlightStyle } from "@codemirror/
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, keymap } from "@codemirror/view";
 import { useEffect, useRef } from "react";
-import type { Row } from "../../api/http";
+import type { Json } from "../../api/http";
 import { problemRange, type CelProblem } from "../../lib/governance";
 
 const KEYWORDS = new Set(["true", "false", "null", "in"]);
@@ -30,7 +30,7 @@ const hl = HighlightStyle.define([
 
 /** Completion from the context schema: `item.` → fields, bare word → roots + functions. */
 export function completionsFor(
-  schema: Row | undefined,
+  schema: Json | undefined,
   before: string,
 ): { label: string; type: string; detail?: string }[] {
   if (!schema) return [];
@@ -44,10 +44,10 @@ export function completionsFor(
       detail: String(v),
     }));
     const fns = (schema.functions ?? [])
-      .filter((f: Row) =>
+      .filter((f: Json) =>
         f.namespace ? f.namespace === dot[1] : f.receiver && schema.roots?.[dot[1]] === f.receiver,
       )
-      .map((f: Row) => ({ label: f.name, type: "function", detail: f.doc }));
+      .map((f: Json) => ({ label: f.name, type: "function", detail: f.doc }));
     return [...fields, ...fns];
   }
   return [
@@ -57,8 +57,8 @@ export function completionsFor(
       detail: String(v),
     })),
     ...(schema.functions ?? [])
-      .filter((f: Row) => !f.receiver && !f.namespace)
-      .map((f: Row) => ({ label: f.name, type: "function", detail: f.doc })),
+      .filter((f: Json) => !f.receiver && !f.namespace)
+      .map((f: Json) => ({ label: f.name, type: "function", detail: f.doc })),
   ];
 }
 
@@ -90,7 +90,7 @@ export function CelEditor({
 }: {
   value: string;
   onChange?: (v: string) => void;
-  schema?: Row;
+  schema?: Json;
   problems: CelProblem[];
   readOnly?: boolean;
   label?: string;

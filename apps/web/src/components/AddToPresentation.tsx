@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../api/http";
+import { api, w, type Json } from "../api/http";
 import { useList, useWs } from "../lib/hooks";
 import type { SlideDraft } from "../lib/slides";
 import { Button } from "./ui";
@@ -18,7 +18,7 @@ export function AddToPresentation({ build }: { build: () => SlideDraft }) {
       const slide = build();
       let id = target;
       if (!id) {
-        const p = await api.post<Row>(w(ws, "/presentations"), {
+        const p = await api.post<Json>(w(ws, "/presentations"), {
           title: "New presentation",
           slides: [],
         });

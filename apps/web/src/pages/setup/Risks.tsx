@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w } from "../../api/http";
 import { Card } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
@@ -132,4 +132,3 @@ export function Risks() {
     </>
   );
 }
-export type { Row };

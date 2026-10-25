@@ -1,6 +1,6 @@
 import { Card } from "../../components/ui";
 import { Tree, buildForest, type TreeNode } from "../../components/Tree";
-import type { Row } from "../../api/http";
+import type { Json } from "../../api/http";
 import { useList } from "../../lib/hooks";
 import { CreateForm, Table } from "./common";
 
@@ -94,7 +94,7 @@ export function People() {
 }
 
 /** People under their primary line manager; each node shows its own and its subtree's weekly capacity. */
-export function orgForest(people: Row[], lines: Row[]): TreeNode[] {
+export function orgForest(people: Json[], lines: Json[]): TreeNode[] {
   const primary = new Map<string, string>();
   for (const l of lines)
     if (l.kind === "line" && (l.is_primary || !primary.has(l.person_id))) primary.set(l.person_id, l.manager_id);

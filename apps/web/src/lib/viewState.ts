@@ -1,12 +1,12 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { Row } from "../api/http";
+import type { Json } from "../api/http";
 
 export const LAYOUTS = ["list", "board", "pipeline", "matrix", "gantt", "calendar", "now"] as const;
 export type Layout = (typeof LAYOUTS)[number];
 
 /** A filter chip is a clause (or the negation of one) in the SavedView filter grammar. */
-export type Chip = { id: string; label: string; clause: Row; negate?: boolean };
+export type Chip = { id: string; label: string; clause: Json; negate?: boolean };
 export type Crumb = { label: string; chips: Chip[] };
 
 export interface ViewState {
@@ -34,9 +34,9 @@ const b64 = {
 };
 
 /** Merge chips into one grammar filter: same-key clauses are merged where that is meaningful, the rest are AND-ed. */
-export function toFilter(chips: Chip[]): Row {
-  const out: Row = {};
-  const and: Row[] = [];
+export function toFilter(chips: Chip[]): Json {
+  const out: Json = {};
+  const and: Json[] = [];
   for (const c of chips) {
     if (c.negate) {
       and.push({ not: c.clause });

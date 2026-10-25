@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { Card } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useObj, useWs } from "../../lib/hooks";
@@ -18,7 +18,7 @@ export function Process() {
   const proc = processes.data?.[0];
   const board = useObj(`/processes/${proc?.key}/board`, undefined, !!proc);
   const counts: Record<string, number> = {};
-  for (const col of (board.data?.columns ?? []) as Row[])
+  for (const col of (board.data?.columns ?? []) as Json[])
     counts[col.stage] = col.items?.length ?? col.wip ?? 0;
   const max = Math.max(1, ...Object.values(counts));
 
@@ -30,10 +30,10 @@ export function Process() {
       toasts.error(e);
     }
   };
-  const stages: Row[] = proc?.stages ?? [];
+  const stages: Json[] = proc?.stages ?? [];
   const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Row>({});
-  const open = (s: Row) => {
+  const [draft, setDraft] = useState<Json>({});
+  const open = (s: Json) => {
     setEditing(s.key);
     setDraft({
       name: s.name,

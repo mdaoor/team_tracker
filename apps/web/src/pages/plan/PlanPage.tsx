@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty } from "../../components/ui";
 import { useList, useMe, useObj, useWs } from "../../lib/hooks";
@@ -45,10 +45,10 @@ function PlanPage({ projectKey }: { projectKey: string }) {
   const [error, setError] = useState<{ key: string; msg: string } | null>(null);
   const refresh = () =>
     void qc.invalidateQueries({ queryKey: [ws, `/projects/${projectKey}/plan`] });
-  const data = plan.data as Row | undefined;
-  const rows: Row[] = (data?.phases ?? []).flatMap((p: Row) => [
+  const data = plan.data as Json | undefined;
+  const rows: Json[] = (data?.phases ?? []).flatMap((p: Json) => [
     { ...p, level: 0 },
-    ...(p.deliverables ?? []).map((d: Row) => ({ ...d, level: 1, phase: p.key })),
+    ...(p.deliverables ?? []).map((d: Json) => ({ ...d, level: 1, phase: p.key })),
   ]);
   const axis = axisOf(rows);
   const canWrite = admin || !!can["project.write"] || !!can["item.write_overlay"];
@@ -63,8 +63,8 @@ function PlanPage({ projectKey }: { projectKey: string }) {
       field: "planned_start" | "planned_end";
       value: string;
     }) => {
-      const cur = await api.getWithEtag<Row>(w(ws, `/items/${key}`));
-      return api.patch<Row>(
+      const cur = await api.getWithEtag<Json>(w(ws, `/items/${key}`));
+      return api.patch<Json>(
         w(ws, `/items/${key}`),
         { [field]: value || null },
         { "If-Match": cur.etag ?? "*" },
@@ -75,7 +75,7 @@ function PlanPage({ projectKey }: { projectKey: string }) {
   });
   const present = useMutation({
     mutationFn: () =>
-      api.post<Row>(w(ws, "/presentations:from-template"), {
+      api.post<Json>(w(ws, "/presentations:from-template"), {
         template: "project_plan_review",
         scope: `project:${projectKey}`,
         params: { project: projectKey },
@@ -97,7 +97,7 @@ function PlanPage({ projectKey }: { projectKey: string }) {
     },
     onError: (e) => toasts.error(e),
   });
-  const setDate = (r: Row, field: "planned_start" | "planned_end", value: string) => {
+  const setDate = (r: Json, field: "planned_start" | "planned_end", value: string) => {
     const start = field === "planned_start" ? value : r.planned_start;
     const end = field === "planned_end" ? value : r.planned_end;
     const msg = dateEditError(start || null, end || null);
@@ -114,7 +114,7 @@ function PlanPage({ projectKey }: { projectKey: string }) {
         <Empty>This project has no plan yet. Create one from the API or import a template.</Empty>
       </div>
     );
-  const proj = data.project as Row;
+  const proj = data.project as Json;
   return (
     <div className="plan">
       <div className="row">
@@ -187,7 +187,7 @@ function PlanPage({ projectKey }: { projectKey: string }) {
       {(data.milestones ?? []).length > 0 && (
         <Card title="Milestones">
           <ul className="plain" aria-label="Milestones">
-            {(data.milestones as Row[]).map((m) => (
+            {(data.milestones as Json[]).map((m) => (
               <li key={m.id}>
                 <strong>{m.name}</strong> · {m.due_date} · {STATUS_LABEL[m.status] ?? m.status} (
                 {m.deliverables_done}/{m.deliverables_total} deliverables)
