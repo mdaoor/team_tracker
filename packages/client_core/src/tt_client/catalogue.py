@@ -128,7 +128,15 @@ class Catalogue:
         out: list[Issue] = []
         for err in sorted(validator.iter_errors(clean), key=lambda e: list(map(str, e.absolute_path))):
             pointer = "/" + "/".join(str(p) for p in err.absolute_path)
-            out.append(Issue(pointer if pointer != "/" else "", err.message))
+            base = pointer if pointer != "/" else ""
+            if err.validator == "required" and isinstance(err.instance, dict):
+                for (
+                    name
+                ) in err.validator_value:  # point at the missing field, so a form can mark the right input
+                    if name not in err.instance:
+                        out.append(Issue(f"{base}/{name}", f"'{name}' is a required property"))
+                continue
+            out.append(Issue(base, err.message))
         return out
 
 

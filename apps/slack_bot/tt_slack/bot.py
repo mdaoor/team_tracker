@@ -19,6 +19,9 @@ from tt_client.parser.structured import ParseContext
 from tt_client.preview import preview_dict
 
 from tt_slack import blocks as bk
+from tt_slack import command_blocks as cbk
+from tt_slack.commands import SLASH as COMMAND_SLASH
+from tt_slack.commands import CommandHandlers
 from tt_slack.linking import Link, LinkStore
 
 
@@ -51,6 +54,7 @@ class SlackBot:
         self, links: LinkStore, runtime_for: Callable[[Link, str], Runtime], server_url: str
     ) -> None:
         self.links, self.runtime_for, self.server_url = links, runtime_for, server_url
+        self.commands = CommandHandlers(self)  # Phase 14: /tt do, approvals, waives, generated forms
 
     # ------------------------------------------------------------------ helpers
     def _rt(self, slack_user: str) -> tuple[Runtime | None, Reply | None]:
@@ -114,6 +118,8 @@ class SlackBot:
         rt, need_link = self._rt(slack_user)
         if rt is None:
             return need_link  # type: ignore[return-value]
+        if action_id in cbk.COMMAND_ACTIONS:
+            return self.commands.handle_action(slack_user, action_id, value)
         batch_id = json.loads(value)["batch"] if action_id == bk.ACTION_JIRA else value
         entry = self._entry(rt, batch_id)
         if entry is None:
@@ -215,10 +221,17 @@ class SlackBot:
             return Reply(
                 text="Unlinked." if self.links.unlink(slack_user) else "You were not linked.", ephemeral=True
             )
+        if cmd in COMMAND_SLASH:
+            return self.commands.slash(slack_user, text)
         return Reply(
-            text="Send me a DM with what you did, or use `/tt now`, `/tt today`, `/tt unlink`.",
+            text="Send me a DM with what you did, or use `/tt now`, `/tt today`, `/tt do …`, `/tt cmd <op>`, `/tt approvals`, `/tt unlink`.",
             ephemeral=True,
         )
+
+    def handle_command_modal_submit(
+        self, slack_user: str, view_state: dict[str, Any], private_metadata: str
+    ) -> Reply:
+        return self.commands.submit_modal(slack_user, view_state, private_metadata)
 
     @staticmethod
     def _log_blocks(log: dict[str, Any]) -> list[dict[str, Any]]:
