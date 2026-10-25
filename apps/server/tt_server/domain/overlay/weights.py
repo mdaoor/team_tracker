@@ -24,6 +24,7 @@ Q = Decimal("0.0001")
 
 
 async def ensure_default_scheme(session: AsyncSession, ws_id: str) -> m.WeightScheme:
+    """The workspace's `default` weight scheme, created on first use."""
     scheme = await session.scalar(
         select(m.WeightScheme).where(
             m.WeightScheme.workspace_id == ws_id,
@@ -46,6 +47,7 @@ async def ensure_default_scheme(session: AsyncSession, ws_id: str) -> m.WeightSc
 
 
 def validate_formula(formula: dict[str, Any]) -> None:
+    """Reject a scheme formula the evaluator cannot run."""
     base = formula.get("base", "constant")
     if base not in ("estimate_hours", "points", "constant"):
         raise Invalid("invalid_formula", f"unknown base {base!r}", pointer="/formula/base")
@@ -91,6 +93,7 @@ def evaluate(formula: dict[str, Any], ctx: dict[str, Any]) -> Decimal:
 
 
 def estimate_hours(item: m.WorkItem) -> Decimal | None:
+    """The item's estimate in hours (days convert at 8 h); points are not converted."""
     if item.estimate_value is None:
         return None
     if item.estimate_unit == EstimationUnit.HOURS:
@@ -101,6 +104,7 @@ def estimate_hours(item: m.WorkItem) -> Decimal | None:
 
 
 async def item_context(session: AsyncSession, item: m.WorkItem) -> dict[str, Any]:
+    """The facts a weight formula may reference for an item."""
     itype = await session.get(m.WorkItemType, item.type_id)
     tags = (
         await session.scalars(
@@ -250,6 +254,7 @@ async def _mirror_default(item: m.WorkItem, weight: Decimal, ctx: dict[str, Any]
 async def set_override(
     uow: UnitOfWork, ws: m.Workspace, item: m.WorkItem, scheme: m.WeightScheme, value: Decimal, *, by: str
 ) -> m.Weight:
+    """Pin an item's weight under a scheme to a manual value and record the override."""
     s = uow.session
     if value < 0:
         raise Invalid("invalid_weight", "weight must not be negative", pointer="/value")

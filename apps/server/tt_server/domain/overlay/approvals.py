@@ -50,6 +50,7 @@ async def request(
     title: str,
     requested_by: str,
 ) -> m.Approval:
+    """Open an approval on a target with one pending decision per eligible approver."""
     project = await uow.session.get(m.Project, project_id)
     assert project is not None  # noqa: S101
     cfg = project.settings or {}
@@ -84,6 +85,7 @@ async def request(
 
 
 def evaluate(policy: ApprovalPolicy, quorum_n: int | None, decisions: list[Decision]) -> ApprovalStatus:
+    """The approval status that the recorded decisions imply under the policy."""
     approved = sum(d == Decision.APPROVED for d in decisions)
     rejected = sum(d == Decision.REJECTED for d in decisions)
     pending = sum(d == Decision.PENDING for d in decisions)
@@ -111,6 +113,7 @@ async def decide(
     decision: Decision,
     comment: str | None = None,
 ) -> m.Approval:
+    """Record one approver's decision and resolve the approval once the policy is met; a rejection rolls back the gated stage move."""
     s = uow.session
     if approval.status != ApprovalStatus.PENDING:
         raise Conflict("approval_resolved", f"approval already {approval.status.value}")
@@ -199,6 +202,7 @@ async def _roll_back_placement(
 
 
 async def is_approved(session: object, approval_id: str | None) -> bool:
+    """True when there is no approval to wait for, or it has been approved."""
     if approval_id is None:
         return True
     from sqlalchemy.ext.asyncio import AsyncSession

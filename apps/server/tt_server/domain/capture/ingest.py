@@ -267,11 +267,12 @@ async def _find_item(ctx: Ctx, ref: ClientTaskRef) -> m.WorkItem | None:
         acl,
         m.WorkItem,
     )
+    found: m.WorkItem | None = None
     if ref.id:
-        return await session.scalar(base.where(m.WorkItem.id == ref.id))  # type: ignore[no-any-return]
-    if ref.key:
-        return await session.scalar(base.where(func.lower(m.WorkItem.key) == ref.key.lower()))  # type: ignore[no-any-return]
-    return None
+        found = await session.scalar(base.where(m.WorkItem.id == ref.id))
+    elif ref.key:
+        found = await session.scalar(base.where(func.lower(m.WorkItem.key) == ref.key.lower()))
+    return found
 
 
 def _score(sim: float, word_sim: float, query: str, updated_at: datetime) -> float:

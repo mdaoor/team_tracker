@@ -43,6 +43,7 @@ async def create_product(
     description: str | None = None,
     default_process_id: str | None = None,
 ) -> m.Product:
+    """Create a product (optionally under a parent) with its dimension value and audit event."""
     s = uow.session
     key = key.upper()
     if await s.scalar(
@@ -92,6 +93,7 @@ async def create_product(
 async def reparent(
     uow: UnitOfWork, ws: m.Workspace, product: m.Product, parent_id: str | None, *, actor_id: str
 ) -> None:
+    """Move a product under another one (or to the top), refusing cycles and refreshing inherited classifications."""
     if await _would_cycle(uow, product.id, parent_id):
         raise Invalid("cycle", "a product cannot be its own ancestor", pointer="/parent_product_id")
     product.parent_product_id = parent_id
@@ -177,6 +179,7 @@ async def link(
 
 
 async def delivering_product(session: object, project_id: str) -> m.Product | None:
+    """The product that delivers a project, if any."""
     from sqlalchemy.ext.asyncio import AsyncSession
 
     assert isinstance(session, AsyncSession)  # noqa: S101
@@ -247,6 +250,7 @@ async def create_objective(
     owner_id: str,
     actor_id: str,
 ) -> m.Objective:
+    """Create an objective with its backing dimension value and audit event."""
     s = uow.session
     obj = m.Objective(
         id=new_id(),

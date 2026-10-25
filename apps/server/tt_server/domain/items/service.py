@@ -54,6 +54,7 @@ async def next_item_key(session: AsyncSession, project: m.Project) -> str:
 
 
 async def type_level(session: AsyncSession, type_id: str) -> int:
+    """The nesting level of an item type (parents must sit at a shallower level than children)."""
     return int(await session.scalar(select(m.WorkItemType.level).where(m.WorkItemType.id == type_id)) or 0)
 
 
@@ -87,6 +88,7 @@ async def create_item(
     default_stage: bool = True,
     **fields: object,
 ) -> m.WorkItem:
+    """Create a work item with its key, initial state, path, inherited classifications and default stage."""
     session = uow.session
     if "priority" not in fields:
         fields.setdefault("priority_source", ValueSource.INHERITED)
@@ -179,6 +181,7 @@ async def move_item(session: AsyncSession, item: m.WorkItem, new_parent: m.WorkI
 async def get_or_create_tag(
     uow: UnitOfWork, ws: m.Workspace, name: str, *, provisional: bool
 ) -> tuple[m.Tag, bool]:
+    """The workspace tag with this name (case-insensitive) and whether it was just created; new tags may be provisional."""
     session = uow.session
     tag = await session.scalar(
         select(m.Tag).where(
@@ -220,6 +223,7 @@ async def record_estimate(
 
 
 def event_source_for(capture: bool) -> EventSource:
+    """The event source to record: CLIENT for a capture-channel edit, OVERLAY otherwise."""
     return EventSource.CLIENT if capture else EventSource.OVERLAY
 
 

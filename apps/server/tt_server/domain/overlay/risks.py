@@ -10,13 +10,14 @@ from tt_schema.enums import EventSource, RiskCategory, RiskResponse, RiskStatus,
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, rowcount
 from tt_server.domain.errors import Invalid
 
 OPEN_STATUSES = [s for s in RiskStatus if s not in (RiskStatus.CLOSED, RiskStatus.OCCURRED)]
 
 
 async def next_risk_key(uow: UnitOfWork, project: m.Project) -> str:
+    """The next free `<PROJECT>-R<n>` key in the project."""
     n = await uow.session.scalar(
         select(func.count()).select_from(m.Risk).where(m.Risk.project_id == project.id)
     )
@@ -47,6 +48,7 @@ async def create_risk(
     review_date: date | None = None,
     spread_links: bool = True,
 ) -> m.Risk:
+    """Create a risk with its next key, optional target link and audit event; links spread to the target's items."""
     if not (1 <= probability <= 5 and 1 <= impact <= 5):
         raise Invalid("invalid_score", "probability and impact must be 1-5", pointer="/probability")
     if target_type not in (TargetType.PROJECT, TargetType.WORK_ITEM, TargetType.PRODUCT):
@@ -126,6 +128,7 @@ async def scope_item_ids(uow: UnitOfWork, risk: m.Risk) -> list[str]:
 
 
 async def subtree_ids(uow: UnitOfWork, item_id: str, *, include_self: bool = False) -> list[str]:
+    """Ids of an item's descendants (and the item itself when asked)."""
     s = uow.session
     path = await s.scalar(select(m.WorkItem.path).where(m.WorkItem.id == item_id))
     if path is None:
@@ -223,7 +226,7 @@ async def unlink_item(
             m.RiskLink.risk_id == risk.id, m.RiskLink.inherited.is_(True), m.RiskLink.work_item_id.in_(ids)
         )
     )
-    removed = int(res.rowcount or 0)  # type: ignore[attr-defined]
+    removed = rowcount(res)
     await s.execute(
         delete(m.RiskLink).where(m.RiskLink.risk_id == risk.id, m.RiskLink.work_item_id == item.id)
     )
@@ -278,6 +281,7 @@ async def inherit_for_new_item(
 
 
 async def open_risk_score(session: object, item_ids: list[str]) -> int:
+    """Sum of probability times impact of the distinct open risks on the given items."""
     from sqlalchemy.ext.asyncio import AsyncSession
 
     assert isinstance(session, AsyncSession)  # noqa: S101
@@ -308,6 +312,7 @@ async def add_action(
     actor_id: str,
     due_date: date | None = None,
 ) -> m.RiskAction:
+    """Add a mitigation action to a risk and record it."""
     row = m.RiskAction(id=new_id(), risk_id=risk.id, description=description, due_date=due_date)
     uow.session.add(row)
     await uow.session.flush()

@@ -57,6 +57,7 @@ SIMPLE_STATES = [
 async def get_or_create_person(
     uow: UnitOfWork, *, display_name: str, email: str, time_zone: str = "UTC"
 ) -> m.Person:
+    """The person with this email, creating it when absent."""
     person = await uow.session.scalar(select(m.Person).where(m.Person.email == email))
     if person is None:
         person = m.Person(id=new_id(), display_name=display_name, email=email, time_zone=time_zone)
@@ -68,6 +69,7 @@ async def get_or_create_person(
 async def create_workspace(
     uow: UnitOfWork, *, name: str, slug: str, creator_id: str, settings: dict[str, Any] | None = None
 ) -> m.Workspace:
+    """Create a workspace with its default workflow, builtin item types and reference data; the slug must be unused."""
     if await uow.session.scalar(select(m.Workspace.id).where(m.Workspace.slug == slug)):
         raise Conflict("workspace_exists", f"workspace {slug!r} already exists", pointer="/slug")
     ws = m.Workspace(id=new_id(), name=name, slug=slug, settings={**DEFAULT_SETTINGS, **(settings or {})})

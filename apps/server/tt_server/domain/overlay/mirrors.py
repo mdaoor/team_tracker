@@ -100,6 +100,7 @@ async def ensure_builtin_dimensions(session: AsyncSession, ws_id: str) -> dict[s
 
 
 async def get_dimension(session: AsyncSession, ws_id: str, key: str) -> m.Dimension:
+    """A live dimension of the workspace by key; 404 when absent."""
     dim = await session.scalar(
         select(m.Dimension).where(
             m.Dimension.workspace_id == ws_id, m.Dimension.key == key, m.Dimension.deleted_at.is_(None)

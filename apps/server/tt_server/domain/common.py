@@ -133,6 +133,11 @@ def ltree_label(row_id: str) -> str:
     return row_id.replace("-", "_")
 
 
+def rowcount(result: Any) -> int:
+    """Rows affected by an UPDATE/DELETE `execute` result (the typed `Result` does not expose `rowcount`)."""
+    return int(getattr(result, "rowcount", 0) or 0)
+
+
 async def team_subtree_ids(session: AsyncSession, ws_id: str, roots: set[str]) -> set[str]:
     """`roots` plus every descendant team of the workspace (breadth-first over `parent_team_id`)."""
     ids, frontier = set(roots), set(roots)
