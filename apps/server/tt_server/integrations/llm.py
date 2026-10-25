@@ -104,6 +104,27 @@ class LLMGatewayClient:
             {"workspace": workspace, "lines": lines, "rules": rules, "pack": pack, "actor": actor},
         )
 
+    async def presentation_author(
+        self, workspace: str, request: str, slide_kinds: list[dict[str, Any]], facts: dict[str, Any]
+    ) -> GatewayAnswer:
+        return await self._post(
+            "/v1/presentation/author",
+            {
+                "workspace": workspace,
+                "request": request,
+                "pack": {"slide_kinds": slide_kinds},
+                "facts": facts,
+            },
+        )
+
+    async def template_author(
+        self, workspace: str, request: str, slide_kinds: list[dict[str, Any]]
+    ) -> GatewayAnswer:
+        return await self._post(
+            "/v1/presentation/template-author",
+            {"workspace": workspace, "request": request, "pack": {"slide_kinds": slide_kinds}},
+        )
+
     async def aclose(self) -> None:
         await self.http.aclose()
 

@@ -45,3 +45,20 @@ test("a matrix view becomes a slide whose numbers equal the view's, and exports 
   expect(pptx.ok()).toBeTruthy();
   expect((await pptx.body()).subarray(0, 2).toString()).toBe("PK");
 });
+
+test("a deck written by an external LLM is imported leniently and opens in the builder", async ({
+  page,
+}) => {
+  await page.goto("/w/acme/present");
+  await page.getByText("Import a deck an external LLM wrote").click();
+  await page.getByLabel("Deck JSON").fill(
+    JSON.stringify({
+      pack_id: "e2e",
+      title: "External draft",
+      slides: [{ kind: "kpis" }, { kind: "hologram" }],
+    }),
+  );
+  await page.getByRole("button", { name: "Import deck" }).click();
+  await expect(page).toHaveURL(/\/present\/[^/]+$/);
+  await expect(page.getByLabel("Title").first()).toHaveValue("External draft");
+});

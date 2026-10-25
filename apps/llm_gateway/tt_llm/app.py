@@ -20,6 +20,7 @@ from tt_llm.tasks import batch_review as t_batch
 from tt_llm.tasks import capture as t_capture
 from tt_llm.tasks import embed as t_embed
 from tt_llm.tasks import policy as t_policy
+from tt_llm.tasks import presentation as t_pres
 from tt_llm.tasks import rules as t_rules
 from tt_llm.tasks import suggest as t_suggest
 from tt_llm.tasks import summarise as t_sum
@@ -124,6 +125,14 @@ def create_app(
     @app.post("/v1/rules/dry-run", dependencies=[Caller], tags=["tasks"])
     async def rules_dry_run(req: TaskRequest) -> TaskResponse:
         return await timed("rules_dry_run", req, lambda: t_rules.rules_dry_run(deps, req))
+
+    @app.post("/v1/presentation/author", dependencies=[Caller], tags=["tasks"])
+    async def presentation_author(req: TaskRequest) -> TaskResponse:
+        return await timed("presentation_author", req, lambda: t_pres.presentation_author(deps, req))
+
+    @app.post("/v1/presentation/template-author", dependencies=[Caller], tags=["tasks"])
+    async def template_author(req: TaskRequest) -> TaskResponse:
+        return await timed("template_author", req, lambda: t_pres.template_author(deps, req))
 
     @app.post("/v1/embed", dependencies=[Caller], tags=["tasks"])
     async def embed(req: TaskRequest) -> TaskResponse:

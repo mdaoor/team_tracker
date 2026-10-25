@@ -2030,6 +2030,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/presentations:author": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Author
+         * @description "Generate with AI": the gateway drafts a deck from a brief and the viewer's own snapshot digest; the draft goes through the same
+         *     validation as an import (lenient), then lands as an ordinary deck the user can edit.
+         */
+        post: operations["author_api_v1_w__ws__presentations_author_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/w/{ws}/presentations:from-template": {
         parameters: {
             query?: never;
@@ -2044,6 +2065,46 @@ export interface paths {
          * @description Copy a template into a new deck. The deck keeps `template_id`/`template_version` as provenance only (copy semantics).
          */
         post: operations["from_template_api_v1_w__ws__presentations_from_template_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/presentations:generation-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generation Pack
+         * @description Everything an outside LLM needs to draft a deck, as a zip (or the same files as JSON). Off unless the workspace allows it.
+         */
+        post: operations["generation_pack_api_v1_w__ws__presentations_generation_pack_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/w/{ws}/presentations:import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Deck
+         * @description Turn a deck an external model drafted into a presentation. Strict by default: every problem comes back with a JSON pointer.
+         */
+        post: operations["import_deck_api_v1_w__ws__presentations_import_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3471,11 +3532,6 @@ export interface components {
          * @enum {string}
          */
         ApprovalStatus: "pending" | "approved" | "rejected" | "cancelled";
-        /** AuthorIn */
-        AuthorIn: {
-            /** Request */
-            request: string;
-        };
         /** BodyIn */
         BodyIn: {
             /** Body */
@@ -3774,6 +3830,35 @@ export interface components {
          * @enum {string}
          */
         HabitStatus: "observed" | "flagged" | "in_coaching" | "resolved";
+        /** ImportIn */
+        ImportIn: {
+            /** Deck */
+            deck: {
+                [key: string]: unknown;
+            };
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+            /**
+             * Lenient
+             * @default false
+             */
+            lenient: boolean;
+            /**
+             * Range Days
+             * @default 14
+             */
+            range_days: number;
+            /**
+             * Scope
+             * @default workspace
+             */
+            scope: string;
+            /** Weight Scheme Id */
+            weight_scheme_id?: string | null;
+        };
         /** InsightGen */
         InsightGen: {
             /**
@@ -4021,6 +4106,33 @@ export interface components {
              * @default UTC
              */
             time_zone: string;
+        };
+        /** PackIn */
+        PackIn: {
+            /**
+             * Brief
+             * @default
+             */
+            brief: string;
+            /**
+             * Format
+             * @default zip
+             */
+            format: string;
+            /**
+             * Range Days
+             * @default 14
+             */
+            range_days: number;
+            /** Redaction */
+            redaction?: string | null;
+            /**
+             * Scope
+             * @default workspace
+             */
+            scope: string;
+            /** Weight Scheme Id */
+            weight_scheme_id?: string | null;
         };
         /** PhaseIn */
         PhaseIn: {
@@ -4832,6 +4944,11 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** AuthorIn */
+        tt_server__api__routers__governance_ui__AuthorIn: {
+            /** Request */
+            request: string;
+        };
         /** LinkIn */
         tt_server__api__routers__jira__LinkIn: {
             /**
@@ -4861,6 +4978,23 @@ export interface components {
              * @default true
              */
             shared: boolean;
+        };
+        /** AuthorIn */
+        tt_server__api__routers__presentations__AuthorIn: {
+            /** Brief */
+            brief: string;
+            /**
+             * Range Days
+             * @default 14
+             */
+            range_days: number;
+            /**
+             * Scope
+             * @default workspace
+             */
+            scope: string;
+            /** Weight Scheme Id */
+            weight_scheme_id?: string | null;
         };
         /** ShareIn */
         tt_server__api__routers__presentations__ShareIn: {
@@ -8834,7 +8968,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AuthorIn"];
+                "application/json": components["schemas"]["tt_server__api__routers__governance_ui__AuthorIn"];
             };
         };
         responses: {
@@ -10075,6 +10209,44 @@ export interface operations {
             };
         };
     };
+    author_api_v1_w__ws__presentations_author_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["tt_server__api__routers__presentations__AuthorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     from_template_api_v1_w__ws__presentations_from_template_post: {
         parameters: {
             query?: never;
@@ -10102,6 +10274,82 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generation_pack_api_v1_w__ws__presentations_generation_pack_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_deck_api_v1_w__ws__presentations_import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

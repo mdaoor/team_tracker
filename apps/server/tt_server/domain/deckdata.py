@@ -245,6 +245,7 @@ def presentation_dict(p: m.Presentation) -> dict[str, Any]:
         "range_days": p.range_days, "weight_scheme_id": p.weight_scheme_id, "theme": p.theme, "slides": p.slides,
         "is_shared": p.is_shared, "is_template": p.is_template, "created_at": p.created_at, "updated_at": p.updated_at,
         "shared_externally": bool(p.share_token and (p.share_expires_at is None or p.share_expires_at > utcnow())),
+        "source": p.source, "template_id": p.template_id, "template_version": p.template_version,
     }  # fmt: skip
 
 
