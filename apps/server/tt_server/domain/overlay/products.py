@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import select
 from tt_schema.base import new_id
 from tt_schema.enums import EventSource, ProductLinkRole, ScopeType, TargetType, ValueSource
 
+from tt_server.acl.context import AclContext
 from tt_server.acl.grants import on_team_linked_to_product
+from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
@@ -270,3 +274,57 @@ async def create_objective(
         source=EventSource.OVERLAY,
     )
     return obj
+
+
+async def get_product(uow: UnitOfWork, ws_id: str, ref: str) -> m.Product:
+    """A visible product by id or (upper-cased) key; invisible or absent is a 404."""
+    stmt = select(m.Product).where(
+        m.Product.workspace_id == ws_id,
+        m.Product.deleted_at.is_(None),
+        (m.Product.id == ref) | (m.Product.key == ref.upper()),
+    )
+    acl = uow.context.get("acl")
+    p: m.Product | None
+    p = await uow.session.scalar(visible(stmt, acl, m.Product) if acl is not None else stmt)
+    if p is None:
+        raise NotFound("not_found", "product not found")
+    return p
+
+
+async def list_products(uow: UnitOfWork, ws_id: str, acl: AclContext) -> list[m.Product]:
+    """Live products the caller can see, by key."""
+    return list(
+        (
+            await uow.session.scalars(
+                visible(
+                    select(m.Product).where(m.Product.workspace_id == ws_id, m.Product.deleted_at.is_(None)),
+                    acl,
+                    m.Product,
+                ).order_by(m.Product.key)
+            )
+        ).all()
+    )
+
+
+async def patch_product(
+    uow: UnitOfWork, ws: m.Workspace, actor_id: str, p: m.Product, data: dict[str, Any]
+) -> m.Product:
+    """Edit a product; a parent change goes through `reparent` (cycle check, inheritance refresh)."""
+    if "parent_product_id" in data:
+        await reparent(uow, ws, p, data.pop("parent_product_id"), actor_id=actor_id)
+    for k, v in data.items():
+        setattr(p, k, v)
+    return p
+
+
+async def list_links(uow: UnitOfWork, p: m.Product) -> list[m.ProductLink]:
+    """Live links of a product."""
+    return list(
+        (
+            await uow.session.scalars(
+                select(m.ProductLink).where(
+                    m.ProductLink.product_id == p.id, m.ProductLink.deleted_at.is_(None)
+                )
+            )
+        ).all()
+    )

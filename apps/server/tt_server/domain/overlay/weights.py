@@ -12,8 +12,8 @@ from tt_schema.enums import EstimationUnit, EventSource, ScopeType, TargetType, 
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
-from tt_server.domain.common import emit
-from tt_server.domain.errors import Invalid
+from tt_server.domain.common import emit, emit_admin
+from tt_server.domain.errors import Invalid, NotFound
 
 DEFAULT_FORMULA: dict[str, Any] = {
     "base": "constant",
@@ -278,3 +278,87 @@ async def set_override(
         correlation_id=uow.context.get("correlation_id"),
     )
     return row
+
+
+async def list_schemes(uow: UnitOfWork, ws_id: str) -> list[m.WeightScheme]:
+    """Live weight schemes of the workspace, seeding the default one first."""
+    await ensure_default_scheme(uow.session, ws_id)
+    return list(
+        (
+            await uow.session.scalars(
+                select(m.WeightScheme).where(
+                    m.WeightScheme.workspace_id == ws_id, m.WeightScheme.deleted_at.is_(None)
+                )
+            )
+        ).all()
+    )
+
+
+async def create_scheme(
+    uow: UnitOfWork, ws: m.Workspace, actor_id: str, data: dict[str, Any]
+) -> m.WeightScheme:
+    """Create a scheme after validating its formula."""
+    validate_formula(data["formula"])
+    row = m.WeightScheme(id=new_id(), workspace_id=ws.id, **data)
+    uow.session.add(row)
+    await uow.session.flush()
+    emit_admin(
+        uow,
+        workspace_id=ws.id,
+        actor_id=actor_id,
+        event_type="weight.recomputed",
+        payload={"after": {"scheme_created": row.name}},
+    )
+    return row
+
+
+async def recompute_scheme(uow: UnitOfWork, ws: m.Workspace, actor_id: str, sid: str) -> int:
+    """Recompute every live item of the workspace (the formula changed, or the scheme is new)."""
+    sc = await uow.session.scalar(
+        select(m.WeightScheme).where(m.WeightScheme.id == sid, m.WeightScheme.workspace_id == ws.id)
+    )
+    if sc is None:
+        raise NotFound("not_found", "scheme not found")
+    rows = (
+        await uow.session.scalars(
+            select(m.WorkItem)
+            .join(m.Project, m.Project.id == m.WorkItem.project_id)
+            .where(m.Project.workspace_id == ws.id, m.WorkItem.deleted_at.is_(None))
+        )
+    ).all()
+    for it in rows:
+        await recompute_item(uow, ws, it, actor_id=actor_id)
+    emit_admin(
+        uow,
+        workspace_id=ws.id,
+        actor_id=actor_id,
+        event_type="weight.recomputed",
+        payload={"after": {"scheme": sc.name, "items": len(rows)}},
+    )
+    return len(rows)
+
+
+async def find_scheme(uow: UnitOfWork, ws_id: str, ref: str) -> m.WeightScheme:
+    """A live scheme by id or name; 404 when absent."""
+    sc = await uow.session.scalar(
+        select(m.WeightScheme).where(
+            m.WeightScheme.workspace_id == ws_id,
+            m.WeightScheme.deleted_at.is_(None),
+            (m.WeightScheme.id == ref) | (m.WeightScheme.name == ref),
+        )
+    )
+    if sc is None:
+        raise NotFound("not_found", "scheme not found")
+    return sc
+
+
+async def item_weight_rows(uow: UnitOfWork, item: m.WorkItem) -> list[tuple[m.Weight, str]]:
+    """The item's per-scheme weights as (row, scheme name)."""
+    rows = (
+        await uow.session.execute(
+            select(m.Weight, m.WeightScheme.name)
+            .join(m.WeightScheme, m.WeightScheme.id == m.Weight.scheme_id)
+            .where(m.Weight.work_item_id == item.id, m.Weight.deleted_at.is_(None))
+        )
+    ).all()
+    return [(w, n) for w, n in rows]

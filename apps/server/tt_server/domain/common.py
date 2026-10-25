@@ -18,6 +18,28 @@ from tt_server.db.uow import UnitOfWork
 SYSTEM_EMAIL = "system@tt.local"
 
 
+def emit_admin(
+    uow: UnitOfWork,
+    *,
+    workspace_id: str,
+    actor_id: str,
+    event_type: str,
+    payload: dict[str, Any] | None = None,
+    source: EventSource = EventSource.OVERLAY,
+) -> Event:
+    """Emit an event whose subject is the acting person: configuration changes with no better entity."""
+    return emit(
+        uow,
+        workspace_id=workspace_id,
+        actor_id=actor_id,
+        entity_type=TargetType.PERSON,
+        entity_id=actor_id,
+        event_type=event_type,
+        payload=payload,
+        source=source,
+    )
+
+
 def emit(
     uow: UnitOfWork,
     *,

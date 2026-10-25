@@ -16,13 +16,14 @@ from tt_server.acl.visibility import visible
 from tt_server.api.authz import needs, needs_review
 from tt_server.api.deps import CurrentActor, Uow, hash_token, new_token
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.overlay import _check_target, _dimension, _target_id
+from tt_server.api.overlay_support import check_target, target_id_of
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.domain.errors import DomainError
 from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import review as review_svc
 from tt_server.domain.overlay import suggestions
+from tt_server.domain.overlay.dimensions import get_dimension
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["llm"])
 
@@ -151,7 +152,7 @@ async def bulk_suggested(body: SuggestedBulk, actor: CurrentActor, uow: Uow) -> 
     written, skipped = 0, []
     for s in body.suggestions:
         try:
-            dim = await _dimension(uow, actor.ws.id, s.dimension)
+            dim = await get_dimension(uow, actor.ws.id, s.dimension)
             value = await uow.session.scalar(
                 select(m.DimensionValue).where(
                     m.DimensionValue.dimension_id == dim.id,
@@ -162,8 +163,8 @@ async def bulk_suggested(body: SuggestedBulk, actor: CurrentActor, uow: Uow) -> 
             )
             if value is None:
                 raise ApiError(404, "not_found", f"value {s.value!r} not found")
-            tid = await _target_id(uow, actor.ws.id, TargetType.WORK_ITEM, s.target)
-            await _check_target(actor, uow, "classification.write", TargetType.WORK_ITEM, tid)
+            tid = await target_id_of(uow, actor.ws.id, TargetType.WORK_ITEM, s.target)
+            await check_target(actor, uow, "classification.write", TargetType.WORK_ITEM, tid)
             row = await classify_svc.classify(
                 uow, actor.ws, target_type=TargetType.WORK_ITEM, target_id=tid, dimension=dim, value=value,
                 source=ValueSource.RULE, set_by=actor.person.id, confidence=s.confidence, is_confirmed=False,

@@ -6,10 +6,12 @@ from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import ApprovalPolicy, ApprovalStatus, Decision, EventSource, ProjectRole, TargetType
 
+from tt_server.acl.context import AclContext
+from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
-from tt_server.domain.errors import Conflict, Forbidden, Invalid
+from tt_server.domain.errors import Conflict, Forbidden, Invalid, NotFound
 from tt_server.domain.overlay import process as proc
 
 
@@ -204,3 +206,42 @@ async def is_approved(session: object, approval_id: str | None) -> bool:
     assert isinstance(session, AsyncSession)  # noqa: S101
     a = await session.get(m.Approval, approval_id)
     return a is not None and a.status == ApprovalStatus.APPROVED
+
+
+async def list_approvals(
+    uow: UnitOfWork, ws_id: str, acl: AclContext, person_id: str, *, status: ApprovalStatus | None, mine: bool
+) -> list[m.Approval]:
+    """Approvals on visible projects, newest first; `mine` keeps those awaiting the person's decision."""
+    stmt = (
+        select(m.Approval)
+        .join(m.Project, m.Project.id == m.Approval.project_id)
+        .where(m.Project.workspace_id == ws_id, m.Approval.deleted_at.is_(None))
+    )
+    stmt = visible(stmt, acl, m.Project)
+    if status:
+        stmt = stmt.where(m.Approval.status == status)
+    if mine:
+        stmt = stmt.join(m.ApprovalDecision, m.ApprovalDecision.approval_id == m.Approval.id).where(
+            m.ApprovalDecision.approver_id == person_id, m.ApprovalDecision.decision == Decision.PENDING
+        )
+    return list((await uow.session.scalars(stmt.order_by(m.Approval.requested_at.desc()))).all())
+
+
+async def get_approval(uow: UnitOfWork, ws_id: str, aid: str) -> m.Approval:
+    """An approval of the workspace by id; 404 when absent."""
+    a = await uow.session.scalar(
+        select(m.Approval)
+        .join(m.Project, m.Project.id == m.Approval.project_id)
+        .where(m.Approval.id == aid, m.Project.workspace_id == ws_id)
+    )
+    if a is None:
+        raise NotFound("not_found", "approval not found")
+    return a
+
+
+async def project_of(uow: UnitOfWork, approval: m.Approval) -> m.Project:
+    """The project an approval belongs to."""
+    p = await uow.session.get(m.Project, approval.project_id)
+    if p is None:
+        raise NotFound("not_found", "project not found")
+    return p
