@@ -13,10 +13,24 @@ from tt_server.api.authz import check, check_item, check_project
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.routers.core import _item, _project
 from tt_server.db import models as m
+from tt_server.domain.common import emit_after
 from tt_server.domain.errors import NotFound
 
 PREFIX = "/api/v1/w/{ws}"
 TARGETS = {"work_item": TargetType.WORK_ITEM, "project": TargetType.PROJECT, "product": TargetType.PRODUCT}
+
+
+def audit(uow: Uow, actor: CurrentActor, etype: TargetType, eid: str, event: str, **after: Any) -> None:
+    """Record an overlay event on an entity with an `{"after": {...}}` payload, attributed to the actor."""
+    emit_after(
+        uow,
+        workspace_id=actor.ws.id,
+        actor_id=actor.person.id,
+        entity_type=etype,
+        entity_id=eid,
+        event_type=event,
+        **after,
+    )
 
 
 async def item_ref_for(uow: Uow, item: m.WorkItem) -> Any:

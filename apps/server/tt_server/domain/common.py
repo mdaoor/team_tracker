@@ -18,6 +18,28 @@ from tt_server.db.uow import UnitOfWork
 SYSTEM_EMAIL = "system@tt.local"
 
 
+def emit_after(
+    uow: UnitOfWork,
+    *,
+    workspace_id: str,
+    actor_id: str,
+    entity_type: TargetType,
+    entity_id: str,
+    event_type: str,
+    **after: Any,
+) -> Event:
+    """Emit an overlay event whose payload is `{"after": {...}}`: the common shape of audit events from the routers."""
+    return emit(
+        uow,
+        workspace_id=workspace_id,
+        actor_id=actor_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        event_type=event_type,
+        payload={"after": after},
+    )
+
+
 def emit_admin(
     uow: UnitOfWork,
     *,

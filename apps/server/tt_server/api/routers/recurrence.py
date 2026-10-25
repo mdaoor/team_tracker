@@ -17,15 +17,15 @@ from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import _item, _project
 from tt_server.db import models as m
 from tt_server.domain import recurrence as rec
-from tt_server.domain.common import emit, row_dict
+from tt_server.domain.common import emit_after, row_dict
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["recurrence"])
 
 
 def _ev(uow: Uow, actor: Actor, rule: m.RecurrenceRule, event: str, **after: Any) -> None:
-    emit(
+    emit_after(
         uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.PROJECT, entity_id=rule.project_id,
-        event_type=event, payload={"after": {"rule": rule.id, **after}},
+        event_type=event, rule=rule.id, **after,
     )  # fmt: skip
 
 
