@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import Any, Protocol
 
 import sqlalchemy as sa
@@ -40,14 +42,18 @@ class Run:
 class Storage(Protocol):
     async def save_run(self, run: Run) -> None: ...
     async def get_run(self, run_id: str) -> Run | None: ...
-    async def spent(self, workspace: str, day: date) -> float: ...
-    async def add_spend(self, workspace: str, day: date, usd: float) -> None: ...
+    async def spent(self, workspace: str, day: date) -> Decimal: ...
+    async def add_spend(self, workspace: str, day: date, usd: Decimal | float) -> None: ...
+    async def reserve(self, workspace: str, day: date, amount: Decimal, limit: Decimal) -> bool:
+        """Atomically hold `amount` if the day's spend plus the hold stays within `limit`; False when it would not."""
+        ...
 
 
 class MemoryStorage:
     def __init__(self) -> None:
         self.runs: dict[str, Run] = {}
-        self.budget: dict[tuple[str, date], float] = {}
+        self.budget: dict[tuple[str, date], Decimal] = {}
+        self._lock = asyncio.Lock()
 
     async def save_run(self, run: Run) -> None:
         self.runs[run.id] = run
@@ -55,11 +61,20 @@ class MemoryStorage:
     async def get_run(self, run_id: str) -> Run | None:
         return self.runs.get(run_id)
 
-    async def spent(self, workspace: str, day: date) -> float:
-        return self.budget.get((workspace, day), 0.0)
+    async def spent(self, workspace: str, day: date) -> Decimal:
+        return self.budget.get((workspace, day), Decimal(0))
 
-    async def add_spend(self, workspace: str, day: date, usd: float) -> None:
-        self.budget[(workspace, day)] = self.budget.get((workspace, day), 0.0) + usd
+    async def add_spend(self, workspace: str, day: date, usd: Decimal | float) -> None:
+        async with self._lock:
+            self.budget[(workspace, day)] = self.budget.get((workspace, day), Decimal(0)) + _dec(usd)
+
+    async def reserve(self, workspace: str, day: date, amount: Decimal, limit: Decimal) -> bool:
+        async with self._lock:
+            now = self.budget.get((workspace, day), Decimal(0))
+            if now + amount > limit:
+                return False
+            self.budget[(workspace, day)] = now + amount
+            return True
 
 
 class SqlStorage:
@@ -174,22 +189,44 @@ class SqlStorage:
             steps=[Step(x["n"], x["kind"], x["name"], x["input"], x["output"], x["ms"]) for x in steps],
         )
 
-    async def spent(self, workspace: str, day: date) -> float:
+    async def spent(self, workspace: str, day: date) -> Decimal:
         async with self._sf() as s:
             v = await s.scalar(
                 sa.select(self.budgets.c.usd).where(
                     self.budgets.c.workspace == workspace, self.budgets.c.day == day
                 )
             )
-        return float(v or 0)
+        return Decimal(v or 0)
 
-    async def add_spend(self, workspace: str, day: date, usd: float) -> None:
+    async def add_spend(self, workspace: str, day: date, usd: Decimal | float) -> None:
+        from sqlalchemy.dialects.postgresql import insert
+
+        amount = _dec(usd)
+        async with self._sf() as s, s.begin():
+            stmt = insert(self.budgets).values(workspace=workspace, day=day, usd=amount)
+            await s.execute(
+                stmt.on_conflict_do_update(
+                    index_elements=["workspace", "day"], set_={"usd": self.budgets.c.usd + amount}
+                )
+            )
+
+    async def reserve(self, workspace: str, day: date, amount: Decimal, limit: Decimal) -> bool:
+        """One statement, so two gateway processes cannot both take the last slice: the update only fires while it fits."""
         from sqlalchemy.dialects.postgresql import insert
 
         async with self._sf() as s, s.begin():
-            stmt = insert(self.budgets).values(workspace=workspace, day=day, usd=usd)
-            await s.execute(
-                stmt.on_conflict_do_update(
-                    index_elements=["workspace", "day"], set_={"usd": self.budgets.c.usd + usd}
-                )
+            stmt = insert(self.budgets).values(workspace=workspace, day=day, usd=amount)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["workspace", "day"],
+                set_={"usd": self.budgets.c.usd + amount},
+                where=self.budgets.c.usd + amount <= limit,
             )
+            if amount > limit:  # the very first hold may already exceed a tiny limit
+                return False
+            res = await s.execute(stmt.returning(self.budgets.c.usd))
+            return res.first() is not None
+
+
+def _dec(v: Decimal | float | str) -> Decimal:
+    """Money is Decimal: floats from providers are converted through their shortest repr, never summed as binary floats."""
+    return v if isinstance(v, Decimal) else Decimal(str(v))

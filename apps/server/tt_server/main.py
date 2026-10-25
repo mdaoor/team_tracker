@@ -48,7 +48,7 @@ from tt_server.logging import configure_logging
 from tt_server.metrics import Metrics
 from tt_server.ratelimit import SlidingWindow, client_ip, credential_key
 from tt_server.settings import Settings, get_settings
-from tt_server.telemetry import configure_telemetry
+from tt_server.telemetry import configure_telemetry, instrument
 
 log = structlog.get_logger()
 
@@ -63,7 +63,7 @@ def create_app(
     settings = settings or get_settings()
     settings.validate_for_runtime()
     configure_logging(settings.log_level, json=settings.log_json)
-    configure_telemetry(otlp_endpoint=settings.otlp_endpoint)
+    provider = configure_telemetry(otlp_endpoint=settings.otlp_endpoint)
     db_engine = engine or make_engine(settings.database_url)
 
     @asynccontextmanager
@@ -258,4 +258,5 @@ def create_app(
         """The exact JSON Schema translators must emit (served so clients can fetch the matching version)."""
         return client_message_json_schema(batch=batch)
 
+    instrument(app, db_engine, provider)
     return app

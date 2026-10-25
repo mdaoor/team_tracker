@@ -12,10 +12,11 @@ from tt_server.domain.capture import dailylog
 from tt_server.domain.common import zone
 from tt_server.jobs.app import app
 from tt_server.jobs.engine import shared_engine
+from tt_server.jobs.otel import traced_task
 
 
 @app.periodic(cron="*/15 * * * *")
-@app.task(name="dailylog.build_due", queueing_lock="dailylog.build_due")
+@traced_task(name="dailylog.build_due", queueing_lock="dailylog.build_due")
 async def build_due_daily_logs(timestamp: int) -> int:
     """Every 15 min: draft logs for members whose local time just passed the workspace daily_log_time."""
     engine = shared_engine()
@@ -42,7 +43,7 @@ async def build_due_daily_logs(timestamp: int) -> int:
 
 
 @app.periodic(cron="30 2 * * *")
-@app.task(name="idp.sync_directory", queueing_lock="idp.sync_directory")
+@traced_task(name="idp.sync_directory", queueing_lock="idp.sync_directory")
 async def sync_directory(timestamp: int) -> int:
     """Nightly: refresh AD group memberships; people who left a group lose what it granted."""
     from tt_server.db.uow import UnitOfWork
@@ -67,7 +68,7 @@ async def sync_directory(timestamp: int) -> int:
 
 
 @app.periodic(cron="*/15 * * * *")
-@app.task(name="snapshot.refresh", queueing_lock="snapshot.refresh")
+@traced_task(name="snapshot.refresh", queueing_lock="snapshot.refresh")
 async def refresh_snapshots(timestamp: int) -> int:
     """Every 15 min: keep cached snapshots of saved presentations and recently opened scopes fresh (Phase 7 §7.9)."""
     from tt_server.domain import deckdata
@@ -83,7 +84,7 @@ async def refresh_snapshots(timestamp: int) -> int:
 
 
 @app.periodic(cron="*/15 * * * *")
-@app.task(name="recurrence.materialise", queueing_lock="recurrence.materialise")
+@traced_task(name="recurrence.materialise", queueing_lock="recurrence.materialise")
 async def materialise_recurrences(timestamp: int) -> int:
     """Every 15 min: create the items of recurrence rules whose next occurrence (minus lead days) has arrived."""
     from tt_server.domain import recurrence
@@ -93,7 +94,7 @@ async def materialise_recurrences(timestamp: int) -> int:
 
 
 @app.periodic(cron="20 3 * * *")
-@app.task(name="plan.recompute_progress", queueing_lock="plan.recompute_progress")
+@traced_task(name="plan.recompute_progress", queueing_lock="plan.recompute_progress")
 async def recompute_progress(timestamp: int) -> int:
     """Nightly safety net: re-derive `progress_pct` of every rolled-up container (the write path keeps it current; this heals drift)."""
     from tt_server.domain.plan import linkage
@@ -103,7 +104,7 @@ async def recompute_progress(timestamp: int) -> int:
 
 
 @app.periodic(cron="40 3 * * *")
-@app.task(name="retention.purge", queueing_lock="retention.purge")
+@traced_task(name="retention.purge", queueing_lock="retention.purge")
 async def purge_retention(timestamp: int) -> int:
     """Nightly: drop `raw_input` older than each workspace's `raw_input_retention_days` (unset = keep)."""
     from tt_server.domain import privacy

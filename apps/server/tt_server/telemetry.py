@@ -17,3 +17,15 @@ def configure_telemetry(service_name: str = "tt-server", otlp_endpoint: str | No
     if not isinstance(trace.get_tracer_provider(), TracerProvider):  # set-once global
         trace.set_tracer_provider(provider)
     return provider
+
+
+def instrument(app: object, engine: object, provider: TracerProvider | None = None) -> None:
+    """Request spans (FastAPI) with the SQL they ran as children (SQLAlchemy); the job spans continue the same trace."""
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)  # type: ignore[arg-type]
+    sync = getattr(engine, "sync_engine", engine)
+    if not getattr(sync, "_tt_instrumented", False):  # one tracer per engine, however many apps share it (tests)
+        SQLAlchemyInstrumentor().instrument(engine=sync, tracer_provider=provider)
+        sync._tt_instrumented = True

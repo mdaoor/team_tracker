@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.capture import Event
 
+from tt_server.jobs.otel import inject_context
 from tt_server.jobs.registry import tasks_for
 
 _DEFER = text(
@@ -24,7 +25,7 @@ async def dispatch(session: AsyncSession, events: list[Event]) -> int:
     deferred = 0
     for event in events:
         for task in tasks_for(event.event_type):
-            args = json.dumps({"event_id": event.id})
+            args = json.dumps({"event_id": event.id, **inject_context()})
             await session.execute(_DEFER, {"task": task, "args": args})
             deferred += 1
     return deferred

@@ -13,13 +13,13 @@ sys.path.insert(0, str(ROOT))
 from tools import handover as h  # noqa: E402
 
 
-def test_all_four_templates_are_found_in_the_appendix() -> None:
-    assert set(h.templates()) == {"D.1", "D.2", "D.3", "D.4"}
+def test_the_templates_are_found_in_the_appendix() -> None:
+    assert set(h.templates()) >= {"D.1", "D.2", "D.3", "D.4"}  # D.5 (remediation and new features) joined in Phase 13
 
 
 def test_phases_are_ordered_with_2b_after_2() -> None:
     labels = [p.label for p in h.phases()]
-    assert labels[:5] == ["0", "1", "2", "2b", "3"] and labels[-1] == "12"
+    assert labels[:5] == ["0", "1", "2", "2b", "3"] and labels[-4:] == ["12", "13", "14", "15"]
     assert h.find("phase-10").slug == "jira-sync"
     assert h.neighbour(h.find("3"), -1).label == "2b"  # type: ignore[union-attr]
 
@@ -36,7 +36,7 @@ def test_kickoff_names_the_branch_phase_file_and_neighbours() -> None:
 
 
 def test_the_last_phase_has_no_next_phase() -> None:
-    assert "none" in h.kickoff(h.find("12"), url="x")
+    assert "none" in h.kickoff(h.find("15"), url="x")
 
 
 def test_resume_review_and_spec_change() -> None:

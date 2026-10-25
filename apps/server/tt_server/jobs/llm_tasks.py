@@ -10,12 +10,13 @@ from tt_server.domain.overlay import suggestions
 from tt_server.integrations.llm import gateway_from_settings
 from tt_server.jobs.app import app
 from tt_server.jobs.engine import shared_engine
+from tt_server.jobs.otel import traced_task
 from tt_server.jobs.retry import EVENT_RETRY
 from tt_server.settings import get_settings
 
 
 @app.periodic(cron="15 3 * * *")
-@app.task(name="llm.nightly", queueing_lock="llm.nightly")
+@traced_task(name="llm.nightly", queueing_lock="llm.nightly")
 async def nightly(timestamp: int) -> dict[str, int]:
     """Review-row suggestions and classification pre-fill for every workspace."""
     client = gateway_from_settings(get_settings())
@@ -35,7 +36,7 @@ async def nightly(timestamp: int) -> dict[str, int]:
     return {"written": written}
 
 
-@app.task(name="llm.suggest_for_event", retry=EVENT_RETRY)
+@traced_task(name="llm.suggest_for_event", retry=EVENT_RETRY)
 async def suggest_for_event(event_id: str) -> str:
     """After `review.created`: suggest right away so the row arrives in the queue with a default."""
     client = gateway_from_settings(get_settings())
@@ -60,7 +61,7 @@ async def suggest_for_event(event_id: str) -> str:
 
 
 @app.periodic(cron="45 3 * * *")
-@app.task(name="insights.nightly", queueing_lock="insights.nightly")
+@traced_task(name="insights.nightly", queueing_lock="insights.nightly")
 async def nightly_insights(timestamp: int) -> dict[str, int]:
     """Grounded project summaries through the gateway (Phase 7 §7.3); no gateway configured = no-op."""
     from tt_server.domain import insights

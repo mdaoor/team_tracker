@@ -145,3 +145,65 @@ async def test_local_only_never_opens_a_connection_beyond_loopback(monkeypatch: 
         "anthropic" not in e for e in exc.value.extra["errors"]
     )  # the cloud fallback was never even tried
     assert attempts and set(attempts) <= {"127.0.0.1", "::1", "localhost"}
+
+
+class SlowBackend(Backend):
+    async def __call__(self, **kw: Any) -> Any:
+        import asyncio
+
+        await asyncio.sleep(0.05)  # all callers are in flight together
+        return await super().__call__(**kw)
+
+
+async def test_concurrent_requests_cannot_overspend_at_the_boundary() -> None:
+    """Review T14: check-then-charge let N parallel calls all pass the check. With a hold, at most one fits the last slice."""
+    import asyncio
+
+    from tt_llm.routing import Completion
+
+    cfg = default_config(
+        privacy_mode="cloud",
+        budgets={"default_usd_per_workspace_per_day": 0.01, "reserve_usd_per_request": 0.01},
+    )
+    r = router(cfg, SlowBackend(default=lambda kw: Completion(content="{}", model=kw["model"], cost_usd=0.01)))
+    results = await asyncio.gather(
+        *(r.complete("agent", [{"role": "user", "content": "x"}], workspace="acme") for _ in range(6)),
+        return_exceptions=True,
+    )
+    ok = [x for x in results if not isinstance(x, BaseException)]
+    refused = [x for x in results if isinstance(x, BudgetExceeded)]
+    assert len(ok) == 1 and len(refused) == 5, results
+
+
+async def test_the_hold_is_released_when_the_model_fails_and_settled_to_the_real_cost() -> None:
+    from decimal import Decimal
+
+    from tt_llm.routing import Completion, ModelsFailed
+
+    cfg = default_config(
+        privacy_mode="cloud",
+        budgets={"default_usd_per_workspace_per_day": 1.0, "reserve_usd_per_request": 0.25},
+    )
+
+    def boom(kw: dict[str, Any]) -> Completion:
+        raise RuntimeError("provider down")
+
+    r = router(cfg, Backend(default=boom))
+    with pytest.raises(ModelsFailed):
+        await r.complete("agent", [{"role": "user", "content": "x"}], workspace="acme")
+    day = datetime.now(UTC).date()
+    assert await r.storage.spent("acme", day) == 0  # nothing leaked
+
+    r2 = router(cfg, Backend(default=lambda kw: Completion(content="{}", model=kw["model"], cost_usd=0.1)))
+    await r2.complete("agent", [{"role": "user", "content": "x"}], workspace="acme")
+    assert await r2.storage.spent("acme", day) == Decimal("0.1")  # exact: not 0.1000000000000000055
+
+
+async def test_money_is_decimal_end_to_end() -> None:
+    from decimal import Decimal
+
+    store = MemoryStorage()
+    day = datetime.now(UTC).date()
+    for _ in range(10):
+        await store.add_spend("acme", day, 0.1)
+    assert await store.spent("acme", day) == Decimal("1.0")  # ten binary 0.1s would sum to 0.9999999999999999
