@@ -150,6 +150,13 @@
         "rows"
       ]
     },
+    "deliverables": {
+      "default_config": {
+        "phase": null,
+        "project_key": null
+      },
+      "required_config": []
+    },
     "explorer": {
       "default_config": {
         "dimA": "team",
@@ -192,6 +199,13 @@
         "text"
       ]
     },
+    "milestones": {
+      "default_config": {
+        "project_key": null,
+        "style": "table"
+      },
+      "required_config": []
+    },
     "now": {
       "default_config": {},
       "required_config": []
@@ -200,9 +214,21 @@
       "default_config": {},
       "required_config": []
     },
+    "phase_status": {
+      "default_config": {
+        "project_key": null
+      },
+      "required_config": []
+    },
     "pipeline": {
       "default_config": {
         "process": null
+      },
+      "required_config": []
+    },
+    "plan_vs_actual": {
+      "default_config": {
+        "project_key": null
       },
       "required_config": []
     },
@@ -212,6 +238,12 @@
         "project_key"
       ]
     },
+    "project_overview": {
+      "default_config": {
+        "project_key": null
+      },
+      "required_config": []
+    },
     "projects": {
       "default_config": {},
       "required_config": []
@@ -219,6 +251,13 @@
     "radar": {
       "default_config": {
         "days": 14
+      },
+      "required_config": []
+    },
+    "roadmap": {
+      "default_config": {
+        "project_key": null,
+        "show_baseline": true
       },
       "required_config": []
     },
@@ -275,6 +314,24 @@
       "now",
       "people",
       "violations"
+    ],
+    "programme_roadmap": [
+      "title",
+      "roadmap",
+      "milestones",
+      "phase_status",
+      "insight"
+    ],
+    "project_plan_review": [
+      "title",
+      "project_overview",
+      "roadmap",
+      "milestones",
+      "deliverables",
+      "plan_vs_actual",
+      "phase_status",
+      "violations",
+      "markdown"
     ],
     "risk_review": [
       "title",

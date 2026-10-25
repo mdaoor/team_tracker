@@ -75,7 +75,9 @@ async def test_slides_are_validated_per_kind_and_templates_expand(api: Api) -> N
         await api.call("POST", "/presentations:from-template", json={"template": "nope"})
     ).status_code == 404
     names = {t["key"] for t in (await api.call("GET", "/presentations/templates")).json()["data"]}
-    assert names == {"portfolio_review", "sprint_review", "risk_review", "team_1on1", "exec_summary"}
+    assert names == {
+        "portfolio_review", "sprint_review", "risk_review", "team_1on1", "exec_summary", "project_plan_review", "programme_roadmap",
+    }  # fmt: skip
 
 
 async def test_slide_add_patch_reorder_duplicate_delete(api: Api) -> None:

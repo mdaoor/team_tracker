@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { makeContext } from "./context.js";
 import { md, renderImage } from "./renderers/misc.js";
-import { RENDERERS } from "./renderers/index.js";
-import { expandSlides } from "./template.js";
+import { KIND_META, RENDERERS } from "./renderers/index.js";
+import { expandSlides, slideBody } from "./template.js";
 import { applyFilter, measureOf, violationsOf } from "./util.js";
 
 const data = JSON.parse(readFileSync("fixtures/golden.json", "utf8"));
@@ -144,5 +144,173 @@ describe("pagination", () => {
     );
     expect(out).toHaveLength(3);
     expect(out[1]._cont).toBe(true);
+  });
+});
+
+const planD = (over = {}) => ({
+  as_of: "2026-10-24T10:00:00+00:00",
+  items: [],
+  risks: [],
+  teams: [],
+  projects: [
+    {
+      key: "ERP",
+      name: "ERP rollout",
+      owner: "@mahmoud",
+      planned_start: "2026-09-01",
+      planned_end: "2027-04-30",
+      status: "not_started",
+      health: "red",
+      baseline_name: "approved",
+      summary: "",
+      product: null,
+      methodology: "",
+      team: null,
+    },
+  ],
+  milestones: [
+    {
+      name: "Kick-off",
+      project: "ERP",
+      due: "2026-09-30",
+      kind: "gate",
+      status: "overdue",
+      deliverables_done: 0,
+      deliverables_total: 1,
+    },
+    {
+      name: "Go-live",
+      project: "ERP",
+      due: "2027-04-30",
+      kind: "release",
+      status: "planned",
+      deliverables_done: 0,
+      deliverables_total: 0,
+    },
+  ],
+  phases: [
+    {
+      key: "ERP-1",
+      title: "Foundation",
+      project: "ERP",
+      planned_start: "2026-09-01",
+      planned_end: "2026-11-15",
+      status: "not_started",
+      progress_pct: null,
+      deliverable_count: 2,
+    },
+  ],
+  deliverables: [
+    {
+      key: "ERP-2",
+      title: "Governance",
+      project: "ERP",
+      phase: "ERP-1",
+      owner: "@sara",
+      planned_start: "2026-09-01",
+      planned_end: "2026-09-30",
+      baseline_end: "2026-09-25",
+      baseline_variance_days: 5,
+      status: "overdue",
+      progress_pct: null,
+      linked_tasks: 0,
+      hours_logged: 0,
+      depends_on: [],
+    },
+    {
+      key: "ERP-3",
+      title: "Infrastructure",
+      project: "ERP",
+      phase: "ERP-1",
+      owner: null,
+      planned_start: "2026-10-01",
+      planned_end: "2026-10-31",
+      baseline_end: null,
+      baseline_variance_days: null,
+      status: "at_risk",
+      progress_pct: 40,
+      linked_tasks: 5,
+      hours_logged: 12.5,
+      depends_on: ["ERP-2"],
+    },
+  ],
+  ...over,
+});
+const pctx = (D) => ({
+  D,
+  items: D.items,
+  slideData: {},
+  tableMode: () => false,
+});
+
+describe("plan slide kinds render from the plan alone", () => {
+  test("draws every plan kind with zero reported work", () => {
+    const ctx = pctx(planD());
+    for (const kind of [
+      "roadmap",
+      "milestones",
+      "deliverables",
+      "plan_vs_actual",
+      "phase_status",
+      "project_overview",
+    ]) {
+      const html = RENDERERS[kind](ctx, {}, {});
+      expect(html.length, kind).toBeGreaterThan(80);
+      expect(html, kind).not.toContain("NaN");
+      expect(html, kind).not.toContain("undefined");
+    }
+  });
+  test("shows statuses, variance, dependencies and the baseline ghost", () => {
+    const ctx = pctx(planD());
+    expect(RENDERERS.deliverables(ctx, {}, {})).toContain("Overdue");
+    expect(RENDERERS.plan_vs_actual(ctx, {}, {})).toContain("+5 d");
+    const road = RENDERERS.roadmap(ctx, {}, {});
+    expect(road).toContain("rm-dep");
+    expect(road).toContain("rm-ghost");
+    expect(road).toContain("rm-today");
+    expect(RENDERERS.milestones(ctx, {}, {})).toContain("0 / 1");
+  });
+  test("says so instead of drawing an empty chart when there is no plan", () => {
+    const ctx = pctx(
+      planD({ phases: [], deliverables: [], milestones: [], projects: [] }),
+    );
+    for (const kind of [
+      "roadmap",
+      "milestones",
+      "deliverables",
+      "plan_vs_actual",
+      "phase_status",
+      "project_overview",
+    ])
+      expect(RENDERERS[kind](ctx, {}, {}), kind).toContain("No ");
+  });
+  test("activity kinds say no work was reported, and every kind declares requires/render_empty", () => {
+    const ctx = pctx(planD());
+    expect(slideBody(ctx, { kind: "kpis", config: {} })).toContain(
+      "No work reported yet",
+    );
+    expect(slideBody(ctx, { kind: "pipeline", config: {} })).toContain(
+      "No work reported yet",
+    );
+    for (const k of Object.keys(RENDERERS)) {
+      expect(KIND_META[k], k).toBeTruthy();
+      expect(["plan", "activity", "both"]).toContain(KIND_META[k].requires);
+      expect(["hide", "placeholder", "note"]).toContain(
+        KIND_META[k].render_empty,
+      );
+    }
+  });
+  test("paginates long deliverable tables", () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({
+      ...planD().deliverables[0],
+      key: `ERP-${i + 10}`,
+      title: `D${i}`,
+    }));
+    const ctx = pctx(planD({ deliverables: many }));
+    const out = expandSlides(
+      [{ id: "s", kind: "deliverables", config: {} }],
+      ctx,
+    );
+    expect(out.length).toBe(3);
   });
 });

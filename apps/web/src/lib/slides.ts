@@ -35,11 +35,13 @@ export const SLIDE_LABELS: Record<string, string> = {
   title: "Title", kpis: "Key numbers", projects: "Projects", project_detail: "Project detail", pipeline: "Pipeline",
   explorer: "Explorer", radar: "Radar", gantt: "Gantt", now: "Now", people: "People", violations: "Violations",
   habits: "Habits", insight: "Insight", view: "Saved view", chart: "Chart", table: "Table", markdown: "Notes",
-  image: "Image", section_divider: "Section divider",
+  image: "Image", section_divider: "Section divider", roadmap: "Roadmap", milestones: "Milestones", deliverables: "Deliverables",
+  plan_vs_actual: "Plan vs actual", phase_status: "Phase status", project_overview: "Project overview",
 }; // prettier-ignore
 
 export const SLIDE_ICONS: Record<string, string> = {
   title: "▤", kpis: "#", projects: "▦", project_detail: "▣", pipeline: "⇉", explorer: "▥", radar: "◎", gantt: "▬",
   now: "●", people: "☺", violations: "⚠", habits: "∿", insight: "✦", view: "◫", chart: "▮", table: "☰", markdown: "¶",
-  image: "▨", section_divider: "—",
+  image: "▨", section_divider: "—", roadmap: "⟿", milestones: "◆", deliverables: "☑", plan_vs_actual: "⇄", phase_status: "▭",
+  project_overview: "⌂",
 }; // prettier-ignore

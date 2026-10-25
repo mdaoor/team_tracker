@@ -44,6 +44,12 @@ class Project(_M):
     methodology: str
     team: str | None
     summary: str
+    owner: str | None = None
+    planned_start: str | None = None
+    planned_end: str | None = None
+    status: str | None = None  # not_started | in_progress, derived from the plan (None: no plan)
+    health: str | None = None  # green | amber | red | unknown
+    baseline_name: str | None = None
 
 
 class Epic(_M):
@@ -56,6 +62,41 @@ class Milestone(_M):
     name: str
     project: str
     due: str
+    kind: str = "other"
+    status: str = "planned"  # completed | overdue | due_soon | planned
+    completed_at: str | None = None
+    deliverables_done: int = 0
+    deliverables_total: int = 0
+
+
+class Phase(_M):
+    key: str
+    title: str
+    project: str
+    planned_start: str | None = None
+    planned_end: str | None = None
+    status: str
+    progress_pct: int | None = None
+    deliverable_count: int = 0
+
+
+class Deliverable(_M):
+    key: str
+    title: str
+    project: str
+    phase: str | None = None
+    owner: str | None = None
+    planned_start: str | None = None
+    planned_end: str | None = None
+    baseline_end: str | None = None
+    baseline_variance_days: int | None = None
+    actual_end: str | None = None
+    status: str
+    progress_pct: int | None = None
+    linked_tasks: int = 0
+    hours_logged: float = 0
+    depends_on: list[str] = []
+    milestone: str | None = None
 
 
 class Risk(_M):
@@ -142,6 +183,8 @@ class Snapshot(_M):
     projects: list[Project]
     epics: list[Epic]
     milestones: list[Milestone]
+    phases: list[Phase] = []
+    deliverables: list[Deliverable] = []
     risks: list[Risk]
     items: list[Item]
     violations: list[Violation]

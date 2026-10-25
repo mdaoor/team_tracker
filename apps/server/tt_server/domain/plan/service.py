@@ -6,7 +6,7 @@ state categories and whether any task or activity exists, so it can never disagr
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -396,3 +396,94 @@ def today_in(tz: str) -> date:
     from tt_server.domain.common import zone
 
     return datetime.now(zone(tz)).date()
+
+
+async def snapshot_parts(
+    session: AsyncSession, projects: list[m.Project], *, today: date, acl: AclContext | None
+) -> dict[str, Any]:
+    """The plan-shaped parts of a snapshot for `projects` (visible ones only): milestones with status, phases, deliverables, and the
+    per-project plan summary. Projects with no plan items still contribute their milestones."""
+    handle = {
+        pid: h
+        for pid, h in (
+            await session.execute(select(m.WorkspaceMember.person_id, m.WorkspaceMember.handle))
+        ).all()
+    }
+    ms_out: list[dict[str, Any]] = []
+    phases: list[dict[str, Any]] = []
+    delivs: list[dict[str, Any]] = []
+    summary: dict[str, dict[str, Any]] = {}
+    with_plan = set(
+        (
+            await session.scalars(
+                select(m.WorkItem.project_id)
+                .join(m.WorkItemType, m.WorkItemType.id == m.WorkItem.type_id)
+                .where(
+                    m.WorkItem.project_id.in_([p.id for p in projects] or [""]),
+                    m.WorkItem.deleted_at.is_(None),
+                    m.WorkItemType.key.in_([ItemTypeKey.PHASE, ItemTypeKey.DELIVERABLE]),
+                )
+                .distinct()
+            )
+        ).all()
+    )
+    for p in projects:
+        if p.id in with_plan:
+            plan = await get_plan(session, p, today=today, acl=acl)
+            by_key = {d["id"]: d for ph in plan["phases"] for d in ph["deliverables"]}
+            ms_name = {x["id"]: x["name"] for x in plan["milestones"]}
+            for x in plan["milestones"]:
+                ms_out.append(
+                    {
+                        "name": x["name"], "project": p.key, "due": x["due_date"].isoformat(), "kind": x["kind"], "status": x["status"],
+                        "completed_at": x["completed_at"].isoformat() if x["completed_at"] else None,
+                        "deliverables_done": x["deliverables_done"], "deliverables_total": x["deliverables_total"],
+                    }
+                )  # fmt: skip
+            for ph in plan["phases"]:
+                phases.append(
+                    {
+                        "key": ph["key"], "title": ph["title"], "project": p.key, "planned_start": _iso(ph["planned_start"]),
+                        "planned_end": _iso(ph["planned_end"]), "status": ph["status"], "progress_pct": ph["progress_pct"],
+                        "deliverable_count": len(ph["deliverables"]),
+                    }
+                )  # fmt: skip
+                for d in ph["deliverables"]:
+                    delivs.append(
+                        {
+                            "key": d["key"], "title": d["title"], "project": p.key, "phase": ph["key"], "owner": handle.get(d["owner_id"] or ""),
+                            "planned_start": _iso(d["planned_start"]), "planned_end": _iso(d["planned_end"]),
+                            "baseline_end": _iso(d["planned_end"] - timedelta(days=d["baseline_variance_days"]))
+                            if d["planned_end"] and d["baseline_variance_days"] is not None else None,
+                            "baseline_variance_days": d["baseline_variance_days"], "actual_end": None, "status": d["status"],
+                            "progress_pct": d["progress_pct"], "linked_tasks": d["linked_tasks"], "hours_logged": d["hours_logged"],
+                            "depends_on": [by_key[x]["key"] for x in d["depends_on"] if x in by_key],
+                            "milestone": ms_name.get(d["milestone_id"] or ""),
+                        }
+                    )  # fmt: skip
+            pr = plan["project"]
+            summary[p.key] = {
+                "owner": pr["owner"], "planned_start": _iso(pr["planned_start"]), "planned_end": _iso(pr["planned_end"]),
+                "status": pr["status"], "health": pr["health"], "baseline_name": pr["baseline_name"],
+            }  # fmt: skip
+        else:
+            for ms in (
+                await session.scalars(
+                    select(m.Milestone)
+                    .where(m.Milestone.project_id == p.id, m.Milestone.deleted_at.is_(None))
+                    .order_by(m.Milestone.due_date)
+                )
+            ).all():
+                ms_out.append(
+                    {
+                        "name": ms.name, "project": p.key, "due": ms.due_date.isoformat(), "kind": ms.kind.value,
+                        "status": milestone_status(completed=ms.completed_at is not None, due=ms.due_date, today=today),
+                        "completed_at": ms.completed_at.isoformat() if ms.completed_at else None, "deliverables_done": 0, "deliverables_total": 0,
+                    }
+                )  # fmt: skip
+    ms_out.sort(key=lambda x: (x["due"], x["project"], x["name"]))
+    return {"milestones": ms_out, "phases": phases, "deliverables": delivs, "projects": summary}
+
+
+def _iso(d: Any) -> str | None:
+    return d.isoformat() if d else None

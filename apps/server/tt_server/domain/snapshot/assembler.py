@@ -27,6 +27,7 @@ from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.domain import insights
 from tt_server.domain.overlay import process as proc
+from tt_server.domain.plan import service as plan_svc
 from tt_server.domain.snapshot.model import SCHEMA_VERSION, Snapshot
 from tt_server.query import service
 from tt_server.query.compile import QueryCtx
@@ -116,7 +117,9 @@ async def assemble(
     scope_f, label = await _scope_filter(qc, kind, ref or ws.slug)
     to = qc.today
     frm = to - timedelta(days=days)
-    not_epic = {"not": {"type": {"in": ["epic"]}}}
+    not_epic = {
+        "not": {"type": {"in": ["epic", "phase", "deliverable"]}}
+    }  # plan containers have their own sections
 
     # ---- items ----------------------------------------------------------------------------------------------
     rows, ids_sel = await service.bulk_items(qc, {"and": [scope_f, not_epic, _range_filter(frm, to)]})
@@ -241,16 +244,8 @@ async def assemble(
             )
         )["items"]
     ]
-    milestones = [
-        {"name": ms.name, "project": pkey[ms.project_id], "due": ms.due_date.isoformat()}
-        for ms in (
-            await s.scalars(
-                select(m.Milestone)
-                .where(m.Milestone.project_id.in_(list(pkey)), m.Milestone.deleted_at.is_(None))
-                .order_by(m.Milestone.due_date)
-            )
-        ).all()
-    ]
+    plan_parts = await plan_svc.snapshot_parts(s, projects, today=to, acl=qc.acl)
+    milestones = plan_parts["milestones"]
     risks = [
         {
             "key": r.key,
@@ -353,6 +348,7 @@ async def assemble(
             "key": p.key, "name": p.name, "product": product_of.get(p.key), "methodology": p.methodology.value,
             "team": teams.get(p.team_id) if p.team_id else None, "summary": "",
         }  # fmt: skip
+        pd.update(plan_parts["projects"].get(p.key, {}))
         pd["summary"] = stored.get(p.id) or insights.fallback_summary(
             insights.project_facts(pd, out_items, milestones, risks, expected, to)
         )
@@ -437,6 +433,8 @@ async def assemble(
         "projects": out_projects,
         "epics": epics,
         "milestones": milestones,
+        "phases": plan_parts["phases"],
+        "deliverables": plan_parts["deliverables"],
         "risks": risks,
         "items": out_items,
         "violations": viol,

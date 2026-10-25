@@ -1,5 +1,160 @@
 {
   "$defs": {
+    "Deliverable": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual End"
+        },
+        "baseline_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline End"
+        },
+        "baseline_variance_days": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Variance Days"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "hours_logged": {
+          "default": 0,
+          "title": "Hours Logged",
+          "type": "number"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "linked_tasks": {
+          "default": 0,
+          "title": "Linked Tasks",
+          "type": "integer"
+        },
+        "milestone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Milestone"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "phase": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phase"
+        },
+        "planned_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planned End"
+        },
+        "planned_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planned Start"
+        },
+        "progress_pct": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress Pct"
+        },
+        "project": {
+          "title": "Project",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "project",
+        "status"
+      ],
+      "title": "Deliverable",
+      "type": "object"
+    },
     "Epic": {
       "additionalProperties": false,
       "properties": {
@@ -294,8 +449,35 @@
     "Milestone": {
       "additionalProperties": false,
       "properties": {
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed At"
+        },
+        "deliverables_done": {
+          "default": 0,
+          "title": "Deliverables Done",
+          "type": "integer"
+        },
+        "deliverables_total": {
+          "default": 0,
+          "title": "Deliverables Total",
+          "type": "integer"
+        },
         "due": {
           "title": "Due",
+          "type": "string"
+        },
+        "kind": {
+          "default": "other",
+          "title": "Kind",
           "type": "string"
         },
         "name": {
@@ -304,6 +486,11 @@
         },
         "project": {
           "title": "Project",
+          "type": "string"
+        },
+        "status": {
+          "default": "planned",
+          "title": "Status",
           "type": "string"
         }
       },
@@ -385,6 +572,76 @@
       "title": "Person",
       "type": "object"
     },
+    "Phase": {
+      "additionalProperties": false,
+      "properties": {
+        "deliverable_count": {
+          "default": 0,
+          "title": "Deliverable Count",
+          "type": "integer"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "planned_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planned End"
+        },
+        "planned_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planned Start"
+        },
+        "progress_pct": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress Pct"
+        },
+        "project": {
+          "title": "Project",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "project",
+        "status"
+      ],
+      "title": "Phase",
+      "type": "object"
+    },
     "ProcessInfo": {
       "additionalProperties": false,
       "properties": {
@@ -437,6 +694,30 @@
     "Project": {
       "additionalProperties": false,
       "properties": {
+        "baseline_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Name"
+        },
+        "health": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Health"
+        },
         "key": {
           "title": "Key",
           "type": "string"
@@ -449,6 +730,42 @@
           "title": "Name",
           "type": "string"
         },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "planned_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planned End"
+        },
+        "planned_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planned Start"
+        },
         "product": {
           "anyOf": [
             {
@@ -459,6 +776,18 @@
             }
           ],
           "title": "Product"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
         },
         "summary": {
           "title": "Summary",
@@ -622,6 +951,14 @@
       "title": "As Of",
       "type": "string"
     },
+    "deliverables": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Deliverable"
+      },
+      "title": "Deliverables",
+      "type": "array"
+    },
     "epics": {
       "items": {
         "$ref": "#/$defs/Epic"
@@ -665,6 +1002,14 @@
         "$ref": "#/$defs/Person"
       },
       "title": "People",
+      "type": "array"
+    },
+    "phases": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Phase"
+      },
+      "title": "Phases",
       "type": "array"
     },
     "processes": {
