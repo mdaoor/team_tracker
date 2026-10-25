@@ -1,4 +1,4 @@
-"""Phase 15 server side: calendar dedup (ADR-0042), time.unlog, the development project (ADR-0043), ContextPack hints."""
+"""Phase 15 server side: calendar dedup (ADR-0054), time.unlog, the development project (ADR-0055), ContextPack hints."""
 
 from __future__ import annotations
 
@@ -135,7 +135,7 @@ async def test_unlog_of_an_unknown_client_id_is_a_warning_not_an_error(api: Api)
     assert res["status"] == "applied_with_warnings" and res["warnings"] == ["unlog_target_not_found"]
 
 
-# ---------------------------------------------------------------- development project (ADR-0043)
+# ---------------------------------------------------------------- development project (ADR-0055)
 
 
 async def _setup_people(api: Api) -> None:
@@ -208,7 +208,7 @@ async def test_development_items_are_visible_to_the_person_and_their_line_manage
     assert not await can_see("@omar")  # a colleague
     r = await api.call("GET", f"/items/{key}", as_="@omar")
     assert r.status_code == 404  # invisible, not forbidden (ADR-0008)
-    # a workspace admin (@mahmoud) follows the platform rule for private items, which ADR-0043 records as a known limit
+    # a workspace admin (@mahmoud) follows the platform rule for private items, which ADR-0055 records as a known limit
     assert await can_see("@mahmoud")
 
 

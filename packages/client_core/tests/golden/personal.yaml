@@ -38,7 +38,7 @@ cases:
   - {line: "write report 2h #work", expect: [{title: write report, category: work, tags: [work], duration_min: 120}]}
   - {line: "read paper on raft 30m #development", expect: [{title: read paper on raft, kind: reading, category: development, tags: [development]}]}
   - {line: "stretch 10m #personal", expect: [{kind: habit, category: personal, tags: [personal]}]}
-  - {line: "#development leetcode 40m", expect: [{title: leetcode, kind: task, category: development, tags: [development], duration_min: 40}]}
+  - {line: "#development leetcode 40m", expect: [{title: leetcode, kind: training, category: development, tags: [development], duration_min: 40}]}
   - {line: "design review with @ali and @sara 45m at 11am p:web", expect: [{title: "design review with @ali and @sara", project_hint: WEB, start: "2026-10-23T11:00:00+03:00", duration_min: 45}]}
   - {line: "p:DATA ingestion study 1h", expect: [{title: ingestion study, kind: training, category: development, project_hint: DATA}]}
   - {line: "read https://example.com/raft.pdf 20m", expect: [{title: read, kind: reading, notes: "https://example.com/raft.pdf", duration_min: 20}]}
@@ -78,4 +78,7 @@ cases:
   - {line: "9-10", expect: []}
   - {line: "   ", expect: []}
   - {line: "reading", expect: [{title: reading, kind: reading, all_day: true}]}
+  # ---- an unrecognised line is private until something says otherwise
+  - {line: "tea with mum 20m", expect: [{title: tea with mum, kind: other, category: personal, kind_source: default, duration_min: 20}]}
+  - {line: "sort out the offsite 1h p:web", expect: [{title: sort out the offsite, kind: task, category: work, project_hint: WEB}]}
   - {line: "course:", expect: [{title: Course, kind: course, category: development}]}

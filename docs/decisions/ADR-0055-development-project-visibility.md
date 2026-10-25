@@ -1,4 +1,4 @@
-# ADR-0043: The development project: private items, visible to the person and their line manager
+# ADR-0055: The development project: private items, visible to the person and their line manager
 Date: 2026-10-25   Status: accepted (plan P15 §15.4; the plan names this ADR-0031, already taken by "static CEL checker and limits")
 
 ## Context

@@ -92,8 +92,15 @@ class Tracker:
         """What the line would create, without creating it (the recurring editor shows `rrule_text`)."""
         return [d.model_dump(mode="json") for d in parse_personal(line, self.parse_ctx())]
 
-    def add(self, line: str) -> list[PersonalItem]:
+    def add(
+        self, line: str, assist: Callable[[str], list[dict[str, Any]] | None] | None = None
+    ) -> list[PersonalItem]:
+        """Parse one line into items. `assist(line)` may return the gateway's classification; it only refines undecided kinds."""
         drafts = parse_personal(line, self.parse_ctx())
+        if drafts and assist is not None:
+            from tt_client.parser.personal_llm import apply_assist
+
+            drafts = apply_assist(drafts, assist(line))
         if not drafts:
             raise TrackerError("nothing to add: try `run 30m at 6pm` or `every weekday 7:00 run 30m`")
         return [self.add_draft(d) for d in drafts]
@@ -158,6 +165,36 @@ class Tracker:
 
     def get(self, item_id: str) -> PersonalItem:
         return self._require(item_id)
+
+    def find(self, ref: str) -> str:
+        """Resolve a full id or a unique prefix (what `tt day` prints) among the items around today to an id."""
+        if self.store.get_item(ref) is not None or split_instance_id(ref):
+            return ref
+        if "@" in ref:  # `0192ab34@2026-10-27`: a series prefix and the occurrence date
+            head, _, day = ref.rpartition("@")
+            masters = [m.id for m in self.store.series() if m.id.endswith(head) or m.id.startswith(head)]
+            if len(masters) == 1 and split_instance_id(f"{masters[0]}@{day}"):
+                return f"{masters[0]}@{day}"
+            raise TrackerError(f"{len(masters)} recurring items match {head!r}")
+        start, _ = views.day_bounds(self.today - timedelta(days=30), self.env.tz)
+        _, end = views.day_bounds(self.today + timedelta(days=60), self.env.tz)
+        ids = {i.id for i in views.items_between(self.store, start, end)} | {i.id for i in self.store.items()}
+        hits = sorted(
+            i for i in ids if i.endswith(ref) or i.startswith(ref)
+        )  # the tail is the random part of a time-ordered id
+        if len(hits) != 1:
+            raise TrackerError(
+                f"{len(hits)} items match {ref!r}"
+                + (f": {', '.join(h[:14] for h in hits[:5])}" if hits else "")
+            )
+        return hits[0]
+
+    def calendar(self, providers: dict[str, Any]) -> Any:
+        """A `CalendarSync` over this store for the given providers (built lazily: the tracker itself never imports httpx)."""
+        from tt_client.integrations.sync import CalendarSync
+
+        me = {name: self.env.email for name in providers if self.env.email}
+        return CalendarSync(self.store, providers, tz=self.env.tz, me=me, clock=self.env.clock)
 
     def complete(self, item_id: str, minutes: int | None = None) -> PersonalItem:
         item = self._require(item_id)
@@ -301,6 +338,8 @@ class Tracker:
         learn: bool = True,
     ) -> dict[str, Any]:
         item = self._require(item_id)
+        if item.category == Category.PERSONAL:  # checked first: no send path exists, whatever else is missing
+            raise send_mod.NotSendable("personal items are never sent")
         hints = self.hints()
         sug = rules_mod.suggest(item, hints, self.store.rules())
         chosen = project or item.project_hint or sug.project
@@ -522,4 +561,10 @@ class Tracker:
 
     # ------------------------------------------------------------------ helpers for calendar sync
     def describe_rule(self, item: PersonalItem) -> str | None:
-        return describe(item.rrule, item.start) if item.rrule else None
+        return (
+            describe(
+                item.rrule, item.start.astimezone(zone(item.tz)) if item.start and not item.all_day else None
+            )
+            if item.rrule
+            else None
+        )

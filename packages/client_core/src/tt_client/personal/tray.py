@@ -6,7 +6,7 @@ A meeting appears at `end + 2 min` when the app is running, or at the next launc
 * `meeting`      offered after every meeting (setting `share.meeting`: ask | auto | never);
 * `work`         offered when done; `ask` once, the answer is remembered (`share.work`);
 * `development`  not offered unless the one toggle `share.development` is on; then sent tagged `#development` to the DEV project;
-* `personal`     never offered: there is no send path (ADR-0041).
+* `personal`     never offered: there is no send path (ADR-0053).
 """
 
 from __future__ import annotations

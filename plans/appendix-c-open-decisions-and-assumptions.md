@@ -50,6 +50,18 @@ The spec is silent or ambiguous in the places below. Each row records the defaul
 4. Target scale for v1 (members, items/year)? (Default budgets assume 200 members, 100 k items/year.)
 5. Is OIDC provider known (Azure AD, Google, Okta)? (Default: generic OIDC.)
 
+## Phase 15 defaults (2026-10-25)
+| # | question | default adopted | where |
+|---|---|---|---|
+| 15.1 | ADR numbers 0029-0031 are taken | the Phase 15 ADRs are 0053, 0054, 0055 | `docs/decisions` |
+| 15.2 | SQLCipher or Fernet | Fernet per row; key in the OS keyring, 0600 file fallback | ADR-0053 |
+| 15.3 | A line with no label, keyword, tag or project | personal (private until said otherwise); a model may only make it more private, a less private reading is a question | `parser/personal.py`, `parser/personal_llm.py` |
+| 15.4 | A bare time ("9-10 reading") | today, even if past; no date and no time = today, anytime | golden set |
+| 15.5 | `time.unlog` without a new `ClientAction` | `action: update` + `corrects: <client_id>` (the enum is fixed by the spec) | ADR-0054 |
+| 15.6 | Category of the learning policy/habit | `wellbeing` (the enum has no development category; it gives subject + line manager visibility) | ADR-0055 |
+| 15.7 | Who sees the DEV project | the person, their line manager, and admins by the platform rule for private items | ADR-0055 |
+| 15.8 | Client domains for suggestions | workspace setting `calendar.client_domains` {domain: project key} | `contextpack.py` |
+
 ## ADR template (`docs/decisions/ADR-NNNN-title.md`)
 ```
 # ADR-NNNN: <title>

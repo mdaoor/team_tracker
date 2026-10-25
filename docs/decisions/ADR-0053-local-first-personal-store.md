@@ -1,5 +1,5 @@
-# ADR-0041: Local-first personal store; the server sees only what is sent
-Date: 2026-10-25   Status: accepted (plan P15; the plan names this ADR-0029, which was already taken by "agent runs in memory by default", so Phase 15 uses 0041-0043)
+# ADR-0053: Local-first personal store; the server sees only what is sent
+Date: 2026-10-25   Status: accepted (plan P15; the plan names this ADR-0029, which was already taken by "agent runs in memory by default", so Phase 15 uses 0053-0055)
 
 ## Context
 Phase 15 turns the client into a personal time tracker (day/week/month, recurring items, a timer, calendar meetings). Most of that is private:

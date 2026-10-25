@@ -245,7 +245,8 @@ def test_pause_then_stop_uses_the_paused_timer_and_unknown_items_are_refused() -
     now[0] += timedelta(minutes=10)
     assert eng.pause().state == "paused"  # type: ignore[union-attr]
     now[0] += timedelta(minutes=30)  # paused time does not count
-    assert eng.stop()[1] == 10  # type: ignore[index]
+    assert eng.stop() is None  # nothing is running: a bare stop never ends a paused timer by surprise
+    assert eng.stop(a.id)[1] == 10  # type: ignore[index]
     with pytest.raises(TimerError):
         eng.start("nope")
 

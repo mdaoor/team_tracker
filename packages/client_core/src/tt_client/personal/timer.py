@@ -65,8 +65,8 @@ class TimerEngine:
     def stop(self, item_id: str | None = None) -> tuple[Timer, int] | None:
         """Close the open segment, mark the timer stopped and record the cumulative minutes on the item."""
         timer = (
-            self.store.get_timer(item_id) if item_id else (self.store.running_timer() or self._last_paused())
-        )
+            self.store.get_timer(item_id) if item_id else self.store.running_timer()
+        )  # no id: only the running one
         if timer is None or timer.state == "stopped":
             return None
         now = self.clock()
@@ -94,10 +94,6 @@ class TimerEngine:
             item.status = Status.PLANNED
             self.store.put_item(item)
         return timer
-
-    def _last_paused(self) -> Timer | None:
-        paused = [t for t in self.store.timers() if t.state == "paused"]
-        return max(paused, key=lambda t: t.paused_at or t.started_at) if paused else None
 
     def _mark(self, item_id: str, status: Status) -> None:
         item: PersonalItem | None = self.store.get_item(item_id)

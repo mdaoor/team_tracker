@@ -1,4 +1,4 @@
-# ADR-0042: Calendar dedup by `calendar_ref`; `source`, `corrects` and the schema minor
+# ADR-0054: Calendar dedup by `calendar_ref`; `source`, `corrects` and the schema minor
 Date: 2026-10-25   Status: accepted (plan P15 §15.4; the plan names this ADR-0030, already taken by "filter compiler in server")
 
 ## Context
@@ -12,7 +12,7 @@ must be able to take back a send for ten minutes.
    is the `client_version` a Phase 15 client sends; the default stays `"0.1"` and the server accepts both.
    `origin` is `manual | assisted | personal | calendar:google | calendar:microsoft`.
 2. **Dedup key**: `(workspace, person, calendar_provider, calendar_event_id, calendar_instance_start)` on `time_entries`
-   (new nullable columns `workspace_id`, `client_id`, `calendar_provider`, `calendar_event_id`, `calendar_instance_start`; migration `0013`).
+   (new nullable columns `workspace_id`, `client_id`, `calendar_provider`, `calendar_event_id`, `calendar_instance_start`; migration `0014`).
    A partial **unique** index `uq_time_entries_calendar_instance` (`WHERE calendar_event_id IS NOT NULL AND deleted_at IS NULL`) is the backstop;
    ingest checks first and answers `status: deduplicated` with the original item, writing no event. Only messages that log minutes are
    keyed: a `note` about a meeting is not a duplicate. An unlogged (soft-deleted) entry frees the key, so a deliberate re-send works.

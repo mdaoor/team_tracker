@@ -1,4 +1,4 @@
-"""The local, encrypted personal store (Phase 15 §15.1, ADR-0041).
+"""The local, encrypted personal store (Phase 15 §15.1, ADR-0053).
 
 SQLite from the standard library. Every row's payload is one Fernet token (AES-128-CBC + HMAC-SHA256) over its JSON, so titles, notes,
 attendees and links never touch the disk in clear. Only what an index needs stays readable: ids, the UTC *date* an item starts on, the

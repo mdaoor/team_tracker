@@ -1,6 +1,6 @@
 """The personal model (Phase 15 §15.1): items, timers, rules. Pure data; no I/O, no UI.
 
-Names follow the plan. `category` carries the sharing default (ADR-0041); `personal` can never be sent: the model forces
+Names follow the plan. `category` carries the sharing default (ADR-0053); `personal` can never be sent: the model forces
 `share_policy=never` and `tt_client.personal.send` has no path for it.
 """
 
@@ -68,6 +68,15 @@ CATEGORY_DEFAULT_SHARE: dict[Category, SharePolicy] = {
     Category.MEETING: SharePolicy.ASK,
     Category.DEVELOPMENT: SharePolicy.NEVER,
     Category.PERSONAL: SharePolicy.NEVER,
+}
+
+
+# How private a category is: a model may only move an undecided line *up* this ladder by itself; moving down is a suggestion the person confirms.
+PRIVACY_RANK: dict[Category, int] = {
+    Category.WORK: 0,
+    Category.MEETING: 0,
+    Category.DEVELOPMENT: 1,
+    Category.PERSONAL: 2,
 }
 
 
@@ -140,7 +149,7 @@ class PersonalItem(_M):
             "share_policy" not in self.model_fields_set
         ):  # unless said otherwise, the category decides (plan principle 4)
             self.share_policy = CATEGORY_DEFAULT_SHARE[self.category]
-        if self.category == Category.PERSONAL:  # no send path exists for personal items (ADR-0041)
+        if self.category == Category.PERSONAL:  # no send path exists for personal items (ADR-0053)
             self.share_policy = SharePolicy.NEVER
             self.send_each_instance = False
         if self.start is not None and self.start.tzinfo is None:
@@ -255,6 +264,14 @@ class Draft(_M):
     project_hint: str | None = None
     notes: str = ""
     warnings: list[str] = Field(default_factory=list)
+    kind_source: Literal["label", "keyword", "default"] = (
+        "default"  # how `kind` was decided (a model may only refine "default")
+    )
+    category_source: Literal["tag", "kind"] = "kind"
+    suggested_kind: Kind | None = (
+        None  # a model's less-private reading of an undecided line: shown as a question, never applied
+    )
+    suggested_category: Category | None = None
 
     def to_item(self, tz: str) -> PersonalItem:
         return PersonalItem(

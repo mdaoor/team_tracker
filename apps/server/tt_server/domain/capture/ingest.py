@@ -140,7 +140,7 @@ async def _can_act_for(session: AsyncSession, ws_id: str, actor_pid: str, subjec
     return shared is not None
 
 
-# ---------------------------------------------------------------- development project (ADR-0043)
+# ---------------------------------------------------------------- development project (ADR-0055)
 
 DEV_TAG = "development"
 DEFAULT_DEV_KEY = "DEV"
@@ -1050,7 +1050,7 @@ async def _process(
     ckey = _calendar_key(msg)
     if (
         ckey and msg.minutes and msg.minutes > 0
-    ):  # the same calendar occurrence is never logged twice (ADR-0042)
+    ):  # the same calendar occurrence is never logged twice (ADR-0054)
         existing = await session.scalar(
             select(m.TimeEntry).where(
                 m.TimeEntry.workspace_id == ws.id,
@@ -1106,7 +1106,7 @@ async def _process(
             .where(m.Membership.person_id == subject.person_id, m.Membership.left_at.is_(None))
             .order_by(m.Membership.joined_at)
         )
-        item_fields: dict[str, Any] = {"visibility": Visibility.PRIVATE} if dev_project else {}  # ADR-0043
+        item_fields: dict[str, Any] = {"visibility": Visibility.PRIVATE} if dev_project else {}  # ADR-0055
         item = await items.create_item(
             uow,
             ws,

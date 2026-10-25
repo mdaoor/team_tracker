@@ -30,3 +30,6 @@ export const sidecarBridge: Bridge = {
     invoke("tt_open_editor", { batch }) as ReturnType<Bridge["openInEditor"]>,
   active: () => invoke("tt_active") as ReturnType<Bridge["active"]>,
 };
+
+/** Phase 15: the personal tracker views use the same sidecar through one extra command (see ../personal/sidecar.ts). */
+export { personalSidecarBridge } from "../personal/sidecar";

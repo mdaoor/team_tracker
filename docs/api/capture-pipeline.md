@@ -57,3 +57,10 @@ warnings[], review_item_ids[], error_code, resolution}`.
 
 ## Plan linkage (after step 6)
 A task *created* by the pipeline in a non-Inbox project that has deliverables is attached to one (glossary → trigram ≥ 0.5) or becomes an `unlinked_task` review row with three suggestions. See `docs/api/plan.md`.
+
+
+## Phase 15 additions (personal tracker)
+* `ClientMessage.source{origin, calendar_ref{provider, event_id, series_id, instance_start}}` and `corrects` are optional (schema minor `0.2`; `0.1` clients keep working).
+* A message that logs minutes with a `calendar_ref` is deduplicated on `(workspace, person, provider, event_id, instance_start)`: the second answers `status: deduplicated` with the original item and writes no event (ADR-0054).
+* `action: update` with `corrects: <client_id>` removes that client message's time entry (only its owner; emits `time.unlogged`; unknown or foreign targets give warning `unlog_target_not_found`).
+* A message whose `project` is the workspace `development.project_key` (default `DEV`) creates that project on first use; its items are private and tagged `development` (ADR-0055).

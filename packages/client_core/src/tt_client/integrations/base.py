@@ -80,7 +80,7 @@ class SyncPage:
 
 
 class CalendarProvider(Protocol):
-    name: Provider
+    name: str
 
     def list_calendars(self) -> list[CalendarInfo]: ...
 

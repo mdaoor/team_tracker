@@ -22,6 +22,7 @@ from tt_client.preview import preview_dict
 from tt_schema.client import ClientBatch, ClientMessage
 from typer.core import TyperGroup
 
+from tt_cli import personal as personal_cli
 from tt_cli import render
 from tt_cli.runtime import Runtime, load_runtime, now
 
@@ -514,6 +515,8 @@ def gateway_serve(
     typer.echo(f"gateway on http://127.0.0.1:{port} (privacy_mode={cfg.privacy_mode})")
     uvicorn.run(build_app(cfg), host="127.0.0.1", port=port)
 
+
+personal_cli.register(app)  # Phase 15: day/week/month/add/timer/cal/tray/recur/privacy/sent/erase-local/...
 
 if __name__ == "__main__":
     app()

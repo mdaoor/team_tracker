@@ -78,7 +78,7 @@ def test_batch_schema() -> None:
     assert batch.messages[0].at.astimezone(UTC).hour == 6
 
 
-# ---------------------------------------------------------------- Phase 15 additions (ADR-0042): source and corrects
+# ---------------------------------------------------------------- Phase 15 additions (ADR-0054): source and corrects
 def test_phase_15_fields_are_optional_so_old_clients_still_validate() -> None:
     old = {
         "actor": "@x",

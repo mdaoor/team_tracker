@@ -1,15 +1,15 @@
 """personal tracker: time entries remember their client message and calendar occurrence
 
-Revision ID: 0013
+Revision ID: 0014
 Revises: 0010
 
-Phase 15 (ADR-0042). Named 0013 because Phase 13 owns 0011/0012; at merge only `down_revision` changes.
+Phase 15 (ADR-0054). Named 0014 (Phase 13 owns 0011/0012, Phase 14 0013). down_revision is "0010" only because this branch has no 0011-0013; set it to "0013" when merging.
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0013"
+revision = "0014"
 down_revision = "0010"
 branch_labels = None
 depends_on = None

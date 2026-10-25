@@ -57,6 +57,9 @@ class ClientConfig:
             time_zone=client.get("time_zone", "UTC"),
             hours_per_day=int(client.get("hours_per_day", 8)),
             jira_default=bool(client.get("jira_default", False)),
+            extra={
+                "calendar": dict(data.get("calendar", {}))
+            },  # Phase 15: client ids, e-mail, ports (never tokens)
         )
 
     def save(self, path: Path | None = None) -> Path:
@@ -94,6 +97,9 @@ class ClientConfig:
             f"hours_per_day = {self.hours_per_day}",
             f"jira_default = {str(self.jira_default).lower()}",
         ]
+        cal = self.extra.get("calendar") or {}
+        if cal:
+            lines += ["", "[calendar]", *(f"{k} = {q(str(v))}" for k, v in sorted(cal.items()))]
         path.write_text("\n".join(lines) + "\n")
         path.chmod(0o600)  # contains a token
         return path

@@ -17,7 +17,7 @@ from tt_schema.client import ClientAction, ClientBatch, ClientMessage, ClientTas
 # Fields added on top of the spec by an ADR (backwards compatible, always optional).
 DOCUMENTED_ADDITIONS: dict[str, set[str]] = {
     "ClientBatch": {"mode"},  # ADR-0004
-    "ClientMessage": {"corrects", "source"},  # ADR-0042 (Phase 15)
+    "ClientMessage": {"corrects", "source"},  # ADR-0054 (Phase 15)
 }
 
 SPEC = Path(__file__).resolve().parents[3] / "docs" / "spec" / "team_tracker_models.py"

@@ -120,7 +120,7 @@ class TimeEntry(RowBase):
         nullable=False,
         default=CaptureSource.TIMER,
     )
-    # Phase 15 (ADR-0042): which client message wrote this row and, for calendar-derived time, which occurrence.
+    # Phase 15 (ADR-0054): which client message wrote this row and, for calendar-derived time, which occurrence.
     workspace_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("workspaces.id"), nullable=True)
     client_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
     calendar_provider: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)

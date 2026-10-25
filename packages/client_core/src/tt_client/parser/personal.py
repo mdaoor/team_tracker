@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, timedelta
+from typing import Literal
 
 from tt_client.parser.structured import ParseContext
 from tt_client.personal.model import CATEGORY_DEFAULT_SHARE, KIND_CATEGORY, Category, Draft, Kind
@@ -80,6 +81,13 @@ _KEYWORDS: list[tuple[re.Pattern[str], Kind]] = [
     (
         re.compile(r"\b(?:meditate|meditation|journal|journaling|stretch|stretching|floss|water)\b", re.I),
         Kind.HABIT,
+    ),
+    (
+        re.compile(
+            r"\b(?:prs?|pull requests?|deploy(?:ment)?|bugs?|tickets?|jira|code|coding|refactor|fix|debug|release|ship|reports?|docs?|documentation|design|spec|emails?|invoices?|clients?|sprint|backlog|roadmap|review|proposal)\b",
+            re.I,
+        ),
+        Kind.TASK,
     ),
     (re.compile(r"\b(?:lunch|dinner|breakfast|nap|movie|family)\b", re.I), Kind.OTHER),
     (
@@ -166,6 +174,8 @@ class _Line:
         self.until: date | None = None
         self.count: int | None = None
         self.span: tuple[int, str] | None = None
+        self.kind_source: Literal["label", "keyword", "default"] = "default"
+        self.category_source: Literal["tag", "kind"] = "kind"
 
     # --- small helpers
     def cut(self, m: re.Match[str]) -> None:
@@ -380,13 +390,23 @@ class _Line:
             self.cut(m)
 
     def classify(self, title: str) -> None:
+        self.kind_source = "label" if self.kind is not None else "default"
+        self.category_source = "tag" if self.category is not None else "kind"
         if self.kind is None:
             for pattern, kind in _KEYWORDS:
                 if pattern.search(title):
-                    self.kind = kind
+                    self.kind, self.kind_source = kind, "keyword"
                     break
         if self.kind is None:
-            self.kind = Kind.TASK
+            # nothing in the text says what this is. Private until the person (or an explicit tag/project) says otherwise.
+            if self.category == Category.DEVELOPMENT:
+                self.kind = Kind.TRAINING
+            elif self.category == Category.MEETING:
+                self.kind = Kind.MEETING
+            elif self.category == Category.WORK or self.project:
+                self.kind = Kind.TASK
+            else:
+                self.kind = Kind.OTHER
         if self.category is None:
             self.category = KIND_CATEGORY[self.kind]
         if self.category == Category.DEVELOPMENT and "development" not in self.tags:
@@ -470,6 +490,8 @@ def parse_personal_line(raw: str, ctx: ParseContext) -> Draft | None:
         project_hint=ln.project,
         notes=notes,
         warnings=ln.warnings,
+        kind_source=ln.kind_source,
+        category_source=ln.category_source,
     )
 
 

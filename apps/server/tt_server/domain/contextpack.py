@@ -349,7 +349,7 @@ async def build_pack(
         ],
         "manual_mode": {"required_fields": required_default, "per_project": per_project_required},
         "truncated": truncated,
-        # Phase 15 (ADR-0042/0043): everything a personal tracker needs to suggest a project without the server seeing a calendar
+        # Phase 15 (ADR-0054/0043): everything a personal tracker needs to suggest a project without the server seeing a calendar
         "development_project": {"key": dev_key, "tag": "development", "exists": dev_exists},
         "calendar_mapping_hints": {
             "teams": [{"team": t, "projects": sorted(ks)} for t, ks in sorted(teams_to_projects.items())],

@@ -1,4 +1,4 @@
-"""Phase 15 governance: `development_hours_below` and the positive habit `learning_consistency` (ADR-0043)."""
+"""Phase 15 governance: `development_hours_below` and the positive habit `learning_consistency` (ADR-0055)."""
 
 from __future__ import annotations
 

@@ -1,7 +1,7 @@
 """The send path (Phase 15 §15.3, §15.6): a personal item becomes a `ClientBatch` in the ordinary outbox.
 
 Same rules as every other capture: a file in the outbox is the source of truth, the server deduplicates by `client_id` and, for calendar
-occurrences, by `calendar_ref` (ADR-0042). The `personal` category has **no** path here: `build_message` raises `NotSendable`.
+occurrences, by `calendar_ref` (ADR-0054). The `personal` category has **no** path here: `build_message` raises `NotSendable`.
 `calendar_ref` carries ids only; titles, attendees and locations stay on the device unless the person puts them in the note they send.
 """
 
