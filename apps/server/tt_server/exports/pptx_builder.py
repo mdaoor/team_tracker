@@ -180,7 +180,7 @@ def _plan_slide(frame: Any, sl: dict[str, Any], kind: str, cfg: dict[str, Any], 
     dash = lambda v: "—" if v in (None, "") else str(v)  # noqa: E731
     if kind == "project_overview":
         s = frame(sl)
-        y = Inches(1.5)
+        y: int = int(Inches(1.5))
         for p in projects:
             nxt = next((x for x in mss if x["project"] == p["key"] and x["status"] != "completed"), None)
             _text(
@@ -200,7 +200,7 @@ def _plan_slide(frame: Any, sl: dict[str, Any], kind: str, cfg: dict[str, Any], 
                 f"Next milestone {nxt['name'] + ' (' + nxt['due'] + ')' if nxt else '—'}\n{p.get('summary') or ''}",
                 size=12,
             )  # fmt: skip
-            y += Inches(2.3)
+            y += int(Inches(2.3))
     elif kind == "milestones":
         _table(
             frame(sl),
@@ -283,7 +283,7 @@ def _plan_slide(frame: Any, sl: dict[str, Any], kind: str, cfg: dict[str, Any], 
         lo, hi = min(stamps), max(stamps)
         span = max((hi - lo).days, 7)
         left, width, top = Inches(3.4), Inches(9.4), Inches(1.5)
-        step = min(Inches(0.32), int(Inches(5.2) / max(len(rows), 1)))
+        step = min(int(Inches(0.32)), int(Inches(5.2) / max(len(rows), 1)))
         for i, (rk, r) in enumerate(rows[:18]):
             y = top + step * i
             _text(

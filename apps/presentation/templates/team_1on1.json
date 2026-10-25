@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "key": "team_1on1",
+  "version": 1,
+  "name": "Team 1:1",
+  "description": "Workload, habits and the next two weeks for a one-to-one.",
+  "scope_types": [
+    "workspace",
+    "product",
+    "project",
+    "team",
+    "person"
+  ],
+  "params": [],
+  "slides": [
+    {
+      "kind": "title",
+      "title_template": "1:1",
+      "config": {},
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "people",
+      "title_template": "Workload",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "habits",
+      "title_template": "Habits",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "radar",
+      "title_template": "Next two weeks",
+      "config": {
+        "days": 14
+      },
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "now",
+      "title_template": "Active now",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    }
+  ]
+}

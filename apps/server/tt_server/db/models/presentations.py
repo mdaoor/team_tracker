@@ -29,6 +29,13 @@ class Presentation(WorkspaceScopedMixin, RowBase):
     slides: Mapped[Any] = mapped_column(JSONB(), nullable=False, default=list)
     is_shared: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=False)
     is_template: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=False)
+    template_id: Mapped[str | None] = mapped_column(
+        sa.Text(), nullable=True
+    )  # provenance only: a copy, never a live link
+    template_version: Mapped[int | None] = mapped_column(sa.Integer(), nullable=True)
+    source: Mapped[Any | None] = mapped_column(
+        JSONB(), nullable=True
+    )  # {"kind": "external_llm", "pack_id": ...} for imported decks
     share_token: Mapped[str | None] = mapped_column(sa.Text(), nullable=True, unique=True)
     share_expires_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
 
@@ -45,3 +52,22 @@ class SnapshotCache(WorkspaceScopedMixin, RowBase):
     as_of: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
     body: Mapped[Any] = mapped_column(JSONB(), nullable=False)
     __table_args__ = (sa.UniqueConstraint("workspace_id", "cache_key"),)
+
+
+class PresentationTemplate(RowBase):
+    """A presentation template is data (plan P7 §7.5): a versioned JSON body, built-in (no workspace) or workspace-owned."""
+
+    __tablename__ = "presentation_templates"
+    workspace_id: Mapped[str | None] = mapped_column(
+        sa.Text(), sa.ForeignKey("workspaces.id"), nullable=True, index=True
+    )
+    key: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    version: Mapped[int] = mapped_column(sa.Integer(), nullable=False, default=1)
+    is_builtin: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=False)
+    is_shared: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=False)
+    owner_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=True)
+    body: Mapped[Any] = mapped_column(JSONB(), nullable=False)
+    __table_args__ = (
+        sa.Index("uq_presentation_templates_ws_key", "workspace_id", "key", unique=True, postgresql_where=sa.text("workspace_id IS NOT NULL AND deleted_at IS NULL")),
+        sa.Index("uq_presentation_templates_builtin_key", "key", "version", unique=True, postgresql_where=sa.text("workspace_id IS NULL")),
+    )  # fmt: skip

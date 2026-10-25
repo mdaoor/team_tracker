@@ -674,3 +674,24 @@ ul.plain {
   content: "● ";
   color: var(--s1);
 }
+.template-editor .json {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.template-editor .slide-row {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 0;
+}
+.template-editor .slide-row input[aria-label="Slide config (JSON)"] {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.template-editor input.bad {
+  outline: 2px solid var(--crit);
+}
+.template-editor .err {
+  color: var(--crit);
+  display: block;
+}

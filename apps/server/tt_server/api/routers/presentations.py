@@ -24,6 +24,7 @@ from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import row_dict
 from tt_server.db import models as m
 from tt_server.domain import deckdata, insights
+from tt_server.domain import presentation_templates as ptpl
 from tt_server.domain import presentations as pres
 from tt_server.domain.capture import dailylog
 from tt_server.domain.common import emit
@@ -133,13 +134,43 @@ async def _check_refs(uow: Uow, actor: Actor, scope: str, scheme_id: str | None)
 
 
 @router.get("/presentations/templates")
-async def templates(actor: CurrentActor) -> dict[str, Any]:
-    return {
-        "data": [
-            {"key": k, "title": t, "slides": [s.kind for s in sl]} for k, (t, sl) in pres.TEMPLATES.items()
-        ],
-        "next_cursor": None,
-    }
+async def templates(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """The gallery as the builder's "Start from template" list (the full CRUD lives under /presentation-templates)."""
+    await ptpl.ensure_builtins(uow.session)
+    await uow.session.commit()
+    rows = (
+        await uow.session.scalars(
+            select(m.PresentationTemplate)
+            .where(
+                (m.PresentationTemplate.workspace_id == actor.ws.id)
+                | m.PresentationTemplate.workspace_id.is_(None),
+                m.PresentationTemplate.deleted_at.is_(None),
+            )
+            .order_by(
+                m.PresentationTemplate.is_builtin.desc(),
+                m.PresentationTemplate.key,
+                m.PresentationTemplate.version.desc(),
+            )
+        )
+    ).all()
+    seen: set[str] = set()
+    data = []
+    for r in rows:
+        if r.key in seen or not (
+            r.is_builtin or r.is_shared or r.owner_id == actor.person.id or actor.acl.is_admin
+        ):
+            continue
+        seen.add(r.key)
+        data.append(
+            {
+                "key": r.key,
+                "title": r.body["name"],
+                "slides": [s["kind"] for s in r.body["slides"]],
+                "params": r.body.get("params", []),
+                "builtin": r.is_builtin,
+            }
+        )
+    return {"data": data, "next_cursor": None}
 
 
 @router.post("/presentations", status_code=201, dependencies=[needs("view.save")])
@@ -164,19 +195,38 @@ class FromTemplate(BaseModel):
     scope: str = "workspace"
     range_days: int = Field(default=14, ge=1, le=366)
     weight_scheme_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.post("/presentations:from-template", status_code=201, dependencies=[needs("view.save")])
 async def from_template(body: FromTemplate, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """Copy a template into a new deck. The deck keeps `template_id`/`template_version` as provenance only (copy semantics)."""
+    from tt_server.api.routers.presentation_templates import _variables
+
     await _check_refs(uow, actor, body.scope, body.weight_scheme_id)
-    title, slides = pres.template_slides(body.template)
+    await ptpl.ensure_builtins(uow.session)
+    row = await ptpl.find(uow.session, actor.ws.id, body.template, viewer_id=actor.person.id)
+    parsed, errors = ptpl.validate_body(row.body)
+    if parsed is None:
+        raise ApiError(500, "invalid_template", errors[0]["message"])
+    variables, stats = await _variables(uow, actor, body.scope, body.range_days)
+    title, slides = ptpl.instantiate(parsed, body.params, variables, stats)
     p = m.Presentation(
         id=new_id(), workspace_id=actor.ws.id, owner_id=actor.person.id, title=body.title or title, scope=body.scope,
-        range_days=body.range_days, weight_scheme_id=body.weight_scheme_id, slides=slides,
+        range_days=body.range_days, weight_scheme_id=body.weight_scheme_id, slides=pres.normalise_slides(slides),
+        template_id=row.id, template_version=row.version,
     )  # fmt: skip
     uow.session.add(p)
     await uow.session.flush()
-    _ev(uow, actor, p, "presentation.created", template=body.template, slides=len(slides))
+    _ev(
+        uow,
+        actor,
+        p,
+        "presentation.created",
+        template=row.key,
+        template_version=row.version,
+        slides=len(p.slides),
+    )
     await uow.commit()
     return deckdata.presentation_dict(p)
 
