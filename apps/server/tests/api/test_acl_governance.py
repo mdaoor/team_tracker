@@ -20,7 +20,7 @@ from tt_server.db import models as m
 
 from tests.api.conftest import Api
 
-ROUTERS_COVERED = ("governance",)
+ROUTERS_COVERED = ("governance", "governance_habits", "governance_violations")
 
 NO_EST = {
     "template": "no_estimate_weighted",

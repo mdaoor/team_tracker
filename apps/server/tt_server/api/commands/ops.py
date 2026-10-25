@@ -38,6 +38,8 @@ from tt_server.api.routers import (
     core_projects,
     core_tenancy,
     governance,
+    governance_habits,
+    governance_violations,
     item_extras,
     overlay,
     plan,
@@ -936,7 +938,7 @@ class ViolationReason(ViolationRef):
     example_args={"id": "<violation id>"}, example_text="acknowledge violation",
 )  # fmt: skip
 async def violation_ack(ctx: Ctx, a: ViolationRef) -> Outcome:
-    return _res(await governance.acknowledge(a.id, ctx.actor, ctx.uow))
+    return _res(await governance_violations.acknowledge(a.id, ctx.actor, ctx.uow))
 
 
 @command(
@@ -944,7 +946,9 @@ async def violation_ack(ctx: Ctx, a: ViolationRef) -> Outcome:
     example_args={"id": "<violation id>", "note": "fixed"}, example_text="resolve violation, fixed",
 )  # fmt: skip
 async def violation_resolve(ctx: Ctx, a: ViolationNote) -> Outcome:
-    return _res(await governance.resolve(a.id, governance.Note(note=a.note), ctx.actor, ctx.uow))
+    return _res(
+        await governance_violations.resolve(a.id, governance_violations.Note(note=a.note), ctx.actor, ctx.uow)
+    )
 
 
 @command(
@@ -952,7 +956,11 @@ async def violation_resolve(ctx: Ctx, a: ViolationNote) -> Outcome:
     example_args={"id": "<violation id>", "reason": "customer approved exception"}, example_text="waive violation, customer approved exception",
 )  # fmt: skip
 async def violation_waive(ctx: Ctx, a: ViolationReason) -> Outcome:
-    return _res(await governance.waive(a.id, governance.Reason(reason=a.reason), ctx.actor, ctx.uow))
+    return _res(
+        await governance_violations.waive(
+            a.id, governance_violations.Reason(reason=a.reason), ctx.actor, ctx.uow
+        )
+    )
 
 
 class HabitCoachNote(BaseModel):
@@ -966,7 +974,9 @@ class HabitCoachNote(BaseModel):
 )  # fmt: skip
 async def habit_coach_note(ctx: Ctx, a: HabitCoachNote) -> Outcome:
     return _res(
-        await governance.patch_habit(a.habit, governance.HabitPatch(coaching_note=a.note), ctx.actor, ctx.uow)
+        await governance_habits.patch_habit(
+            a.habit, governance_habits.HabitPatch(coaching_note=a.note), ctx.actor, ctx.uow
+        )
     )
 
 
@@ -981,8 +991,8 @@ class HabitSetStatus(BaseModel):
 )  # fmt: skip
 async def habit_set_status(ctx: Ctx, a: HabitSetStatus) -> Outcome:
     return _res(
-        await governance.patch_habit(
-            a.habit, governance.HabitPatch.model_validate({"status": a.status}), ctx.actor, ctx.uow
+        await governance_habits.patch_habit(
+            a.habit, governance_habits.HabitPatch.model_validate({"status": a.status}), ctx.actor, ctx.uow
         )
     )
 
