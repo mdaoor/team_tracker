@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, w } from "../../api/http";
+import { markNotificationRead } from "../../api/governance";
 import { useList, useWs } from "../../lib/hooks";
 
 /** In-app notifications (Phase 8 `/notifications/mine`): a bell with the unread count and a list that deep-links. */
@@ -13,7 +13,7 @@ export function NotificationBell() {
   const all = useList("/notifications/mine");
   const unread = (all.data ?? []).filter((n) => !n.read_at);
   const read = useMutation({
-    mutationFn: (id: string) => api.post(w(ws, `/notifications/${id}:read`)),
+    mutationFn: (id: string) => markNotificationRead(ws, id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: [ws, "/notifications/mine"] }),
   });
   return (

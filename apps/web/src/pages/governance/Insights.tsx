@@ -28,8 +28,7 @@ export function Insights() {
   });
   const refresh = () => void qc.invalidateQueries({ queryKey: [ws, "/insights"] });
   const set = useMutation({
-    mutationFn: ({ id, s }: { id: string; s: string }) =>
-      setInsightStatus(ws, id, s),
+    mutationFn: ({ id, s }: { id: string; s: string }) => setInsightStatus(ws, id, s),
     onSuccess: refresh,
     onError: (e) => toasts.error(e),
   });

@@ -59,8 +59,7 @@ export function Jira() {
     onError: (e) => toasts.error(e),
   });
   const test = useMutation({
-    mutationFn: () =>
-      jiraApi.testJira(ws, project),
+    mutationFn: () => jiraApi.testJira(ws, project),
     onSuccess: (r) => {
       if (r.ok) {
         setOpts(r.options ?? null);

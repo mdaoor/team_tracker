@@ -52,8 +52,7 @@ export function Habits() {
 
   useEffect(() => setNote(open?.coaching_note ?? ""), [open]);
   const patch = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Json }) =>
-      patchHabit(ws, id, body),
+    mutationFn: ({ id, body }: { id: string; body: Json }) => patchHabit(ws, id, body),
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: [ws, "/habits"] });
       setOpen((o) => (o ? { ...o, ...r, subject: o.subject } : o));

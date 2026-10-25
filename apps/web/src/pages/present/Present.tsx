@@ -247,7 +247,7 @@ function Builder({ id }: { id: string }) {
   };
   const confirm = useConfirm();
   const remove = useMutation({
-    mutationFn: () => api.del(w(ws, `/presentations/${id}`)),
+    mutationFn: () => presentApi.deletePresentation(ws, id),
     onSuccess: () => {
       const title = p?.title ?? "Presentation";
       nav(`/w/${ws}/present`);
@@ -255,7 +255,7 @@ function Builder({ id }: { id: string }) {
       toasts.push(`Deleted “${title}”`, {
         undo: async () => {
           try {
-            await api.post(w(ws, `/presentations/${id}:restore`), {});
+            await presentApi.restorePresentation(ws, id);
             void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
             nav(`/w/${ws}/present/${id}`);
           } catch (e) {

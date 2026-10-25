@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, w } from "../../api/http";
+import { bulkDimensionValues } from "../../api/teams";
 import { Card } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
@@ -18,7 +18,7 @@ export function Dimensions() {
       .map((x) => x.trim())
       .filter(Boolean);
     try {
-      await api.post(w(ws, `/dimensions/${key}/values:bulk`), values);
+      await bulkDimensionValues(ws, key, values);
       setCsv({ ...csv, [key]: "" });
       await qc.invalidateQueries({ queryKey: [ws, `/dimensions/${key}/values`] });
       toasts.push(`Added ${values.length} value(s) to ${key}`);

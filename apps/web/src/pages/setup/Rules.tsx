@@ -19,9 +19,7 @@ export function Rules() {
     .map((r) => r.text as string);
   const dry = async () => {
     try {
-      setResult(
-        await dryRunRule(ws, { rules: draft ? [...active, draft] : active }),
-      );
+      setResult(await dryRunRule(ws, { rules: draft ? [...active, draft] : active }));
     } catch (e) {
       toasts.error(e);
     }

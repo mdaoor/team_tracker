@@ -3,7 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, w, type Json } from "../../api/http";
 import * as presentApi from "../../api/present";
-import type { Presentation, PresentationTemplate, Slide, TemplateBody, TemplateParam } from "../../api/types";
+import type {
+  Presentation,
+  PresentationTemplate,
+  Slide,
+  TemplateBody,
+  TemplateParam,
+} from "../../api/types";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty, Field } from "../../components/ui";
 import { useList, useWs } from "../../lib/hooks";
@@ -233,8 +239,7 @@ function Editor({
   const body = parsed.body ?? {};
   const set = (b: TemplateBody) => setText(JSON.stringify(b, null, 2));
   const save = useMutation({
-    mutationFn: () =>
-      presentApi.saveTemplate(ws, id ?? undefined, body),
+    mutationFn: () => presentApi.saveTemplate(ws, id ?? undefined, body),
     onSuccess: () => {
       toasts.push("Template saved");
       onClose();
@@ -385,7 +390,10 @@ function Editor({
                   variant="ghost"
                   aria-label="Remove parameter"
                   onClick={() =>
-                    set({ ...body, params: body.params.filter((_: TemplateParam, j: number) => j !== i) })
+                    set({
+                      ...body,
+                      params: body.params.filter((_: TemplateParam, j: number) => j !== i),
+                    })
                   }
                 >
                   ✕

@@ -55,8 +55,7 @@ export function Weights() {
   const [okey, setOkey] = useState("");
   const [oval, setOval] = useState("");
   const override = useMutation({
-    mutationFn: () =>
-      setItemWeight(ws, okey, cur?.name ?? "", Number(oval)),
+    mutationFn: () => setItemWeight(ws, okey, cur?.name ?? "", Number(oval)),
     onSuccess: () => toasts.push("Override saved"),
     onError: (e) => toasts.error(e),
   });

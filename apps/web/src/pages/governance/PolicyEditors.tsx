@@ -13,7 +13,7 @@ import {
 } from "../../lib/governance";
 import type { Chip } from "../../lib/viewState";
 import { useList } from "../../lib/hooks";
-import type { Json } from "../../api/http";
+import type { Json, PolicyVersion } from "../../api/types";
 
 const LISTS: Record<string, { path: string; id: (r: Json) => string }> = {
   project: { path: "/projects", id: (r) => r.key },
@@ -220,8 +220,8 @@ export function VersionHistory({
   onRestore,
   canWrite,
 }: {
-  versions: Json[];
-  onRestore: (v: Json) => void;
+  versions: PolicyVersion[];
+  onRestore: (v: PolicyVersion) => void;
   canWrite: boolean;
 }) {
   if (versions.length === 0) return <small>No history yet.</small>;

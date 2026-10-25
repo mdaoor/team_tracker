@@ -43,7 +43,7 @@ export interface Violation extends Json {
   id: string;
   status?: string;
   severity?: string;
-  policy?: string;
+  policy: string;
 }
 export interface ItemsResult extends Json {
   items?: Item[];
@@ -114,7 +114,7 @@ export interface PolicyTemplate extends Json {
   params?: PolicyParam[];
 }
 export interface Policy extends Json {
-  key?: string;
+  key: string;
   definition?: Json;
 }
 export interface PolicyVersion extends Json {
@@ -151,8 +151,14 @@ export interface Digest extends Json {
   notes: Json[];
   insights: Json[];
 }
+export interface ContextFunction extends Json {
+  name: string;
+  doc?: string;
+  receiver?: string;
+  namespace?: string;
+}
 export interface ContextSchema extends Json {
-  functions?: Json[];
+  functions?: ContextFunction[];
 }
 
 // -- present ---------------------------------------------------------------------------------------------------------

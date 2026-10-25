@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { api, w } from "../../api/http";
+import { deleteGlossary, markGlossaryManual } from "../../api/teams";
 import { Button, Card } from "../../components/ui";
 import { useList, useWs } from "../../lib/hooks";
 import { CreateForm, Table } from "./common";
@@ -45,7 +45,7 @@ export function Glossary() {
                   {r.source === "learned" && (
                     <Button
                       onClick={async () => {
-                        await api.patch(w(ws, `/glossary/${r.id}`), { source: "manual" });
+                        await markGlossaryManual(ws, r.id);
                         await refresh();
                       }}
                     >
@@ -56,7 +56,7 @@ export function Glossary() {
                     variant="ghost"
                     aria-label={`delete ${r.phrase}`}
                     onClick={async () => {
-                      await api.del(w(ws, `/glossary/${r.id}`));
+                      await deleteGlossary(ws, r.id);
                       await refresh();
                     }}
                   >
