@@ -12,8 +12,9 @@ from tt_server.api.authz import check, needs
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.overlay_support import PREFIX, begin, check_target, item_ref_for, target_id_of
-from tt_server.api.routers.core import _item, row_dict
+from tt_server.api.routers.core import _item
 from tt_server.db import models as m
+from tt_server.domain.common import row_dict
 from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import dimensions as dims
 

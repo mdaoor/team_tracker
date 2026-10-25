@@ -17,9 +17,9 @@ from tt_server.acl.visibility import redact_event, visible
 from tt_server.api.authz import check
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.core import row_dict
 from tt_server.api.routers.governance import policy_context
 from tt_server.db import models as m
+from tt_server.domain.common import row_dict, team_subtree_ids
 from tt_server.domain.errors import DomainError
 from tt_server.domain.names import Names
 from tt_server.domain.overlay import weights
@@ -120,22 +120,7 @@ async def digest(actor: CurrentActor, uow: Uow, team: str | None = None, days: i
         )
         if team_row is None:
             raise ApiError(404, "not_found", "team not found")
-        ids, frontier = {team_row.id}, {team_row.id}
-        while frontier:
-            kids = (
-                set(
-                    (
-                        await s.scalars(
-                            select(m.Team.id).where(
-                                m.Team.workspace_id == actor.ws.id, m.Team.parent_team_id.in_(frontier)
-                            )
-                        )
-                    ).all()
-                )
-                - ids
-            )
-            ids |= kids
-            frontier = kids
+        ids = await team_subtree_ids(s, actor.ws.id, {team_row.id})
         people = set(
             (
                 await s.scalars(

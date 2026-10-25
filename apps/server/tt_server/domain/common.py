@@ -109,3 +109,30 @@ def aware(dt: datetime) -> datetime:
 def ltree_label(row_id: str) -> str:
     """ltree labels allow only [A-Za-z0-9_]; ids go into `WorkItem.path` with '-' replaced by '_'."""
     return row_id.replace("-", "_")
+
+
+async def team_subtree_ids(session: AsyncSession, ws_id: str, roots: set[str]) -> set[str]:
+    """`roots` plus every descendant team of the workspace (breadth-first over `parent_team_id`)."""
+    ids, frontier = set(roots), set(roots)
+    while frontier:
+        kids = set(
+            (
+                await session.scalars(
+                    select(m.Team.id).where(m.Team.workspace_id == ws_id, m.Team.parent_team_id.in_(frontier))
+                )
+            ).all()
+        )
+        frontier = kids - ids
+        ids |= frontier
+    return ids
+
+
+def row_dict(row: Any, *exclude: str) -> dict[str, Any]:
+    """Serialise a model row to a dict of its columns (enums as their values), minus `exclude`."""
+    out: dict[str, Any] = {}
+    for col in row.__table__.columns:
+        if col.name in exclude:
+            continue
+        v = getattr(row, col.name)
+        out[col.name] = v.value if hasattr(v, "value") and not isinstance(v, (str, int)) else v
+    return out

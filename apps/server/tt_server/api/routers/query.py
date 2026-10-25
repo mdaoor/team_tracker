@@ -19,9 +19,9 @@ from tt_server.acl.visibility import redact_activity, visible
 from tt_server.api.authz import needs
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.core import _project, row_dict
+from tt_server.api.routers.core import _project
 from tt_server.db import models as m
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, row_dict
 from tt_server.domain.overlay import process as proc
 from tt_server.query import service
 from tt_server.query.compile import QueryCtx

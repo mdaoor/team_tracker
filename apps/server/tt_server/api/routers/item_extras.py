@@ -16,9 +16,9 @@ from tt_server.acl.context import item_ref
 from tt_server.api.authz import check, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.core import _item, _project, row_dict
+from tt_server.api.routers.core import _item, _project
 from tt_server.db import models as m
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, row_dict
 from tt_server.domain.errors import DomainError
 from tt_server.storage.adapter import StorageError, adapter_from_settings
 

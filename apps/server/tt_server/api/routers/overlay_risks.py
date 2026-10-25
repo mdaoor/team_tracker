@@ -12,8 +12,9 @@ from tt_schema.enums import ApprovalStatus, Decision, RiskCategory, RiskResponse
 from tt_server.api.authz import check_project
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.overlay_support import PREFIX, begin
-from tt_server.api.routers.core import _item, _project, row_dict
+from tt_server.api.routers.core import _item, _project
 from tt_server.db import models as m
+from tt_server.domain.common import row_dict
 from tt_server.domain.overlay import approvals, risk_register, risks
 
 router = APIRouter(prefix=PREFIX)

@@ -19,9 +19,9 @@ from tt_server.acl.visibility import redact_event, visible
 from tt_server.api.authz import needs, needs_review
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.core import _item, row_dict
+from tt_server.api.routers.core import _item
 from tt_server.db import models as m
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, row_dict
 from tt_server.domain.contextpack import build_pack
 from tt_server.domain.overlay import process as proc
 from tt_server.domain.overlay import review as review_svc

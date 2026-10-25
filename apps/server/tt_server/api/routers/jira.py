@@ -15,9 +15,9 @@ from tt_schema.enums import EventSource, TargetType
 from tt_server.api.authz import check_project, needs
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.core import _item, _project, row_dict
+from tt_server.api.routers.core import _item, _project
 from tt_server.db import models as m
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, row_dict
 from tt_server.integrations.jira import crypto, mapping
 from tt_server.integrations.jira import inbound as inboundmod
 from tt_server.integrations.jira import sync as syncmod

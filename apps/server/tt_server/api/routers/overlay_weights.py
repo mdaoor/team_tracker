@@ -12,7 +12,8 @@ from tt_schema.enums import ScopeType
 from tt_server.api.authz import needs
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.overlay_support import PREFIX, begin
-from tt_server.api.routers.core import _item, row_dict
+from tt_server.api.routers.core import _item
+from tt_server.domain.common import row_dict
 from tt_server.domain.overlay import weights
 
 router = APIRouter(prefix=PREFIX)

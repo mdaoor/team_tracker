@@ -14,10 +14,10 @@ from tt_schema.enums import TargetType
 from tt_server.api.authz import check_project, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.core import _item, _project, row_dict
+from tt_server.api.routers.core import _item, _project
 from tt_server.db import models as m
 from tt_server.domain import recurrence as rec
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, row_dict
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["recurrence"])
 

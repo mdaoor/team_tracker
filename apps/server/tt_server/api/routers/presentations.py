@@ -23,7 +23,7 @@ from tt_server.api.authz import check, check_project, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.params import enum_param
-from tt_server.api.routers.core import _project, row_dict
+from tt_server.api.routers.core import _project
 from tt_server.api.routers.presentation_templates import _variables
 from tt_server.csp import add_nonce, html_csp, new_nonce
 from tt_server.db import models as m
@@ -32,7 +32,7 @@ from tt_server.domain import generation_pack as gen
 from tt_server.domain import presentation_templates as ptpl
 from tt_server.domain import presentations as pres
 from tt_server.domain.capture import dailylog
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, row_dict
 from tt_server.domain.errors import DomainError
 from tt_server.domain.snapshot import json_schema, parse_scope
 from tt_server.exports import presentation as exp
