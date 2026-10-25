@@ -45,6 +45,9 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | Product req. | Slide‑based presentation builder; generic template exporting any report | P7 §7.2 | `apps/presentation/e2e/deck.spec.ts` |
 | Product req. | Open template system (templates as data, form/JSON/import/AI) | P7 §7.5 | `tests/api/test_presentation_templates.py`, `apps/web/e2e/templates.spec.ts` |
 | Product req. | External‑LLM generation pack (data, context, prompt, template) + import validator; in‑product gateway author task | P7 §7.6, P2b | `tests/api/test_generation_pack.py` (echo round trip), `tests/api/test_presentation_import.py`, gateway golden `presentation/author` |
+| Review 2026‑10‑25 | Technical risks 1–15 and UX issues 1–15 remediated | P13 R1–R6 | per‑row tests named in the phase file; re‑run of the UX walkthrough |
+| Product req. | One client for employees and managers: role modes, management commands with preview, merge, virtual teams | P14 | `tests/api/test_commands_*.py`, role×op matrix, CLI/desktop e2e, gateway golden |
+| Product req. | Personal time tracker; Google/Outlook/Teams meetings as ready‑to‑send tasks; local‑first privacy; development project | P15 | `packages/client_core/tests/personal/*`, provider fixtures, network‑deny test, ACL test for development items |
 | Product req. | Top‑down plan (phases, deliverables, milestones with dates) presentable with zero tasks; detail appears when tasks exist | P1 §1.2, P3 §3.11, P5 roadmap editor, P7 plan kinds | `tests/integration/plan/*`, `apps/web/e2e/roadmap.spec.ts`, `apps/presentation/e2e/plan_only.spec.ts` |
 | Product req. | HTTPS with PEM on Linux; Active Directory (NT accounts and groups) auth | P4 §4.6, P12 §6 | `tests/acl/test_ldap_groups.py`, TLS smoke test |
 | UX §2.5 | Jira hand‑off | P2 §2.6 (flag), P10 | `tests/integrations/jira/*` |

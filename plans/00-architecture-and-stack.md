@@ -36,6 +36,9 @@ Status: **decided for this implementation**. Deviations require an ADR (appendix
 | Local models | **Ollama** (default) or llama.cpp behind the gateway; `qwen2.5:7b-instruct` for translate, `qwen2.5:14b-instruct` for agent tasks | JSON‑schema constrained decoding; laptop GPU/CPU | — |
 | Cloud models | Anthropic Claude (`claude-sonnet-5-5` summariser, `claude-opus-5-5` reasoner) via LiteLLM, only in `hybrid|cloud` modes | Narrative quality; swappable by config | — |
 | Desktop shell | **Tauri v2** wrapping the React palette | Small binary, global hotkey, tray | Electron (size) |
+| Client local store (P15) | **SQLite** via Tauri SQL plugin with **SQLCipher** (desktop/mobile) and `sqlcipher3` in the CLI; own migrations; export/import JSON | Local‑first personal tracker; encrypted at rest | IndexedDB (no CLI), plain SQLite (privacy) |
+| Calendar providers (P15) | **Google Calendar API** (OAuth 2.0 PKCE, `syncToken` incremental) and **Microsoft Graph** via MSAL (PKCE, `calendarView` delta; Teams meetings are Graph events with `onlineMeeting`) behind one `CalendarProvider` protocol; tokens in the OS keyring (Tauri store/keyring crate; Python `keyring`) | Required integrations; least privilege read scopes; CalDAV adapter can follow | Server‑side calendar sync (server must never see calendars) |
+| Management commands (P14) | `ClientCommand` contract + server **command registry** (`@command` decorator → catalogue with JSON Schema, permission, preview flag) delegating to existing domain services; forms generated from the catalogue in CLI/desktop/Slack | Same ACL and events whatever the surface; commands may be rejected, capture may not | Separate "manager app" (two code paths) |
 | Chat bot | Slack Bolt (Python) first; Teams later | Reporter persona lives in Slack | — |
 | Tests | **pytest** + **testcontainers‑postgres** + **Hypothesis**; **Vitest** + **Playwright** for web | — | — |
 | Lint/format | **Ruff** (lint+format), **mypy --strict** on `packages/schema` and `apps/server`; **ESLint + Prettier** for web | — | — |
@@ -153,6 +156,19 @@ Store UTC `timestamptz`. `Person.time_zone` drives day boundaries for `DailyLog`
 | `snapshot` | snapshot assembler, Insight | 7 |
 | `governance` | PolicyTemplate, Policy, PolicyTestRun, Violation, HabitDefinition, Habit, MetricSnapshot | 8 |
 | `integrations.jira` | mapping + webhooks | 10 |
+
+### 5.1 Client architecture (P2, P11, P14, P15)
+```
+tt_client (no UI)                         shells
+├── parser/   structured + gateway        ├── apps/cli      Typer
+├── pack.py   ContextPack cache           ├── apps/desktop  Tauri + React palette/Today/Week/Month
+├── outbox.py ClientBatch files (messages + commands)   ├── apps/mobile  Tauri mobile
+├── commands/ catalogue cache, forms, preview (P14)      └── apps/slackbot Bolt (capture + approvals only)
+├── roles.py  role modes (P14)
+├── personal/ local store, items, timer, rrule, rules, suggestions (P15)
+└── integrations/ CalendarProvider: google.py, microsoft.py (P15)
+```
+Rule: everything that decides *what* to send lives in `tt_client`; shells only render and collect input, so CLI, desktop, mobile and Slack behave identically and share tests.
 
 ## 6. Environments
 

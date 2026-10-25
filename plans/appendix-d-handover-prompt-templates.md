@@ -103,3 +103,31 @@ Done means, per package: TESTPLAN items all green, `make check` green, DB suite 
 
 Final report: per package — what changed (by module), tests added and results (counts, coverage per package against appendix B floors), findings closed by number, ADRs written, deviations from the plan and why, and open product questions (at minimum: Kerberos/Postgres TLS deferral, external packs default on/off, share‑token redaction level).
 ```
+
+## D.6 Prompt for Phases 13–15 (remediation, client role modes, personal tracker)
+```
+You are continuing the Team Tracker implementation in repository mdaoor/team_tracker.
+
+Branches: plans and reviews are on `main`. The implementation is on `claude/listed-plan-implementation-hygguz` (HEAD 472650d or later). Create one branch per package below from the implementation branch and merge each by PR into it. Never commit to `main`; never rewrite history on a branch you did not create.
+
+Read first, in order: plans/README.md (seven non-negotiable rules; requirements table), plans/00-architecture-and-stack.md (incl. §5.1 client architecture), docs/reviews/2026-10-25-technical-and-ux-review.md (Parts 1 and 2 with file:line and screenshot evidence), plans/appendix-a/b/c, then the phase file for the package you are on. Plans are normative; appendix C settles silent points; unresolved → ADR and continue; never stop on a product question — list it in the final report.
+
+Work method: write TESTPLAN.md per package (one failing test per acceptance criterion or review finding), implement to green, `make check`, DB suite with TT_TEST_DATABASE_URL and pytest-timeout, small conventional commits, update docs/api/openapi.json, docs/api/event-catalogue.md and plans/appendix-e-traceability-matrix.md as you go. A review finding is closed only by a regression test.
+
+PHASE 13 — plans/15-phase-13-remediation-technical-and-ux.md (do in order; packages R1, R2, R3 first)
+R1 blocking UX bugs (downloads, builder iframe CSP, delete confirm+undo, toast dedupe+undo, nav gating, share-link reason, selector/seed fixes).
+R2 names instead of UUIDs, CLI cues, review-queue rows (reporter/time, Enter), accessibility fixes from the axe table, deck KPI drill/drawer/table toggles.
+R3 technical hardening (FK index migration + test, hermetic tests + concurrency fixture + timeouts, job retries + failed-job metric, proxy-aware rate limit, ws_today helper + ruff ban, Docker hardening, CSP nonce, gateway budget reserve/Decimal, secret key, shared engine, worker concurrency, OTel instrumentors, slack tests).
+R4 architecture refactors (domain errors, service extraction + router split, builtins seeding + commit guard, DB CHECK/ON DELETE, dedupe/docstrings).
+R5 frontend architecture (typed wrappers, lazy routes + ErrorBoundary, responsive shell).
+R6 UX feature gaps (review routing + deterministic suggestions + seed fix, capture intent for verb-less lines, setup editors to UX §3.3, Gantt renderer, deck auto-fit, next-week preset, CLI first-run + end-of-day).
+Done: all phase-level acceptance criteria in the file, including axe 0 serious, 390 px no horizontal scroll, DB suite < 12 min, chunk < 250 kB gzip, and the re-run UX walkthrough passing.
+
+PHASE 14 — plans/16-phase-14-client-roles-and-management-commands.md
+Build in this order: command registry + catalogue endpoint + ClientBatch 0.2 (commands[]) + batch processing with per-command status (207); the ops in the catalogue table, each delegating to existing services; item.merge service with property tests; role presets scrum_master/coach/project_manager and GET /me role_modes; gateway /v1/translate/command with the 80-line golden set; tt_client command outbox, preview, confirmation, schema-generated forms, roles.yaml; CLI `tt role|do|cmd|preview|queue|team now|approve|waive`; desktop/mobile/Slack role switch, command card with effect preview, My queue and Team now panels. Rules: commands validate and may be rejected; capture never blocks; destructive ops need confirmation (`--force` logged); previews never write. Done: every acceptance criterion in the file, ADR-0026/27/28, docs/client/management-commands.md, UX addendum for roles.
+
+PHASE 15 — plans/17-phase-15-personal-time-tracker-and-calendar.md
+Build in the numbered task order: encrypted local store + model + RRULE materialisation (Hypothesis across DST); quick-add parser extension + golden; timer; Today/Week/Month + ready-to-send tray + end-of-day and weekly review; Google Calendar adapter (PKCE, syncToken) and Microsoft Graph adapter (MSAL, delta, Teams meeting fields) behind CalendarProvider with recorded fixtures; rules/suggestions with series memory; send path with source.origin and calendar_ref + server dedup + time.unlog + development project + ContextPack additions; privacy settings, first-run, audit, erase; CLI commands. Rules: local-first and private by default; the server never sees calendar contents; tokens only in the OS keyring; one-tap send from wherever an item is shown; personal category has no send path. Done: every acceptance criterion in the file incl. the network-deny test, dedup of a re-sent meeting, development item ACL, ≤ 2 taps from meeting end to sent, mobile 390 px, axe 0 serious; ADR-0029/30/31; docs/client/personal-tracker.md and calendar-integrations.md; UX addendum for the personal tracker.
+
+Final report per phase: what changed by module, tests and coverage per package against appendix B floors, review findings closed by number (Phase 13), deviations from the plans and why, ADRs written, open product questions (at minimum: Kerberos/Postgres TLS waiver status, default share policy for meetings, whether coaches may see development hours, Graph admin-consent for attendance reports).
+```
