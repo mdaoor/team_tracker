@@ -22,10 +22,10 @@ from tt_schema.enums import (
     TargetType,
 )
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import SYSTEM_EMAIL, system_person
+from tt_server.domain.errors import DomainError, Forbidden, Invalid, NotFound
 from tt_server.governance import habits as habitmod
 
 TARGETS = {
@@ -119,7 +119,7 @@ async def find_template(s: AsyncSession, ws_id: str, ref: str) -> m.PolicyTempla
         )
     ).all()
     if not rows:
-        raise ApiError(404, "not_found", f"unknown policy template {ref!r}", pointer="/template")
+        raise NotFound("not_found", f"unknown policy template {ref!r}", pointer="/template")
     return sorted(rows, key=lambda r: r.workspace_id is None)[
         0
     ]  # a workspace copy shadows the built-in of the same key
@@ -156,63 +156,57 @@ def _deep(v: Any) -> Any:
 
 
 # ---------------------------------------------------------------------------------------------------- validation
-def _cel_error(exc: tt_cel.CelError, pointer: str) -> ApiError:
-    return ApiError(400, "invalid_condition", exc.message, pointer=pointer, details=exc.as_dict())
+def _cel_error(exc: tt_cel.CelError, pointer: str) -> DomainError:
+    return Invalid("invalid_condition", exc.message, pointer=pointer, details=exc.as_dict())
 
 
 def validate_fields(f: dict[str, Any]) -> None:
     if f["target"] not in TARGETS:
-        raise ApiError(
-            400,
+        raise Invalid(
             "invalid_target",
             f"target must be one of {sorted(t.value for t in TARGETS)}",
             pointer="/target",
         )
     if f["trigger"] == PolicyTrigger.ON_EVENT and not f.get("event_types"):
-        raise ApiError(400, "invalid_trigger", "on_event policies need event_types", pointer="/event_types")
+        raise Invalid("invalid_trigger", "on_event policies need event_types", pointer="/event_types")
     if f["trigger"] == PolicyTrigger.SCHEDULED:
         if not f.get("schedule") or not croniter.is_valid(f["schedule"]):
-            raise ApiError(
-                400,
+            raise Invalid(
                 "invalid_schedule",
                 "scheduled policies need a valid 5-field cron expression",
                 pointer="/schedule",
             )
         if len(f["schedule"].split()) != 5:
-            raise ApiError(400, "invalid_schedule", "use a 5-field cron expression", pointer="/schedule")
+            raise Invalid("invalid_schedule", "use a 5-field cron expression", pointer="/schedule")
     if f.get("grace_period") and not GRACE.match(f["grace_period"]):
-        raise ApiError(
-            400, "invalid_grace_period", "grace_period looks like 30m, 12h, 2d or 1w", pointer="/grace_period"
+        raise Invalid(
+            "invalid_grace_period", "grace_period looks like 30m, 12h, 2d or 1w", pointer="/grace_period"
         )
     if f.get("candidate_filter"):
         try:
             parse_filter(f["candidate_filter"])
         except FilterError as exc:
-            raise ApiError(
-                400, "invalid_filter", exc.message, pointer="/candidate_filter" + (exc.pointer or "")
+            raise Invalid(
+                "invalid_filter", exc.message, pointer="/candidate_filter" + (exc.pointer or "")
             ) from exc
     bad = set(f.get("notify") or {}) - NOTIFY_KEYS
     if bad:
-        raise ApiError(400, "invalid_notify", f"unknown notify keys {sorted(bad)}", pointer="/notify")
+        raise Invalid("invalid_notify", f"unknown notify keys {sorted(bad)}", pointer="/notify")
     n = f.get("notify") or {}
     for k in ("roles", "reporting_line"):
         v = n.get(k)
         if v is not None and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
-            raise ApiError(
-                400, "invalid_notify", f"notify.{k} must be a list of names", pointer=f"/notify/{k}"
-            )
+            raise Invalid("invalid_notify", f"notify.{k} must be a list of names", pointer=f"/notify/{k}")
     bad_kinds = [k for k in n.get("reporting_line") or [] if k not in {x.value for x in ReportingKind}]
     if bad_kinds:
-        raise ApiError(
-            400,
+        raise Invalid(
             "invalid_notify",
             f"unknown reporting line kinds {bad_kinds}",
             pointer="/notify/reporting_line",
         )
     bad = set(f.get("auto_action") or {}) - AUTO_ACTIONS
     if bad:
-        raise ApiError(
-            400,
+        raise Invalid(
             "invalid_auto_action",
             f"unknown auto_action keys {sorted(bad)}; allowed {sorted(AUTO_ACTIONS)}",
             pointer="/auto_action",
@@ -229,8 +223,8 @@ async def resolve_scope(s: AsyncSession, ws_id: str, scope_type: ScopeType, ref:
         ScopeType.PROCESS: m.Process,
     }.get(scope_type)
     if model is None:
-        raise ApiError(
-            400, "invalid_scope", f"policies cannot be scoped to a {scope_type.value}", pointer="/scope_type"
+        raise Invalid(
+            "invalid_scope", f"policies cannot be scoped to a {scope_type.value}", pointer="/scope_type"
         )
     alt = model.slug if scope_type == ScopeType.TEAM else model.key
     row = await s.scalar(
@@ -239,7 +233,7 @@ async def resolve_scope(s: AsyncSession, ws_id: str, scope_type: ScopeType, ref:
         )
     )
     if row is None:
-        raise ApiError(404, "not_found", f"unknown {scope_type.value} {ref!r}", pointer="/scope_id")
+        raise NotFound("not_found", f"unknown {scope_type.value} {ref!r}", pointer="/scope_id")
     return str(row)
 
 
@@ -270,15 +264,14 @@ async def compile_condition(
         }  # fmt: skip
     raw: str | None = body.get("condition_cel")
     if not raw:
-        raise ApiError(
-            400,
+        raise Invalid(
             "invalid_condition",
             "give either `template` (+ `params`) or `condition_cel`",
             pointer="/condition_cel",
         )
     if not raw_allowed:
-        raise ApiError(
-            403, "forbidden", "missing permission 'policy.admin'", details={"permission": "policy.admin"}
+        raise Forbidden(
+            "forbidden", "missing permission 'policy.admin'", details={"permission": "policy.admin"}
         )
     try:
         tt_cel.compile(raw)

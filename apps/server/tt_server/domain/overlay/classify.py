@@ -9,10 +9,10 @@ from sqlalchemy import Select, select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import Cardinality, EventSource, TargetType, ValueSource
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Invalid
 
 
 async def _active(
@@ -55,11 +55,9 @@ async def classify(
     """
     applies = [TargetType(t) for t in (dimension.applies_to or [])]
     if applies and target_type not in applies:
-        raise ApiError(
-            400, "not_applicable", f"dimension {dimension.key!r} does not apply to {target_type.value}"
-        )
+        raise Invalid("not_applicable", f"dimension {dimension.key!r} does not apply to {target_type.value}")
     if value.dimension_id != dimension.id:
-        raise ApiError(400, "wrong_dimension", "value belongs to another dimension", pointer="/value")
+        raise Invalid("wrong_dimension", "value belongs to another dimension", pointer="/value")
     existing = await _active(uow, target_type, target_id, dimension.id)
     actor = set_by or uow.context.get("actor_id")
     same = next((c for c in existing if c.value_id == value.id), None)

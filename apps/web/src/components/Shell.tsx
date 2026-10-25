@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, type ReactNode } from "react";
-import { NavLink, Outlet, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { NavLink, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError, w, type Row } from "../api/http";
 import { useList } from "../lib/hooks";
 import { t } from "../lib/i18n";
 import { NotificationBell } from "../pages/governance/NotificationBell";
 import { CommandPalette } from "./CommandPalette";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { ItemDrawer } from "./ItemDrawer";
 import { Chip } from "./ui";
 
@@ -35,6 +36,9 @@ export function RequireAccess({ area, children }: { area: string; children: Reac
 export function Shell({ topbar }: { topbar?: ReactNode }) {
   const { ws = "" } = useParams();
   const nav = useNavigate();
+  const loc = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => setNavOpen(false), [loc.pathname]);
   const [sp, setSp] = useSearchParams();
   const qc = useQueryClient();
   const me = useQuery({
@@ -75,8 +79,17 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
   ];
   const commands = commandsAll.filter((c) => allowed(c.to.split("/")[3] ?? ""));
   return (
-    <div className="shell">
+    <div className="shell" data-nav={navOpen ? "open" : "closed"}>
       <header className="topbar" role="banner">
+        <button
+          className="btn menu-btn"
+          aria-label="Menu"
+          aria-expanded={navOpen}
+          aria-controls="main-nav"
+          onClick={() => setNavOpen((o) => !o)}
+        >
+          ☰
+        </button>
         <strong className="brand">Team Tracker</strong>
         <select
           aria-label="Workspace"
@@ -118,7 +131,7 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
         <kbd title="Command palette">⌘K</kbd>
         <span aria-label="Signed in as">{me.data?.handle}</span>
       </header>
-      <nav className="sidenav" aria-label="Main">
+      <nav className="sidenav" id="main-nav" aria-label="Main" onClick={() => setNavOpen(false)}>
         {allowed("setup") && (
           <NavLink to={`${base}/setup/projects`}>{t("nav.setup")}</NavLink>
         )}
@@ -157,7 +170,15 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
         )}
       </nav>
       <main className="content" id="main">
-        {me.isError ? <p role="alert">Could not load your session.</p> : <Outlet />}
+        {me.isError ? (
+          <p role="alert">Could not load your session.</p>
+        ) : (
+          <ErrorBoundary resetKey={loc.pathname}>
+            <Suspense fallback={<p aria-busy="true">Loading…</p>}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
+        )}
       </main>
       <CommandPalette commands={commands} />
       {item && (

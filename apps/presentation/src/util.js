@@ -87,3 +87,10 @@ export const sev = (s) =>
 export const stuck = (D, i) =>
   i.state !== "done" &&
   i.stage_age_days > (D.stage_expected_days[i.stage] ?? Infinity);
+
+/** A project is shown when it has reported work or a plan (a plan-only project has deliverables but no items yet). */
+export const projectShown = (ctx, p) =>
+  ctx.items.some((i) => i.project === p.key) ||
+  (ctx.D.deliverables ?? []).some((d) => d.project === p.key) ||
+  (ctx.D.phases ?? []).some((ph) => ph.project === p.key);
+

@@ -19,6 +19,7 @@ from tt_server.api.errors import ApiError
 from tt_server.api.routers.overlay import _check_target, _dimension, _target_id
 from tt_server.db import models as m
 from tt_server.domain.common import emit
+from tt_server.domain.errors import DomainError
 from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import review as review_svc
 from tt_server.domain.overlay import suggestions
@@ -173,7 +174,7 @@ async def bulk_suggested(body: SuggestedBulk, actor: CurrentActor, uow: Uow) -> 
                 )
             else:
                 written += 1
-        except ApiError as exc:
+        except DomainError as exc:
             skipped.append({"target": s.target, "reason": exc.message})
     await uow.commit()
     return {"written": written, "skipped": skipped}

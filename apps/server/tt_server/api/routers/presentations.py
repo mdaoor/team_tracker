@@ -8,7 +8,7 @@ import re
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
@@ -18,11 +18,13 @@ from tt_schema.base import new_id, utcnow
 from tt_schema.enums import DailyLogStatus, InsightStatus, ScopeType, TargetType
 
 from tt_server.acl.context import load_context
+from tt_server.acl.visibility import visible
 from tt_server.api.authz import check, check_project, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.params import enum_param
 from tt_server.api.routers.core import _project, row_dict
+from tt_server.api.routers.presentation_templates import _variables
 from tt_server.csp import add_nonce, html_csp, new_nonce
 from tt_server.db import models as m
 from tt_server.domain import deckdata, insights
@@ -31,7 +33,10 @@ from tt_server.domain import presentation_templates as ptpl
 from tt_server.domain import presentations as pres
 from tt_server.domain.capture import dailylog
 from tt_server.domain.common import emit
+from tt_server.domain.errors import DomainError
 from tt_server.domain.snapshot import json_schema, parse_scope
+from tt_server.exports import presentation as exp
+from tt_server.integrations.llm import GatewayBudgetExceeded, GatewayUnavailable
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["presentation"])
 
@@ -139,8 +144,6 @@ async def _check_refs(uow: Uow, actor: Actor, scope: str, scheme_id: str | None)
 @router.get("/presentations/templates")
 async def templates(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """The gallery as the builder's "Start from template" list (the full CRUD lives under /presentation-templates)."""
-    await ptpl.ensure_builtins(uow.session)
-    await uow.session.commit()
     rows = (
         await uow.session.scalars(
             select(m.PresentationTemplate)
@@ -204,10 +207,8 @@ class FromTemplate(BaseModel):
 @router.post("/presentations:from-template", status_code=201, dependencies=[needs("view.save")])
 async def from_template(body: FromTemplate, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """Copy a template into a new deck. The deck keeps `template_id`/`template_version` as provenance only (copy semantics)."""
-    from tt_server.api.routers.presentation_templates import _variables
 
     await _check_refs(uow, actor, body.scope, body.weight_scheme_id)
-    await ptpl.ensure_builtins(uow.session)
     row = await ptpl.find(uow.session, actor.ws.id, body.template, viewer_id=actor.person.id)
     parsed, errors = ptpl.validate_body(row.body)
     if parsed is None:
@@ -275,7 +276,6 @@ async def generation_pack(body: PackIn, actor: CurrentActor, uow: Uow) -> Respon
         cache=False,
     )
     redacted = deckdata.redact_for_share({"snapshot": json.loads(json.dumps(snap, default=str))}, level)
-    await ptpl.ensure_builtins(uow.session)
     rows = await uow.session.scalars(
         select(m.PresentationTemplate).where(m.PresentationTemplate.workspace_id.is_(None))
     )
@@ -322,7 +322,7 @@ async def _known_projects(uow: Uow, actor: Actor, deck: dict[str, Any]) -> set[s
             p = await _project(uow, actor.ws.id, k)
             await check_project(actor, uow, "item.read", p)
             ok.add(k)
-        except ApiError:
+        except DomainError:
             pass  # unknown and forbidden look the same: the deck cannot name a project the importer cannot read
     return ok
 
@@ -377,7 +377,6 @@ class AuthorIn(BaseModel):
 async def author(body: AuthorIn, request: Request, actor: CurrentActor, uow: Uow) -> Response:
     """ "Generate with AI": the gateway drafts a deck from a brief and the viewer's own snapshot digest; the draft goes through the same
     validation as an import (lenient), then lands as an ordinary deck the user can edit."""
-    from tt_server.integrations.llm import GatewayBudgetExceeded, GatewayUnavailable
 
     gateway = request.app.state.llm
     if gateway is None:
@@ -545,6 +544,7 @@ class SlidePatch(BaseModel):
     notes: str | None = None
     layout: str | None = None
     live: bool | None = None
+    fit: Literal["paginate", "shrink"] | None = None
 
 
 @router.patch("/presentations/{pid}/slides/{sid}")
@@ -615,7 +615,6 @@ _RENDER_SLOTS = asyncio.Semaphore(MAX_BROWSER_RENDERS)
 
 @router.post("/presentations/{pid}/render")
 async def render(pid: str, request: Request, actor: CurrentActor, uow: Uow, format: str = "html") -> Response:  # noqa: A002
-    from tt_server.exports import presentation as exp
 
     if format not in MEDIA:
         raise ApiError(400, "invalid_format", f"format must be one of {', '.join(MEDIA)}", pointer="/format")
@@ -796,7 +795,6 @@ async def generate(body: InsightGen, request: Request, actor: CurrentActor, uow:
 async def list_insights(
     actor: CurrentActor, uow: Uow, project: str | None = None, status: str | None = None
 ) -> dict[str, Any]:
-    from tt_server.acl.visibility import visible
 
     projs = (
         await uow.session.scalars(
@@ -827,7 +825,6 @@ class InsightPatch(BaseModel):
 
 @router.patch("/insights/{iid}")
 async def patch_insight(iid: str, body: InsightPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    from tt_server.acl.visibility import visible
 
     row = await uow.session.get(m.Insight, iid)
     proj = (
@@ -875,7 +872,6 @@ async def summarise_daily_log(log_id: str, request: Request, actor: CurrentActor
         "blockers": row.blockers,
         "items": [{"key": k, "title": t} for k, t in items],
     }
-    from tt_server.integrations.llm import GatewayBudgetExceeded, GatewayUnavailable
 
     try:
         ans = await gw.summarise_daily_log(actor.ws.slug, facts)

@@ -1,4 +1,5 @@
 import {
+  projectShown,
   applyFilter,
   drillAttr,
   esc,
@@ -67,7 +68,7 @@ export function renderProjects(ctx, cfg, slide) {
   const { D, items } = ctx;
   const only = cfg.project_key;
   const projs = D.projects.filter(
-    (p) => items.some((i) => i.project === p.key) && (!only || p.key === only),
+    (p) => projectShown(ctx, p) && (!only || p.key === only),
   );
   const page = slide?._rows;
   const list = page ? projs.slice(page[0], page[1]) : projs;

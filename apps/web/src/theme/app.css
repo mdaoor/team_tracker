@@ -748,3 +748,44 @@ dialog.confirm { position: fixed; inset: 0; margin: auto; z-index: 50; max-width
 .presets { margin: 0.5rem 0; gap: 0.5rem; flex-wrap: wrap; }
 
 .tile.on, .tile[aria-pressed="true"] { outline: 2px solid var(--s1); background: var(--surface-2); }
+
+/* ---- Phase 13 R5.3: responsive shell ---- */
+.shell > *, .content, .setup > *, .present > *, .views, .vtoolbar > * { min-width: 0; }
+.menu-btn { display: none; }
+.content table { max-width: 100%; }
+.content .card, .content .vlist, .content .vmatrix, .content .vgantt { overflow-x: auto; }
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .topbar { flex-wrap: wrap; row-gap: 4px; padding: 6px 12px; min-height: 48px; }
+  .topbar select { max-width: 40vw; }
+  .menu-btn { display: inline-flex; }
+  .sidenav { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: 240px; background: var(--surface); transform: translateX(-102%); transition: transform 0.2s; padding-top: 56px; overflow-y: auto; }
+  .shell[data-nav="open"] .sidenav { transform: none; box-shadow: 4px 0 24px rgb(0 0 0 / 0.25); }
+  .content { padding: 12px; }
+  .setup { grid-template-columns: minmax(0, 1fr); }
+  .subnav { flex-direction: row; flex-wrap: wrap; }
+  .vtoolbar, .row, .bulk { flex-wrap: wrap; }
+  .present { grid-template-columns: minmax(0, 1fr) !important; }
+  .vcols { overflow-x: auto; }
+  .vcal { grid-template-columns: repeat(7, minmax(0, 1fr)); font-size: 10px; }
+  .vcal > div { min-height: 48px; padding: 2px; overflow: hidden; }
+  dialog.confirm { max-width: calc(100vw - 24px); }
+}
+@media (prefers-reduced-motion: reduce) { .sidenav { transition: none; } }
+
+.stage-chip { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
+.stage-edit { margin-top: 0.75rem; }
+.mini-pipeline { display: flex; gap: 2px; margin: 0.75rem 0; min-height: 28px; }
+.mini-pipeline span { flex-basis: 0; min-width: 2.5rem; padding: 2px 6px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; font-size: 0.8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-pipeline span.on { outline: 2px solid var(--s1); }
+
+ul.tree, ul.tree ul { list-style: none; padding-inline-start: 1.25rem; margin: 0.15rem 0; }
+ul.tree { padding-inline-start: 0; }
+.tree-row { display: inline-flex; gap: 0.4rem; align-items: center; padding: 1px 4px; border-radius: 4px; }
+.tree-row:focus-within, .tree-row.drop { background: var(--surface-2); }
+
+.tree-product { background: none; border: 1px dashed transparent; color: inherit; font: inherit; cursor: grab; padding: 1px 6px; border-radius: 4px; }
+.tree-product:hover, .tree-product:focus-visible, .tree-product.drop { border-color: var(--s1); background: var(--surface-2); }
+
+.vgantt-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+.vgantt text.gl { font-size: 11px; }

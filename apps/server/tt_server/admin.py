@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from tt_server.db.base import Base
 from tt_server.db.session import make_engine, make_session_factory
+from tt_server.db.uow import commit_derived
 
 app = typer.Typer(help="Team Tracker administration", no_args_is_help=True)
 seed_app = typer.Typer(help="Seed data", no_args_is_help=True)
@@ -70,7 +71,18 @@ def migrate() -> None:
     cfg.set_main_option("sqlalchemy.url", get_settings().database_url)
     command.upgrade(cfg, "head")
     applied = ensure_procrastinate_schema(get_settings().psycopg_dsn)
+    asyncio.run(_seed_reference())
     typer.echo("migrations applied" + ("; procrastinate schema applied" if applied else ""))
+
+
+async def _seed_reference() -> None:
+    from tt_server.bootstrap import seed_reference_data
+
+    engine = make_engine()
+    try:
+        await seed_reference_data(make_session_factory(engine))
+    finally:
+        await engine.dispose()
 
 
 @app.command("backfill-overlay")
@@ -167,7 +179,7 @@ def purge_raw_input(
                         raise typer.BadParameter(f"unknown workspace {workspace!r}")
                     ws_id = ws.id
                 n = await privacy.purge_raw_input(s, days=days, workspace_id=ws_id)
-                await s.commit()
+                await commit_derived(s)
                 typer.echo(f"{n} event(s) had their raw input removed")
         finally:
             await engine.dispose()

@@ -82,3 +82,11 @@ class UnitOfWork:
         await outbox.dispatch(session, flushed)
         await session.commit()
         self._touched_projection = False
+
+
+async def commit_derived(session: AsyncSession) -> None:
+    """Commit work that is derived or housekeeping and has no Event by design (a snapshot cache row, a retention sweep).
+
+    The one place outside `UnitOfWork` that commits; `tests/unit/test_architecture.py` fails on any other `.commit()` call.
+    """
+    await session.commit()

@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import EstimationUnit, EventSource, ScopeType, TargetType, ValueSource
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Invalid
 
 DEFAULT_FORMULA: dict[str, Any] = {
     "base": "constant",
@@ -48,22 +48,20 @@ async def ensure_default_scheme(session: AsyncSession, ws_id: str) -> m.WeightSc
 def validate_formula(formula: dict[str, Any]) -> None:
     base = formula.get("base", "constant")
     if base not in ("estimate_hours", "points", "constant"):
-        raise ApiError(400, "invalid_formula", f"unknown base {base!r}", pointer="/formula/base")
+        raise Invalid("invalid_formula", f"unknown base {base!r}", pointer="/formula/base")
     for key, value in (formula.get("multipliers") or {}).items():
         head = key.split(".", 1)[0]
         if head not in ("priority", "stage", "tag", "type", "impact", "dimension") or "." not in key:
-            raise ApiError(
-                400, "invalid_formula", f"unknown multiplier {key!r}", pointer="/formula/multipliers"
-            )
+            raise Invalid("invalid_formula", f"unknown multiplier {key!r}", pointer="/formula/multipliers")
         try:
             Decimal(str(value))
         except Exception as exc:
-            raise ApiError(
-                400, "invalid_formula", f"multiplier {key!r} is not a number", pointer="/formula/multipliers"
+            raise Invalid(
+                "invalid_formula", f"multiplier {key!r} is not a number", pointer="/formula/multipliers"
             ) from exc
     clamp = formula.get("clamp")
     if clamp is not None and (len(clamp) != 2 or Decimal(str(clamp[0])) > Decimal(str(clamp[1]))):
-        raise ApiError(400, "invalid_formula", "clamp must be [min, max]", pointer="/formula/clamp")
+        raise Invalid("invalid_formula", "clamp must be [min, max]", pointer="/formula/clamp")
 
 
 def evaluate(formula: dict[str, Any], ctx: dict[str, Any]) -> Decimal:
@@ -254,7 +252,7 @@ async def set_override(
 ) -> m.Weight:
     s = uow.session
     if value < 0:
-        raise ApiError(400, "invalid_weight", "weight must not be negative", pointer="/value")
+        raise Invalid("invalid_weight", "weight must not be negative", pointer="/value")
     row = await s.scalar(
         select(m.Weight).where(
             m.Weight.work_item_id == item.id, m.Weight.scheme_id == scheme.id, m.Weight.deleted_at.is_(None)

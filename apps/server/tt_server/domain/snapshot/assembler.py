@@ -23,9 +23,9 @@ from tt_schema.enums import (
 )
 
 from tt_server.acl.visibility import visible
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.domain import insights
+from tt_server.domain.errors import Invalid, NotFound
 from tt_server.domain.overlay import process as proc
 from tt_server.domain.plan import service as plan_svc
 from tt_server.domain.snapshot.model import SCHEMA_VERSION, Snapshot
@@ -40,7 +40,7 @@ OPEN_VIOLATION = (ViolationStatus.OPEN, ViolationStatus.ACKNOWLEDGED)
 def parse_scope(scope: str) -> tuple[str, str]:
     kind, _, ref = scope.partition(":")
     if kind not in {"workspace", "product", "project", "team", "person"}:
-        raise ApiError(400, "invalid_scope", f"unknown scope {scope!r}", pointer="/scope")
+        raise Invalid("invalid_scope", f"unknown scope {scope!r}", pointer="/scope")
     return kind, ref
 
 
@@ -64,14 +64,14 @@ async def _scope_filter(qc: QueryCtx, kind: str, ref: str) -> tuple[dict[str, An
             select(m.Project.name).where(m.Project.workspace_id == qc.ws_id, m.Project.key == ref.upper())
         )
         if name is None:
-            raise ApiError(404, "not_found", f"unknown project {ref!r}", pointer="/scope")
+            raise NotFound("not_found", f"unknown project {ref!r}", pointer="/scope")
         return {"project": {"in": [ref.upper()]}}, f"Project: {name}"
     if kind == "product":
         prod = await s.scalar(
             select(m.Product).where(m.Product.workspace_id == qc.ws_id, m.Product.key == ref.upper())
         )
         if prod is None:
-            raise ApiError(404, "not_found", f"unknown product {ref!r}", pointer="/scope")
+            raise NotFound("not_found", f"unknown product {ref!r}", pointer="/scope")
         keys = (
             await s.scalars(
                 select(m.Project.key)

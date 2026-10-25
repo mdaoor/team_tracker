@@ -18,10 +18,11 @@ from tt_schema.enums import (
     ValueSource,
 )
 
-from tt_server.api.errors import ApiError
+from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Conflict, Forbidden, Invalid, NotFound
 from tt_server.domain.items import service as items
 from tt_server.domain.overlay.classify import classify
 from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, ensure_value
@@ -87,7 +88,7 @@ async def get_process(session: AsyncSession, ws_id: str, ref: str | None = None)
     )
     proc = await session.scalar(stmt)
     if proc is None:
-        raise ApiError(404, "not_found", "process not found")
+        raise NotFound("not_found", "process not found")
     return proc
 
 
@@ -107,7 +108,7 @@ async def get_stage(session: AsyncSession, process: m.Process, ref: str) -> m.St
     for s in await stages_of(session, process.id):
         if s.key == ref or s.id == ref:
             return s
-    raise ApiError(404, "not_found", f"stage {ref!r} not found in process {process.key!r}", pointer="/stage")
+    raise NotFound("not_found", f"stage {ref!r} not found in process {process.key!r}", pointer="/stage")
 
 
 async def current_placement(
@@ -131,7 +132,7 @@ async def _lock_target(session: AsyncSession, target_type: TargetType, target_id
         TargetType.PRODUCT: m.Product,
     }.get(target_type)
     if model is None:
-        raise ApiError(400, "not_applicable", f"cannot place a {target_type.value}")
+        raise Invalid("not_applicable", f"cannot place a {target_type.value}")
     await session.execute(select(model.id).where(model.id == target_id).with_for_update())
 
 
@@ -189,8 +190,7 @@ async def place(
             allowed = {str(r) for r in rule.allowed_roles}
             if held is not None and not (held & allowed) and not getattr(acl, "is_admin", False):
                 if strict:
-                    raise ApiError(
-                        403,
+                    raise Forbidden(
                         "role_not_allowed",
                         "your role may not make this transition",
                         details={"allowed_roles": sorted(allowed)},
@@ -204,8 +204,7 @@ async def place(
         if rule.required_evidence_kinds and target_type == TargetType.WORK_ITEM:
             missing = await _missing_evidence(s, target_id, [str(k) for k in rule.required_evidence_kinds])
             if missing and strict:
-                raise ApiError(
-                    409,
+                raise Conflict(
                     "missing_evidence",
                     "required evidence is missing for this transition",
                     details={"missing": missing},
@@ -470,8 +469,6 @@ async def board(
             .order_by(m.StagePlacement.entered_at)
         )
         if acl is not None:  # a board only shows cards the viewer may see (Inbox items never appear)
-            from tt_server.acl.visibility import visible
-
             stmt = visible(stmt, acl, m.WorkItem)
         rows = (await session.execute(stmt)).all()
         cards = []

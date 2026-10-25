@@ -21,3 +21,8 @@ from tt_server.db.models.projects import *  # noqa: F403
 from tt_server.db.models.system import *  # noqa: F403
 from tt_server.db.models.tenancy import *  # noqa: F403
 from tt_server.db.models.views import *  # noqa: F403
+
+from tt_server.db import conventions as _conventions  # noqa: E402
+from tt_server.db.base import Base as _Base  # noqa: E402
+
+_conventions.apply(_Base.metadata)

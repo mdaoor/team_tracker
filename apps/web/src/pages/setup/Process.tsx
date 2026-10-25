@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, w, type Row } from "../../api/http";
-import { Card, Chip } from "../../components/ui";
+import { Card } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useObj, useWs } from "../../lib/hooks";
 import { CreateForm } from "./common";
@@ -31,6 +31,41 @@ export function Process() {
     }
   };
   const stages: Row[] = proc?.stages ?? [];
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Row>({});
+  const open = (s: Row) => {
+    setEditing(s.key);
+    setDraft({
+      name: s.name,
+      expected_duration_days: s.expected_duration_days ?? "",
+      wip_limit: s.wip_limit ?? "",
+      requires_approval: !!s.requires_approval,
+      category: s.category,
+      maps_to_state_category: s.maps_to_state_category,
+    });
+  };
+  const save = async () => {
+    try {
+      const num = (v: unknown) => (v === "" || v == null ? null : Number(v));
+      await api.patch(w(ws, `/processes/${proc?.key}/stages/${editing}`), {
+        ...draft,
+        expected_duration_days: num(draft.expected_duration_days),
+        wip_limit: num(draft.wip_limit),
+      });
+      toasts.push("Stage updated");
+      setEditing(null);
+      await qc.invalidateQueries({ queryKey: [ws, "/processes"] });
+    } catch (e) {
+      toasts.error(e);
+    }
+  };
+  // live mini-pipeline: what the line looks like with the edits applied (bar width = expected days)
+  const preview = stages.map((s) =>
+    s.key === editing
+      ? { ...s, expected_duration_days: draft.expected_duration_days === "" ? null : Number(draft.expected_duration_days), name: draft.name, wip_limit: draft.wip_limit === "" ? null : Number(draft.wip_limit) }
+      : s,
+  );
+  const totalDays = Math.max(1, preview.reduce((n, s) => n + (Number(s.expected_duration_days) || 1), 0));
   const drop = (target: string) => {
     if (!drag || drag === target) return;
     const keys = stages.map((s) => s.key).filter((k) => k !== drag);
@@ -58,7 +93,12 @@ export function Process() {
             data-stage={s.key}
             style={{ background: seq(counts[s.key] ?? 0, max) }}
           >
-            <Chip>
+            <button
+              className="chip stage-chip"
+              aria-haspopup="dialog"
+              aria-expanded={editing === s.key}
+              onClick={() => (editing === s.key ? setEditing(null) : open(s))}
+            >
               {s.name}
               <small>
                 {" "}
@@ -66,7 +106,7 @@ export function Process() {
                 {s.wip_limit ?? "∞"} · {s.maps_to_state_category}
                 {s.requires_approval ? " · approval" : ""}
               </small>
-            </Chip>
+            </button>
             <button aria-label={`Move ${s.name} left`} onClick={() => move(s.key, -1)}>
               ←
             </button>
@@ -76,6 +116,70 @@ export function Process() {
           </li>
         ))}
       </ol>
+      {editing && (
+        <div role="dialog" aria-label={`Edit stage ${editing}`} className="card stage-edit">
+          <div className="row">
+            <label>
+              Name
+              <input value={String(draft.name ?? "")} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            </label>
+            <label>
+              Expected days
+              <input
+                type="number"
+                min={0}
+                value={String(draft.expected_duration_days ?? "")}
+                onChange={(e) => setDraft({ ...draft, expected_duration_days: e.target.value })}
+              />
+            </label>
+            <label>
+              WIP limit
+              <input
+                type="number"
+                min={0}
+                value={String(draft.wip_limit ?? "")}
+                onChange={(e) => setDraft({ ...draft, wip_limit: e.target.value })}
+              />
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={!!draft.requires_approval}
+                onChange={(e) => setDraft({ ...draft, requires_approval: e.target.checked })}
+              />{" "}
+              Needs approval
+            </label>
+            <label>
+              Category
+              <select value={String(draft.category ?? "")} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
+                {["intake", "build", "verify", "release", "done"].map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="mini-pipeline" role="img" aria-label="Mini pipeline preview">
+            {preview.map((s) => (
+              <span
+                key={s.key}
+                className={s.key === editing ? "on" : ""}
+                style={{ flexGrow: Math.max(1, Number(s.expected_duration_days) || 1) / totalDays }}
+                title={`${s.name}: ${s.expected_duration_days ?? "–"} d`}
+              >
+                {s.name}
+              </span>
+            ))}
+          </div>
+          <div className="row">
+            <button className="btn btn-primary" onClick={() => void save()}>
+              Save stage
+            </button>
+            <button className="btn" onClick={() => setEditing(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {proc && (
         <CreateForm
           path={`/processes/${proc.key}/stages`}

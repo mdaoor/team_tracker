@@ -21,10 +21,11 @@ from tt_schema.enums import (
     ValueSource,
 )
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit, ltree_label
+from tt_server.domain.errors import Invalid
+from tt_server.domain.overlay import propagation
 from tt_server.domain.projects.service import pick_state, workflow_states
 
 # Extension point (Phase 3 stage <-> state sync): called after a state *category* change.
@@ -63,8 +64,8 @@ async def validate_nesting(
     child, par = await type_level(session, child_type_id), await type_level(session, parent.type_id)
     allow_same = bool((ws.settings or {}).get("allow_same_level_nesting"))
     if child < par or (child == par and not allow_same):
-        raise ApiError(
-            400, "invalid_nesting", "child type level must be deeper than the parent's", pointer="/parent_id"
+        raise Invalid(
+            "invalid_nesting", "child type level must be deeper than the parent's", pointer="/parent_id"
         )
 
 
@@ -125,8 +126,6 @@ async def create_item(
             m.Assignment(id=new_id(), work_item_id=item.id, person_id=assignee_id, role=AssignmentRole.OWNER)
         )
     if inherit:
-        from tt_server.domain.overlay import propagation
-
         await propagation.inherit_on_create(uow, ws, item, parent=parent, default_stage=default_stage)
     return item
 
@@ -164,7 +163,7 @@ async def move_item(session: AsyncSession, item: m.WorkItem, new_parent: m.WorkI
     if new_parent is not None and (
         new_parent.path == old_prefix or new_parent.path.startswith(old_prefix + ".")
     ):
-        raise ApiError(400, "cycle", "an item cannot be moved under its own descendant", pointer="/parent_id")
+        raise Invalid("cycle", "an item cannot be moved under its own descendant", pointer="/parent_id")
     await session.execute(
         text(
             "UPDATE work_items SET path = CAST(:np AS ltree) || subpath(path, nlevel(CAST(:op AS ltree))) "
@@ -241,7 +240,6 @@ async def change_project(
     uow: UnitOfWork, ws: m.Workspace, item: m.WorkItem, project: m.Project, *, actor_id: str
 ) -> None:
     """Move an item (typically out of an Inbox): new key in the destination, old key kept in external_refs."""
-    from tt_server.domain.overlay import propagation
 
     if item.project_id == project.id:
         return

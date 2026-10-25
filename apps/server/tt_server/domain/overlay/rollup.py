@@ -12,6 +12,7 @@ from tt_schema.enums import StateCategory, TargetType
 from tt_server.acl.context import AclContext
 from tt_server.acl.visibility import item_visible_for
 from tt_server.db import models as m
+from tt_server.domain.names import Names
 from tt_server.domain.overlay.risks import open_risk_score
 
 DIMENSION_FIELDS = {
@@ -141,7 +142,6 @@ async def provenance(session: AsyncSession, item: m.WorkItem) -> dict[str, Any]:
 
 async def _name_provenance(session: AsyncSession, item: m.WorkItem, out: dict[str, Any]) -> None:
     """Replace ids by names so the chip reads `set by @sara · 2 d ago · inherited from Product X` (UX 5)."""
-    from tt_server.domain.names import Names
 
     entries = [e for v in out.values() if isinstance(v, list) for e in v if isinstance(e, dict)]
     ws_id = await session.scalar(select(m.Project.workspace_id).where(m.Project.id == item.project_id))

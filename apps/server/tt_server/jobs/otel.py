@@ -36,7 +36,9 @@ def traced_task(**task_kwargs: Any) -> Callable[[Callable[..., Awaitable[Any]]],
         @functools.wraps(fn)
         async def run(*args: Any, **kwargs: Any) -> Any:
             parent = extract({TRACE_KEY: kwargs.pop(TRACE_KEY)}) if TRACE_KEY in kwargs else None
-            with _tracer.start_as_current_span(f"job {name}", context=parent, attributes={"tt.job": name}) as span:
+            with _tracer.start_as_current_span(
+                f"job {name}", context=parent, attributes={"tt.job": name}
+            ) as span:
                 try:
                     return await fn(*args, **kwargs)
                 except Exception as exc:

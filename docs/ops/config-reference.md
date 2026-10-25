@@ -10,6 +10,8 @@ Variables are read from the environment (prefix `TT_`) or a `.env` file. Rows ma
 | `TT_DEV_AUTH` | `bool` | `False` | Accept the X-Debug-Actor header (dev only). |
 | `TT_LOG_LEVEL` | `str` | `INFO` |  |
 | `TT_LOG_JSON` | `bool` | `True` |  |
+| `TT_SEED_REFERENCE_ON_START` | `bool` | `True` | Load shipped templates/habit definitions at start (idempotent). |
+| `TT_WORKER_CONCURRENCY` | `int` | `4` | Jobs a worker runs at once. |
 | `TT_OTLP_ENDPOINT` | `str \| None` | unset | OTLP endpoint; no exporter when unset. |
 | `TT_SESSION_SECRET` | `str` | `dev-insecure-session-secret` | Signs session cookies. **secret** |
 | `TT_SESSION_TTL_HOURS` | `int` | `12` |  |

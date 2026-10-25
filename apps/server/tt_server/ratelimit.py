@@ -11,6 +11,8 @@ import time
 from collections import deque
 from collections.abc import Callable
 
+from tt_server.sso import trusted_peer
+
 
 class SlidingWindow:
     def __init__(
@@ -50,7 +52,6 @@ def client_ip(settings: object, peer: str | None, forwarded_for: str | None) -> 
     """The caller's address. `X-Forwarded-For` is believed only when the TCP peer is a configured trusted proxy
     (`TT_TRUSTED_PROXIES`); then the right-most hop that is not itself a trusted proxy is the client. Anything else is
     attacker-controlled and ignored, so a stranger cannot pick their own bucket (Phase 13 R3.4, review T1)."""
-    from tt_server.sso import trusted_peer
 
     if not peer or not forwarded_for or not trusted_peer(settings, peer):  # type: ignore[arg-type]
         return peer

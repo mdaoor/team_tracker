@@ -63,8 +63,6 @@ async def policy_context() -> dict[str, Any]:
 @router.get("/policy-templates")
 async def list_templates(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     check(actor, "policy.read")
-    await service.ensure_builtins(uow.session)
-    await uow.session.commit()
     rows = (
         await uow.session.scalars(
             select(m.PolicyTemplate)
@@ -238,7 +236,6 @@ def _can_raw(actor: Actor) -> bool:
 async def create_policy(body: PolicyIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     check(actor, "policy.write")
     s = uow.session
-    await service.ensure_builtins(s)
     comp = await service.compile_condition(s, actor.ws.id, body.model_dump(), raw_allowed=_can_raw(actor))
     comp.pop("_template", None)
     over = {
@@ -765,8 +762,6 @@ def habit_view(h: m.Habit, handle: str | None, actor: Actor | None = None) -> di
 
 @router.get("/habit-definitions")
 async def habit_definitions(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    await service.ensure_builtins(uow.session)
-    await uow.session.commit()
     rows = (
         await uow.session.scalars(
             select(m.HabitDefinition)

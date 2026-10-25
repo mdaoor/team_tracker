@@ -314,3 +314,34 @@ describe("plan slide kinds render from the plan alone", () => {
     expect(out.length).toBe(3);
   });
 });
+
+describe("Phase 13 R6.5: long slides fit", () => {
+  const many = (n) => ({
+    ...structuredClone(data),
+    snapshot: {
+      ...structuredClone(data.snapshot),
+      projects: Array.from({ length: n }, (_, i) => ({ key: `P${i}`, name: `Project ${i}`, status: "active" })),
+      items: Array.from({ length: n }, (_, i) => ({ ...data.snapshot.items[0], key: `P${i}-1`, project: `P${i}` })),
+    },
+  });
+  test("paginate (default) makes continuation slides; shrink keeps one slide and scales it", () => {
+    const c = makeContext(many(9));
+    const base = { id: "s", kind: "projects", config: {} };
+    const pages = expandSlides([base], c);
+    expect(pages.length).toBeGreaterThan(1);
+    expect(pages[1]._cont).toBe(true);
+    const one = expandSlides([{ ...base, fit: "shrink" }], c);
+    expect(one).toHaveLength(1);
+    expect(one[0]._shrink).toBe(0.5); // 4 of 9 would be 0.44: never smaller than half size
+    const five = expandSlides([{ ...base, fit: "shrink" }], makeContext(many(5)));
+    expect(five[0]._shrink).toBeCloseTo(0.8, 2);
+  });
+  test("a plan-only project (deliverables, no reported work) still gets a card", () => {
+    const d = structuredClone(data);
+    d.snapshot.projects.push({ key: "ERP", name: "ERP Rollout", status: "active" });
+    d.snapshot.deliverables = [{ key: "ERP-1", project: "ERP", title: "Design", phase: "Design" }];
+    const c = makeContext(d);
+    expect(c.projectCount()).toBe(data.snapshot.projects.filter((p) => data.snapshot.items.some((i) => i.project === p.key)).length + 1);
+    expect(text(slideBody(c, { kind: "projects", config: {} }))).toContain("ERP Rollout");
+  });
+});

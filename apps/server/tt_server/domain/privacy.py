@@ -17,7 +17,7 @@ from tt_schema.base import utcnow
 from tt_schema.enums import MemberStatus, PolicyCategory, ProjectKind, TargetType
 
 from tt_server.db import models as m
-from tt_server.db.uow import UnitOfWork
+from tt_server.db.uow import UnitOfWork, commit_derived
 from tt_server.domain.common import emit
 
 ERASED = "[erased]"
@@ -45,7 +45,7 @@ async def purge_all(factory: Any) -> int:
             days = (ws.settings or {}).get("raw_input_retention_days")
             if isinstance(days, int) and days > 0:
                 total += await purge_raw_input(s, days=days, workspace_id=ws.id)
-        await s.commit()
+        await commit_derived(s)
     return total
 
 

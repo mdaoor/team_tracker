@@ -7,13 +7,13 @@ import asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from tt_server.db.session import make_engine, make_session_factory
+from tt_server.settings import get_settings
 
 _engines: dict[tuple[str, int], AsyncEngine] = {}
 
 
 def shared_engine() -> AsyncEngine:
     """The process-wide engine for the running event loop (an async engine must not cross loops)."""
-    from tt_server.settings import get_settings
 
     key = (get_settings().database_url, id(asyncio.get_running_loop()))
     eng = _engines.get(key)

@@ -15,15 +15,14 @@ from pathlib import Path
 from typing import Any
 
 from tt_server.acl.export import csv_export, stamp
-from tt_server.api.errors import ApiError
+from tt_server.domain.errors import Conflict, Invalid, Unavailable
 from tt_server.exports import compute
 from tt_server.exports.pptx_builder import build_pptx
 
 
 def inline_html(bundle: Path, payload: dict[str, Any], *, mode: str = "deck", handle: str = "") -> str:
     if not bundle.exists():
-        raise ApiError(
-            503,
+        raise Unavailable(
             "bundle_missing",
             "the presentation bundle is not built (pnpm --filter @tt/presentation build)",
         )
@@ -166,7 +165,7 @@ async def render(fmt: str, payload: dict[str, Any], bundle: Path, *, handle: str
     if fmt == "csv":
         files = _csvs(payload, handle)
         if not files:
-            raise ApiError(409, "nothing_to_export", "this presentation has no tabular slide")
+            raise Conflict("nothing_to_export", "this presentation has no tabular slide")
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for name, text in files.items():
@@ -175,4 +174,4 @@ async def render(fmt: str, payload: dict[str, Any], bundle: Path, *, handle: str
         return buf.getvalue()
     if fmt == "pptx":
         return build_pptx(payload, stamp(handle, scope))
-    raise ApiError(400, "invalid_format", f"unknown format {fmt!r}")
+    raise Invalid("invalid_format", f"unknown format {fmt!r}")

@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import DailyLogStatus, EventSource, TargetType
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit, system_person, zone
+from tt_server.domain.errors import NotFound
 
 
 def to_dict(row: m.DailyLog) -> dict[str, Any]:
@@ -35,7 +35,7 @@ async def get_for(uow: UnitOfWork, ws_id: str, log_id: str) -> m.DailyLog:
         select(m.DailyLog).where(m.DailyLog.id == log_id, m.DailyLog.workspace_id == ws_id)
     )
     if row is None:
-        raise ApiError(404, "not_found", "daily log not found")
+        raise NotFound("not_found", "daily log not found")
     return row
 
 

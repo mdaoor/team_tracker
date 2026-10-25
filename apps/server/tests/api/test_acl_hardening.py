@@ -187,7 +187,13 @@ async def test_metrics_expose_red_by_route_template_and_business_gauges(api: Api
 async def test_metrics_are_off_outside_dev_and_need_the_token_when_set(
     engine: AsyncEngine, migrated_url: str, session_factory: async_sessionmaker[AsyncSession]
 ) -> None:
-    base = dict(database_url=migrated_url, log_json=False, log_level="WARNING", session_secret="x" * 40, secret_key="k" * 40)
+    base = dict(
+        database_url=migrated_url,
+        log_json=False,
+        log_level="WARNING",
+        session_secret="x" * 40,
+        secret_key="k" * 40,
+    )
     off = create_app(Settings(env="prod", **base), engine=engine, session_factory=session_factory)  # type: ignore[arg-type]
     on = create_app(
         Settings(env="prod", metrics_token="scrape-me", **base),

@@ -14,11 +14,12 @@ from tt_filter import FilterError
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import InsightStatus, ScopeType
 
-from tt_server.acl.context import AclContext
+from tt_server.acl.context import AclContext, load_context
 from tt_server.acl.visibility import visible
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
+from tt_server.db.uow import commit_derived
 from tt_server.domain import snapshot as snap
+from tt_server.domain.errors import DomainError, Invalid
 from tt_server.domain.presentations import QUERY_KINDS
 from tt_server.query import service
 from tt_server.query.compile import QueryCtx
@@ -49,7 +50,7 @@ async def scheme_by_ref(session: AsyncSession, ws_id: str, ref: str | None) -> m
         )
     )
     if row is None:
-        raise ApiError(400, "unknown_scheme", f"unknown weight scheme {ref!r}", pointer="/weight_scheme")
+        raise Invalid("unknown_scheme", f"unknown weight scheme {ref!r}", pointer="/weight_scheme")
     return row
 
 
@@ -92,7 +93,7 @@ async def get_snapshot(
                 set_={"body": body, "as_of": now, "deleted_at": None},
             )
         )
-        await s.commit()
+        await commit_derived(s)
     return body
 
 
@@ -165,8 +166,8 @@ async def slide_payload(
                 page={"size": min(int(cfg.get("limit", 50)), service.MAX_PAGE)},
             )
     except FilterError as exc:
-        raise ApiError(
-            400, "invalid_filter", exc.message, pointer=f"/slides/{slide['position']}/config/filter"
+        raise Invalid(
+            "invalid_filter", exc.message, pointer=f"/slides/{slide['position']}/config/filter"
         ) from exc
     if kind in {"violations", "habits"}:
         return {"restricted": await _restricted(qc, kind)}
@@ -255,7 +256,6 @@ async def refresh_cache(
 
     A row nobody has touched for `keep_days` is deleted rather than refreshed forever.
     """
-    from tt_server.acl.context import load_context
 
     n = 0
     async with factory() as s:
@@ -289,7 +289,7 @@ async def refresh_cache(
         for r in rows:
             if utcnow() - r.updated_at > timedelta(days=keep_days):
                 await s.delete(r)
-        await s.commit()
+        await commit_derived(s)
     for person_id, scope, days, scheme_id, _ in todo:
         async with factory() as s:
             ws = await s.get(m.Workspace, ws_id)
@@ -308,7 +308,7 @@ async def refresh_cache(
                     qc, ws, scope=scope, days=days, scheme=scheme, viewer=member.handle, fresh=True
                 )
                 n += 1
-            except ApiError:
+            except DomainError:
                 continue  # the scope vanished (project deleted): the row ages out
     return n
 

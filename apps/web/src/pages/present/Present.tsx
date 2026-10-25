@@ -190,6 +190,9 @@ function PresentList() {
   );
 }
 
+// slide kinds whose rows can outgrow one slide
+const FITS = new Set(["projects", "table", "view", "people", "radar", "deliverables", "plan_vs_actual"]);
+
 function Builder({ id }: { id: string }) {
   const ws = useWs();
   const qc = useQueryClient();
@@ -517,6 +520,18 @@ function Builder({ id }: { id: string }) {
                 }
               />
             </Field>
+            {FITS.has(cur.kind) && (
+              <Field label="When there is too much">
+                <select
+                  value={cur.fit ?? "paginate"}
+                  onChange={(e) => patchSlide(cur.id, { fit: e.target.value })}
+                  aria-label="When there is too much"
+                >
+                  <option value="paginate">Continue on the next slide (cont.)</option>
+                  <option value="shrink">Shrink to fit one slide</option>
+                </select>
+              </Field>
+            )}
             {(FORMS[cur.kind] ?? []).map((f) => (
               <Field key={cur.id + f.k} label={f.label}>
                 <ConfigInput

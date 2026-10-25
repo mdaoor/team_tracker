@@ -28,6 +28,7 @@ from tt_schema.enums import (
     ValueTypeShape,
 )
 
+from tt_server.acl.context import item_ref
 from tt_server.acl.visibility import item_visible_for, visible
 from tt_server.api.authz import check, check_item, check_project, needs, needs_review
 from tt_server.api.deps import CurrentActor, Uow
@@ -48,7 +49,6 @@ TARGETS = {"work_item": TargetType.WORK_ITEM, "project": TargetType.PROJECT, "pr
 
 
 async def item_ref_for(uow: Uow, item: m.WorkItem) -> Any:
-    from tt_server.acl.context import item_ref
 
     return await item_ref(uow.session, item)
 
@@ -529,6 +529,47 @@ async def add_stage(ref: str, body: StageIn, actor: CurrentActor, uow: Uow) -> d
         event_type="stage.created",
         payload={"after": {"process": p.key, "key": st.key}},
     )
+    await uow.commit()
+    return row_dict(st)
+
+
+class StagePatch(BaseModel):
+    name: str | None = None
+    expected_duration_days: int | None = Field(default=None, ge=0, le=3650)
+    wip_limit: int | None = Field(default=None, ge=0, le=10_000)
+    requires_approval: bool | None = None
+    category: str | None = None
+    maps_to_state_category: str | None = None
+
+
+@router.patch("/processes/{ref}/stages/{stage_key}", tags=["overlay"], dependencies=[needs("process.admin")])
+async def patch_stage(
+    ref: str, stage_key: str, body: StagePatch, actor: CurrentActor, uow: Uow
+) -> dict[str, Any]:
+    """Edit a stage in place (name, expected days, WIP limit, approval, category): the chip popover of UX §3.3."""
+    from tt_schema.enums import StageCategory, StateCategory
+
+    p = await proc.get_process(uow.session, actor.ws.id, ref)
+    st = await proc.get_stage(uow.session, p, stage_key)
+    data = body.model_dump(exclude_unset=True)
+    before = {k: getattr(st, k) for k in data}
+    try:
+        if "category" in data and data["category"] is not None:
+            data["category"] = StageCategory(data["category"])
+        if "maps_to_state_category" in data and data["maps_to_state_category"] is not None:
+            data["maps_to_state_category"] = StateCategory(data["maps_to_state_category"])
+    except ValueError as exc:
+        raise ApiError(400, "invalid_stage", str(exc)) from exc
+    for k, v in data.items():
+        setattr(st, k, v)
+    emit(
+        uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.PERSON, entity_id=actor.person.id,
+        event_type="stage.updated",
+        payload={
+            "before": {k: getattr(v, "value", v) for k, v in before.items()},
+            "after": {"process": p.key, "key": st.key, **{k: getattr(v, "value", v) for k, v in data.items()}},
+        },
+    )  # fmt: skip
     await uow.commit()
     return row_dict(st)
 

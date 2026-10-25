@@ -50,7 +50,28 @@ export function Risks() {
         />
       </Card>
       <Card title="Heat map">
+        <p className="muted">
+          Rows are impact (5 = severe), columns are probability (5 = near certain). Click a cell to list its risks.
+          {cell && (
+            <>
+              {" "}
+              <button className="linkbtn" onClick={() => setCell(null)}>
+                Show all risks
+              </button>
+            </>
+          )}
+        </p>
         <table className="heat" aria-label="Risk heat map">
+          <thead>
+            <tr>
+              <th scope="col">Impact ↓ / Probability →</th>
+              {[1, 2, 3, 4, 5].map((p) => (
+                <th key={p} scope="col">
+                  P{p}
+                </th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
             {[5, 4, 3, 2, 1].map((i) => (
               <tr key={i}>
@@ -61,6 +82,7 @@ export function Risks() {
                     <td key={p}>
                       <button
                         aria-label={`probability ${p} impact ${i}: ${n}`}
+                        aria-pressed={!!cell && cell[0] === p && cell[1] === i}
                         data-count={n}
                         style={{
                           background: n ? `var(--seq${Math.min(6, 1 + n)})` : "var(--surface-2)",

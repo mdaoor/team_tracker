@@ -9,10 +9,11 @@ from sqlalchemy import select
 from tt_schema.base import new_id
 from tt_schema.enums import EventSource, Priority, StateCategory, TargetType, ValueSource
 
-from tt_server.api.errors import ApiError
+from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Invalid
 from tt_server.domain.overlay import process as proc
 from tt_server.domain.overlay import propagation, weights
 
@@ -42,24 +43,22 @@ async def resolve_targets(
                 m.WorkspaceMember.handle == filt["assignee"]
             )
     else:
-        raise ApiError(400, "no_targets", "give ids or a filter")
+        raise Invalid("no_targets", "give ids or a filter")
     if (acl := uow.context.get("acl")) is not None:
-        from tt_server.acl.visibility import visible
-
         stmt = visible(stmt, acl, m.WorkItem)
     rows = list((await s.scalars(stmt.order_by(m.WorkItem.key))).all())
     if len(rows) > 1000:
-        raise ApiError(400, "too_many", "bulk edits are limited to 1000 items")
+        raise Invalid("too_many", "bulk edits are limited to 1000 items")
     return rows
 
 
 def _validate(changes: dict[str, Any]) -> None:
     if not changes or set(changes) - ALLOWED:
-        raise ApiError(400, "invalid_change", f"set may contain only {sorted(ALLOWED)}", pointer="/set")
+        raise Invalid("invalid_change", f"set may contain only {sorted(ALLOWED)}", pointer="/set")
     if "priority" in changes:
         Priority(changes["priority"])
     if "impact" in changes and not 1 <= int(changes["impact"]) <= 5:
-        raise ApiError(400, "invalid_change", "impact must be 1-5", pointer="/set/impact")
+        raise Invalid("invalid_change", "impact must be 1-5", pointer="/set/impact")
 
 
 async def _descendants(uow: UnitOfWork, item: m.WorkItem) -> list[m.WorkItem]:

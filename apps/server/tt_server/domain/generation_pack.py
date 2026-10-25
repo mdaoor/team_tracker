@@ -16,9 +16,9 @@ from typing import Any
 from pydantic import BaseModel, Field, ValidationError
 from tt_schema.base import utcnow
 
-from tt_server.api.errors import ApiError
 from tt_server.domain import presentation_templates as ptpl
 from tt_server.domain import presentations as pres
+from tt_server.domain.errors import DomainError
 
 PACK_VERSION = 1
 REDACTIONS = ("standard", "strict")
@@ -192,7 +192,7 @@ def _slide_problems(i: int, s: Any, known_projects: set[str]) -> list[dict[str, 
         return [{"pointer": f"/slides/{i}/config/project_key", "message": f"unknown project {key!r}"}]
     try:
         pres.normalise_slides([pres.SlideIn.model_validate({**s, "id": None})])
-    except ApiError as exc:
+    except DomainError as exc:
         tail = (exc.pointer or "").split("/slides/0", 1)[-1]
         return [{"pointer": f"/slides/{i}{tail}", "message": exc.message}]
     except ValidationError as exc:

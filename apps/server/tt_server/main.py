@@ -39,6 +39,7 @@ from tt_server.api.routers import (
     webauth,
 )
 from tt_server.api.session import CSRF_COOKIE, set_session
+from tt_server.bootstrap import seed_reference_data
 from tt_server.csp import html_csp
 from tt_server.db.session import make_engine, make_session_factory
 from tt_server.integrations.ldap import ldap_provider_from_settings
@@ -67,7 +68,12 @@ def create_app(
     db_engine = engine or make_engine(settings.database_url)
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app_: FastAPI) -> AsyncIterator[None]:
+        if settings.seed_reference_on_start:
+            try:  # idempotent; also done by `tt-admin migrate`
+                await seed_reference_data(app_.state.session_factory)
+            except Exception:  # noqa: BLE001 - a database that is down must not stop the process; /readyz reports it
+                log.warning("reference_data_not_seeded", exc_info=True)
         yield
         await db_engine.dispose()
 

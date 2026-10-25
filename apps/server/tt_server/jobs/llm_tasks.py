@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from tt_server.db import models as m
 from tt_server.db.session import make_session_factory
+from tt_server.domain import insights
 from tt_server.domain.overlay import suggestions
 from tt_server.integrations.llm import gateway_from_settings
 from tt_server.jobs.app import app
@@ -64,7 +65,6 @@ async def suggest_for_event(event_id: str) -> str:
 @traced_task(name="insights.nightly", queueing_lock="insights.nightly")
 async def nightly_insights(timestamp: int) -> dict[str, int]:
     """Grounded project summaries through the gateway (Phase 7 §7.3); no gateway configured = no-op."""
-    from tt_server.domain import insights
 
     client = gateway_from_settings(get_settings())
     if client is None:

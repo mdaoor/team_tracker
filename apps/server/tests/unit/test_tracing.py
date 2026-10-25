@@ -13,7 +13,9 @@ async def test_job_span_continues_the_trace_of_the_request_that_deferred_it() ->
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
-    trace.set_tracer_provider(provider) if not isinstance(trace.get_tracer_provider(), TracerProvider) else None
+    trace.set_tracer_provider(provider) if not isinstance(
+        trace.get_tracer_provider(), TracerProvider
+    ) else None
     import tt_server.jobs.otel as otel
 
     otel._tracer = provider.get_tracer("tt.jobs")

@@ -27,7 +27,9 @@ from tt_server.api.session import (
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.integrations import idp
+from tt_server.integrations.oidc import pkce_pair
 from tt_server.ratelimit import client_ip
+from tt_server.sso import principal_from
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 api_router = APIRouter()
@@ -128,7 +130,6 @@ async def login(request: Request, workspace: str, uow: Uow, next: str | None = N
     if oidc is None:
         raise ApiError(404, "not_found", "OIDC sign-in is not configured")
     await _workspace(uow, workspace)
-    from tt_server.integrations.oidc import pkce_pair
 
     verifier, challenge = pkce_pair()
     nonce, state = secrets.token_urlsafe(16), secrets.token_urlsafe(16)
@@ -206,7 +207,6 @@ async def dev_login(body: DevLogin, request: Request, response: Response, uow: U
 async def sso_login(request: Request, workspace: str, uow: Uow, next: str | None = None) -> Response:  # noqa: A002
     """The proxy has already authenticated the user (Negotiate). Turn the trusted principal into a session, exactly as the other sign-in
     methods do (same provisioning policy: existing member, mapped group, or allowed e-mail domain)."""
-    from tt_server.sso import principal_from
 
     settings = request.app.state.settings
     if not settings.trusted_principal_header:

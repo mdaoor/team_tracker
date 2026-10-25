@@ -252,7 +252,7 @@ async def pipeline(ref: str, actor: CurrentActor, uow: Uow, filter: str | None =
 
 class GanttQuery(BaseModel):
     filter: dict[str, Any] = Field(default_factory=dict)
-    rows: str = "item"
+    rows: str = Field(default="item", pattern="^(item|epic|milestone)$")
     baseline: str | None = None
     weight_scheme_id: str | None = None
 
@@ -343,6 +343,39 @@ async def gantt(body: GanttQuery, actor: CurrentActor, uow: Uow) -> dict[str, An
             )
         )
     ).all()
+    if body.rows == "milestone":
+        # one bar per milestone: from its earliest item start to the later of its due date and its last item end
+        owner = (
+            dict(
+                (
+                    await uow.session.execute(
+                        select(m.WorkItem.id, m.WorkItem.milestone_id).where(m.WorkItem.id.in_(ids))
+                    )
+                ).all()
+            )
+            if ids
+            else {}
+        )
+        by_ms: dict[str, list[dict[str, Any]]] = {}
+        for i in items:
+            if (mid := owner.get(i["id"])) is not None:
+                by_ms.setdefault(mid, []).append(i)
+        rows = []
+        for x, k in ms:
+            members = by_ms.get(x.id, [])
+            starts = [d for d in (i["planned_start"] for i in members) if d]
+            ends = [d for d in ([i["planned_end"] for i in members] + [x.due_date]) if d]
+            if not members and not x.due_date:
+                continue
+            done = bool(members) and all(i["state_category"] == "done" for i in members)
+            rows.append({
+                "key": x.name, "title": f"{k} · {x.name}", "type": "milestone", "project": k, "parent": None,
+                "planned_start": min(starts) if starts else x.due_date, "planned_end": max(ends) if ends else x.due_date,
+                "own_start": None, "own_end": x.due_date, "actual_start": None, "actual_end": None,
+                "state_category": "done" if done else "active", "baseline": None, "variance_days": None, "rollup": True,
+                "items": len(members),
+            })  # fmt: skip
+        deps = []
     return {
         "rows": rows, "dependencies": deps, "milestones": [{"name": x.name, "project": k, "due": x.due_date} for x, k in ms],
         "today": qc.today, "baseline": body.baseline,

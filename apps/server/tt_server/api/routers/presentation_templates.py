@@ -21,6 +21,7 @@ from tt_server.domain import presentation_templates as tpl
 from tt_server.domain import presentations as pres
 from tt_server.domain.common import emit
 from tt_server.domain.snapshot import assembler
+from tt_server.query import service
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["presentation-templates"])
 
@@ -33,8 +34,7 @@ def _ev(uow: Uow, actor: Actor, row: m.PresentationTemplate, event: str, **after
 
 
 async def _prime(uow: Uow) -> None:
-    if await tpl.ensure_builtins(uow.session):
-        await uow.session.commit()  # shipped templates are reference data, not a domain fact
+    """Built-ins are loaded at migrate/start (`bootstrap.seed_reference_data`); nothing to do per request."""
 
 
 async def _get(uow: Uow, actor: Actor, ref: str, *, write: bool = False) -> m.PresentationTemplate:
@@ -251,7 +251,6 @@ async def _variables(
     kind, ref = assembler.parse_scope(scope)
     qc = deckdata.qctx(uow.session, actor.ws, actor.person, actor.member, actor.acl)
     flt, label = await assembler._scope_filter(qc, kind, ref)  # noqa: SLF001
-    from tt_server.query import service
 
     stmt = await service.filtered_items(
         qc, {"and": [flt, {"not": {"type": {"in": ["epic", "phase", "deliverable"]}}}]}, m.WorkItem.id

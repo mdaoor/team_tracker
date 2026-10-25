@@ -17,10 +17,10 @@ import {
   type Layout,
 } from "../../lib/viewState";
 import { FilterBar } from "./Filters";
+import { GanttLayout } from "./Gantt";
 import {
   CalendarLayout,
   Columns,
-  GanttLayout,
   ListLayout,
   MatrixLayout,
   NowLayout,

@@ -8,10 +8,10 @@ from sqlalchemy import delete, func, select
 from tt_schema.base import new_id
 from tt_schema.enums import EventSource, RiskCategory, RiskResponse, RiskStatus, TargetType
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Invalid
 
 OPEN_STATUSES = [s for s in RiskStatus if s not in (RiskStatus.CLOSED, RiskStatus.OCCURRED)]
 
@@ -48,17 +48,16 @@ async def create_risk(
     spread_links: bool = True,
 ) -> m.Risk:
     if not (1 <= probability <= 5 and 1 <= impact <= 5):
-        raise ApiError(400, "invalid_score", "probability and impact must be 1-5", pointer="/probability")
+        raise Invalid("invalid_score", "probability and impact must be 1-5", pointer="/probability")
     if target_type not in (TargetType.PROJECT, TargetType.WORK_ITEM, TargetType.PRODUCT):
-        raise ApiError(
-            400,
+        raise Invalid(
             "invalid_target",
             "a risk attaches to a project, work item or product",
             pointer="/target_type",
         )
     target_id = target_id or (project.id if target_type == TargetType.PROJECT else None)
     if target_id is None:
-        raise ApiError(400, "invalid_target", "target_id is required", pointer="/target_id")
+        raise Invalid("invalid_target", "target_id is required", pointer="/target_id")
     risk = m.Risk(
         id=new_id(),
         project_id=project.id,

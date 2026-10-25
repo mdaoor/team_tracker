@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     dev_auth: bool = Field(default=False, description="Accept the X-Debug-Actor header (dev only).")
     log_level: str = "INFO"
     log_json: bool = True
+    seed_reference_on_start: bool = Field(
+        default=True, description="Load shipped templates/habit definitions at start (idempotent)."
+    )
     worker_concurrency: int = Field(default=4, ge=1, le=64, description="Jobs a worker runs at once.")
     otlp_endpoint: str | None = Field(default=None, description="OTLP endpoint; no exporter when unset.")
     features: Features = Field(default_factory=Features)

@@ -149,7 +149,7 @@ async def current_actor(
         scopes, request.method, request.url.path, request.query_params.get("person")
     ):
         raise ApiError(403, "insufficient_scope", f"token scopes {list(scopes)} do not allow this request")
-    await uow.session.commit()  # end the read transaction: release the connection / savepoint early
+    await uow.commit_bookkeeping()  # end the read transaction: release the connection / savepoint early
     uow.context["actor_id"] = person.id
     uow.context["acl"] = acl
     return Actor(workspace, member, person, acl)

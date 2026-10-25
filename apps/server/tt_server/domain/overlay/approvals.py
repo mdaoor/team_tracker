@@ -6,10 +6,11 @@ from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import ApprovalPolicy, ApprovalStatus, Decision, EventSource, ProjectRole, TargetType
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Conflict, Forbidden, Invalid
+from tt_server.domain.overlay import process as proc
 
 
 async def _approver_ids(uow: UnitOfWork, project: m.Project) -> list[str]:
@@ -110,10 +111,10 @@ async def decide(
 ) -> m.Approval:
     s = uow.session
     if approval.status != ApprovalStatus.PENDING:
-        raise ApiError(409, "approval_resolved", f"approval already {approval.status.value}")
+        raise Conflict("approval_resolved", f"approval already {approval.status.value}")
     if decision == Decision.PENDING:
-        raise ApiError(
-            400, "invalid_decision", "decision must be approved, rejected or abstained", pointer="/decision"
+        raise Invalid(
+            "invalid_decision", "decision must be approved, rejected or abstained", pointer="/decision"
         )
     rows = list(
         (
@@ -122,7 +123,7 @@ async def decide(
     )
     mine = next((r for r in rows if r.approver_id == approver_id), None)
     if mine is None:
-        raise ApiError(403, "not_an_approver", "you are not an approver of this request")
+        raise Forbidden("not_an_approver", "you are not an approver of this request")
     mine.decision, mine.comment, mine.decided_at = decision, comment, utcnow()
     emit(
         uow,
@@ -158,7 +159,6 @@ async def decide(
 async def _roll_back_placement(
     uow: UnitOfWork, ws: m.Workspace, approval: m.Approval, by: str, trigger_event_id: str
 ) -> None:
-    from tt_server.domain.overlay import process as proc
 
     s = uow.session
     placement = await s.get(m.StagePlacement, approval.target_id)

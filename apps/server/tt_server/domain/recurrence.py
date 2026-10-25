@@ -16,10 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import utcnow
 from tt_schema.enums import EventSource, TargetType
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Invalid
+from tt_server.domain.items import service as items
 
 MAX_CATCH_UP = (
     10  # occurrences created per rule per run after downtime; older ones are skipped, not back-filled in bulk
@@ -30,17 +31,17 @@ def parse(rule: str, tz: str, start: datetime) -> rrule:
     try:
         zone = ZoneInfo(tz)
     except (ZoneInfoNotFoundError, ValueError) as exc:
-        raise ApiError(400, "invalid_rule", f"unknown time zone {tz!r}", pointer="/time_zone") from exc
+        raise Invalid("invalid_rule", f"unknown time zone {tz!r}", pointer="/time_zone") from exc
     try:
         r = rrulestr(rule, dtstart=start.astimezone(zone))
     except (ValueError, TypeError) as exc:
-        raise ApiError(400, "invalid_rule", f"not a valid RRULE: {exc}", pointer="/rrule") from exc
+        raise Invalid("invalid_rule", f"not a valid RRULE: {exc}", pointer="/rrule") from exc
     if not isinstance(r, rrule):
-        raise ApiError(400, "invalid_rule", "use a single RRULE (no RDATE / EXDATE sets)", pointer="/rrule")
+        raise Invalid("invalid_rule", "use a single RRULE (no RDATE / EXDATE sets)", pointer="/rrule")
     if not re.search(
         r"FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)\b", rule.upper()
     ):  # hourly or finer would flood a project
-        raise ApiError(400, "invalid_rule", "the finest supported frequency is DAILY", pointer="/rrule")
+        raise Invalid("invalid_rule", "the finest supported frequency is DAILY", pointer="/rrule")
     return r
 
 
@@ -64,7 +65,6 @@ def first_run(rule: str, tz: str, start: datetime) -> datetime | None:
 
 async def materialise_rule(uow: UnitOfWork, ws_id: str, rule: m.RecurrenceRule, now: datetime) -> int:
     """Create due occurrences for one rule. Returns how many items were created."""
-    from tt_server.domain.items import service as items
 
     s = uow.session
     tpl = await s.get(m.WorkItem, rule.template_item_id)

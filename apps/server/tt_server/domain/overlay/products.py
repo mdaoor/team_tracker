@@ -6,10 +6,11 @@ from sqlalchemy import select
 from tt_schema.base import new_id
 from tt_schema.enums import EventSource, ProductLinkRole, ScopeType, TargetType, ValueSource
 
-from tt_server.api.errors import ApiError
+from tt_server.acl.grants import on_team_linked_to_product
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Conflict, Invalid, NotFound
 from tt_server.domain.overlay.classify import classify
 from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, ensure_value
 
@@ -45,11 +46,11 @@ async def create_product(
             m.Product.workspace_id == ws.id, m.Product.key == key, m.Product.deleted_at.is_(None)
         )
     ):
-        raise ApiError(409, "product_exists", f"product {key} already exists", pointer="/key")
+        raise Conflict("product_exists", f"product {key} already exists", pointer="/key")
     if parent_product_id and not await s.scalar(
         select(m.Product.id).where(m.Product.id == parent_product_id, m.Product.workspace_id == ws.id)
     ):
-        raise ApiError(404, "not_found", "parent product not found", pointer="/parent_product_id")
+        raise NotFound("not_found", "parent product not found", pointer="/parent_product_id")
     product = m.Product(
         id=new_id(),
         workspace_id=ws.id,
@@ -88,7 +89,7 @@ async def reparent(
     uow: UnitOfWork, ws: m.Workspace, product: m.Product, parent_id: str | None, *, actor_id: str
 ) -> None:
     if await _would_cycle(uow, product.id, parent_id):
-        raise ApiError(400, "cycle", "a product cannot be its own ancestor", pointer="/parent_product_id")
+        raise Invalid("cycle", "a product cannot be its own ancestor", pointer="/parent_product_id")
     product.parent_product_id = parent_id
     dims = await ensure_builtin_dimensions(uow.session, ws.id)
     await ensure_value(
@@ -133,7 +134,7 @@ async def link(
         )
     )
     if existing is not None:
-        raise ApiError(409, "link_exists", "already linked", pointer="/target_id")
+        raise Conflict("link_exists", "already linked", pointer="/target_id")
     if role == ProductLinkRole.DELIVERS and target_type == TargetType.PROJECT:
         other = await s.scalar(
             select(m.ProductLink).where(
@@ -144,9 +145,7 @@ async def link(
             )
         )
         if other is not None:
-            raise ApiError(
-                409, "delivers_exists", "the project already has a delivering product", pointer="/role"
-            )
+            raise Conflict("delivers_exists", "the project already has a delivering product", pointer="/role")
     row = m.ProductLink(
         id=new_id(),
         product_id=product.id,
@@ -167,8 +166,6 @@ async def link(
         payload={"after": {"target_type": target_type.value, "target_id": target_id, "role": role.value}},
     )
     if target_type == TargetType.TEAM:
-        from tt_server.acl.grants import on_team_linked_to_product
-
         await on_team_linked_to_product(uow, ws, product, target_id)
     if role == ProductLinkRole.DELIVERS and target_type == TargetType.PROJECT:
         await inherit_product_for_project(uow, ws, target_id, product, actor_id=actor_id)

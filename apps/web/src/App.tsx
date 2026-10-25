@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { lazy, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ConfirmProvider } from "./components/Confirm";
 import { RequireAccess, Shell } from "./components/Shell";
@@ -7,18 +7,23 @@ import { ToastProvider } from "./components/Toasts";
 import { HealthPage } from "./pages/HealthPage";
 import { Login } from "./pages/Login";
 import { ReviewQueue } from "./pages/ReviewQueue";
-import { Setup } from "./pages/setup/Setup";
 import { useQuery } from "@tanstack/react-query";
 import { api, w, type Row } from "./api/http";
-import { PoliciesRoute } from "./pages/governance/Policies";
-import { Violations } from "./pages/governance/Violations";
-import { Habits } from "./pages/governance/Habits";
-import { Performance } from "./pages/governance/Performance";
-import { Digest } from "./pages/governance/Digest";
-import { Insights } from "./pages/governance/Insights";
-import { Weights } from "./pages/governance/Weights";
-import { ViewsRoute, PresentRoute } from "./routes";
-import { PlanRoute } from "./pages/plan/PlanPage";
+
+// One chunk per route group: the main bundle carries only the shell and the review queue (Phase 13 R5.2).
+const lazyNamed = <T extends Record<string, React.ComponentType>>(load: () => Promise<T>, name: keyof T & string) =>
+  lazy(async () => ({ default: (await load())[name] }));
+const Setup = lazyNamed(() => import("./pages/setup/Setup"), "Setup");
+const ViewsRoute = lazyNamed(() => import("./pages/views/Views"), "ViewsPage");
+const PresentRoute = lazyNamed(() => import("./pages/present/Present"), "PresentRoute");
+const PlanRoute = lazyNamed(() => import("./pages/plan/PlanPage"), "PlanRoute");
+const PoliciesRoute = lazyNamed(() => import("./pages/governance/Policies"), "PoliciesRoute");
+const Violations = lazyNamed(() => import("./pages/governance/Violations"), "Violations");
+const Habits = lazyNamed(() => import("./pages/governance/Habits"), "Habits");
+const Performance = lazyNamed(() => import("./pages/governance/Performance"), "Performance");
+const Digest = lazyNamed(() => import("./pages/governance/Digest"), "Digest");
+const Insights = lazyNamed(() => import("./pages/governance/Insights"), "Insights");
+const Weights = lazyNamed(() => import("./pages/governance/Weights"), "Weights");
 
 /** First screen after sign-in: the review queue for managers, Views for everyone else. */
 function Landing() {

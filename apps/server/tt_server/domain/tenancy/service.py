@@ -20,10 +20,10 @@ from tt_schema.enums import (
 from tt_server.acl.permissions import CONTRIBUTOR, WORKSPACE_ADMIN
 from tt_server.acl.roles import assign as assign_role
 from tt_server.acl.roles import ensure_builtin_roles
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Conflict
 from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions
 from tt_server.domain.overlay.process import ensure_default_process
 from tt_server.domain.overlay.weights import ensure_default_scheme
@@ -69,7 +69,7 @@ async def create_workspace(
     uow: UnitOfWork, *, name: str, slug: str, creator_id: str, settings: dict[str, Any] | None = None
 ) -> m.Workspace:
     if await uow.session.scalar(select(m.Workspace.id).where(m.Workspace.slug == slug)):
-        raise ApiError(409, "workspace_exists", f"workspace {slug!r} already exists", pointer="/slug")
+        raise Conflict("workspace_exists", f"workspace {slug!r} already exists", pointer="/slug")
     ws = m.Workspace(id=new_id(), name=name, slug=slug, settings={**DEFAULT_SETTINGS, **(settings or {})})
     uow.session.add(ws)
     await uow.session.flush()
@@ -134,7 +134,7 @@ async def add_member(
         )
     )
     if clash:
-        raise ApiError(409, "member_exists", "handle or person is already a member", pointer="/handle")
+        raise Conflict("member_exists", "handle or person is already a member", pointer="/handle")
     member = m.WorkspaceMember(id=new_id(), workspace_id=ws.id, person_id=person.id, handle=handle)
     session.add(member)
     await session.flush()

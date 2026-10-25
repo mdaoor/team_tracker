@@ -79,3 +79,31 @@ test("axe: review queue with rows", async ({ page, request }) => {
   console.log(`a11y review rows: ${res.violations.map((v) => `${v.id}(${v.impact}) x${v.nodes.length}`).join("; ") || "none"}`);
   expect(res.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
 });
+
+/** Phase 13 R5.3: at 390 px no console screen scrolls sideways, and navigation is a drawer. */
+const MOBILE: [string, string][] = [...SCREENS, ...LAYOUT_SCREENS];
+test.describe("mobile 390 px", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  for (const [name, url] of MOBILE) {
+    test(`no horizontal scroll: ${name}`, async ({ page }) => {
+      await page.goto(url);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(300);
+      const over = await page.evaluate(() => {
+        const de = document.documentElement;
+        return { scrollWidth: de.scrollWidth, innerWidth: window.innerWidth };
+      });
+      expect(over.scrollWidth, JSON.stringify(over)).toBeLessThanOrEqual(over.innerWidth);
+    });
+  }
+  test("the menu button opens the navigation drawer", async ({ page }) => {
+    await page.goto("/w/acme/views");
+    const nav = page.getByRole("navigation", { name: "Main" });
+    await expect(nav).not.toBeInViewport();
+    await page.getByRole("button", { name: "Menu" }).click();
+    await expect(nav).toBeInViewport();
+    await nav.getByRole("link", { name: "Present" }).click();
+    await expect(page).toHaveURL(/\/present/);
+    await expect(nav).not.toBeInViewport();
+  });
+});

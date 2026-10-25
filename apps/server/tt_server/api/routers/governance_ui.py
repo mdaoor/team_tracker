@@ -20,6 +20,7 @@ from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import row_dict
 from tt_server.api.routers.governance import policy_context
 from tt_server.db import models as m
+from tt_server.domain.errors import DomainError
 from tt_server.domain.names import Names
 from tt_server.domain.overlay import weights
 from tt_server.governance import service
@@ -52,7 +53,6 @@ async def check_policy(body: CheckIn, actor: CurrentActor, uow: Uow) -> dict[str
     cel = body.cel
     try:
         if body.template:
-            await service.ensure_builtins(uow.session)
             row = await service.find_template(uow.session, actor.ws.id, body.template)
             t = service.template_from_row(row)
             cel = tt_cel.render(t.cel, t.params, body.params)
@@ -259,7 +259,6 @@ async def author_policy(body: AuthorIn, request: Request, actor: CurrentActor, u
     errors: list[dict[str, Any]] = []
     try:
         if draft.get("mode") == "template" and draft.get("template"):
-            await service.ensure_builtins(uow.session)
             t = service.template_from_row(
                 await service.find_template(uow.session, actor.ws.id, draft["template"])
             )
@@ -270,7 +269,7 @@ async def author_policy(body: AuthorIn, request: Request, actor: CurrentActor, u
             raise tt_cel.CelError("the draft has neither a template nor a CEL expression")
     except tt_cel.CelError as exc:
         errors.append(exc.as_dict())
-    except ApiError as exc:
+    except DomainError as exc:
         errors.append({"message": exc.message})
     draft["validated"] = not errors
     return {"draft": draft, "errors": errors, "run_id": ans.run_id, "warnings": ans.warnings}

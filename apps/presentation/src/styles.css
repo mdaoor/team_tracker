@@ -377,3 +377,6 @@ select:disabled {
     transform 0.2s,
     visibility 0s 0.2s;
 }
+
+/* fit: shrink — one slide, scaled so the long list fits (Phase 13 R6.5) */
+.s-body[data-shrink] { zoom: var(--fit, 1); }

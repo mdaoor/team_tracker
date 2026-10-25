@@ -18,7 +18,7 @@ from joserfc import jwt
 from joserfc.errors import JoseError
 from joserfc.jwk import KeySet
 
-from tt_server.api.errors import ApiError
+from tt_server.domain.errors import Unauthenticated
 from tt_server.settings import Settings
 
 
@@ -90,7 +90,7 @@ class OidcProvider:
             data["client_secret"] = self.client_secret
         resp = await self._http.post(meta["token_endpoint"], data=data)
         if resp.status_code != 200 or "id_token" not in resp.json():
-            raise ApiError(401, "oidc_failed", "the identity provider rejected the login")
+            raise Unauthenticated("oidc_failed", "the identity provider rejected the login")
         jwks = await self._http.get(meta["jwks_uri"])
         try:
             token = jwt.decode(resp.json()["id_token"], KeySet.import_key_set(jwks.json()))
@@ -102,11 +102,11 @@ class OidcProvider:
             )
             registry.validate(token.claims)
         except (JoseError, ValueError, KeyError) as exc:
-            raise ApiError(401, "oidc_failed", f"invalid id_token: {exc}") from exc
+            raise Unauthenticated("oidc_failed", f"invalid id_token: {exc}") from exc
         c = token.claims
         email = str(c.get("email") or c.get("preferred_username") or "")
         if "@" not in email or c.get("email_verified") is False:
-            raise ApiError(401, "oidc_failed", "the identity provider did not supply a verified e-mail")
+            raise Unauthenticated("oidc_failed", "the identity provider did not supply a verified e-mail")
         groups = c.get(self.groups_claim) or []
         return OidcIdentity(
             subject=str(c["sub"]),

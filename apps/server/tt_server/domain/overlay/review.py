@@ -19,16 +19,17 @@ from tt_schema.enums import (
 )
 
 from tt_server.acl.context import item_ref
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Conflict, DomainError, Invalid, NotFound
 from tt_server.domain.items import service as items
 from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import process as proc
 from tt_server.domain.overlay import propagation, risks
 from tt_server.domain.overlay.defaults import suggest_default
 from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, ensure_value
+from tt_server.domain.plan import linkage
 from tt_server.domain.projects.service import item_type
 
 KIND_ALIASES = {
@@ -200,9 +201,9 @@ async def _load(uow: UnitOfWork, ws: m.Workspace, ref: str) -> tuple[str, Any]:
             select(m.Classification).where(m.Classification.id == rid, m.Classification.workspace_id == ws.id)
         )
     else:
-        raise ApiError(400, "invalid_ref", "ref must be review_item:<id> or classification:<id>")
+        raise Invalid("invalid_ref", "ref must be review_item:<id> or classification:<id>")
     if row is None:
-        raise ApiError(404, "not_found", "review row not found")
+        raise NotFound("not_found", "review row not found")
     return kind, row
 
 
@@ -214,7 +215,7 @@ async def _member(uow: UnitOfWork, ws: m.Workspace, handle: str) -> m.WorkspaceM
         )
     )
     if row is None:
-        raise ApiError(404, "not_found", f"unknown person {handle}", pointer="/choice/handle")
+        raise NotFound("not_found", f"unknown person {handle}", pointer="/choice/handle")
     return row
 
 
@@ -225,7 +226,7 @@ async def _project_by_key(uow: UnitOfWork, ws: m.Workspace, key: str) -> m.Proje
         )
     )
     if row is None:
-        raise ApiError(404, "not_found", f"unknown project {key}", pointer="/choice/project")
+        raise NotFound("not_found", f"unknown project {key}", pointer="/choice/project")
     return row
 
 
@@ -239,7 +240,7 @@ async def authorise(uow: UnitOfWork, kind: str, row: Any, actor_id: str) -> None
         acl = uow.context.get("acl")
         if acl is not None and acl.can("review_queue.resolve"):
             return  # workspace-level rows with no item (e.g. a person target)
-        raise ApiError(404, "not_found", "review row not found")
+        raise NotFound("not_found", "review row not found")
     project = await s.get(m.Project, item.project_id)
     assert project is not None  # noqa: S101
     if await review_owner(s, project.workspace_id, item, project) == actor_id:
@@ -247,7 +248,7 @@ async def authorise(uow: UnitOfWork, kind: str, row: Any, actor_id: str) -> None
     acl = uow.context.get("acl")
     if acl is not None and acl.can("review_queue.resolve", await item_ref(s, item)):
         return
-    raise ApiError(404, "not_found", "review row not found")
+    raise NotFound("not_found", "review row not found")
 
 
 async def resolve(
@@ -266,7 +267,7 @@ async def resolve(
             await classify_svc.confirm(uow, ws, row, by=actor_id)
         return {"ref": ref, "resolved": action}
     if row.status != "open":
-        raise ApiError(409, "already_resolved", "review row already resolved")
+        raise Conflict("already_resolved", "review row already resolved")
     item = await s.get(m.WorkItem, row.target_id)
     outcome = "ignored"
     if item is not None and not choice.get("ignore"):
@@ -301,7 +302,7 @@ async def undo(uow: UnitOfWork, ws: m.Workspace, ref: str, *, actor_id: str) -> 
     await authorise(uow, kind, row, actor_id)
     if kind == "classification":
         if not row.is_confirmed:
-            raise ApiError(409, "cannot_undo", "this row is not resolved")
+            raise Conflict("cannot_undo", "this row is not resolved")
         row.is_confirmed, row.confirmed_by = False, None
         emit(
             uow, workspace_id=ws.id, actor_id=actor_id, entity_type=row.target_type, entity_id=row.target_id,
@@ -310,12 +311,12 @@ async def undo(uow: UnitOfWork, ws: m.Workspace, ref: str, *, actor_id: str) -> 
         return {"ref": ref, "reopened": True}
     undo_info = (row.suggestion or {}).get("_undo")
     if row.status != "resolved" or not undo_info:
-        raise ApiError(409, "cannot_undo", "this resolution cannot be undone; fix the item directly")
+        raise Conflict("cannot_undo", "this resolution cannot be undone; fix the item directly")
     item = await s.get(m.WorkItem, row.target_id)
     if undo_info["kind"] == "project" and item is not None and undo_info.get("project_id"):
         back = await s.get(m.Project, undo_info["project_id"])
         if back is None or back.workspace_id != ws.id:
-            raise ApiError(409, "cannot_undo", "the original project no longer exists")
+            raise Conflict("cannot_undo", "the original project no longer exists")
         await items.change_project(uow, ws, item, back, actor_id=actor_id)
         if undo_info.get("glossary_id"):
             entry = await s.get(m.GlossaryEntry, undo_info["glossary_id"])
@@ -365,8 +366,7 @@ async def _apply_choice(
     if kind == "unlinked_task":
         key = str(choice.get("deliverable") or "")
         if not key:
-            raise ApiError(
-                400,
+            raise Invalid(
                 "invalid",
                 "choose a deliverable, or keep the task unlinked",
                 pointer="/choice/deliverable",
@@ -377,10 +377,9 @@ async def _apply_choice(
             )
         )
         if parent is None:
-            raise ApiError(404, "not_found", f"unknown deliverable {key}", pointer="/choice/deliverable")
+            raise NotFound("not_found", f"unknown deliverable {key}", pointer="/choice/deliverable")
         await items.validate_nesting(s, ws, item.type_id, parent)
         await items.move_item(s, item, parent)
-        from tt_server.domain.plan import linkage
 
         await linkage.refresh_ancestors(s, item)
         emit(
@@ -469,7 +468,7 @@ async def _apply_choice(
             )
         )
         if product is None:
-            raise ApiError(404, "not_found", f"unknown product {key}", pointer="/choice/product")
+            raise NotFound("not_found", f"unknown product {key}", pointer="/choice/product")
         dims = await ensure_builtin_dimensions(s, ws.id)
         value = await ensure_value(
             s,
@@ -499,7 +498,7 @@ async def _apply_choice(
             .where(m.Project.workspace_id == ws.id, m.Risk.key == str(wanted))
         )
         if risk is None:
-            raise ApiError(404, "not_found", f"unknown risk {wanted}", pointer="/choice/risk")
+            raise NotFound("not_found", f"unknown risk {wanted}", pointer="/choice/risk")
         await risks.link_item(uow, ws, risk, item, actor_id=actor_id)
         return f"linked {risk.key}"
     if kind == "low_confidence":
@@ -511,7 +510,7 @@ async def _apply_choice(
         if choice.get("merge_into"):
             dst = await s.get(m.Tag, str(choice["merge_into"]))
             if dst is None or dst.workspace_id != ws.id:
-                raise ApiError(404, "not_found", "merge target not found", pointer="/choice/merge_into")
+                raise NotFound("not_found", "merge target not found", pointer="/choice/merge_into")
             for link in (await s.scalars(select(m.TagLink).where(m.TagLink.tag_id == tag.id))).all():
                 link.tag_id = dst.id
             tag.deleted_at = row.created_at
@@ -548,7 +547,7 @@ async def _apply_low_confidence(
             select(model).where(model.project_id == item.project_id, model.name == value)
         )
         if row is None:
-            raise ApiError(404, "not_found", f"unknown {field} {value!r}")
+            raise NotFound("not_found", f"unknown {field} {value!r}")
         setattr(item, attr, row.id)
     else:
         return "acknowledged"
@@ -574,7 +573,7 @@ async def bulk(
             )
             await resolve(uow, ws, ref, choice, actor_id=actor_id)
             done += 1
-        except ApiError as exc:
+        except DomainError as exc:
             failed.append({"ref": ref, "error": exc.code})
     return {"resolved": done, "failed": failed}
 
@@ -598,15 +597,14 @@ async def _apply_jira_gap(uow: UnitOfWork, row: m.ReviewItem, choice: dict[str, 
         )
     )
     if project is None:
-        raise ApiError(404, "not_found", "project not found", pointer="/choice")
+        raise NotFound("not_found", "project not found", pointer="/choice")
     cfg = dict((project.settings or {}).get("jira") or {})
     fld = str(sug.get("field"))
     mp = dict(cfg.get(fld) or {})
     if sug.get("jira_status") is not None:  # inbound: Jira status -> a Team Tracker state
         state = str(choice.get("state") or "")
         if not state:
-            raise ApiError(
-                400,
+            raise Invalid(
                 "invalid",
                 "choose the Team Tracker state this Jira status means",
                 pointer="/choice/state",
@@ -615,7 +613,7 @@ async def _apply_jira_gap(uow: UnitOfWork, row: m.ReviewItem, choice: dict[str, 
     else:
         target = str(choice.get("map_to") or "")
         if not target:
-            raise ApiError(400, "invalid", "choose the Jira name to map to", pointer="/choice/map_to")
+            raise Invalid("invalid", "choose the Jira name to map to", pointer="/choice/map_to")
         mp[str(sug["key"])] = target
     cfg[fld] = mp
     project.settings = {**(project.settings or {}), "jira": cfg}

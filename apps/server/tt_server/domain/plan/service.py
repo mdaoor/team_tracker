@@ -23,10 +23,10 @@ from tt_schema.enums import (
 
 from tt_server.acl.context import AclContext
 from tt_server.acl.visibility import item_visible_for
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, zone
+from tt_server.domain.errors import DomainError, Invalid
 from tt_server.domain.items import service as items
 from tt_server.domain.projects.service import item_type
 
@@ -63,8 +63,8 @@ class PlanIn(BaseModel):
     milestones: list[MilestoneIn] = Field(default_factory=list)
 
 
-def _bad(msg: str, pointer: str) -> ApiError:
-    return ApiError(400, "invalid_plan", msg, pointer=pointer)
+def _bad(msg: str, pointer: str) -> DomainError:
+    return Invalid("invalid_plan", msg, pointer=pointer)
 
 
 async def create_plan(
@@ -392,8 +392,6 @@ def _parent(delivs: list[tuple[m.WorkItem, StateCategory]], iid: str) -> str | N
 
 def today_in(tz: str) -> date:
     from datetime import datetime
-
-    from tt_server.domain.common import zone
 
     return datetime.now(zone(tz)).date()
 

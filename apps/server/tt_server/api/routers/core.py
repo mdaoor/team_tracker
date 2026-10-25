@@ -38,6 +38,7 @@ from tt_server.domain.common import emit
 from tt_server.domain.items import service as items
 from tt_server.domain.names import Names
 from tt_server.domain.overlay import approvals, propagation
+from tt_server.domain.overlay import process as proc
 from tt_server.domain.projects import service as projects
 from tt_server.domain.projects.service import workflow_states
 from tt_server.domain.tenancy import service as tenancy
@@ -135,6 +136,9 @@ async def people(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
                 "email": p.email,
                 "time_zone": p.time_zone,
                 "status": mem.status.value,
+                "capacity_hours_per_week": float(mem.capacity_hours_per_week)
+                if mem.capacity_hours_per_week is not None
+                else None,
             }
             for mem, p in rows
         ],
@@ -248,6 +252,30 @@ class ReportingLineIn(BaseModel):
     is_primary: bool = False
 
 
+@router.get("/reporting-lines", tags=["tenancy"], dependencies=[needs("reporting_line.write")])
+async def list_reporting_lines(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """The org graph for the people tree (UX 3.3). Managers who can edit lines may read them."""
+    rows = (
+        await uow.session.scalars(
+            select(m.ReportingLine).where(
+                m.ReportingLine.workspace_id == actor.ws.id, m.ReportingLine.deleted_at.is_(None)
+            )
+        )
+    ).all()
+    names = await Names.load(
+        uow.session,
+        actor.ws.id,
+        [("person", r.person_id) for r in rows] + [("person", r.manager_id) for r in rows],
+    )
+    return {
+        "data": [
+            {**row_dict(r), "person": names.person(r.person_id), "manager": names.person(r.manager_id)}
+            for r in rows
+        ],
+        "next_cursor": None,
+    }
+
+
 @router.post(
     "/reporting-lines", status_code=201, tags=["tenancy"], dependencies=[needs("reporting_line.write")]
 )
@@ -356,8 +384,6 @@ class ProjectIn(BaseModel):
 async def create_project(body: ProjectIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     extra: dict[str, Any] = {}
     if body.process:
-        from tt_server.domain.overlay import process as proc
-
         extra["default_process_id"] = (await proc.get_process(uow.session, actor.ws.id, body.process)).id
     p = await projects.create_project(
         uow,

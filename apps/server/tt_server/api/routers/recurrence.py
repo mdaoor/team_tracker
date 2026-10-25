@@ -11,7 +11,7 @@ from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import TargetType
 
-from tt_server.api.authz import needs
+from tt_server.api.authz import check_project, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import _item, _project, row_dict
@@ -92,7 +92,6 @@ async def _rule(uow: Uow, actor: Actor, rid: str) -> m.RecurrenceRule:
     p = await uow.session.get(m.Project, r.project_id) if r else None
     if r is None or p is None or p.workspace_id != actor.ws.id:
         raise ApiError(404, "not_found", "recurrence rule not found")
-    from tt_server.api.authz import check_project
 
     await check_project(actor, uow, "project.write", p)
     return r

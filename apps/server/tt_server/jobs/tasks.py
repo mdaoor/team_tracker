@@ -8,11 +8,17 @@ from sqlalchemy import select
 
 from tt_server.db import models as m
 from tt_server.db.session import make_session_factory
+from tt_server.db.uow import UnitOfWork
+from tt_server.domain import deckdata, privacy, recurrence
 from tt_server.domain.capture import dailylog
 from tt_server.domain.common import zone
+from tt_server.domain.plan import linkage
+from tt_server.integrations import idp
+from tt_server.integrations.ldap import ldap_provider_from_settings
 from tt_server.jobs.app import app
 from tt_server.jobs.engine import shared_engine
 from tt_server.jobs.otel import traced_task
+from tt_server.settings import get_settings
 
 
 @app.periodic(cron="*/15 * * * *")
@@ -46,10 +52,6 @@ async def build_due_daily_logs(timestamp: int) -> int:
 @traced_task(name="idp.sync_directory", queueing_lock="idp.sync_directory")
 async def sync_directory(timestamp: int) -> int:
     """Nightly: refresh AD group memberships; people who left a group lose what it granted."""
-    from tt_server.db.uow import UnitOfWork
-    from tt_server.integrations import idp
-    from tt_server.integrations.ldap import ldap_provider_from_settings
-    from tt_server.settings import get_settings
 
     provider = ldap_provider_from_settings(get_settings())
     if provider is None:
@@ -71,7 +73,6 @@ async def sync_directory(timestamp: int) -> int:
 @traced_task(name="snapshot.refresh", queueing_lock="snapshot.refresh")
 async def refresh_snapshots(timestamp: int) -> int:
     """Every 15 min: keep cached snapshots of saved presentations and recently opened scopes fresh (Phase 7 §7.9)."""
-    from tt_server.domain import deckdata
 
     engine = shared_engine()
     factory = make_session_factory(engine)
@@ -87,7 +88,6 @@ async def refresh_snapshots(timestamp: int) -> int:
 @traced_task(name="recurrence.materialise", queueing_lock="recurrence.materialise")
 async def materialise_recurrences(timestamp: int) -> int:
     """Every 15 min: create the items of recurrence rules whose next occurrence (minus lead days) has arrived."""
-    from tt_server.domain import recurrence
 
     engine = shared_engine()
     return await recurrence.run_due(make_session_factory(engine), datetime.fromtimestamp(timestamp, tz=UTC))
@@ -97,7 +97,6 @@ async def materialise_recurrences(timestamp: int) -> int:
 @traced_task(name="plan.recompute_progress", queueing_lock="plan.recompute_progress")
 async def recompute_progress(timestamp: int) -> int:
     """Nightly safety net: re-derive `progress_pct` of every rolled-up container (the write path keeps it current; this heals drift)."""
-    from tt_server.domain.plan import linkage
 
     engine = shared_engine()
     return await linkage.recompute_all(make_session_factory(engine))
@@ -107,7 +106,6 @@ async def recompute_progress(timestamp: int) -> int:
 @traced_task(name="retention.purge", queueing_lock="retention.purge")
 async def purge_retention(timestamp: int) -> int:
     """Nightly: drop `raw_input` older than each workspace's `raw_input_retention_days` (unset = keep)."""
-    from tt_server.domain import privacy
 
     engine = shared_engine()
     return await privacy.purge_all(make_session_factory(engine))

@@ -181,7 +181,7 @@ def d_etag(d: dict) -> str:  # type: ignore[type-arg]
 
 async def test_weight_schemes_per_scheme_rows_and_manual_override(sapi: Api, seed_sf: SF) -> None:
     created = await sapi.call(
-        "POST", "/weight-schemes", json={"name": "effort-only", "formula": {"base": "estimate_hours"}}
+        "POST", "/weight-schemes", json={"name": "hours-only", "formula": {"base": "estimate_hours"}}
     )
     assert created.status_code == 201
     assert (await sapi.call("POST", f"/weight-schemes/{created.json()['id']}/recompute")).json()[
@@ -191,7 +191,7 @@ async def test_weight_schemes_per_scheme_rows_and_manual_override(sapi: Api, see
     with_est = next(i for i in snap["items"] if i["estimate_h"] == 8)
     w = (await sapi.call("GET", f"/items/{with_est['key']}/weights")).json()
     by_scheme = {r["scheme"]: Decimal(r["value"]) for r in w["data"]}
-    assert by_scheme["effort-only"] == Decimal("8") and by_scheme["default"] == Decimal(with_est["weight"])
+    assert by_scheme["hours-only"] == Decimal("8") and by_scheme["default"] == Decimal(with_est["weight"])
     assert Decimal(w["item_weight"]) == Decimal(
         with_est["weight"]
     )  # WorkItem.weight mirrors the default scheme only
@@ -200,15 +200,15 @@ async def test_weight_schemes_per_scheme_rows_and_manual_override(sapi: Api, see
         r["scheme"]: Decimal(r["value"])
         for r in (await sapi.call("GET", f"/items/{no_est['key']}/weights")).json()["data"]
     }
-    assert w2["effort-only"] == Decimal("1")  # a missing estimate gives base 1.0
+    assert w2["hours-only"] == Decimal("1")  # a missing estimate gives base 1.0
     # manual override survives recompute; value_score uses impact x weight / hours
-    ov = await sapi.call("PUT", f"/items/{with_est['key']}/weights/effort-only", json={"value": "5"})
+    ov = await sapi.call("PUT", f"/items/{with_est['key']}/weights/hours-only", json={"value": "5"})
     assert ov.status_code == 200 and ov.json()["source"] == "manual"
     await sapi.call("POST", f"/weight-schemes/{created.json()['id']}/recompute")
     w3 = {
         r["scheme"]: r for r in (await sapi.call("GET", f"/items/{with_est['key']}/weights")).json()["data"]
     }
-    assert Decimal(w3["effort-only"]["value"]) == 5 and w3["effort-only"]["source"] == "manual"
+    assert Decimal(w3["hours-only"]["value"]) == 5 and w3["hours-only"]["source"] == "manual"
     bad = await sapi.call("POST", "/weight-schemes", json={"name": "bad", "formula": {"base": "magic"}})
     assert bad.status_code == 400 and bad.json()["error"]["code"] == "invalid_formula"
     async with seed_sf() as s:
@@ -330,7 +330,7 @@ async def test_capture_pipeline_completion_in_one_correlation(sapi: Api, seed_sf
     assert prov["product"][0]["value"] == "DPLAT" and prov["product"][0]["source"] == "inherited"
     assert prov["stage"][0]["value"] == "discovery"
     w = (await sapi.call("GET", f"/items/{key}/weights")).json()
-    assert [r["scheme"] for r in w["data"]] == ["default"] and Decimal(w["item_weight"]) == 1
+    assert sorted(r["scheme"] for r in w["data"]) == ["default", "effort-only"] and Decimal(w["item_weight"]) == 1
     evs = await events_of(seed_sf, key)
     assert {"item.created", "stage.moved"} <= {e.event_type for e in evs}
     assert len({e.correlation_id for e in evs}) == 1

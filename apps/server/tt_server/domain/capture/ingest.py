@@ -44,6 +44,8 @@ from tt_server.domain.overlay import weights
 from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, ensure_value, sync_item_mirrors
 from tt_server.domain.plan import linkage
 from tt_server.domain.projects.service import item_type, pick_state, workflow_states
+from tt_server.integrations.jira import sync as jira_sync
+from tt_server.settings import get_settings
 
 log = structlog.get_logger()
 
@@ -1037,8 +1039,6 @@ async def _process(
 
 async def _inline_jira_push(session_factory: async_sessionmaker[AsyncSession], result: MessageResult) -> None:
     """A reporter who asked for Jira gets the key back when Jira answers within a short bound; otherwise the queued job finishes it."""
-    from tt_server.integrations.jira import sync as jira_sync
-    from tt_server.settings import get_settings
 
     st = get_settings()
     if not (st.features.jira_sync and result.jira and result.item and st.jira_inline_timeout_s > 0):
