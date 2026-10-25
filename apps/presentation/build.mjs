@@ -33,6 +33,14 @@ const html = `<!doctype html>
 </html>
 `;
 mkdirSync("dist", { recursive: true });
+// The Gantt as a library for the web console (plan 15 R6.4): `import { layoutGantt, ganttSvg } from "@tt/presentation/gantt"`.
+await build({
+  entryPoints: ["src/gantt.js"],
+  bundle: true,
+  format: "esm",
+  target: "es2020",
+  outfile: "dist/gantt.mjs",
+});
 writeFileSync("dist/presentation.html", html);
 console.log(
   `dist/presentation.html ${(Buffer.byteLength(html) / 1024).toFixed(1)} KB`,

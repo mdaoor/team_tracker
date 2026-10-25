@@ -39,7 +39,12 @@ export function wireInteractions(root, { ctx, drawer, onDrill, rerender }) {
   });
   root.addEventListener("change", (e) => {
     const c = e.target.closest?.("[data-ctl]");
-    if (c && ctx.interactive) rerender({ ctl: c.dataset.ctl, value: c.value });
+    if (c && ctx.interactive)
+      rerender({
+        ctl: c.dataset.ctl,
+        value: c.value,
+        slide: c.closest("[data-slide]")?.dataset.slide,
+      });
   });
 }
 

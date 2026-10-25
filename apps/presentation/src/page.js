@@ -64,7 +64,9 @@ export function mountPage(root, ctx) {
   }
   function rerender(ctl) {
     if (ctl) {
-      const sl = merged.find((s) => s.kind === "explorer");
+      const sl = ctl.slide
+        ? merged.find((s) => s.id === ctl.slide)
+        : merged.find((s) => s.kind === "explorer");
       if (sl) sl.config = { ...sl.config, [ctl.ctl]: ctl.value };
     }
     paint();
