@@ -378,3 +378,14 @@ def test_every_op_is_documented() -> None:
     )
     text = doc.read_text()
     assert [op for op in REGISTRY if f"`{op}`" not in text] == []
+
+
+async def test_set_ops_change_the_overlay(api: Api) -> None:
+    k = (await one(api, "item.create", {"title": "s", "project": "WEB"}))["result"]["key"]
+    assert (await one(api, "item.set_priority", {"keys": [k], "priority": "high"}))["status"] == "applied"
+    assert (await one(api, "item.set_impact", {"keys": [k], "impact": 4}))["status"] == "applied"
+    assert (await one(api, "item.set_dates", {"key": k, "planned_end": "2026-12-01"}))["status"] == "applied"
+    est = await one(api, "item.set_estimate", {"key": k, "value": "6", "unit": "hours"})
+    assert est["status"] == "applied" and est["result"]["kind"] == "original"
+    item = (await api.call("GET", f"/items/{k}")).json()
+    assert item["priority"] == "high" and item["impact"] == 4 and item["planned_end"].startswith("2026-12-01")
