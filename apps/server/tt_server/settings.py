@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
+from urllib.parse import urlencode
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -44,6 +46,21 @@ class Settings(BaseSettings):
     )
     web_origin: str | None = Field(default=None, description="Allowed redirect target after login.")
 
+    # --- attachments (StorageAdapter: local disk in v1; S3 is a Phase-12 adapter behind the same interface)
+    attachment_dir: str = Field(default="./var/attachments", description="Root directory for uploaded files.")
+    attachment_backend: str = Field(
+        default="local", description="local | s3 (any S3-compatible store, pre-signed URLs)."
+    )
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_endpoint: str | None = Field(
+        default=None, description="Set for MinIO/Ceph (path-style); unset = AWS virtual-hosted."
+    )
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_prefix: str = ""
+    attachment_max_bytes: int = Field(default=25 * 1024 * 1024, description="Largest accepted upload.")
+
     # --- OIDC (Entra ID / ADFS / any provider)
     oidc_issuer: str | None = None
     oidc_client_id: str | None = None
@@ -68,6 +85,44 @@ class Settings(BaseSettings):
         default=None, description="Read-only core token the gateway may use."
     )
 
+    # --- Kerberos / SPNEGO SSO behind a reverse proxy (ADR-0036): the proxy validates the ticket and forwards the principal
+    trusted_principal_header: str | None = Field(
+        default=None,
+        description="Header carrying the authenticated principal (e.g. X-Remote-User). Off when unset.",
+    )
+    trusted_groups_header: str | None = Field(
+        default=None, description="Optional header with comma-separated group names."
+    )
+    trusted_proxies: str = Field(
+        default="",
+        description="Comma-separated IPs/CIDRs allowed to set the principal header. Empty = SSO header ignored.",
+    )
+    principal_email_domain: str | None = Field(
+        default=None,
+        description="Appended to a bare principal (`jdoe`) or used to replace the Kerberos realm in `jdoe@REALM`.",
+    )
+
+    # --- database TLS (ADR-0036)
+    db_sslmode: str | None = Field(
+        default=None, description="disable|allow|prefer|require|verify-ca|verify-full"
+    )
+    db_sslrootcert: str | None = None
+    db_sslcert: str | None = None
+    db_sslkey: str | None = None
+
+    # --- observability
+    metrics_token: str | None = Field(
+        default=None, description="Bearer token for GET /metrics. Unset = /metrics is dev-only."
+    )
+
+    # --- rate limits (requests per minute; 0 = off). In-process, per replica.
+    rate_capture_per_min: int = Field(default=600, description="POST /capture/batches per credential.")
+    rate_auth_per_min: int = Field(default=60, description="POST /auth/* per client address.")
+
+    # --- certificate hot-reload (ADR-0036)
+    cert_reload_interval_s: float = 30.0
+    cert_expiry_warn_days: int = 14
+
     # --- transport (§4.6)
     tls_certfile: str | None = None
     tls_keyfile: str | None = None
@@ -76,8 +131,41 @@ class Settings(BaseSettings):
     trust_forwarded_proto: bool = False
     hsts_max_age: int = 31_536_000
 
+    def db_connect_args(self) -> dict[str, str]:
+        """libpq TLS parameters from the `TT_DB_SSL*` settings (empty when none are set)."""
+        pairs = {
+            "sslmode": self.db_sslmode, "sslrootcert": self.db_sslrootcert, "sslcert": self.db_sslcert, "sslkey": self.db_sslkey,
+        }  # fmt: skip
+        return {k: v for k, v in pairs.items() if v}
+
+    def validate_db_tls(self) -> None:
+        mode = self.db_sslmode
+        if mode and mode not in {"disable", "allow", "prefer", "require", "verify-ca", "verify-full"}:
+            raise RuntimeError(f"TT_DB_SSLMODE={mode!r} is not a libpq sslmode")
+        if mode in {"verify-ca", "verify-full"}:
+            if not self.db_sslrootcert:
+                raise RuntimeError(
+                    f"TT_DB_SSLMODE={mode} needs TT_DB_SSLROOTCERT (the CA that signed the server certificate)"
+                )
+            for label, path in (
+                ("TT_DB_SSLROOTCERT", self.db_sslrootcert),
+                ("TT_DB_SSLCERT", self.db_sslcert),
+                ("TT_DB_SSLKEY", self.db_sslkey),
+            ):
+                if path and not Path(path).is_file():
+                    raise RuntimeError(f"{label}={path}: no such file")
+        if bool(self.db_sslcert) != bool(self.db_sslkey):
+            raise RuntimeError(
+                "TT_DB_SSLCERT and TT_DB_SSLKEY must be set together (client-certificate authentication)"
+            )
+
     def validate_for_runtime(self) -> None:
         """Fail fast on unsafe production configuration (anything but `env=dev`): a guessable cookie-signing secret is account takeover."""
+        self.validate_db_tls()
+        if self.trusted_principal_header and not self.trusted_proxies.strip():
+            raise RuntimeError(
+                "TT_TRUSTED_PRINCIPAL_HEADER needs TT_TRUSTED_PROXIES: an unauthenticated header must never be trusted"
+            )
         if self.env == "dev":
             return
         if self.session_secret == "dev-insecure-session-secret" or len(self.session_secret.encode()) < 32:  # noqa: S105
@@ -90,7 +178,10 @@ class Settings(BaseSettings):
     @property
     def psycopg_dsn(self) -> str:
         """Plain libpq DSN (for Procrastinate), derived from the SQLAlchemy URL."""
-        return self.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+        dsn = self.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+        if args := self.db_connect_args():
+            dsn += ("&" if "?" in dsn else "?") + urlencode(args)
+        return dsn
 
 
 @lru_cache

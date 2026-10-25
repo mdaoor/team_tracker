@@ -1,0 +1,51 @@
+# Prometheus alert rules for Team Tracker (phase 12 §2). Scrape /metrics with the bearer token from TT_METRICS_TOKEN.
+groups:
+  - name: team-tracker
+    rules:
+      - alert: TTJobBacklog
+        expr: tt_jobs_oldest_todo_age_seconds > 600
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Background jobs are waiting more than 10 minutes"
+          runbook: docs/runbooks/job-backlog.md
+      - alert: TTJobsFailed
+        expr: tt_jobs_failed > 0
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "Procrastinate has failed jobs", runbook: docs/runbooks/job-backlog.md}
+      - alert: TTJiraPushFailures
+        expr: tt_jira_push_failed_1h > 5
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "More than 5 Jira pushes failed in the last hour", runbook: docs/runbooks/jira-push-failures.md}
+      - alert: TTApi5xx
+        expr: sum(rate(tt_http_errors_total[5m])) / clamp_min(sum(rate(tt_http_requests_total[5m])), 1) > 0.02
+        for: 10m
+        labels: {severity: critical}
+        annotations: {summary: "More than 2 % of API requests fail with 5xx"}
+      - alert: TTCaptureSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(tt_http_request_duration_seconds_bucket{route=~".*/capture/batches"}[5m]))) > 0.15
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "Capture p95 above the 150 ms budget"}
+      - alert: TTQueryItemsSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(tt_http_request_duration_seconds_bucket{route=~".*/query/items"}[5m]))) > 0.3
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "query/items p95 above the 300 ms budget"}
+      - alert: TTSnapshotSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(tt_http_request_duration_seconds_bucket{route=~".*/snapshot"}[5m]))) > 2
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "Snapshot p95 above the 2 s budget"}
+      - alert: TTReviewQueueGrowing
+        expr: tt_review_queue_open > 200
+        for: 1h
+        labels: {severity: info}
+        annotations: {summary: "More than 200 items wait in the review queue"}
+      - alert: TTDown
+        expr: up{job="team-tracker"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Team Tracker is not answering scrapes"}

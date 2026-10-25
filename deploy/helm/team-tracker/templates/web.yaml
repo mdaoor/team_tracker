@@ -1,0 +1,24 @@
+{{- $c := dict "root" . "component" "web" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: {{ include "tt.name" $c }}, labels: {{ include "tt.labels" $c | nindent 4 }}}
+spec:
+  replicas: {{ .Values.replicas.web }}
+  selector: {matchLabels: {{ include "tt.labels" $c | nindent 6 }}}
+  template:
+    metadata: {labels: {{ include "tt.labels" $c | nindent 8 }}}
+    spec:
+      containers:
+        - name: web
+          image: {{ .Values.image.web }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env: [{name: TT_API_UPSTREAM, value: "http://{{ .Release.Name }}-server:8000"}]
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe: {httpGet: {path: /, port: http}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ include "tt.name" $c }}}
+spec:
+  selector: {{ include "tt.labels" $c | nindent 4 }}
+  ports: [{name: http, port: 80, targetPort: http}]

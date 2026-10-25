@@ -594,3 +594,47 @@ async def compute(uow: UnitOfWork, ws: m.Workspace, *, now: datetime | None = No
     if stats.removed and not stats.upserted:
         emit(uow, workspace_id=ws.id, actor_id=sysp.id, entity_type=TargetType.PERSON, entity_id=sysp.id, event_type="habit.updated", payload={"after": {"removed": stats.removed}}, source=EventSource.RULE, occurred_at=now)  # fmt: skip
     return stats
+
+
+async def series(
+    s: AsyncSession, ws_id: str, habit: m.Habit, *, points: int = 8, now: datetime | None = None
+) -> list[dict[str, Any]]:
+    """Rolling rate of one habit for the sparkline: the habit's own window, re-evaluated every 7 days going back `points` steps.
+
+    Oldest first. Uses the same detector and rate rule as `compute`, so the last point equals the stored habit (up to the minute)."""
+    now = now or utcnow()
+    det = detectors().get(habit.key)
+    d = await s.scalar(
+        select(m.HabitDefinition).where(
+            m.HabitDefinition.key == habit.key,
+            (m.HabitDefinition.workspace_id == ws_id) | m.HabitDefinition.workspace_id.is_(None),
+        ).order_by(m.HabitDefinition.workspace_id.is_(None))
+    )  # fmt: skip
+    if det is None or d is None:
+        return []
+    det = detectors().get(d.formula.get("detector", habit.key), det)
+    team_of: dict[str, str] = {}
+    for pid, tid in (
+        await s.execute(
+            select(m.Membership.person_id, m.Membership.team_id)
+            .where(m.Membership.left_at.is_(None), m.Membership.deleted_at.is_(None))
+            .order_by(m.Membership.joined_at)
+        )
+    ).all():
+        team_of[pid] = tid
+    span = timedelta(days=window_days(habit.window))
+    inverse = d.polarity == Polarity.POSITIVE and habit.key == "evidence_consistency"
+    out: list[dict[str, Any]] = []
+    for i in range(points - 1, -1, -1):
+        end = now - timedelta(days=7 * i)
+        counts = _by_subject(await det(s, ws_id, end - span, end + timedelta(seconds=1)), team_of)
+        c = counts.get((habit.subject_type, habit.subject_id))
+        out.append(
+            {
+                "at": end.isoformat(),
+                "rate": float(_rate(c, inverse)) if c is not None and c.opp > 0 else None,
+                "occurrences": max(c.occ, 0) if c else 0,
+                "opportunities": c.opp if c else 0,
+            }
+        )
+    return out

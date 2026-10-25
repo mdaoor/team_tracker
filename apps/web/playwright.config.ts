@@ -9,6 +9,8 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   workers: 1,
   use: {
+    // TT_VIDEO=1 records every test (the acceptance walkthrough in CI); off otherwise
+    video: process.env.TT_VIDEO ? { mode: "on", size: { width: 1280, height: 720 } } : "off",
     // CI images may ship a different Chromium build than this Playwright expects: TT_CHROMIUM points at it.
     launchOptions: { executablePath: process.env.TT_CHROMIUM || undefined },
     baseURL: process.env.TT_WEB_URL ?? "http://localhost:5173",

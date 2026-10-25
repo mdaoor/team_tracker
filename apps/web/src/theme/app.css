@@ -695,3 +695,44 @@ ul.plain {
   color: var(--crit);
   display: block;
 }
+
+/* plan page (roadmap editor) */
+.plan .track {
+  background: var(--surface-2);
+  border-radius: 4px;
+  height: 14px;
+  position: relative;
+}
+.plan .plan-bar {
+  height: 14px;
+  border-radius: 4px;
+  background: var(--s1);
+}
+.plan .plan-bar.st-done {
+  background: var(--good);
+}
+.plan .plan-bar.st-overdue {
+  background: var(--crit);
+}
+.plan .plan-bar.st-at_risk {
+  background: var(--warn);
+}
+.plan .plan-bar.st-not_started {
+  background: var(--text-3);
+}
+.plan tr.phase td {
+  background: var(--surface-2);
+}
+.plan .health-green {
+  color: var(--good);
+}
+.plan .health-amber {
+  color: var(--warn);
+}
+.plan .health-red {
+  color: var(--crit);
+}
+.spark {
+  vertical-align: middle;
+  color: var(--s1);
+}

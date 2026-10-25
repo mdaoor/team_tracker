@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta
 from typing import Annotated, Any
 
@@ -29,7 +30,7 @@ from tt_server.api.routers.core import row_dict
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.governance import apply as applymod
-from tt_server.governance import engine, runner, service
+from tt_server.governance import engine, habits, runner, service
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["governance"])
 
@@ -283,7 +284,14 @@ async def create_policy(body: PolicyIn, actor: CurrentActor, uow: Uow) -> dict[s
     s.add(p)
     await s.flush()
     _ev(
-        uow, actor, TargetType.PERSON, actor.person.id, "policy.created", policy=p.key, template=body.template
+        uow,
+        actor,
+        TargetType.PERSON,
+        actor.person.id,
+        "policy.created",
+        policy=p.key,
+        template=body.template,
+        after_def=service.definition(p),
     )
     await uow.commit()
     return service.policy_view(p)
@@ -324,6 +332,7 @@ async def patch_policy(pid: str, body: PolicyPatch, actor: CurrentActor, uow: Uo
     s = uow.session
     p = await _policy(actor, uow, pid)
     data = body.model_dump(exclude_unset=True)
+    before_def = service.definition(p)
     if "params" in data or "condition_cel" in data:
         src = {
             "template": p.condition_template_id,
@@ -374,9 +383,46 @@ async def patch_policy(pid: str, body: PolicyPatch, actor: CurrentActor, uow: Uo
         "policy.updated",
         policy=p.key,
         fields=sorted(body.model_dump(exclude_unset=True)),
+        before_def=before_def,
+        after_def=service.definition(p),
     )
     await uow.commit()
     return service.policy_view(p)
+
+
+@router.get("/policies/{pid}/versions")
+async def policy_versions(pid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """Version history, newest first, from the event log: who changed what, with the full definition at each point (restorable)."""
+    check(actor, "policy.read")
+    p = await _policy(actor, uow, pid)
+    rows = (
+        await uow.session.scalars(
+            select(m.Event)
+            .where(
+                m.Event.workspace_id == actor.ws.id,
+                m.Event.event_type.in_(("policy.created", "policy.updated")),
+                m.Event.payload["after"]["policy"].astext == p.key,
+            )
+            .order_by(m.Event.occurred_at.desc(), m.Event.id.desc())
+            .limit(100)
+        )
+    ).all()
+    out = []
+    for e in rows:
+        after = (e.payload or {}).get("after", {})
+        new, old = after.get("after_def"), after.get("before_def") or {}
+        changed = (
+            sorted(k for k in (new or {}) if (new or {}).get(k) != old.get(k))
+            if new and old
+            else sorted(new or {})
+        )
+        out.append(
+            {
+                "event_id": e.id, "at": e.occurred_at, "actor_id": e.actor_id, "kind": e.event_type.split(".")[1],
+                "changed": changed, "definition": new,
+            }
+        )  # fmt: skip
+    return {"data": out, "next_cursor": None}
 
 
 @router.delete("/policies/{pid}", status_code=204)
@@ -569,7 +615,7 @@ def _enum(cls: Any, value: str, name: str) -> Any:
 @router.get("/violations")
 async def list_violations(
     actor: CurrentActor, uow: Uow, status: str | None = None, severity: str | None = None, category: str | None = None, policy: str | None = None,
-    person: str | None = None, project: str | None = None, target_id: str | None = None, limit: int = 100, cursor: str | None = None,
+    person: str | None = None, project: str | None = None, target_id: str | None = None, limit: int = Query(100, ge=1, le=1000), cursor: str | None = None,
 ) -> dict[str, Any]:  # fmt: skip
     stmt = visible(
         select(m.Violation, m.Policy.key, m.WorkspaceMember.handle)
@@ -731,8 +777,10 @@ async def list_habits(
     if key:
         stmt = stmt.where(m.Habit.key == key)
     if status:
-        stmt = stmt.where(m.Habit.status == HabitStatus(status))
+        stmt = stmt.where(m.Habit.status == _enum(HabitStatus, status, "status"))
     if window:
+        if not re.fullmatch(r"\d{1,4}[dw]", window):
+            raise ApiError(400, "invalid_window", "window looks like 30d or 12w", pointer="/window")
         stmt = stmt.where(m.Habit.window == window)
     handles = {
         pid: h
@@ -749,6 +797,25 @@ async def list_habits(
         stmt = stmt.where(m.Habit.subject_id.in_([p for p, h in handles.items() if h == want]))
     rows = (await uow.session.scalars(stmt.order_by(m.Habit.key, m.Habit.subject_id))).all()
     return {"data": [habit_view(h, handles.get(h.subject_id), actor) for h in rows], "next_cursor": None}
+
+
+@router.get("/habits/{hid}/series")
+async def habit_series(
+    hid: str, actor: CurrentActor, uow: Uow, points: int = Query(8, ge=2, le=26)
+) -> dict[str, Any]:
+    """Sparkline data. Visibility is the habit's own (a wellbeing habit is as hidden here as in the list)."""
+    row = await uow.session.scalar(
+        visible(
+            select(m.Habit).where(
+                m.Habit.id == hid, m.Habit.workspace_id == actor.ws.id, m.Habit.deleted_at.is_(None)
+            ),
+            actor.acl,
+            m.Habit,
+        )
+    )
+    if row is None:
+        raise ApiError(404, "not_found", "habit not found")
+    return {"data": await habits.series(uow.session, actor.ws.id, row, points=points), "next_cursor": None}
 
 
 class HabitPatch(BaseModel):

@@ -305,7 +305,12 @@ async def test_ldap_token_endpoint_for_the_cli(api: Api, ad: Directory) -> None:
 
 
 async def test_providers_endpoint_and_unconfigured_flows(api: Api) -> None:
-    assert (await api.c.get("/auth/providers")).json() == {"oidc": False, "ldap": False}
+    assert (await api.c.get("/auth/providers")).json() == {
+        "oidc": False,
+        "ldap": False,
+        "sso": False,
+        "dev": True,
+    }
     assert (await _login(api, "x")).status_code == 404
     assert (await api.c.get("/auth/login", params={"workspace": "acme"})).status_code == 404
     assert (await api.c.get("/auth/me")).status_code == 401

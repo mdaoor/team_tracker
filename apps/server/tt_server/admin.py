@@ -142,20 +142,115 @@ def serve(
         ssl_certfile=str(cert) if cert else None,
         ssl_keyfile=str(key) if key else None,
     )
-    asyncio.run(_serve(config, host, redirect_port if cert else None, port))
+    asyncio.run(_serve(config, host, redirect_port if cert else None, port, s))
 
 
-async def _serve(config: Any, host: str, redirect_port: int | None, https_port: int) -> None:
+@app.command("purge-raw-input")
+def purge_raw_input(
+    days: Annotated[int, typer.Option(help="Drop raw input older than this many days")],
+    workspace: Annotated[str | None, typer.Option(help="Workspace slug (default: all)")] = None,
+) -> None:
+    """Retention: null `Event.raw_input` older than N days. The structured event stays."""
+    from sqlalchemy import select as sa_select
+
+    from tt_server.db import models as m
+    from tt_server.domain import privacy
+
+    async def run() -> None:
+        engine = make_engine()
+        try:
+            async with make_session_factory(engine)() as s:
+                ws_id = None
+                if workspace:
+                    ws = await s.scalar(sa_select(m.Workspace).where(m.Workspace.slug == workspace))
+                    if ws is None:
+                        raise typer.BadParameter(f"unknown workspace {workspace!r}")
+                    ws_id = ws.id
+                n = await privacy.purge_raw_input(s, days=days, workspace_id=ws_id)
+                await s.commit()
+                typer.echo(f"{n} event(s) had their raw input removed")
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run())
+
+
+@app.command("verify-projection")
+def verify_projection(
+    workspace: Annotated[str, typer.Argument(help="Workspace slug")],
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Check that every projected item / time entry is explained by an event; exit 1 on drift (see ADR-0040)."""
+    import json as _json
+
+    from sqlalchemy import select as sa_select
+
+    from tt_server.db import models as m
+    from tt_server.domain import verify
+
+    async def run() -> int:
+        engine = make_engine()
+        try:
+            async with make_session_factory(engine)() as s:
+                ws = await s.scalar(sa_select(m.Workspace).where(m.Workspace.slug == workspace))
+                if ws is None:
+                    raise typer.BadParameter(f"unknown workspace {workspace!r}")
+                rep = await verify.verify(s, ws.id)
+            if as_json:
+                typer.echo(_json.dumps(rep.as_dict(), indent=2))
+            elif rep.clean:
+                typer.echo("projection and event log agree")
+            else:
+                for name, rows in rep.findings.items():
+                    typer.echo(f"{name}: {len(rows)} (first: {', '.join(rows[:5])})")
+            return 0 if rep.clean else 1
+        finally:
+            await engine.dispose()
+
+    raise typer.Exit(asyncio.run(run()))
+
+
+@app.command("cert-info")
+def cert_info(certfile: Annotated[Path, typer.Argument(help="PEM certificate")]) -> None:
+    """Days until a certificate expires (exit code 1 when under the warning threshold; use it from monitoring)."""
+    from tt_server.settings import get_settings
+    from tt_server.tls import days_until_expiry
+
+    left = days_until_expiry(certfile)
+    typer.echo(f"{certfile}: {left:.1f} days left")
+    if left < get_settings().cert_expiry_warn_days:
+        raise typer.Exit(1)
+
+
+async def _serve(
+    config: Any, host: str, redirect_port: int | None, https_port: int, settings: Any = None
+) -> None:
     import uvicorn
 
     servers = [uvicorn.Server(config)]
+    stop = asyncio.Event()
+    reload_task = None
+    if config.ssl_certfile and settings is not None:
+        from tt_server.tls import CertReloader
+
+        config.load()  # builds config.ssl; the reloader swaps the chain on that live context
+        reloader = CertReloader(
+            config.ssl, config.ssl_certfile, config.ssl_keyfile,
+            interval=settings.cert_reload_interval_s, warn_days=settings.cert_expiry_warn_days,
+        )  # fmt: skip
+        reload_task = asyncio.create_task(reloader.run(stop))
     if redirect_port:
         from tt_server.tls import redirect_app
 
         servers.append(
             uvicorn.Server(uvicorn.Config(redirect_app(https_port), host=host, port=redirect_port))
         )
-    await asyncio.gather(*(srv.serve() for srv in servers))
+    try:
+        await asyncio.gather(*(srv.serve() for srv in servers))
+    finally:
+        stop.set()
+        if reload_task:
+            await reload_task
 
 
 @seed_app.command("demo")

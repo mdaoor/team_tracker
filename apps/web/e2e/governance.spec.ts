@@ -58,3 +58,47 @@ test("the habit report restricts wellbeing for someone who may not see it", asyn
   await page.getByText("Wellbeing", { exact: true }).click();
   await expect(page.getByText("Restricted: no wellbeing habits are visible to you")).toBeVisible();
 });
+
+test("the thin editors: scope, filter, notify, automatic action are saved with the policy and shown in version history", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/w/acme/policies/new");
+  await page.getByRole("listitem").filter({ hasText: "Item stuck in a stage" }).click();
+  await page.getByLabel("Key").fill("e2e_editors");
+  await page.getByRole("spinbutton").fill("5");
+  await page.getByLabel("Policy scope type").selectOption("project");
+  await page.getByLabel("Policy scope", { exact: true }).selectOption({ index: 1 });
+  await page.getByRole("group", { name: "Their managers" }).getByLabel("senior manager").check();
+  await page.getByLabel("Raise priority to").selectOption("high");
+  await page.getByRole("button", { name: "Create policy" }).click();
+  await expect(page).toHaveURL(/policies\/e2e_editors/);
+  const p = await (await request.get(`${API}/policies/e2e_editors`)).json();
+  expect(p.scope_type).toBe("project");
+  expect(p.scope_id).toBeTruthy();
+  expect(p.notify.reporting_line).toContain("senior");
+  expect(p.auto_action).toEqual({ set: { priority: "high" } });
+  await page.getByLabel("Grace period (e.g. 2d)").fill("2d");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  const history = page.getByRole("list", { name: "Version history" });
+  await expect(history.getByRole("listitem")).toHaveCount(2);
+  await expect(history).toContainText("grace period");
+  await page.getByRole("button", { name: "Restore this version" }).click();
+  await expect(page.getByText(/Restored/)).toBeVisible();
+});
+
+test("every governance report can be added to a presentation", async ({ page }) => {
+  for (const path of ["violations", "habits", "performance", "insights", "digest", "weights"]) {
+    await page.goto(`/w/acme/${path}`);
+    await page.getByRole("button", { name: "Add to presentation" }).click();
+    await page.getByRole("menuitem", { name: /New presentation/ }).click();
+    await expect(page.getByText("Added to presentation")).toBeVisible();
+  }
+});
+
+test("habit rows carry a sparkline whose label carries the numbers", async ({ page }) => {
+  await page.goto("/w/acme/habits");
+  const spark = page.getByRole("img", { name: /last 8 weeks/ }).first();
+  await expect(spark).toBeVisible();
+  await expect(spark).toHaveAttribute("aria-label", /\d\.\d\d|n\/a/);
+});

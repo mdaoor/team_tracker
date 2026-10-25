@@ -9,3 +9,9 @@ ADR-0022 deferred these three items. The product owner has not confirmed a waive
 
 ## Open question for the product owner
 Is a proxy-terminated Kerberos flow acceptable, or is in-process GSSAPI (`python-gssapi`, keytab on the app host) required?
+
+## Status update (package I)
+Implemented with tests: `tt_server/sso.py` + `GET /auth/sso` + header authentication for API calls (`tests/api/test_acl_sso.py`);
+`TT_DB_SSL*` for the API engine and the Procrastinate DSN, verified against a real TLS cluster (`tests/integration/test_db_tls.py`);
+`CertReloader` (SIGHUP and file change, scratch-context validation) with `tt-admin cert-info` (`tests/unit/test_tls_reload.py`).
+Operator guide: `docs/security/tls.md`. The open question (proxy-terminated vs in-process GSSAPI) stands; in-process GSSAPI is not built.

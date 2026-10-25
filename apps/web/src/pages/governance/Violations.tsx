@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, w } from "../../api/http";
+import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Chip, Empty, Pill } from "../../components/ui";
 import type { Severity } from "../../lib/confidence";
@@ -96,6 +97,13 @@ export function Violations() {
     <div className="gov">
       <div className="row">
         <h1>Violations</h1>
+        <AddToPresentation
+          build={() => ({
+            kind: "violations",
+            title: "Violations",
+            config: { with_habits: false },
+          })}
+        />
         <span className="grow" />
         <select
           aria-label="Status"

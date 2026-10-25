@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, w, type Row } from "../../api/http";
+import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Field } from "../../components/ui";
 import { formulaFrom, rowsFrom, type MultRow } from "../../lib/governance";
@@ -61,6 +62,14 @@ export function Weights() {
   return (
     <div className="gov">
       <h1>Weights</h1>
+      <AddToPresentation
+        build={() => ({
+          kind: "table",
+          title: "Weighted items",
+          config: { filter: {}, sort: [{ field: "priority", dir: "desc" }], limit: 50 },
+          live: true,
+        })}
+      />
       <p>
         <small>
           Views and exports use the scheme you pick in their own selector; the default scheme

@@ -17,11 +17,13 @@ seed:           ## demo workspace "acme" (use SEED_ARGS=--reset to recreate)
 test:           ## pytest (uses TT_TEST_DATABASE_URL, else testcontainers) + vitest
 	$(PY) pytest -q --cov=tt_schema --cov=tt_server --cov=tt_client --cov=tt_cli --cov=tt_llm --cov-report=term-missing:skip-covered
 	pnpm --filter @tt/web test
+	pnpm --filter @tt/desktop test
 
 lint:
 	$(PY) ruff check .
 	$(PY) ruff format --check .
 	pnpm --filter @tt/web lint
+	pnpm --filter @tt/desktop lint
 
 fmt:
 	$(PY) ruff check --fix .
@@ -31,6 +33,7 @@ fmt:
 typecheck:
 	$(PY) mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server apps/llm_gateway/tt_llm packages/filter_grammar/src packages/cel_policies/src
 	pnpm --filter @tt/web typecheck
+	pnpm --filter @tt/desktop typecheck
 
 openapi:        ## docs/api/openapi.json + generated web client types
 	$(PY) python -m tt_server.openapi docs/api/openapi.json

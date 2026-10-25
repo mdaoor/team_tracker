@@ -167,3 +167,168 @@ export function formulaFrom(
 export function rowsFrom(f: Row | null | undefined): MultRow[] {
   return Object.entries(f?.multipliers ?? {}).map(([key, v]) => ({ key, factor: String(v) }));
 }
+
+// ---------------------------------------------------------------- policy editors (phase 9 thin editors)
+export type Scope = { type: string; id: string };
+export const SCOPE_TYPES = ["workspace", "project", "team", "product", "process"] as const;
+
+export type Notify = {
+  person: boolean;
+  reporting_line: string[];
+  roles: string[];
+  channel: string;
+};
+export const REPORTING_KINDS = [
+  "line",
+  "senior",
+  "project",
+  "functional",
+  "mentor",
+  "dotted",
+] as const;
+export const NOTIFY_ROLES = ["manager", "project_owner", "workspace_admin"] as const;
+export const emptyNotify = (): Notify => ({
+  person: false,
+  reporting_line: [],
+  roles: [],
+  channel: "in_app",
+});
+
+export function notifyFrom(n: Row | null | undefined): Notify {
+  return {
+    person: !!n?.person,
+    reporting_line: [...(n?.reporting_line ?? [])],
+    roles: [...(n?.roles ?? [])],
+    channel: n?.channel ?? "in_app",
+  };
+}
+/** Only what is set goes out, so an empty editor round-trips to `{}`. */
+export function notifyBody(n: Notify): Row {
+  const out: Row = {};
+  if (n.person) out.person = true;
+  if (n.reporting_line.length) out.reporting_line = n.reporting_line;
+  if (n.roles.length) out.roles = n.roles;
+  if (n.channel !== "in_app") out.channel = n.channel;
+  return out;
+}
+
+export type AutoAction = {
+  priority: string;
+  stage: string;
+  createTitle: string;
+  createProject: string;
+};
+export const emptyAuto = (): AutoAction => ({
+  priority: "",
+  stage: "",
+  createTitle: "",
+  createProject: "",
+});
+export function autoFrom(a: Row | null | undefined): AutoAction {
+  return {
+    priority: a?.set?.priority ?? "",
+    stage: a?.move_stage ?? "",
+    createTitle: a?.create_item?.title ?? "",
+    createProject: a?.create_item?.project ?? "",
+  };
+}
+export function autoBody(a: AutoAction): Row | undefined {
+  const out: Row = {};
+  if (a.priority) out.set = { priority: a.priority };
+  if (a.stage) out.move_stage = a.stage;
+  if (a.createTitle.trim())
+    out.create_item = {
+      title: a.createTitle.trim(),
+      ...(a.createProject ? { project: a.createProject } : {}),
+    };
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** A stored candidate filter back into removable chips: one chip per top-level clause (the grammar is AND across keys). */
+export function chipsFromFilter(
+  f: Row | null | undefined,
+  id: () => string,
+): { id: string; label: string; clause: Row }[] {
+  if (!f) return [];
+  return Object.entries(f).flatMap(([k, v]) =>
+    k === "and" && Array.isArray(v)
+      ? v.map((c: Row) => ({ id: id(), label: JSON.stringify(c), clause: c }))
+      : [{ id: id(), label: `${k} ${JSON.stringify(v)}`, clause: { [k]: v } }],
+  );
+}
+
+/** What changed between two stored definitions, for the version list. */
+export function changedLabel(changed: string[]): string {
+  return changed.length ? changed.map((c) => c.replace(/_/g, " ")).join(", ") : "no field changes";
+}
+
+/** Fields a restore writes back (a subset of the stored definition; the server re-validates all of it). */
+export function restoreBody(def: Row): Row {
+  const out: Row = {};
+  for (const k of [
+    "name",
+    "severity",
+    "scope_type",
+    "scope_id",
+    "candidate_filter",
+    "notify",
+    "auto_action",
+    "grace_period",
+  ])
+    if (k in def) out[k] = def[k];
+  if (def.condition_template_id) out.params = def.template_params ?? {};
+  else if (def.condition_cel) out.condition_cel = def.condition_cel;
+  return out;
+}
+
+/** SVG polyline points for a sparkline; null rates leave gaps (the habit had too few opportunities that week). */
+export function sparkPoints(
+  values: (number | null)[],
+  w = 80,
+  h = 20,
+): { segments: string[]; last: [number, number] | null } {
+  const nums = values.filter((v): v is number => v != null);
+  if (!nums.length) return { segments: [], last: null };
+  const lo = Math.min(...nums, 0);
+  const hi = Math.max(...nums, 0.0001);
+  const x = (i: number) => (values.length === 1 ? w / 2 : (i * w) / (values.length - 1));
+  const y = (v: number) => h - 2 - ((v - lo) / (hi - lo || 1)) * (h - 4);
+  const segments: string[] = [];
+  let cur: string[] = [];
+  let last: [number, number] | null = null;
+  values.forEach((v, i) => {
+    if (v == null) {
+      if (cur.length) segments.push(cur.join(" "));
+      cur = [];
+      return;
+    }
+    cur.push(`${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+    last = [x(i), y(v)];
+  });
+  if (cur.length) segments.push(cur.join(" "));
+  return { segments, last };
+}
+
+/** The digest as notes for a slide (the plain facts; nothing that is not on the screen). */
+export function digestMarkdown(d: Row): string {
+  const part = (title: string, lines: string[]) =>
+    lines.length ? `## ${title}\n${lines.map((l) => `- ${l}`).join("\n")}\n` : "";
+  return (
+    [
+      part(
+        "Insights",
+        (d.insights ?? []).map((i: Row) => `**${i.project}** ${i.body}`),
+      ),
+      part(
+        "Notable events",
+        (d.events ?? []).map((e: Row) => `${String(e.occurred_at).slice(0, 10)} ${e.event_type}`),
+      ),
+      part(
+        "Pinned notes",
+        (d.notes ?? []).map((n: Row) => `**${n.title}** ${n.body}`),
+      ),
+    ]
+      .filter(Boolean)
+      .join("\n") || "Nothing to report in this window."
+  );
+}

@@ -300,6 +300,21 @@ def policy_view(p: m.Policy, last_test: m.PolicyTestRun | None = None) -> dict[s
     }  # fmt: skip
 
 
+DEFINITION_FIELDS = (
+    "name", "description", "scope_type", "scope_id", "condition_cel", "condition_template_id", "template_params", "candidate_filter",
+    "severity", "notify", "auto_action", "grace_period", "schedule", "event_types",
+)  # fmt: skip
+
+
+def definition(p: m.Policy) -> dict[str, Any]:
+    """The editable definition of a policy as plain JSON: what version history stores and what a restore writes back."""
+    out: dict[str, Any] = {}
+    for f in DEFINITION_FIELDS:
+        v = getattr(p, f)
+        out[f] = v.value if hasattr(v, "value") else v
+    return out
+
+
 def violation_view(v: m.Violation, policy_key: str | None = None) -> dict[str, Any]:
     return {
         "id": v.id, "policy_id": v.policy_id, "policy": policy_key, "target_type": v.target_type.value, "target_id": v.target_id,

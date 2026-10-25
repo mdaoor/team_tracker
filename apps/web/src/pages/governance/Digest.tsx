@@ -1,8 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, w, type Row } from "../../api/http";
+import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty } from "../../components/ui";
+import { digestMarkdown } from "../../lib/governance";
 import { useList, useMe, useObj, useWs } from "../../lib/hooks";
 
 export function Digest() {
@@ -26,6 +28,15 @@ export function Digest() {
       <div className="row">
         <h1>Manager digest</h1>
         <span className="grow" />
+        {data && (
+          <AddToPresentation
+            build={() => ({
+              kind: "markdown",
+              title: "Manager digest",
+              config: { text: digestMarkdown(data) },
+            })}
+          />
+        )}
         <select aria-label="Team" value={team} onChange={(e) => setTeam(e.target.value)}>
           <option value="">Whole workspace</option>
           {(teams.data ?? []).map((t: Row) => (

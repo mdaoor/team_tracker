@@ -1,0 +1,55 @@
+{{- $c := dict "root" . "component" "server" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: {{ include "tt.name" $c }}, labels: {{ include "tt.labels" $c | nindent 4 }}}
+spec:
+  replicas: {{ .Values.replicas.server }}
+  selector: {matchLabels: {{ include "tt.labels" $c | nindent 6 }}}
+  template:
+    metadata: {labels: {{ include "tt.labels" $c | nindent 8 }}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001}
+      containers:
+        - name: server
+          image: {{ .Values.image.server }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [uvicorn, tt_server.main:create_app, --factory, --host, 0.0.0.0, --port, "8000", --proxy-headers]
+          envFrom: [{secretRef: {name: {{ .Values.existingSecret }}}}]
+          env: {{ include "tt.env" . | nindent 12 }}
+          ports: [{name: http, containerPort: 8000}]
+          readinessProbe: {httpGet: {path: /readyz, port: http}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 10}
+          lifecycle: {preStop: {exec: {command: [sleep, "5"]}}}
+          resources: {{ toYaml .Values.resources.server | nindent 12 }}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/team-tracker}
+            - {name: tmp, mountPath: /tmp}
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: data
+          {{- if .Values.persistence.attachments.enabled }}
+          persistentVolumeClaim: {claimName: {{ .Release.Name }}-data}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ include "tt.name" $c }}, labels: {{ include "tt.labels" $c | nindent 4 }}}
+spec:
+  selector: {{ include "tt.labels" $c | nindent 4 }}
+  ports: [{name: http, port: 8000, targetPort: http}]
+{{- if .Values.persistence.attachments.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: {{ .Release.Name }}-data}
+spec:
+  accessModes: [ReadWriteMany]
+  resources: {requests: {storage: {{ .Values.persistence.attachments.size }}}}
+  {{- if .Values.persistence.attachments.storageClass }}
+  storageClassName: {{ .Values.persistence.attachments.storageClass }}
+  {{- end }}
+{{- end }}

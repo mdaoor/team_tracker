@@ -1,0 +1,27 @@
+{{- if .Values.gateway.enabled }}
+{{- $c := dict "root" . "component" "gateway" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: {{ include "tt.name" $c }}, labels: {{ include "tt.labels" $c | nindent 4 }}}
+spec:
+  replicas: {{ .Values.replicas.gateway }}
+  selector: {matchLabels: {{ include "tt.labels" $c | nindent 6 }}}
+  template:
+    metadata: {labels: {{ include "tt.labels" $c | nindent 8 }}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001}
+      containers:
+        - name: gateway
+          image: {{ .Values.image.gateway }}
+          command: [tt-llm, serve, --host, 0.0.0.0, --port, "8700"]
+          envFrom: [{secretRef: {name: {{ .Values.gateway.existingSecret }}}}]
+          ports: [{name: http, containerPort: 8700}]
+          readinessProbe: {httpGet: {path: /healthz, port: http}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ include "tt.name" $c }}}
+spec:
+  selector: {{ include "tt.labels" $c | nindent 4 }}
+  ports: [{name: http, port: 8700, targetPort: http}]
+{{- end }}

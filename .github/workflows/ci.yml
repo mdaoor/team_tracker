@@ -40,6 +40,10 @@ jobs:
       - run: pnpm --filter @tt/web typecheck
       - run: pnpm --filter @tt/web test
       - run: pnpm --filter @tt/web build
+      - run: pnpm --filter @tt/desktop lint
+      - run: pnpm --filter @tt/desktop typecheck
+      - run: pnpm --filter @tt/desktop test
+      - run: pnpm --filter @tt/web stories:build
       - name: Generated API types are up to date
         run: |
           pnpm --filter @tt/web gen:api
@@ -63,3 +67,33 @@ jobs:
           pip install uv && uv sync --all-packages --frozen
           uv run python tools/gen_schemas.py
           git diff --exit-code docs/api/snapshot-schema.json docs/api/presentation-schema.json
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: uv sync --all-packages --frozen
+      - name: Python dependency audit
+        run: uv run --with pip-audit pip-audit --strict --disable-pip --progress-spinner off -r <(uv export --frozen --no-hashes --all-packages --no-emit-workspace) || (echo "::error::pip-audit found vulnerable dependencies"; exit 1)
+      - run: pnpm install --frozen-lockfile
+      - name: JavaScript dependency audit (production dependencies, high and above)
+        run: pnpm audit --prod --audit-level high
+      - name: SAST (ruff S rules are part of `ruff check`; bandit adds a second opinion)
+        run: uv run --with bandit bandit -q -r apps/server/tt_server apps/llm_gateway/tt_llm packages/client_core/src -ll
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm lint deploy/helm/team-tracker
+      - run: helm template tt deploy/helm/team-tracker --set existingSecret=x | kubectl apply --dry-run=client -f - || true
+      - name: kind smoke test
+        uses: helm/kind-action@v1
+      - run: |
+          kubectl create secret generic team-tracker-secrets --from-literal=TT_DATABASE_URL=postgresql+psycopg://tt:tt@pg/tt --from-literal=TT_SESSION_SECRET=$(openssl rand -hex 32) --from-literal=TT_SECRET_KEY=$(openssl rand -hex 32)
+          helm template tt deploy/helm/team-tracker --set ingress.enabled=false --set persistence.attachments.enabled=false | kubectl apply --dry-run=server -f -

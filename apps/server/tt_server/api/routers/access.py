@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
@@ -366,7 +366,7 @@ async def list_events(
     uow: Uow,
     entity_id: str | None = None,
     event_type: str | None = None,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=1000),
 ) -> dict[str, Any]:
     """The audit feed, filtered by visibility; `raw_input` only reaches the actor and their line managers."""
     stmt = visible(select(m.Event).where(m.Event.workspace_id == actor.ws.id), actor.acl, m.Event)

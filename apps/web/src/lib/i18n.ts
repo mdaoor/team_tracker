@@ -3,6 +3,7 @@ const en = {
   "nav.setup": "Setup",
   "nav.review": "Review queue",
   "nav.views": "Views",
+  "nav.plan": "Plans",
   "nav.present": "Present",
   "nav.policies": "Policies",
   "nav.weights": "Weights",

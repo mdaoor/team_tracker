@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, w, type Row } from "../../api/http";
+import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty } from "../../components/ui";
 import { useList, useWs } from "../../lib/hooks";
@@ -43,6 +44,9 @@ export function Insights() {
     <div className="gov">
       <div className="row">
         <h1>Insights</h1>
+        <AddToPresentation
+          build={() => ({ kind: "insight", title: "Insights", config: { scope: null } })}
+        />
         <span className="grow" />
         <select aria-label="Project" value={project} onChange={(e) => setProject(e.target.value)}>
           <option value="">All projects</option>
