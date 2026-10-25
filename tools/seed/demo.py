@@ -481,3 +481,68 @@ async def seed_governance(session_factory: async_sessionmaker[AsyncSession], ids
         await uow.commit(allow_unlogged=True)
     await runner.run_workspace(session_factory, ids["ws_id"], now=AS_OF)
     await runner.nightly(session_factory, ids["ws_id"], now=AS_OF)
+
+
+# The plan-only project (plan P3 §3.13): planned top-down, zero tasks, zero activities. Every view, snapshot and deck must cope with it.
+ERP_PLAN: dict[str, Any] = {
+    "phases": [
+        {"title": "Foundation", "planned_start": "2026-09-01", "planned_end": "2026-11-15", "deliverables": [
+            {"ref": "gov", "title": "Governance and scope", "planned_start": "2026-09-01", "planned_end": "2026-09-30", "milestone": "Kick-off complete"},
+            {"ref": "infra", "title": "Infrastructure and environments", "planned_start": "2026-09-15", "planned_end": "2026-10-31", "depends_on": ["gov"]},
+            {"ref": "data", "title": "Data migration design", "planned_start": "2026-10-01", "planned_end": "2026-11-15", "depends_on": ["gov"]},
+        ]},
+        {"title": "Core modules", "planned_start": "2026-11-01", "planned_end": "2027-02-28", "deliverables": [
+            {"ref": "gl", "title": "General ledger configuration", "planned_start": "2026-11-01", "planned_end": "2026-12-15", "milestone": "Finance design signed off"},
+            {"ref": "ap", "title": "Accounts payable and receivable", "planned_start": "2026-11-15", "planned_end": "2027-01-31"},
+            {"title": "Procurement workflow", "planned_start": "2026-12-01", "planned_end": "2027-02-15"},
+        ]},
+        {"title": "Go-live", "planned_start": "2027-02-01", "planned_end": "2027-04-30", "deliverables": [
+            {"title": "User acceptance testing", "planned_start": "2027-02-01", "planned_end": "2027-03-15", "milestone": "UAT exit"},
+            {"title": "Training and change management", "planned_start": "2027-02-15", "planned_end": "2027-04-10"},
+            {"title": "Cut-over and hypercare", "planned_start": "2027-04-01", "planned_end": "2027-04-30", "milestone": "Go-live"},
+        ]},
+    ],
+    "milestones": [
+        {"name": "Kick-off complete", "kind": "gate", "due_date": "2026-09-30"},
+        {"name": "Finance design signed off", "kind": "gate", "due_date": "2026-12-15"},
+        {"name": "UAT exit", "kind": "gate", "due_date": "2027-03-15"},
+        {"name": "Go-live", "kind": "release", "due_date": "2027-04-30", "description": "Production cut-over"},
+    ],
+}  # fmt: skip
+
+
+async def persist_plan_only(session_factory: async_sessionmaker[AsyncSession], *, slug: str = "acme") -> str:
+    """Add project ERP to an existing demo workspace through the plan service, then approve it with a baseline."""
+    from tt_server.domain.plan.service import PlanIn, create_plan
+    from tt_server.domain.projects.service import create_project
+
+    async with UnitOfWork(session_factory) as uow:
+        ws = await uow.session.scalar(select(m.Workspace).where(m.Workspace.slug == slug))
+        assert ws is not None, "seed the demo workspace first"
+        owner = await uow.session.scalar(
+            select(m.WorkspaceMember).where(
+                m.WorkspaceMember.workspace_id == ws.id, m.WorkspaceMember.handle == "@mahmoud"
+            )
+        )
+        assert owner is not None
+        uow.context.update(actor_id=owner.person_id, correlation_id=new_id())
+        project = await create_project(
+            uow, ws, name="ERP Rollout", key="ERP", owner_id=owner.person_id, actor_id=owner.person_id
+        )
+        await create_plan(uow, ws, project, PlanIn.model_validate(ERP_PLAN), actor_id=owner.person_id)
+        rows = (
+            await uow.session.scalars(select(m.WorkItem).where(m.WorkItem.project_id == project.id))
+        ).all()
+        for it in rows:  # approving the plan = capturing the baseline
+            uow.session.add(
+                m.Baseline(
+                    id=new_id(), project_id=project.id, work_item_id=it.id, baseline_name="approved", captured_by=owner.person_id,
+                    planned_start=it.planned_start, planned_end=it.planned_end, estimate_value=it.estimate_value,
+                )
+            )  # fmt: skip
+        emit(
+            uow, workspace_id=ws.id, actor_id=owner.person_id, entity_type=TargetType.PROJECT, entity_id=project.id,
+            event_type="baseline.captured", payload={"after": {"name": "approved", "items": len(rows)}},
+        )  # fmt: skip
+        await uow.commit()
+        return project.key

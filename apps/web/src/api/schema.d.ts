@@ -2198,6 +2198,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/projects/{key}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plan */
+        get: operations["get_plan_api_v1_w__ws__projects__key__plan_get"];
+        put?: never;
+        /** Create Plan */
+        post: operations["create_plan_api_v1_w__ws__projects__key__plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/w/{ws}/projects/{key}/priority": {
         parameters: {
             query?: never;
@@ -3396,6 +3414,25 @@ export interface components {
             comment?: string | null;
             decision: components["schemas"]["Decision"];
         };
+        /** DeliverableIn */
+        DeliverableIn: {
+            /** Depends On */
+            depends_on?: string[];
+            /** Lag Days */
+            lag_days?: number | null;
+            /** Milestone */
+            milestone?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /** Planned End */
+            planned_end?: string | null;
+            /** Planned Start */
+            planned_start?: string | null;
+            /** Ref */
+            ref?: string | null;
+            /** Title */
+            title: string;
+        };
         /** DimensionIn */
         DimensionIn: {
             /** Applies To */
@@ -3585,6 +3622,8 @@ export interface components {
             due_date?: string | null;
             /** Impact */
             impact?: number | null;
+            /** Planned End */
+            planned_end?: string | null;
             /** Planned Start */
             planned_start?: string | null;
             priority?: components["schemas"]["Priority"] | null;
@@ -3725,20 +3764,6 @@ export interface components {
          * @enum {string}
          */
         MembershipRole: "lead" | "member" | "viewer";
-        /** MilestoneIn */
-        MilestoneIn: {
-            /** Description */
-            description?: string | null;
-            /**
-             * Due Date
-             * Format: date
-             */
-            due_date: string;
-            /** @default deadline */
-            kind: components["schemas"]["MilestoneKind"];
-            /** Name */
-            name: string;
-        };
         /**
          * MilestoneKind
          * @enum {string}
@@ -3779,6 +3804,24 @@ export interface components {
              * @default UTC
              */
             time_zone: string;
+        };
+        /** PhaseIn */
+        PhaseIn: {
+            /** Deliverables */
+            deliverables?: components["schemas"]["DeliverableIn"][];
+            /** Planned End */
+            planned_end?: string | null;
+            /** Planned Start */
+            planned_start?: string | null;
+            /** Title */
+            title: string;
+        };
+        /** PlanIn */
+        PlanIn: {
+            /** Milestones */
+            milestones?: components["schemas"]["tt_server__domain__plan__service__MilestoneIn"][];
+            /** Phases */
+            phases?: components["schemas"]["PhaseIn"][];
         };
         /**
          * PolicyCategory
@@ -4007,11 +4050,14 @@ export interface components {
         ProjectPatch: {
             /** Aliases */
             aliases?: string[] | null;
+            /** Default Process Id */
+            default_process_id?: string | null;
             /** Description */
             description?: string | null;
             /** Name */
             name?: string | null;
             status?: components["schemas"]["ProjectStatus"] | null;
+            visibility?: components["schemas"]["Visibility"] | null;
         };
         /**
          * ProjectRole
@@ -4559,6 +4605,20 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** MilestoneIn */
+        tt_server__api__routers__core__MilestoneIn: {
+            /** Description */
+            description?: string | null;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+            /** @default deadline */
+            kind: components["schemas"]["MilestoneKind"];
+            /** Name */
+            name: string;
+        };
         /** LinkIn */
         tt_server__api__routers__jira__LinkIn: {
             /**
@@ -4580,6 +4640,20 @@ export interface components {
             target_type: components["schemas"]["TargetType"];
             /** Weight */
             weight?: number | null;
+        };
+        /** MilestoneIn */
+        tt_server__domain__plan__service__MilestoneIn: {
+            /** Description */
+            description?: string | null;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+            /** @default other */
+            kind: components["schemas"]["MilestoneKind"];
+            /** Name */
+            name: string;
         };
     };
     responses: never;
@@ -10314,7 +10388,87 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MilestoneIn"];
+                "application/json": components["schemas"]["tt_server__api__routers__core__MilestoneIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plan_api_v1_w__ws__projects__key__plan_get: {
+        parameters: {
+            query?: {
+                as_of?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                key: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_plan_api_v1_w__ws__projects__key__plan_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                key: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanIn"];
             };
         };
         responses: {

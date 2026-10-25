@@ -49,8 +49,10 @@ async def _seed(reset: bool) -> str:
             if reset:
                 tables = ", ".join(t.name for t in reversed(Base.metadata.sorted_tables))
                 await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
-        count = await demo.persist_demo(make_session_factory(engine))
-        return f"seeded {count} work items into workspace 'acme'"
+        factory = make_session_factory(engine)
+        count = await demo.persist_demo(factory)
+        await demo.persist_plan_only(factory)  # ERP: a project planned top-down with no reported work
+        return f"seeded {count} work items (+ the plan-only project ERP) into workspace 'acme'"
     finally:
         await engine.dispose()
 

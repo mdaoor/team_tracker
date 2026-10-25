@@ -195,7 +195,9 @@ async def sync_item_mirrors(
         ("component", m.Component, item.component_id),
     ):
         row: Any = await s.get(model, fk) if fk else None
-        pairs.append((dim_key, row, row.id[:8] if row else "", row.name if row else "", None))
+        pairs.append(
+            (dim_key, row, row.id[-12:] if row else "", row.name if row else "", None)
+        )  # uuid7 prefixes collide within a minute; the tail is random
     for dim_key, row, key, name, parent_id in pairs:
         dim = dims[dim_key]
         if row is None:
