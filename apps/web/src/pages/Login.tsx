@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, ApiError, type Json } from "../api/http";
+import { ApiError } from "../api/http";
+import { devLogin, getAuthProviders, ldapLogin } from "../api/session";
 import { t } from "../lib/i18n";
 import { Button, Field } from "../components/ui";
 
@@ -12,18 +13,14 @@ export function Login() {
   const nav = useNavigate();
   const [dev, setDev] = useState(false);
   useEffect(() => {
-    api
-      .get<Json>("/auth/providers")
+    getAuthProviders()
       .then((p) => setDev(!!p.dev))
       .catch(() => setDev(false));
   }, []);
   const devSignIn = async () => {
     setError(null);
     try {
-      await api.post<Json>("/auth/dev/login", {
-        workspace: workspace || "acme",
-        handle: username || "@mahmoud",
-      });
+      await devLogin({ workspace: workspace || "acme", handle: username || "@mahmoud" });
       nav(`/w/${workspace || "acme"}/review`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
@@ -33,7 +30,7 @@ export function Login() {
     e.preventDefault();
     setError(null);
     try {
-      await api.post<Json>("/auth/ldap/login", { workspace, username, password });
+      await ldapLogin({ workspace, username, password });
       nav(`/w/${workspace}/review`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));

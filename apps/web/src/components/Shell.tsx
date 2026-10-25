@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, ApiError, w, type Json } from "../api/http";
+import { ApiError } from "../api/http";
+import { getMe, listMyWorkspaces } from "../api/session";
+import type { Workspace } from "../api/types";
 import { useList } from "../lib/hooks";
 import { t } from "../lib/i18n";
 import { NotificationBell } from "../pages/governance/NotificationBell";
@@ -15,7 +17,7 @@ export function RequireAccess({ area, children }: { area: string; children: Reac
   const { ws = "" } = useParams();
   const me = useQuery({
     queryKey: [ws, "me"],
-    queryFn: () => api.get<Json>(w(ws, "/me")),
+    queryFn: () => getMe(ws),
     retry: false,
   });
   if (me.isLoading) return <p>Loading…</p>;
@@ -43,12 +45,12 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
   const qc = useQueryClient();
   const me = useQuery({
     queryKey: [ws, "me"],
-    queryFn: () => api.get<Json>(w(ws, "/me")),
+    queryFn: () => getMe(ws),
     retry: false,
   });
   const mine = useQuery({
     queryKey: ["workspaces"],
-    queryFn: () => api.get<Json>("/api/v1/me/workspaces"),
+    queryFn: () => listMyWorkspaces(),
     retry: false,
   });
   const scopes = useList("/me/scopes");
@@ -99,7 +101,7 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
             nav(`/w/${e.target.value}/review`);
           }}
         >
-          {((mine.data?.data as Json[] | undefined) ?? [{ slug: ws, name: ws }]).map((x) => (
+          {((mine.data?.data as Workspace[] | undefined) ?? [{ slug: ws, name: ws }]).map((x) => (
             <option key={x.slug} value={x.slug}>
               {x.name}
             </option>

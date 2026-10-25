@@ -9,7 +9,6 @@ import type { Json } from "./types";
 
 export type { Json, Row } from "./types";
 
-
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -85,7 +84,8 @@ async function call<T>(
 }
 
 export const api = {
-  get: <T = Json>(path: string, query?: Json) => call<T>("GET", path, { query }).then((r) => r.data),
+  get: <T = Json>(path: string, query?: Json) =>
+    call<T>("GET", path, { query }).then((r) => r.data),
   getWithEtag: <T = Json>(path: string, query?: Json) => call<T>("GET", path, { query }),
   post: <T = Json>(path: string, body?: unknown) =>
     call<T>("POST", path, { body }).then((r) => r.data),

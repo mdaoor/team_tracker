@@ -2,10 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, w, type Json } from "../../api/http";
+import * as presentApi from "../../api/present";
+import type { Presentation, Slide } from "../../api/types";
 import { useConfirm } from "../../components/Confirm";
 import { useToasts } from "../../components/Toasts";
 import { downloadPost } from "../../lib/download";
 import { Button, Empty, Field } from "../../components/ui";
+import { enableExternalShare } from "../../api/session";
 import { useList, useMe, useObj, useWs } from "../../lib/hooks";
 import { SLIDE_ICONS, SLIDE_LABELS } from "../../lib/slides";
 import { Templates } from "./Templates";
@@ -76,7 +79,7 @@ function PresentList() {
   const tpls = useList("/presentations/templates");
   const fromTemplate = useMutation({
     mutationFn: (template: string) =>
-      api.post<Json>(w(ws, "/presentations:from-template"), { template }),
+      presentApi.fromTemplate(ws, { template }),
     onSuccess: (p) => {
       void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
       nav(p.id);
@@ -85,19 +88,19 @@ function PresentList() {
   });
   const [brief, setBrief] = useState("");
   const [importText, setImportText] = useState("");
-  const done = (p: Json) => {
+  const done = (p: Presentation) => {
     void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
     nav(p.id);
   };
   const author = useMutation({
-    mutationFn: () => api.post<Json>(w(ws, "/presentations:author"), { brief }),
+    mutationFn: () => presentApi.authorPresentation(ws, brief),
     onSuccess: done,
     onError: (e) => toasts.error(e),
   });
   const importDeck = useMutation({
     mutationFn: () => {
       const deck: unknown = JSON.parse(importText);
-      return api.post<Json>(w(ws, "/presentations:import"), { deck, lenient: true });
+      return presentApi.importPresentation(ws, deck);
     },
     onSuccess: done,
     onError: (e) => toasts.error(e),
@@ -200,7 +203,7 @@ function Builder({ id }: { id: string }) {
   const nav = useNavigate();
   const { me, admin } = useMe();
   const shareOn = !!me?.settings?.external_share;
-  const deck = useObj(`/presentations/${id}`);
+  const deck = useObj<Presentation>(`/presentations/${id}`);
   const projects = useList("/projects");
   const products = useList("/products");
   const teams = useList("/teams");
@@ -211,8 +214,8 @@ function Builder({ id }: { id: string }) {
   const [kind, setKind] = useState("kpis");
   const [rev, setRev] = useState(0);
   const [previewLoaded, setPreviewLoaded] = useState("");
-  const p = deck.data as Json | undefined;
-  const slides = useMemo<Json[]>(() => p?.slides ?? [], [p]);
+  const p = deck.data as Presentation | undefined;
+  const slides = useMemo<Slide[]>(() => p?.slides ?? [], [p]);
   const cur = slides.find((s) => s.id === sel) ?? slides[0];
 
   const refresh = () => {
@@ -274,7 +277,7 @@ function Builder({ id }: { id: string }) {
   };
   const share = useMutation({
     mutationFn: (enabled: boolean) =>
-      api.post<Json>(w(ws, `/presentations/${id}/share`), { enabled }),
+      presentApi.sharePresentation(ws, id, enabled),
     onSuccess: (r) => (
       refresh(),
       toasts.push(r.url ? `Link: ${location.origin}${r.url}` : "Link disabled", { ms: 12000 })
@@ -378,7 +381,7 @@ function Builder({ id }: { id: string }) {
               {admin ? (
                 <button
                   className="btn btn-ghost"
-                  onClick={() => void api.patch(w(ws, "/settings"), { external_share: true }).then(() => Promise.all([qc.invalidateQueries({ queryKey: [ws, "/me"] }), qc.invalidateQueries({ queryKey: [ws, "me"] })]))}
+                  onClick={() => void enableExternalShare(ws).then(() => Promise.all([qc.invalidateQueries({ queryKey: [ws, "/me"] }), qc.invalidateQueries({ queryKey: [ws, "me"] })]))}
                 >
                   Turn it on
                 </button>

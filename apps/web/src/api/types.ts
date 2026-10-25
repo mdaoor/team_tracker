@@ -145,7 +145,7 @@ export interface Slide extends Json {
   id: string;
   kind: string;
   title?: string;
-  config?: Json;
+  config: Json;
 }
 export interface Presentation extends Json {
   id: string;
@@ -161,7 +161,7 @@ export interface TemplateBody extends Json {
 }
 export interface PresentationTemplate extends Json {
   key: string;
-  params?: TemplateParam[];
+  params: TemplateParam[];
 }
 
 // -- plan ------------------------------------------------------------------------------------------------------------

@@ -8,7 +8,8 @@ import { HealthPage } from "./pages/HealthPage";
 import { Login } from "./pages/Login";
 import { ReviewQueue } from "./pages/ReviewQueue";
 import { useQuery } from "@tanstack/react-query";
-import { api, w, type Json } from "./api/http";
+import { getMe, listMyWorkspaces } from "./api/session";
+import type { Workspace } from "./api/types";
 
 // One chunk per route group: the main bundle carries only the shell and the review queue (Phase 13 R5.2).
 const lazyNamed = <T extends Record<string, React.ComponentType>>(load: () => Promise<T>, name: keyof T & string) =>
@@ -28,7 +29,7 @@ const Weights = lazyNamed(() => import("./pages/governance/Weights"), "Weights")
 /** First screen after sign-in: the review queue for managers, Views for everyone else. */
 function Landing() {
   const { ws = "" } = useParams();
-  const me = useQuery({ queryKey: [ws, "me"], queryFn: () => api.get<Json>(w(ws, "/me")), retry: false });
+  const me = useQuery({ queryKey: [ws, "me"], queryFn: () => getMe(ws), retry: false });
   if (me.isLoading) return <p>Loading…</p>;
   return <Navigate to={me.data?.nav?.review === false ? "views" : "review"} replace />;
 }
@@ -36,11 +37,11 @@ function Landing() {
 function Home() {
   const q = useQuery({
     queryKey: ["workspaces"],
-    queryFn: () => api.get<Json>("/api/v1/me/workspaces"),
+    queryFn: () => listMyWorkspaces(),
     retry: false,
   });
   if (q.isError) return <Navigate to="/login" replace />;
-  const first = (q.data?.data as Json[] | undefined)?.[0];
+  const first = (q.data?.data as Workspace[] | undefined)?.[0];
   return first ? <Navigate to={`/w/${first.slug}`} replace /> : <p>Loading…</p>;
 }
 
