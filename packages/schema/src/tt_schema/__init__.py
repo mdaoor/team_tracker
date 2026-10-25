@@ -2,8 +2,8 @@
 
 from tt_schema.base import Base, new_id, utcnow
 from tt_schema.client import (
-    CLIENT_SCHEMA_VERSION,
     CLIENT_SCHEMA_MINOR,
+    CLIENT_SCHEMA_VERSION,
     CalendarRef,
     ClientAction,
     ClientBatch,
