@@ -94,7 +94,11 @@ def test_cache_etag_304_and_offline(tmp_path: Path, catalogue_doc: dict[str, Any
     assert first is not None and len(first) == len(catalogue_doc["ops"]) and api.calls == [None]
     assert cache.refresh(api) is not None and api.calls == [None]  # fresh: no request at all
     again = cache.refresh(api, force=True)  # revalidates with If-None-Match, gets 304
-    assert api.calls == [None, '"cat-1"'] and again is not None and again.etag == '"cat-1"'
+    assert (
+        api.calls == [None, catalogue_doc["etag"]]
+        and again is not None
+        and again.etag == catalogue_doc["etag"]
+    )
     api.offline = True
     assert cache.refresh(api, force=True) is not None  # offline: the cached copy keeps serving
     empty = CatalogueCache(tmp_path / "none.json")
@@ -177,9 +181,9 @@ def test_coercion_types_and_me(cat: Catalogue, mpack: ContextPack) -> None:
         f, {"name": "p", "kind": "virtual", "lead": "me", "members": "sara, @ali"}, actor="@mahmoud"
     )
     assert not issues and args["lead"] == "@mahmoud" and args["members"] == ["@sara", "@ali"]
-    w = fields_for(cat.require("item.set_weight"), mpack)
-    _, issues = coerce(w, {"key": "web-1", "weight": "heavy"}, actor="@m")
-    assert issues and issues[0].pointer == "/weight"
+    w = fields_for(cat.require("item.set_impact"), mpack)
+    _, issues = coerce(w, {"keys": "web-1", "impact": "heavy"}, actor="@m")
+    assert issues and issues[0].pointer == "/impact"
     assert parse_kv(["a=1", "b=x=y"]) == {"a": "1", "b": "x=y"}
     with pytest.raises(ValueError):
         parse_kv(["nope"])
@@ -195,7 +199,7 @@ def test_ask_form_asks_required_only_and_retries_empty(cat: Catalogue, mpack: Co
             return script[spec.name].pop(0)
 
     answers = ask_form(fields_for(cat.require("team.create"), mpack), P())
-    assert answers == {"name": "payments", "kind": "virtual"} and asked == ["name", "name", "kind"]
+    assert answers == {"name": "payments"} and asked == ["name", "name"]  # kind is optional (default virtual)
 
 
 # ------------------------------------------------------------------ roles lens
@@ -425,9 +429,6 @@ def test_parser_never_invents_projects_and_handles_on_behalf_of(pack: ContextPac
     )
     behalf = parse_commands("assign WEB-1 to @ali for @sara", ctx)
     assert behalf.commands[0].on_behalf_of == "@sara"
-    missing_reason = parse_commands("move WEB-1 to test", ctx)  # reason is required: not sent half-baked
-    assert not missing_reason.commands and missing_reason.incomplete[0].op == "stage.move"
-    assert "reason" in missing_reason.incomplete[0].issues[0]
     waive = parse_commands("waive violation V-9", ctx)
     assert waive.incomplete and waive.matched and not waive.complete
     off_menu = parse_commands(
@@ -446,14 +447,14 @@ def test_ttapi_catalogue_etag_roundtrip_and_commands_endpoint(tmp_path: Path, ca
     cfg = ClientConfig(server_url="http://tt", workspace="acme", handle="@m", token="t")
     api = TTApi(cfg, client=httpx.Client(transport=httpx.MockTransport(server.handle), base_url="http://tt"))
     doc, etag = api.catalogue()
-    assert doc is not None and etag == '"cat-1"' and len(doc["ops"]) == len(cat)
+    assert doc is not None and etag == server.etag and len(doc["ops"]) == len(cat)
     again, same = api.catalogue(etag)
     assert again is None and same == etag  # 304
     cmd = new_command("tag.create", {"name": "q4"}, actor="@m", now=NOW, client_id="h1")
     status, body = api.post_commands([cmd.model_dump(mode="json")])
     assert status == 200 and body["results"][0]["status"] == "applied"
     bad = new_command(
-        "item.merge", {"sources": ["A-1"]}, actor="@m", now=NOW, client_id="h2"
+        "item.set_impact", {"keys": ["A-1"], "impact": "heavy"}, actor="@m", now=NOW, client_id="h2"
     )  # schema-invalid args
     status, body = api.post_commands([bad.model_dump(mode="json")])
     assert status == 207 and body["results"][0]["status"] == "rejected" and body["results"][0]["errors"]

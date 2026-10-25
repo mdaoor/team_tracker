@@ -32,7 +32,7 @@ class FakeServer:
     team_activities: list[dict[str, Any]] = field(default_factory=list)
     pack: dict[str, Any] | None = None
     workspace: str = "acme"
-    etag: str = '"cat-1"'
+    etag: str = ""
 
     def __post_init__(self) -> None:
         self.applied_log: ServerLog = []
@@ -42,6 +42,7 @@ class FakeServer:
         self.state: dict[str, Any] = {"tags": [], "teams": [], "commands": []}
         self._done: dict[str, dict[str, Any]] = {}
         self.offline = False
+        self.etag = self.etag or self.catalogue_obj.etag or '"cat-1"'
 
     # --------------------------------------------------------------- command semantics
     def _preview(self, op: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -92,11 +93,9 @@ class FakeServer:
         if op in self.rejects:
             return self._reject(cid, [{"pointer": "", "code": "forbidden", "message": self.rejects[op]}])
         if cmd.get("preview_only"):
-            if not meta_op.preview:
-                return self._reject(
-                    cid, [{"pointer": "", "code": "no_preview", "message": f"{op} has no preview"}]
-                )
-            self.previews.append(cmd)
+            self.previews.append(
+                cmd
+            )  # the real server answers a generic preview for ops without a bespoke one
             return {
                 "client_id": cid,
                 "status": "previewed",

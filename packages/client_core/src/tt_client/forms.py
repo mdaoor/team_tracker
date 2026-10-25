@@ -26,7 +26,7 @@ _NAME_HINTS = {
     "person": "person", "manager": "person", "lead": "person", "owner": "person", "assignee": "person",
     "members": "person", "reviewer": "person",
     "project": "project", "team": "team",
-    "key": "item", "keys": "item", "parent": "item",
+    "key": "item", "keys": "item", "parent": "item", "item": "item",
 }  # fmt: skip
 
 
@@ -91,6 +91,12 @@ def _picker_for(name: str, prop: dict[str, Any], op: str = "") -> str | None:
         return None
     if name == "key" and op and not op.startswith("item."):
         return None  # project.create's `key` is a new project key, not an item
+    if name in ("from", "to", "sources", "target") and not op.startswith("item."):
+        return None
+    if name in ("from", "to", "sources", "target"):
+        return "item"
+    if name == "item" and not op.startswith(("risk.", "item.")):
+        return None
     return _NAME_HINTS.get(name)
 
 
@@ -181,8 +187,9 @@ def fields_spec(meta: OpMeta, pack: ContextPack | None = None) -> dict[str, Any]
 _EMPTY: tuple[Any, ...] = (None, "", [], {})
 
 
-def _split(text: str) -> list[str]:
-    return [p for p in re.split(r"[,\s]+", text.strip()) if p]
+def _split(text: str, *, words: bool = True) -> list[str]:
+    """Pickers (handles, keys) split on commas and spaces; free-text lists (titles, tags) on commas only."""
+    return [p.strip() for p in re.split(r"[,\s]+" if words else r",", text.strip()) if p.strip()]
 
 
 def _scalar(spec: FieldSpec, raw: Any, actor: str) -> Any:
@@ -196,7 +203,12 @@ def _scalar(spec: FieldSpec, raw: Any, actor: str) -> Any:
     if spec.kind == "boolean":
         return text.lower() in ("1", "true", "yes", "y", "on")
     if spec.kind == "json":
-        return json.loads(text)
+        try:
+            return json.loads(text)
+        except ValueError:
+            if spec.name == "choice":  # review.resolve: a bare word means {"choice": word}
+                return {"choice": text}
+            raise
     if spec.picker == "person":
         if text.lower() in ("me", "i", "myself"):
             return actor
@@ -223,7 +235,7 @@ def coerce(
                 parts = (
                     raw
                     if isinstance(raw, list)
-                    else _split(str(raw))
+                    else _split(str(raw), words=bool(f.picker))
                     if f.kind != "json"
                     else json.loads(str(raw))
                 )

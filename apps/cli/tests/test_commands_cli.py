@@ -162,10 +162,10 @@ def test_cmd_manual_with_args_and_offline_validation(home: Path, server: FakeSer
     assert "✓ team.create" in out
     args = server.state["commands"][-1]["args"]
     assert args["members"] == ["@sara", "@ali"] and args["lead"] == "@mahmoud"
-    assert "needs: name, kind" in tt("cmd", "team.create", code=2)
+    assert "needs: name" in tt("cmd", "team.create", code=2)
     assert "unknown op" in tt("cmd", "team.explode", code=2)
     assert "invalid arguments" in tt(
-        "cmd", "item.set_weight", "--arg", "key=WEB-1", "--arg", "weight=heavy", code=2
+        "cmd", "item.set_impact", "--arg", "keys=WEB-1", "--arg", "impact=heavy", code=2
     )
 
 
@@ -203,7 +203,7 @@ def test_approve_waive_queue_and_team_now(home: Path, server: FakeServer) -> Non
     assert "✓ approval.decide" in tt("approve", "AP-12", "-c", "ok", "--yes")
     assert server.state["commands"][-1]["args"] == {
         "approval": "AP-12",
-        "decision": "approve",
+        "decision": "approved",
         "comment": "ok",
     }
     assert "reason is required" in tt("waive", "V-9", code=2)
@@ -247,8 +247,8 @@ def test_gateway_fallback_is_validated_against_the_catalogue(
                 {"op": "tag.create", "args": {"name": "q4"}},
                 {"op": "db.drop_everything", "args": {}},  # not in the catalogue: must be dropped
                 {
-                    "op": "item.set_weight",
-                    "args": {"key": "WEB-1", "weight": "heavy"},
+                    "op": "item.set_impact",
+                    "args": {"keys": ["WEB-1"], "impact": "heavy"},
                 },  # schema-invalid: dropped
             ], ["model note"]
 
@@ -256,7 +256,7 @@ def test_gateway_fallback_is_validated_against_the_catalogue(
     tt("role", "manager")
     out = tt("do", "make a q4 tag please", "--yes")
     assert (
-        "✓ tag.create" in out and "dropped 'db.drop_everything'" in out and "dropped item.set_weight" in out
+        "✓ tag.create" in out and "dropped 'db.drop_everything'" in out and "dropped item.set_impact" in out
     )
     assert [c["op"] for c in server.state["commands"]] == ["tag.create"]
 

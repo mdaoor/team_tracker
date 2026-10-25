@@ -136,6 +136,10 @@ def _picker(name: str, prop: dict[str, Any], op: str = "") -> str | None:
         return None
     if name == "key" and op and not op.startswith("item."):
         return None  # e.g. project.create's new project key
+    if name in ("from", "to", "sources", "target"):
+        return "item" if op.startswith("item.") else None
+    if name == "item":
+        return "item" if op.startswith(("risk.", "item.")) else None
     return PICKER_NAMES.get(name)
 
 

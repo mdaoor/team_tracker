@@ -18,6 +18,23 @@ from jsonschema import Draft202012Validator
 REFRESH_SECONDS = 15 * 60
 
 
+def simplify(node: Any, defs: dict[str, Any]) -> Any:
+    if isinstance(node, dict):
+        if "$ref" in node:
+            target = defs.get(str(node["$ref"]).rsplit("/", 1)[-1], {})
+            node = {**target, **{k: v for k, v in node.items() if k != "$ref"}}
+        if "anyOf" in node:
+            branches = [b for b in node["anyOf"] if not (isinstance(b, dict) and b.get("type") == "null")]
+            rest = {k: v for k, v in node.items() if k != "anyOf"}
+            if len(branches) == 1:
+                return simplify({**branches[0], **rest}, defs)
+            return {**rest, "anyOf": [simplify(b, defs) for b in branches]}
+        return {k: simplify(v, defs) for k, v in node.items() if k != "$defs"}
+    if isinstance(node, list):
+        return [simplify(v, defs) for v in node]
+    return node
+
+
 @dataclass(frozen=True)
 class OpMeta:
     op: str
@@ -28,6 +45,9 @@ class OpMeta:
     destructive: bool
     args_schema: dict[str, Any]
     example: dict[str, Any] = field(default_factory=dict)
+    modes: tuple[
+        str, ...
+    ] = ()  # role modes the server suggests (informational; roles.yaml is the client lens)
 
     @classmethod
     def from_doc(cls, d: dict[str, Any]) -> OpMeta:
@@ -40,6 +60,7 @@ class OpMeta:
             destructive=bool(d.get("destructive", False)),
             args_schema=dict(d.get("args_schema") or {"type": "object"}),
             example=dict(d.get("example") or {}),
+            modes=tuple(d.get("modes") or ()),
         )
 
     def to_doc(self) -> dict[str, Any]:
@@ -52,11 +73,15 @@ class OpMeta:
             "destructive": self.destructive,
             "args_schema": self.args_schema,
             "example": self.example,
+            "modes": list(self.modes),
         }
 
     @property
     def properties(self) -> dict[str, Any]:
-        return dict(self.args_schema.get("properties", {}))
+        """Properties with `$ref` inlined and `anyOf [X, null]` collapsed to X (pydantic-style schemas), so forms and the
+        gateway see plain `type` / `enum` / `format` nodes. Validation still uses the untouched `args_schema`."""
+        defs = self.args_schema.get("$defs", {})
+        return {k: simplify(v, defs) for k, v in self.args_schema.get("properties", {}).items()}
 
     @property
     def required(self) -> list[str]:
