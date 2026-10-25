@@ -23,6 +23,8 @@ from tt_server.domain.errors import Invalid, NotFound
 
 @dataclass
 class MergePlan:
+    """The computed outcome of merging work items: sources, target (or a new item) and affected row counts."""
+
     sources: list[m.WorkItem]
     target: m.WorkItem | None  # None = a new item will be created
     new_title: str | None

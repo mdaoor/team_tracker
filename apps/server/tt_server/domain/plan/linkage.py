@@ -25,11 +25,14 @@ TRIGRAM_MIN = Decimal("0.5")
 
 @dataclass(frozen=True)
 class Candidate:
+    """A work item proposed for linking, with its match score."""
+
     item: m.WorkItem
     score: float
 
 
 async def deliverables(session: AsyncSession, project_id: str) -> list[m.WorkItem]:
+    """List the deliverable-typed work items of a project."""
     return list(
         (
             await session.scalars(
@@ -218,6 +221,7 @@ items_hook_registered = False
 
 
 def register() -> None:
+    """Install the state-change hook that keeps plan linkage current (idempotent)."""
     global items_hook_registered
 
     if not items_hook_registered:

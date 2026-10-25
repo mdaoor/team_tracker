@@ -18,6 +18,7 @@ from tt_server.domain.overlay import review
 
 
 async def role_context(session: AsyncSession, ws: m.Workspace, person_id: str) -> dict[str, Any]:
+    """Describe the person's role in the workspace: visible modes, managed teams and projects."""
     acl = await load_context(session, ws.id, person_id)
     modes = await modes_for(session, acl)
     managing = len(modes) > 1

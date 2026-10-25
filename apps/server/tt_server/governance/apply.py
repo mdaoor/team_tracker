@@ -40,6 +40,8 @@ def parse_duration(text: str | None) -> timedelta:
 
 @dataclass
 class Applied:
+    """Tally of what applying evaluation results did: violations opened and resolved, notifications, actions."""
+
     opened: list[m.Violation] = field(default_factory=list)
     resolved: list[m.Violation] = field(default_factory=list)
     pending: int = 0  # matches still inside their grace period

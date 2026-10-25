@@ -117,6 +117,7 @@ async def system_person(session: AsyncSession) -> m.Person:
 
 
 def zone(name: str) -> ZoneInfo:
+    """Resolve an IANA time-zone name, falling back to UTC for unknown or malformed names."""
     try:
         return ZoneInfo(name)
     except (ZoneInfoNotFoundError, ValueError):
@@ -124,7 +125,7 @@ def zone(name: str) -> ZoneInfo:
 
 
 def aware(dt: datetime) -> datetime:
-
+    """Return the datetime unchanged if tz-aware, otherwise interpret it as UTC."""
     return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 

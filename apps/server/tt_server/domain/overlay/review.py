@@ -556,6 +556,7 @@ async def _apply_low_confidence(
 
 
 def func_lower(col: Any) -> Any:
+    """SQL lower() of a column, for case-insensitive comparisons."""
     from sqlalchemy import func
 
     return func.lower(col)

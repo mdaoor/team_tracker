@@ -52,6 +52,7 @@ async def purge_all(factory: Any) -> int:
 async def export_person(
     session: AsyncSession, ws: m.Workspace, person_id: str, *, include_private: bool
 ) -> dict[str, Any]:
+    """Build the data-subject export of a person; private data only when explicitly included."""
     person = await session.get(m.Person, person_id)
     member = await session.scalar(
         select(m.WorkspaceMember).where(
@@ -174,6 +175,7 @@ async def export_person(
 
 
 async def erase_person(uow: UnitOfWork, ws: m.Workspace, person_id: str, *, actor_id: str) -> dict[str, int]:
+    """Erase or anonymise a person's personal data, returning counts per table, and audit it."""
     s = uow.session
     person = await s.get(m.Person, person_id)
     member = await s.scalar(

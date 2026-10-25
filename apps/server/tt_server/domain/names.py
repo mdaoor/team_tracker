@@ -18,6 +18,8 @@ _TYPES = ("person", "team", "work_item", "project", "product", "policy", "rule")
 
 
 class Names:
+    """Cache mapping (kind, id) to display names so a payload can be rendered with few lookups."""
+
     def __init__(self) -> None:
         self._m: dict[tuple[str, str], str] = {}
 

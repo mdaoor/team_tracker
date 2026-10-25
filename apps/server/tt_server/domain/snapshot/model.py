@@ -14,12 +14,16 @@ class _M(BaseModel):
 
 
 class Meta(_M):
+    # Provenance block of a snapshot: who it was built for and how.
+
     viewer: str
     scope_label: str
     generated_for: str
 
 
 class Range(_M):
+    # The inclusive date range a snapshot covers.
+
     from_: str = Field(alias="from")
     to: str
 
@@ -27,17 +31,23 @@ class Range(_M):
 
 
 class Person(_M):
+    # A person as seen in a snapshot.
+
     handle: str
     name: str
     team: str | None
 
 
 class Product(_M):
+    # A product as seen in a snapshot.
+
     key: str
     name: str
 
 
 class Project(_M):
+    # A project as seen in a snapshot.
+
     key: str
     name: str
     product: str | None
@@ -53,12 +63,16 @@ class Project(_M):
 
 
 class Epic(_M):
+    # An epic as seen in a snapshot.
+
     key: str
     title: str
     project: str
 
 
 class Milestone(_M):
+    # A plan milestone with its computed status.
+
     name: str
     project: str
     due: str
@@ -70,6 +84,8 @@ class Milestone(_M):
 
 
 class Phase(_M):
+    # A plan phase with planned dates.
+
     key: str
     title: str
     project: str
@@ -81,6 +97,8 @@ class Phase(_M):
 
 
 class Deliverable(_M):
+    # A plan deliverable with owner and status.
+
     key: str
     title: str
     project: str
@@ -100,6 +118,8 @@ class Deliverable(_M):
 
 
 class Risk(_M):
+    # A risk with probability and impact scores.
+
     key: str
     title: str
     project: str
@@ -109,6 +129,8 @@ class Risk(_M):
 
 
 class Item(_M):
+    # A work item as seen in a snapshot.
+
     key: str
     title: str
     project: str
@@ -134,6 +156,8 @@ class Item(_M):
 
 
 class Violation(_M):
+    # An open policy violation as seen in a snapshot.
+
     policy: str
     category: str
     severity: str
@@ -145,6 +169,8 @@ class Violation(_M):
 
 
 class Habit(_M):
+    # A computed habit rate and trend for a person or team.
+
     subject: str
     key: str
     polarity: str
@@ -153,6 +179,8 @@ class Habit(_M):
 
 
 class Now(_M):
+    # What a person is working on right now.
+
     person: str
     item: str
     title: str
@@ -162,12 +190,16 @@ class Now(_M):
 
 
 class ProcessInfo(_M):
+    # A process definition with its stages and expected stage durations.
+
     key: str
     stages: list[str]
     stage_expected_days: dict[str, int]
 
 
 class Snapshot(_M):
+    # The top-level snapshot document, versioned by SCHEMA_VERSION.
+
     schema_version: int = SCHEMA_VERSION
     meta: Meta
     as_of: str
@@ -193,4 +225,5 @@ class Snapshot(_M):
 
 
 def json_schema() -> dict[str, Any]:
+    """JSON Schema of the snapshot document (by alias), published for consumers."""
     return Snapshot.model_json_schema(by_alias=True)

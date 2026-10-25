@@ -38,6 +38,7 @@ OPEN_VIOLATION = (ViolationStatus.OPEN, ViolationStatus.ACKNOWLEDGED)
 
 
 def parse_scope(scope: str) -> tuple[str, str]:
+    """Split a 'kind:ref' scope string, rejecting unknown kinds."""
     kind, _, ref = scope.partition(":")
     if kind not in {"workspace", "product", "project", "team", "person"}:
         raise Invalid("invalid_scope", f"unknown scope {scope!r}", pointer="/scope")
@@ -112,6 +113,7 @@ async def assemble(
     viewer: str,
     scheme_name: str = "default",
 ) -> dict[str, Any]:
+    """Build the Snapshot for a scope and window: the denormalised, ACL-filtered view that decks and LLMs read."""
     s = qc.session
     kind, ref = parse_scope(scope)
     scope_f, label = await _scope_filter(qc, kind, ref or ws.slug)

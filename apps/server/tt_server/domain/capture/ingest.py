@@ -59,6 +59,8 @@ RECENCY_DAYS = 7
 
 @dataclass
 class Ctx:
+    """Per-message processing context: unit of work, workspace, message, actor and subject, with emit helpers."""
+
     uow: UnitOfWork
     ws: m.Workspace
     msg: ClientMessage
@@ -155,6 +157,7 @@ def dev_project_key(ws: m.Workspace) -> str:
 
 
 def is_dev_project(project: m.Project) -> bool:
+    """True for the per-workspace development project flagged in its settings."""
     return bool((project.settings or {}).get("development"))
 
 
@@ -343,6 +346,7 @@ async def add_review(
     confidence: float | None = None,
     target_type: TargetType = TargetType.WORK_ITEM,
 ) -> None:
+    """Queue a low-confidence suggestion for human review instead of applying it."""
     row = m.ReviewItem(
         id=new_id(),
         workspace_id=ctx.ws.id,
@@ -508,6 +512,7 @@ def _add_evidence(
 
 
 async def apply_action(ctx: Ctx, item: m.WorkItem, created: bool) -> m.Activity | None:
+    """Apply the message's lifecycle action (start, pause, done) to the item and its activities."""
     msg, action = ctx.msg, ctx.msg.action
     activity: m.Activity | None = None
     if action == ClientAction.START:
@@ -676,6 +681,7 @@ async def _resolve_ref(ctx: Ctx, ref: ClientTaskRef, project_id: str) -> m.WorkI
 
 
 async def apply_hints(ctx: Ctx, item: m.WorkItem, project: m.Project) -> None:
+    """Apply optional hints (estimate, due date, labels) to the item, queueing low-confidence ones for review."""
     msg, session = ctx.msg, ctx.session
     changed: list[str] = []
 
@@ -935,6 +941,8 @@ async def apply_hints(ctx: Ctx, item: m.WorkItem, project: m.Project) -> None:
 
 @dataclass
 class MessageResult:
+    """Outcome of ingesting one client message: status, item, warnings and review items."""
+
     client_id: str
     status: str
     item: dict[str, Any] | None = None

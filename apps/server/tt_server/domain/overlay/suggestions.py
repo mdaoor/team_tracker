@@ -33,6 +33,8 @@ MIN_CONFIDENCE = 0.5  # below this a suggestion is not worth a button
 
 @dataclass
 class RunSummary:
+    """Counters and errors of one suggestion run."""
+
     attempted: int = 0
     written: int = 0
     skipped: int = 0

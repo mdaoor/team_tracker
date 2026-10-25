@@ -32,6 +32,8 @@ W, P, PR, PE = TargetType.WORK_ITEM, TargetType.PROJECT, TargetType.PRODUCT, Tar
 
 @dataclass(frozen=True)
 class BuiltinDim:
+    """Definition of a built-in dimension that mirrors a native field into the overlay."""
+
     key: str
     name: str
     shape: ValueTypeShape

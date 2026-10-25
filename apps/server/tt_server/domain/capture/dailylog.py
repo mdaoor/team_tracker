@@ -17,6 +17,7 @@ from tt_server.domain.errors import NotFound
 
 
 def to_dict(row: m.DailyLog) -> dict[str, Any]:
+    """Serialise a daily log row to its API dict (ISO date, status, summary and totals)."""
     return {
         "id": row.id,
         "person_id": row.person_id,
@@ -31,6 +32,7 @@ def to_dict(row: m.DailyLog) -> dict[str, Any]:
 
 
 async def get_for(uow: UnitOfWork, ws_id: str, log_id: str) -> m.DailyLog:
+    """Load a daily log of the workspace or raise NotFound, so other workspaces' logs stay invisible."""
     row = await uow.session.scalar(
         select(m.DailyLog).where(m.DailyLog.id == log_id, m.DailyLog.workspace_id == ws_id)
     )
@@ -146,6 +148,7 @@ async def build_for_workspace(
 
 
 async def confirm(uow: UnitOfWork, ws: m.Workspace, log: m.DailyLog, actor_id: str) -> None:
+    """Mark a draft daily log confirmed by its owner (idempotent) and emit the confirmation event."""
     if log.status == DailyLogStatus.DRAFT:
         log.status = DailyLogStatus.CONFIRMED
     emit(
@@ -160,6 +163,7 @@ async def confirm(uow: UnitOfWork, ws: m.Workspace, log: m.DailyLog, actor_id: s
 
 
 async def review(uow: UnitOfWork, ws: m.Workspace, log: m.DailyLog, reviewer_id: str) -> None:
+    """Record a manager's review of a daily log (reviewer and timestamp) and emit the review event."""
     log.status, log.reviewed_by, log.reviewed_at = DailyLogStatus.REVIEWED, reviewer_id, utcnow()
     emit(
         uow,

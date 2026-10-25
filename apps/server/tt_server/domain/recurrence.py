@@ -28,6 +28,7 @@ MAX_CATCH_UP = (
 
 
 def parse(rule: str, tz: str, start: datetime) -> rrule:
+    """Parse an RRULE in the given time zone, raising Invalid for unknown zones or rules."""
     try:
         zone = ZoneInfo(tz)
     except (ZoneInfoNotFoundError, ValueError) as exc:
@@ -46,6 +47,7 @@ def parse(rule: str, tz: str, start: datetime) -> rrule:
 
 
 def occurrences_after(rule: str, tz: str, start: datetime, after: datetime, n: int) -> list[datetime]:
+    """Next n occurrences of a rule strictly after the given moment."""
     r = parse(rule, tz, start)
     out: list[datetime] = []
     cur = after.astimezone(ZoneInfo(tz))
@@ -59,6 +61,7 @@ def occurrences_after(rule: str, tz: str, start: datetime, after: datetime, n: i
 
 
 def first_run(rule: str, tz: str, start: datetime) -> datetime | None:
+    """The first occurrence of a rule at or after its start, or None if it never fires."""
     got = occurrences_after(rule, tz, start, start - timedelta(seconds=1), 1)
     return got[0] if got else None
 
@@ -125,6 +128,7 @@ async def _assignee(s: AsyncSession, ws_id: str, rule: m.RecurrenceRule, tpl: m.
 
 
 async def run_due(factory: Any, now: datetime | None = None) -> int:
+    """Materialise every recurrence rule whose next run is due; returns the number of items created."""
     now = now or utcnow()
     async with factory() as s:
         ids = (
@@ -151,4 +155,5 @@ async def run_due(factory: Any, now: datetime | None = None) -> int:
 
 
 def due_date(d: date) -> str:
+    """Format a due date as an ISO string."""
     return d.isoformat()

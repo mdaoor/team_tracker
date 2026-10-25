@@ -36,6 +36,8 @@ from tt_server.domain.common import emit, system_person
 
 @dataclass
 class Counts:
+    """Occurrences, opportunities and linked evidence of one habit for one subject."""
+
     occ: int = 0
     opp: int = 0
     linked: list[str] = field(default_factory=list)
@@ -87,6 +89,7 @@ DEFINITIONS: list[dict[str, Any]] = [
 
 
 async def ensure_definitions(s: AsyncSession) -> None:
+    """Upsert the built-in habit definitions into the global (workspace-less) rows."""
     have = {
         r.key: r
         for r in (
@@ -249,6 +252,7 @@ async def d_evidence_consistency(
 
 
 async def d_estimate_drift(s: AsyncSession, ws_id: str, start: datetime, end: datetime) -> dict[str, Counts]:
+    """Detector: finished items whose actuals drift from their estimate."""
     its = await _items_by_person(
         s,
         ws_id,
@@ -286,6 +290,7 @@ async def d_estimate_drift(s: AsyncSession, ws_id: str, start: datetime, end: da
 async def d_context_switching(
     s: AsyncSession, ws_id: str, start: datetime, end: datetime
 ) -> dict[str, Counts]:
+    """Detector: days on which a person touched too many items."""
     rows = (
         await s.execute(
             select(
@@ -307,6 +312,7 @@ async def d_context_switching(
 
 
 async def d_long_sessions(s: AsyncSession, ws_id: str, start: datetime, end: datetime) -> dict[str, Counts]:
+    """Detector: activities that ran past the long-session threshold."""
     out: dict[str, Counts] = defaultdict(Counts)
     for a in (
         await s.scalars(
@@ -326,6 +332,7 @@ async def d_long_sessions(s: AsyncSession, ws_id: str, start: datetime, end: dat
 
 
 async def d_log_consistency(s: AsyncSession, ws_id: str, start: datetime, end: datetime) -> dict[str, Counts]:
+    """Detector: weekdays with a daily log versus weekdays in the window."""
     days = sum(1 for k in range((_d(end) - _d(start)).days) if (_d(start) + timedelta(days=k)).weekday() < 5)
     rows = (
         await s.execute(
@@ -343,6 +350,7 @@ async def d_log_consistency(s: AsyncSession, ws_id: str, start: datetime, end: d
 
 
 async def d_early_delivery(s: AsyncSession, ws_id: str, start: datetime, end: datetime) -> dict[str, Counts]:
+    """Detector: items finished before their due date."""
     its = await _items_by_person(
         s,
         ws_id,
@@ -361,6 +369,7 @@ async def d_early_delivery(s: AsyncSession, ws_id: str, start: datetime, end: da
 async def d_unassigned_inbox_age(
     s: AsyncSession, ws_id: str, start: datetime, end: datetime
 ) -> dict[str, Counts]:
+    """Detector: how long reported items wait in the inbox unassigned."""
     rows = (
         await s.execute(
             select(m.WorkItem.reporter_id, m.WorkItem.created_at)
@@ -380,6 +389,7 @@ async def d_unassigned_inbox_age(
 
 
 async def d_rework(s: AsyncSession, ws_id: str, start: datetime, end: datetime) -> dict[str, Counts]:
+    """Detector: items that moved back to an earlier stage."""
     rows = (
         await s.execute(
             select(m.WorkItem.id, m.WorkItem.assignee_id, m.Stage.position, m.StagePlacement.entered_at)
@@ -451,6 +461,7 @@ async def d_learning_consistency(
 
 
 def detectors() -> dict[str, Detector]:
+    """Registry of detector functions keyed by habit definition key."""
     return {
         "late_finish": _violation_detector("overrun", _opp_done),
         "no_estimates": _violation_detector("no_estimate_weighted", _opp_weighted),
@@ -504,12 +515,15 @@ def _trend(polarity: Polarity, now_rate: Decimal, prev_rate: Decimal | None) -> 
 
 
 def window_days(w: str) -> int:
+    """Convert a window such as '4w' or '30d' to a number of days."""
     n, unit = int(w[:-1]), w[-1]
     return n * {"d": 1, "w": 7}[unit]
 
 
 @dataclass
 class HabitStats:
+    """Counters of a habit recompute: rows upserted, flagged and removed."""
+
     upserted: int = 0
     flagged: int = 0
     removed: int = 0

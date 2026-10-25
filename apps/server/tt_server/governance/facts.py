@@ -32,6 +32,8 @@ def window_start(window: str, now: datetime, tz: str = "UTC") -> datetime:
 
 @dataclass
 class Facts:
+    """Pre-aggregated figures (evidence, hours, reopens) the condition templates read."""
+
     now: datetime
     evidence_last: dict[str, datetime] = field(default_factory=dict)
     evidence_count: dict[tuple[str, str | None], int] = field(default_factory=dict)
@@ -248,6 +250,7 @@ async def _missing_dimensions(
 
 
 def date_ts(d: date | datetime | None) -> datetime | None:
+    """Normalise a date or datetime to an aware datetime; None stays None."""
     if d is None:
         return None
     if isinstance(d, datetime):
