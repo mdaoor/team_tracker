@@ -4,6 +4,7 @@
 event_types:
   # tenancy
   - workspace.created
+  - workspace.settings_changed
   - member.added
   - member.updated
   - member.removed
@@ -93,7 +94,9 @@ event_types:
   - review.created
   - review.resolved
   - review.updated
+  - review.reopened
   - glossary.learned
+  - glossary.unlearned
   - translator_rule.*
   # governance
   - policy.*

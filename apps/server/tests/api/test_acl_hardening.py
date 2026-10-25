@@ -119,15 +119,48 @@ async def test_every_response_carries_the_security_headers(api: Api) -> None:
     assert e.status_code == 404 and e.headers["x-content-type-options"] == "nosniff"
 
 
-async def test_html_shells_get_a_csp_without_remote_origins(api: Api) -> None:
+async def test_html_shells_get_a_nonce_csp_without_remote_origins(api: Api) -> None:
     await api.call("POST", "/presentations", json={"title": "D", "slides": [{"kind": "kpis"}]})
     pid = (await api.call("GET", "/presentations")).json()["data"][0]["id"]
     r = await api.c.get(f"/p/acme/{pid}", headers={"X-Debug-Actor": "@mahmoud"})
     assert r.status_code in (200, 404, 503)
     if r.status_code == 200:
         csp = r.headers["content-security-policy"]
-        assert "frame-ancestors 'none'" in csp and "default-src 'none'" in csp
-        assert "http://" not in csp and "https://" not in csp and "*" not in csp
+        assert "default-src 'none'" in csp and "http://" not in csp and "https://" not in csp and "*" not in csp
+        # R3.7: scripts need the per-response nonce; no 'unsafe-inline' for script-src
+        script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
+        assert "'unsafe-inline'" not in script_src and "'nonce-" in script_src
+        nonce = script_src.split("'nonce-")[1].split("'")[0]
+        assert f'<script nonce="{nonce}"' in r.text and "<script>" not in r.text
+        # R1.2: the same-origin builder may frame its own preview, nobody else
+        assert "frame-ancestors 'self'" in csp and r.headers["x-frame-options"] == "SAMEORIGIN"
+
+
+async def test_each_shell_response_gets_a_fresh_nonce(api: Api) -> None:
+    await api.call("POST", "/presentations", json={"title": "D", "slides": [{"kind": "kpis"}]})
+    pid = (await api.call("GET", "/presentations")).json()["data"][0]["id"]
+    h = {"X-Debug-Actor": "@mahmoud"}
+    a = await api.c.get(f"/p/acme/{pid}", headers=h)
+    b = await api.c.get(f"/p/acme/{pid}", headers=h)
+    if a.status_code == 200:
+        assert a.headers["content-security-policy"] != b.headers["content-security-policy"]
+
+
+async def test_share_link_shell_cannot_be_framed(api: Api) -> None:
+    r = await api.c.get("/p/t/not-a-token")
+    if r.status_code == 200:
+        assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
+        assert r.headers["x-frame-options"] == "DENY"
+
+
+def test_bundle_has_only_tag_script_openers() -> None:
+    from tt_server.api.routers.presentations import BUNDLE
+
+    if BUNDLE.exists():
+        html = BUNDLE.read_text()
+        import re
+
+        assert html.count("<script") == len(re.findall(r"<script(?=[\s>])", html))
 
 
 async def test_metrics_expose_red_by_route_template_and_business_gauges(api: Api) -> None:

@@ -353,7 +353,7 @@ async def test_hints_for_stage_product_and_risk_are_applied_unconfirmed(sapi: Ap
         await sapi.call("GET", "/classifications", params={"target": key, "confirmed": "false"})
     ).json()["data"]
     assert {(c["dimension"], c["value"]) for c in unconf} == {("stage", "design"), ("product", "CUST")}
-    queue = (await sapi.call("GET", "/review-queue", as_="@nour")).json()["data"]
+    queue = (await sapi.call("GET", "/review-queue")).json()["data"]
     assert {r["kind"] for r in queue if r["item_key"] == key} >= {
         "unconfirmed_classification",
         "risk_mention",
@@ -402,7 +402,7 @@ async def test_optimistic_concurrency_and_conflict_event(sapi: Api, seed_sf: SF)
     assert ok.status_code == 200 and ok.headers["etag"] != etag
     stale = await sapi.c.patch(
         sapi.url(f"/items/{key}"),
-        headers={**h, "X-Debug-Actor": "@sara", "If-Match": etag},
+        headers={**h, "X-Debug-Actor": "@lina", "If-Match": etag},
         json={"description": "from manager B"},
     )
     assert stale.status_code == 409
@@ -413,7 +413,7 @@ async def test_optimistic_concurrency_and_conflict_event(sapi: Api, seed_sf: SF)
     ]
     retry = await sapi.c.patch(
         sapi.url(f"/items/{key}"),
-        headers={**h, "X-Debug-Actor": "@sara", "If-Match": err["details"]["etag"]},
+        headers={**h, "X-Debug-Actor": "@lina", "If-Match": err["details"]["etag"]},
         json={"description": "from manager B"},
     )
     assert retry.status_code == 200 and retry.json()["description"] == "from manager B"

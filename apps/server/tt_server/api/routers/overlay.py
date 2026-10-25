@@ -1237,6 +1237,26 @@ async def resolve_review(body: ResolveIn, actor: CurrentActor, uow: Uow) -> dict
     return out
 
 
+class RefIn(BaseModel):
+    ref: str
+
+
+@router.post("/review-queue/undo", tags=["review"], dependencies=[needs_review()])
+async def undo_review(body: RefIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    _begin(uow, actor)
+    out = await review.undo(uow, actor.ws, body.ref, actor_id=actor.person.id)
+    await uow.commit()
+    return out
+
+
+@router.post("/review-queue/unlearn", tags=["review"], dependencies=[needs_review()])
+async def unlearn_review(body: RefIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    _begin(uow, actor)
+    out = await review.unlearn(uow, actor.ws, body.ref, actor_id=actor.person.id)
+    await uow.commit()
+    return out
+
+
 class BulkReviewIn(BaseModel):
     refs: list[str]
     action: str = "ignore"

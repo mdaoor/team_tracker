@@ -736,3 +736,15 @@ ul.plain {
   vertical-align: middle;
   color: var(--s1);
 }
+
+/* review queue rows: a group of siblings, never an option wrapping controls (axe nested-interactive) */
+.rq-row .meta { color: var(--muted); font-size: 0.85em; white-space: nowrap; }
+.rq-row:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 1px; }
+.rq-hint { color: var(--muted); font-size: 0.85em; margin: 0.25rem 0; }
+
+dialog.confirm { position: fixed; inset: 0; margin: auto; z-index: 50; max-width: 28rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 8px 32px rgb(0 0 0 / 0.3); }
+.skeleton { position: relative; background: var(--surface-2); border-radius: 8px; overflow: hidden; }
+.skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.15), transparent); animation: sk 1.2s infinite; }
+@media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
+@keyframes sk { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.denied { padding: 2rem; max-width: 36rem; }

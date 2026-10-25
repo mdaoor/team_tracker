@@ -2,9 +2,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, w, type Row } from "../../api/http";
+import { useConfirm } from "../../components/Confirm";
 import { useToasts } from "../../components/Toasts";
+import { downloadPost } from "../../lib/download";
 import { Button, Empty, Field } from "../../components/ui";
-import { useList, useObj, useWs } from "../../lib/hooks";
+import { useList, useMe, useObj, useWs } from "../../lib/hooks";
 import { SLIDE_ICONS, SLIDE_LABELS } from "../../lib/slides";
 import { Templates } from "./Templates";
 
@@ -100,18 +102,14 @@ function PresentList() {
     onSuccess: done,
     onError: (e) => toasts.error(e),
   });
-  const downloadPack = async () => {
-    try {
-      const blob = await api.postBlob(w(ws, "/presentations:generation-pack"), { brief });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "tt-generation-pack.zip";
-      a.click();
-    } catch (e) {
-      toasts.error(e);
-    }
-  };
+  const downloadPack = () =>
+    downloadPost(
+      toasts,
+      w(ws, "/presentations:generation-pack"),
+      { brief },
+      "tt-generation-pack.zip",
+      "generation pack",
+    );
   return (
     <div className="present">
       <div className="row">
@@ -197,6 +195,8 @@ function Builder({ id }: { id: string }) {
   const qc = useQueryClient();
   const toasts = useToasts();
   const nav = useNavigate();
+  const { me, admin } = useMe();
+  const shareOn = !!me?.settings?.external_share;
   const deck = useObj(`/presentations/${id}`);
   const projects = useList("/projects");
   const products = useList("/products");
@@ -207,6 +207,7 @@ function Builder({ id }: { id: string }) {
   const [sel, setSel] = useState<string | null>(null);
   const [kind, setKind] = useState("kpis");
   const [rev, setRev] = useState(0);
+  const [previewLoaded, setPreviewLoaded] = useState("");
   const p = deck.data as Row | undefined;
   const slides = useMemo<Row[]>(() => p?.slides ?? [], [p]);
   const cur = slides.find((s) => s.id === sel) ?? slides[0];
@@ -238,11 +239,36 @@ function Builder({ id }: { id: string }) {
     [ids[i], ids[j]] = [ids[j], ids[i]];
     save.mutate({ path: `/presentations/${id}/slides:reorder`, body: { ids }, method: "put" });
   };
+  const confirm = useConfirm();
   const remove = useMutation({
     mutationFn: () => api.del(w(ws, `/presentations/${id}`)),
-    onSuccess: () => nav(".."),
+    onSuccess: () => {
+      const title = p?.title ?? "Presentation";
+      nav(`/w/${ws}/present`);
+      void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
+      toasts.push(`Deleted “${title}”`, {
+        undo: async () => {
+          try {
+            await api.post(w(ws, `/presentations/${id}:restore`), {});
+            void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
+            nav(`/w/${ws}/present/${id}`);
+          } catch (e) {
+            toasts.error(e);
+          }
+        },
+      });
+    },
     onError: (e) => toasts.error(e),
   });
+  const askDelete = async () => {
+    if (
+      await confirm({
+        title: `Delete “${p?.title ?? "this presentation"}”?`,
+        body: "Its share link stops working. You can undo for a few seconds.",
+      })
+    )
+      remove.mutate();
+  };
   const share = useMutation({
     mutationFn: (enabled: boolean) =>
       api.post<Row>(w(ws, `/presentations/${id}/share`), { enabled }),
@@ -252,18 +278,14 @@ function Builder({ id }: { id: string }) {
     ),
     onError: (e) => toasts.error(e),
   });
-  const download = async (format: string) => {
-    try {
-      const blob = await api.postBlob(w(ws, `/presentations/${id}/render?format=${format}`), {});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${p?.title ?? "presentation"}.${["png", "csv"].includes(format) ? "zip" : format}`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch (e) {
-      toasts.error(e);
-    }
-  };
+  const download = (format: string) =>
+    downloadPost(
+      toasts,
+      w(ws, `/presentations/${id}/render?format=${format}`),
+      {},
+      `${p?.title ?? "presentation"}.${["png", "csv"].includes(format) ? "zip" : format}`,
+      format.toUpperCase(),
+    );
 
   useEffect(() => {
     if (!sel && slides[0]) setSel(slides[0].id);
@@ -340,9 +362,28 @@ function Builder({ id }: { id: string }) {
           Visible to everyone in the workspace
         </label>
         <div className="row">
-          <Button onClick={() => share.mutate(!p.shared_externally)}>
+          <Button
+            onClick={() => share.mutate(!p.shared_externally)}
+            disabled={!shareOn && !p.shared_externally}
+            title={shareOn ? undefined : "External sharing is switched off for this workspace"}
+          >
             {p.shared_externally ? "Stop link sharing" : "Create read-only link"}
           </Button>
+          {!shareOn && !p.shared_externally && (
+            <small className="hint">
+              External sharing is off.{" "}
+              {admin ? (
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => void api.patch(w(ws, "/settings"), { external_share: true }).then(() => qc.invalidateQueries({ queryKey: [ws, "me"] }))}
+                >
+                  Turn it on
+                </button>
+              ) : (
+                "Ask a workspace admin to turn it on."
+              )}
+            </small>
+          )}
         </div>
         <h3>Present &amp; export</h3>
         <div className="row">
@@ -356,7 +397,7 @@ function Builder({ id }: { id: string }) {
           ))}
         </div>
         <div className="row">
-          <Button variant="ghost" onClick={() => remove.mutate()}>
+          <Button variant="ghost" onClick={() => void askDelete()}>
             Delete presentation
           </Button>
         </div>
@@ -452,17 +493,20 @@ function Builder({ id }: { id: string }) {
             <h2>
               {idx + 1}. {cur.title || SLIDE_LABELS[cur.kind]}
             </h2>
-            <iframe
-              key={`${rev}-${cur.id}`}
-              title="Slide preview"
-              src={`/p/${ws}/${id}?slide=${idx + 1}`}
-              style={{
-                width: "100%",
-                aspectRatio: "16/9",
-                border: "1px solid var(--line)",
-                borderRadius: 8,
-              }}
-            />
+            <div className={previewLoaded === `${rev}-${cur.id}` ? "" : "skeleton"} style={{ aspectRatio: "16/9" }}>
+              <iframe
+                key={`${rev}-${cur.id}`}
+                title="Slide preview"
+                src={`/p/${ws}/${id}?slide=${idx + 1}`}
+                onLoad={() => setPreviewLoaded(`${rev}-${cur.id}`)}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                }}
+              />
+            </div>
             <Field label="Slide title">
               <input
                 key={cur.id + "t"}

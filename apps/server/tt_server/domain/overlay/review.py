@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tt_schema.base import new_id
+from tt_schema.base import new_id, utcnow
 from tt_schema.enums import (
     AssignmentRole,
     EventSource,
@@ -27,6 +27,7 @@ from tt_server.domain.items import service as items
 from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import process as proc
 from tt_server.domain.overlay import propagation, risks
+from tt_server.domain.overlay.defaults import suggest_default
 from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, ensure_value
 from tt_server.domain.projects.service import item_type
 
@@ -39,12 +40,13 @@ KIND_ALIASES = {
 
 
 async def review_owner(session: AsyncSession, ws_id: str, item: m.WorkItem, project: m.Project) -> str | None:
-    """The one manager who sees this item's rows.
+    """The one manager who sees this item's rows (ADR-0006, amended by ADR-0042).
 
-    The assignee's primary line manager if they also manage the project, else the project owner. For private
-    Inbox projects (no managers) the line manager, else the workspace creator, so work always reaches someone.
+    The reporter's primary line manager first, so a line is never reviewed by the person who wrote it; then the project
+    owner, then another project manager; for an Inbox with no line manager, the workspace's first member so work always
+    reaches someone.
     """
-    person = item.assignee_id or item.reporter_id
+    person = item.reporter_id or item.assignee_id
     line = await session.scalar(
         select(m.ReportingLine.manager_id).where(
             m.ReportingLine.workspace_id == ws_id,
@@ -54,27 +56,33 @@ async def review_owner(session: AsyncSession, ws_id: str, item: m.WorkItem, proj
             m.ReportingLine.deleted_at.is_(None),
         )
     )
-    if project.kind.value == "inbox":
-        if line:
-            return line
-        return await session.scalar(
-            select(m.WorkspaceMember.person_id)
-            .where(m.WorkspaceMember.workspace_id == ws_id)
-            .order_by(m.WorkspaceMember.created_at, m.WorkspaceMember.id)
-            .limit(1)
-        )
-    managers = set(
-        (
+    if line and line != person:
+        return line
+    if project.kind.value != "inbox":
+        if project.owner_id != person:
+            return project.owner_id
+        others = (
             await session.scalars(
-                select(m.ProjectMember.person_id).where(
+                select(m.ProjectMember.person_id)
+                .where(
                     m.ProjectMember.project_id == project.id,
                     m.ProjectMember.role.in_([ProjectRole.OWNER, ProjectRole.MANAGER]),
+                    m.ProjectMember.person_id != person,
                 )
+                .order_by(m.ProjectMember.created_at)
             )
-        ).all()
+        ).first()
+        if others:
+            return others
+    if project.kind.value != "inbox":
+        return project.owner_id  # the reporter is the only manager there is: nobody else could review it
+    first = await session.scalar(
+        select(m.WorkspaceMember.person_id)
+        .where(m.WorkspaceMember.workspace_id == ws_id)
+        .order_by(m.WorkspaceMember.created_at, m.WorkspaceMember.id)
+        .limit(1)
     )
-    managers.add(project.owner_id)
-    return line if line in managers else project.owner_id
+    return first
 
 
 async def _owned_rows(session: AsyncSession, ws_id: str, actor_id: str) -> list[dict[str, Any]]:
@@ -103,6 +111,15 @@ async def _owned_rows(session: AsyncSession, ws_id: str, actor_id: str) -> list[
         )
     ).all()
     cache: dict[str, tuple[m.WorkItem, m.Project, str | None]] = {}
+    handles = dict(
+        (
+            await session.execute(
+                select(m.WorkspaceMember.person_id, m.WorkspaceMember.handle).where(
+                    m.WorkspaceMember.workspace_id == ws_id
+                )
+            )
+        ).all()
+    )
 
     async def ctx(item_id: str) -> tuple[m.WorkItem, m.Project, str | None] | None:
         if item_id not in cache:
@@ -119,15 +136,18 @@ async def _owned_rows(session: AsyncSession, ws_id: str, actor_id: str) -> list[
             continue
         c = await ctx(r.target_id)
         if c and c[2] == actor_id:
+            kind = KIND_ALIASES.get(r.kind, r.kind)
             rows.append(
                 {
                     "ref": f"review_item:{r.id}",
-                    "kind": KIND_ALIASES.get(r.kind, r.kind),
+                    "kind": kind,
                     "raw_kind": r.kind,
                     "item_key": c[0].key,
                     "item_title": c[0].title,
                     "project_key": c[1].key,
+                    "reporter": handles.get(c[0].reporter_id),
                     "suggestion": r.suggestion,
+                    "suggested": await suggest_default(session, ws_id, kind, c[0], r.suggestion or {}),
                     "confidence": float(r.confidence) if r.confidence is not None else None,
                     "created_at": r.created_at.isoformat(),
                 }
@@ -147,6 +167,8 @@ async def _owned_rows(session: AsyncSession, ws_id: str, actor_id: str) -> list[
                     "item_key": c[0].key,
                     "item_title": c[0].title,
                     "project_key": c[1].key,
+                    "reporter": handles.get(c[0].reporter_id),
+                    "suggested": {"choice": {"action": "confirm"}, "reason": "the suggested value", "confidence": float(cl.confidence or 0.5)},
                     "suggestion": {"dimension": dim.key if dim else None, "value": val.key if val else None},
                     "confidence": float(cl.confidence) if cl.confidence is not None else None,
                     "created_at": cl.created_at.isoformat(),
@@ -245,6 +267,8 @@ async def resolve(
     outcome = "ignored"
     if item is not None and not choice.get("ignore"):
         outcome = await _apply_choice(uow, ws, row, item, choice, actor_id)
+    else:
+        row.suggestion = {**(row.suggestion or {}), "_undo": {"kind": "reopen"}}
     row.status = "resolved"
     emit(
         uow,
@@ -257,7 +281,71 @@ async def resolve(
         source=EventSource.OVERLAY,
         correlation_id=uow.context.get("correlation_id"),
     )
-    return {"ref": ref, "resolved": outcome}
+    return {
+        "ref": ref,
+        "resolved": outcome,
+        "undoable": "_undo" in (row.suggestion or {}),
+        "learned": bool(((row.suggestion or {}).get("_undo") or {}).get("glossary_id")),
+    }
+
+
+async def undo(uow: UnitOfWork, ws: m.Workspace, ref: str, *, actor_id: str) -> dict[str, Any]:
+    """Reverse a resolve while the row's write is still the latest one (UX 9). Not every outcome can be reversed."""
+    s = uow.session
+    kind, row = await _load(uow, ws, ref)
+    uow.context["actor_id"] = actor_id
+    await authorise(uow, kind, row, actor_id)
+    if kind == "classification":
+        if not row.is_confirmed:
+            raise ApiError(409, "cannot_undo", "this row is not resolved")
+        row.is_confirmed, row.confirmed_by = False, None
+        emit(
+            uow, workspace_id=ws.id, actor_id=actor_id, entity_type=row.target_type, entity_id=row.target_id,
+            event_type="review.reopened", payload={"after": {"ref": ref}}, source=EventSource.OVERLAY,
+        )  # fmt: skip
+        return {"ref": ref, "reopened": True}
+    undo_info = (row.suggestion or {}).get("_undo")
+    if row.status != "resolved" or not undo_info:
+        raise ApiError(409, "cannot_undo", "this resolution cannot be undone; fix the item directly")
+    item = await s.get(m.WorkItem, row.target_id)
+    if undo_info["kind"] == "project" and item is not None and undo_info.get("project_id"):
+        back = await s.get(m.Project, undo_info["project_id"])
+        if back is None or back.workspace_id != ws.id:
+            raise ApiError(409, "cannot_undo", "the original project no longer exists")
+        await items.change_project(uow, ws, item, back, actor_id=actor_id)
+        if undo_info.get("glossary_id"):
+            entry = await s.get(m.GlossaryEntry, undo_info["glossary_id"])
+            if entry is not None:
+                entry.deleted_at = utcnow()
+    elif undo_info["kind"] == "assignment" and item is not None:
+        asg = await s.get(m.Assignment, undo_info["assignment_id"])
+        if asg is not None:
+            await s.delete(asg)
+        item.assignee_id = undo_info.get("assignee_id")
+    row.status = "open"
+    row.suggestion = {k: v for k, v in (row.suggestion or {}).items() if k != "_undo"}
+    emit(
+        uow, workspace_id=ws.id, actor_id=actor_id, entity_type=TargetType.WORK_ITEM, entity_id=row.target_id,
+        event_type="review.reopened", payload={"after": {"review_item_id": row.id}}, source=EventSource.OVERLAY,
+    )  # fmt: skip
+    return {"ref": ref, "reopened": True}
+
+
+async def unlearn(uow: UnitOfWork, ws: m.Workspace, ref: str, *, actor_id: str) -> dict[str, Any]:
+    """"Don't learn": drop the glossary phrase this resolve created, keeping the item where it was put."""
+    s = uow.session
+    kind, row = await _load(uow, ws, ref)
+    await authorise(uow, kind, row, actor_id)
+    gid = (((row.suggestion or {}).get("_undo") or {}).get("glossary_id")) if kind == "review_item" else None
+    entry = await s.get(m.GlossaryEntry, gid) if gid else None
+    if entry is None or entry.deleted_at is not None:
+        return {"ref": ref, "unlearned": False}
+    entry.deleted_at = utcnow()
+    emit(
+        uow, workspace_id=ws.id, actor_id=actor_id, entity_type=TargetType.WORK_ITEM, entity_id=row.target_id,
+        event_type="glossary.unlearned", payload={"after": {"phrase": entry.phrase}}, source=EventSource.OVERLAY,
+    )  # fmt: skip
+    return {"ref": ref, "unlearned": True}
 
 
 async def _apply_choice(
@@ -304,27 +392,33 @@ async def _apply_choice(
         return "acknowledged"
     if kind == "unclassified_project":
         project = await _project_by_key(uow, ws, str(choice.get("project", "")))
+        old = await s.get(m.Project, item.project_id)
+        undo: dict[str, Any] = {"kind": "project", "project_id": old.id if old else None, "glossary_id": None}
         await items.change_project(uow, ws, item, project, actor_id=actor_id)
         phrase = str(sug.get("phrase") or "").strip()
-        if phrase and not await s.scalar(
-            select(m.GlossaryEntry.id).where(
-                m.GlossaryEntry.workspace_id == ws.id,
-                m.GlossaryEntry.deleted_at.is_(None),
-                func_lower(m.GlossaryEntry.phrase) == phrase.lower(),
-            )
-        ):
-            s.add(
-                m.GlossaryEntry(
-                    id=new_id(),
-                    workspace_id=ws.id,
-                    project_id=project.id,
-                    phrase=phrase,
-                    resolves_to_type="project",
-                    resolves_to_id=project.id,
-                    source="learned",
-                    hits=1,
+        if (
+            phrase
+            and choice.get("learn", True)
+            and not await s.scalar(
+                select(m.GlossaryEntry.id).where(
+                    m.GlossaryEntry.workspace_id == ws.id,
+                    m.GlossaryEntry.deleted_at.is_(None),
+                    func_lower(m.GlossaryEntry.phrase) == phrase.lower(),
                 )
             )
+        ):
+            entry = m.GlossaryEntry(
+                id=new_id(),
+                workspace_id=ws.id,
+                project_id=project.id,
+                phrase=phrase,
+                resolves_to_type="project",
+                resolves_to_id=project.id,
+                source="learned",
+                hits=1,
+            )
+            s.add(entry)
+            undo["glossary_id"] = entry.id
             emit(
                 uow,
                 workspace_id=ws.id,
@@ -335,11 +429,14 @@ async def _apply_choice(
                 payload={"after": {"phrase": phrase, "project": project.key}},
                 source=EventSource.OVERLAY,
             )
+        row.suggestion = {**sug, "_undo": undo}
         return f"moved to {project.key}"
     if kind == "unknown_person":
         member = await _member(uow, ws, str(choice.get("handle", "")))
         role = AssignmentRole(sug.get("role") or choice.get("role") or "contributor")
-        s.add(m.Assignment(id=new_id(), work_item_id=item.id, person_id=member.person_id, role=role))
+        asg = m.Assignment(id=new_id(), work_item_id=item.id, person_id=member.person_id, role=role)
+        s.add(asg)
+        row.suggestion = {**sug, "_undo": {"kind": "assignment", "assignment_id": asg.id, "assignee_id": item.assignee_id}}
         if role == AssignmentRole.OWNER:
             item.assignee_id = member.person_id
         return f"assigned {member.handle}"

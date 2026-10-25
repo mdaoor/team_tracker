@@ -47,14 +47,12 @@ from tt_server.logging import configure_logging
 from tt_server.metrics import Metrics
 from tt_server.ratelimit import SlidingWindow, credential_key
 from tt_server.settings import Settings, get_settings
+from tt_server.csp import html_csp
 from tt_server.telemetry import configure_telemetry
 
 log = structlog.get_logger()
 
-HTML_CSP = (
-    "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-    "font-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-)
+HTML_CSP = html_csp()  # fallback only: shells set their own nonce-bearing policy
 
 
 def create_app(

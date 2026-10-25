@@ -17,6 +17,7 @@ from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import DailyLogStatus, InsightStatus, ScopeType, TargetType
 
+from tt_server.csp import add_nonce, html_csp, new_nonce
 from tt_server.acl.context import load_context
 from tt_server.api.authz import check, check_project, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
@@ -487,6 +488,22 @@ async def delete_presentation(pid: str, actor: CurrentActor, uow: Uow) -> Respon
     return Response(status_code=204)
 
 
+@router.post("/presentations/{pid}:restore")
+async def restore_presentation(pid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """Undo a delete (UX 6). The share link stays revoked: re-share explicitly."""
+    p = await uow.session.scalar(
+        select(m.Presentation).where(
+            m.Presentation.id == pid, m.Presentation.workspace_id == actor.ws.id, m.Presentation.deleted_at.is_not(None)
+        )
+    )
+    if p is None or not (p.owner_id == actor.person.id or actor.acl.is_admin):
+        raise ApiError(404, "not_found", "presentation not found")
+    p.deleted_at = None
+    _ev(uow, actor, p, "presentation.restored")
+    await uow.commit()
+    return deckdata.presentation_dict(p)
+
+
 @router.post("/presentations/{pid}:duplicate", status_code=201, dependencies=[needs("view.save")])
 async def duplicate(pid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     src = await _get(actor, uow, pid)
@@ -695,31 +712,36 @@ async def public_data(token: str, request: Request) -> dict[str, Any]:
         )
 
 
-def _shell(extra: str) -> HTMLResponse:
+def _shell(extra: str, *, framable: bool = False) -> HTMLResponse:
+    """The deck page. `framable` lets the builder (same origin) preview it; share links are never framable."""
     if not BUNDLE.exists():
         raise ApiError(
             503,
             "bundle_missing",
             "the presentation bundle is not built (pnpm --filter @tt/presentation build)",
         )
-    html = BUNDLE.read_text()
-    return HTMLResponse(
-        html.replace("</head>", f"<script>{extra}</script></head>", 1),
-        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
-    )
+    nonce = new_nonce()
+    html = add_nonce(BUNDLE.read_text().replace("</head>", f"<script>{extra}</script></head>", 1), nonce)
+    headers = {
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+        "Content-Security-Policy": html_csp(nonce, frame_ancestors="'self'" if framable else "'none'"),
+        "X-Frame-Options": "SAMEORIGIN" if framable else "DENY",
+    }
+    return HTMLResponse(html, headers=headers)
 
 
 _SAFE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 
-def _src(url: str, *parts: str) -> HTMLResponse:
+def _src(url: str, *parts: str, framable: bool = False) -> HTMLResponse:
     """Path segments are attacker-controlled (percent-decoded): accept only a safe alphabet, and JSON-encode with `<` escaped anyway."""
     if not all(_SAFE.match(p) for p in parts):
         raise ApiError(404, "not_found", "no such deck")
     literal = (
         json.dumps(url.format(*parts)).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     )
-    return _shell(f"window.__DECK_SRC__={literal};")
+    return _shell(f"window.__DECK_SRC__={literal};", framable=framable)
 
 
 @shell.get("/p/t/{token}")
@@ -729,7 +751,7 @@ async def shell_token(token: str) -> HTMLResponse:
 
 @shell.get("/p/{ws}/{pid}")
 async def shell_session(ws: str, pid: str) -> HTMLResponse:
-    return _src("/api/v1/w/{}/presentations/{}/data", ws, pid)
+    return _src("/api/v1/w/{}/presentations/{}/data", ws, pid, framable=True)
 
 
 # ---------------------------------------------------------------- insights

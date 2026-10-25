@@ -2,7 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, w, type Row } from "../../api/http";
 import { AddToPresentation } from "../../components/AddToPresentation";
+import { useToasts } from "../../components/Toasts";
 import { Button } from "../../components/ui";
+import { downloadPost } from "../../lib/download";
 import { useList, useWs } from "../../lib/hooks";
 import { slideFromView } from "../../lib/slides";
 import {
@@ -60,6 +62,7 @@ export function ViewsPage() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const toasts = useToasts();
   const save = useMutation({
     mutationFn: (shared: boolean) =>
       api.post(w(ws, "/views"), {
@@ -78,18 +81,14 @@ export function ViewsPage() {
       void qc.invalidateQueries({ queryKey: [ws, "/views"] });
     },
   });
-  const exportCsv = async () => {
-    const blob = await api.postBlob(w(ws, "/query/items:csv"), {
-      filter: toFilter(st.chips),
-      sort: sortParam(st.sort),
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "items.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const exportCsv = () =>
+    downloadPost(
+      toasts,
+      w(ws, "/query/items:csv"),
+      { filter: toFilter(st.chips), sort: sortParam(st.sort) },
+      "items.csv",
+      "CSV",
+    );
   const open = (v: Row) =>
     set({
       chips: [{ id: `v${v.id}`, label: `view: ${v.name}`, clause: v.filter }],

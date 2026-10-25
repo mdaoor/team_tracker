@@ -172,6 +172,26 @@ async def delete_template(ref: str, actor: CurrentActor, uow: Uow) -> Response:
     return Response(status_code=204)
 
 
+@router.post("/presentation-templates/{ref}:restore", dependencies=[needs("view.save")])
+async def restore_template(ref: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """Undo a template delete (UX 6)."""
+    row = await uow.session.scalar(
+        select(m.PresentationTemplate)
+        .where(
+            m.PresentationTemplate.workspace_id == actor.ws.id,
+            (m.PresentationTemplate.key == ref) | (m.PresentationTemplate.id == ref),
+            m.PresentationTemplate.deleted_at.is_not(None),
+        )
+        .order_by(m.PresentationTemplate.deleted_at.desc())
+    )
+    if row is None or not (row.owner_id == actor.person.id or actor.acl.is_admin):
+        raise ApiError(404, "not_found", "template not found")
+    row.deleted_at = None
+    _ev(uow, actor, row, "presentation.template_restored")
+    await uow.commit()
+    return tpl.view(row)
+
+
 @router.post("/presentation-templates/{ref}:duplicate", status_code=201, dependencies=[needs("view.save")])
 async def duplicate(ref: str, actor: CurrentActor, uow: Uow, key: str | None = None) -> dict[str, Any]:
     src = await _get(uow, actor, ref)

@@ -997,9 +997,13 @@ async def _process(
 
     activity = await apply_action(ctx, item, created)
     await apply_fields(ctx, item, activity)
-    if created and ctx.resolution["project"].get("unresolved"):
+    if created and (ctx.resolution["project"].get("unresolved") or project.kind.value == "inbox"):
+        # every item born in an Inbox gets a row, even with no phrase to learn from (UX 3, Phase 13 R6.1)
         await add_review(
-            ctx, "unclassified_project", item.id, {"phrase": ctx.resolution["project"]["unresolved"]}
+            ctx,
+            "unclassified_project",
+            item.id,
+            {"phrase": ctx.resolution["project"].get("unresolved") or ""},
         )
     await apply_hints(ctx, item, project)
     if created and project.kind.value != "inbox":

@@ -9,6 +9,29 @@ import { CommandPalette } from "./CommandPalette";
 import { ItemDrawer } from "./ItemDrawer";
 import { Chip } from "./ui";
 
+/** Direct URLs to areas the viewer cannot use show an explanation, not an empty page (UX 12). */
+export function RequireAccess({ area, children }: { area: string; children: ReactNode }) {
+  const { ws = "" } = useParams();
+  const me = useQuery({
+    queryKey: [ws, "me"],
+    queryFn: () => api.get<Row>(w(ws, "/me")),
+    retry: false,
+  });
+  if (me.isLoading) return <p>Loading…</p>;
+  const nav = (me.data?.nav ?? {}) as Record<string, boolean>;
+  if (me.data && nav[area] === false)
+    return (
+      <section className="denied" role="alert" aria-labelledby="denied-h">
+        <h1 id="denied-h">You don't have access to this page</h1>
+        <p>
+          Your roles in this workspace do not include {area}. Ask a workspace admin if you need it;
+          everything else in the menu is available to you.
+        </p>
+      </section>
+    );
+  return <>{children}</>;
+}
+
 export function Shell({ topbar }: { topbar?: ReactNode }) {
   const { ws = "" } = useParams();
   const nav = useNavigate();
@@ -31,8 +54,10 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
   }, [me.error, nav]);
 
   const base = `/w/${ws}`;
+  const navAccess = (me.data?.nav ?? {}) as Record<string, boolean>;
+  const allowed = (area: string) => navAccess[area] !== false;
   const item = sp.get("item");
-  const commands = [
+  const commandsAll = [
     { label: "Setup · Projects & products", to: `${base}/setup/projects` },
     { label: "Setup · Process & stages", to: `${base}/setup/process` },
     { label: "Setup · Dimensions", to: `${base}/setup/dimensions` },
@@ -48,6 +73,7 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
     { label: "Present", to: `${base}/present` },
     { label: "Project plans", to: `${base}/plan` },
   ];
+  const commands = commandsAll.filter((c) => allowed(c.to.split("/")[3] ?? ""));
   return (
     <div className="shell">
       <header className="topbar" role="banner">
@@ -93,18 +119,42 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
         <span aria-label="Signed in as">{me.data?.handle}</span>
       </header>
       <nav className="sidenav" aria-label="Main">
-        <NavLink to={`${base}/setup/projects`}>{t("nav.setup")}</NavLink>
-        <NavLink to={`${base}/review`}>{t("nav.review")}</NavLink>
-        <NavLink to={`${base}/views`}>{t("nav.views")}</NavLink>
-        <NavLink to={`${base}/plan`}>{t("nav.plan")}</NavLink>
-        <NavLink to={`${base}/present`}>{t("nav.present")}</NavLink>
-        <NavLink to={`${base}/policies`}>{t("nav.policies")}</NavLink>
-        <NavLink to={`${base}/violations`}>{t("nav.violations")}</NavLink>
-        <NavLink to={`${base}/habits`}>{t("nav.habits")}</NavLink>
-        <NavLink to={`${base}/performance`}>{t("nav.performance")}</NavLink>
-        <NavLink to={`${base}/digest`}>{t("nav.digest")}</NavLink>
-        <NavLink to={`${base}/insights`}>{t("nav.insights")}</NavLink>
-        <NavLink to={`${base}/weights`}>{t("nav.weights")}</NavLink>
+        {allowed("setup") && (
+          <NavLink to={`${base}/setup/projects`}>{t("nav.setup")}</NavLink>
+        )}
+        {allowed("review") && (
+          <NavLink to={`${base}/review`}>{t("nav.review")}</NavLink>
+        )}
+        {allowed("views") && (
+          <NavLink to={`${base}/views`}>{t("nav.views")}</NavLink>
+        )}
+        {allowed("plan") && (
+          <NavLink to={`${base}/plan`}>{t("nav.plan")}</NavLink>
+        )}
+        {allowed("present") && (
+          <NavLink to={`${base}/present`}>{t("nav.present")}</NavLink>
+        )}
+        {allowed("policies") && (
+          <NavLink to={`${base}/policies`}>{t("nav.policies")}</NavLink>
+        )}
+        {allowed("violations") && (
+          <NavLink to={`${base}/violations`}>{t("nav.violations")}</NavLink>
+        )}
+        {allowed("habits") && (
+          <NavLink to={`${base}/habits`}>{t("nav.habits")}</NavLink>
+        )}
+        {allowed("performance") && (
+          <NavLink to={`${base}/performance`}>{t("nav.performance")}</NavLink>
+        )}
+        {allowed("digest") && (
+          <NavLink to={`${base}/digest`}>{t("nav.digest")}</NavLink>
+        )}
+        {allowed("insights") && (
+          <NavLink to={`${base}/insights`}>{t("nav.insights")}</NavLink>
+        )}
+        {allowed("weights") && (
+          <NavLink to={`${base}/weights`}>{t("nav.weights")}</NavLink>
+        )}
       </nav>
       <main className="content" id="main">
         {me.isError ? <p role="alert">Could not load your session.</p> : <Outlet />}

@@ -581,6 +581,25 @@ async def delete_view(vid: str, actor: CurrentActor, uow: Uow) -> Response:
     return Response(status_code=204)
 
 
+@router.post("/views/{vid}:restore")
+async def restore_view(vid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """Undo a view delete (UX 6)."""
+    v: m.SavedView | None = await uow.session.scalar(
+        select(m.SavedView).where(
+            m.SavedView.id == vid, m.SavedView.workspace_id == actor.ws.id, m.SavedView.deleted_at.is_not(None)
+        )
+    )
+    if v is None or not (v.owner_id == actor.person.id or actor.acl.is_admin):
+        raise ApiError(404, "not_found", "view not found")
+    v.deleted_at = None
+    emit(
+        uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.PERSON,
+        entity_id=actor.person.id, event_type="view.restored", payload={"after": {"id": v.id}},
+    )  # fmt: skip
+    await uow.commit()
+    return row_dict(v)
+
+
 @router.post("/views/{vid}/run")
 async def run_view(vid: str, actor: CurrentActor, uow: Uow, cursor: str | None = None) -> dict[str, Any]:
     """Execute a saved view *as the caller*: a shared view never shows more than its opener may see."""

@@ -134,6 +134,36 @@ test("review queue: keyboard j/k/Enter takes the suggestion of the focused row",
   await vi.waitFor(() =>
     expect(resolved).toEqual([{ ref: "review_item:2", choice: { stage: "build" } }]),
   );
-  const list = screen.getByRole("listbox", { name: "Review rows" });
-  expect(within(list).getAllByRole("option", { selected: true })).toHaveLength(1);
+  // j moved real DOM focus onto the row so assistive tech announces it (UX review, a11y table)
+  const row = screen.getByRole("group", { name: /WEB-2/ });
+  expect(row).toHaveFocus();
+});
+
+test("review queue: rows say who and when, the heading counts them, Enter without a suggestion opens the picker", async () => {
+  const rows = [
+    {
+      ref: "review_item:9",
+      kind: "unclassified_project",
+      item_key: "INBOX-1",
+      item_title: "tune the retry",
+      reporter: "@ali",
+      created_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
+      suggestion: { phrase: "the retry" },
+    },
+  ];
+  renderQueue(rows);
+  await screen.findByText("INBOX-1");
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("(1)");
+  expect(screen.getByText(/@ali · 2 h ago/)).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "Enter" });
+  expect(screen.getByLabelText("other project")).toHaveFocus();
+});
+
+test("review queue: no control is nested inside another interactive role", async () => {
+  renderQueue([
+    { ref: "review_item:1", kind: "stage_suggestion", item_key: "WEB-1", item_title: "a", suggestion: { stage: "test" } },
+  ]);
+  await screen.findByText("WEB-1");
+  expect(document.querySelector('[role="option"]')).toBeNull();
+  expect(document.querySelector('[role="listbox"]')).toBeNull();
 });

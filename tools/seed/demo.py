@@ -54,7 +54,7 @@ AS_OF = datetime(2026, 10, 23, 18, 30, tzinfo=timezone(timedelta(hours=3)))
 GEN_SNAPSHOT = Path(__file__).resolve().parents[1] / "gen_snapshot.py"
 
 # Not in the snapshot: project owners (members of the team) and the reporting graph for the review queue.
-PROJECT_OWNER = {"WEB": "@sara", "MOB": "@youssef", "DATA": "@nour", "GOV": "@mahmoud"}
+PROJECT_OWNER = {"WEB": "@lina", "MOB": "@youssef", "DATA": "@nour", "GOV": "@mahmoud"}
 TEAM_LEAD = {"platform": "@mahmoud", "squad-a": "@youssef", "squad-b": "@sara", "data": "@nour"}
 PROJECT_SETTINGS = {"DATA": {"default_stage": "discovery"}}
 PRIORITY = {

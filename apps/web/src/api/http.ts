@@ -92,9 +92,28 @@ export const api = {
   put: <T = Row>(path: string, body: unknown, headers?: Record<string, string>) =>
     call<T>("PUT", path, { body, headers }).then((r) => r.data),
   postBlob: async (path: string, body: unknown): Promise<Blob> => {
-    const { response } = await (client as any).POST(path, { body, parseAs: "blob" });
-    if (!response.ok) throw new ApiError(response.status, "error", `HTTP ${response.status}`, null);
-    return response.clone().blob();
+    // openapi-fetch with parseAs "blob" has already consumed the body into `data`; reading the response again throws
+    // "Response body is already used" (UX review 1), so use the parsed value and read the error body once.
+    const { data, error, response } = await (client as any).POST(path, { body, parseAs: "blob" });
+    const requestId = response.headers.get("X-Request-Id") ?? undefined;
+    if (!response.ok) {
+      let parsed: any = null;
+      try {
+        const text = error instanceof Blob ? await error.text() : String(error ?? "");
+        parsed = text ? JSON.parse(text) : null;
+      } catch {
+        parsed = null;
+      }
+      const e = parsed?.error ?? {};
+      throw new ApiError(
+        response.status,
+        e.code ?? "error",
+        e.message ?? `HTTP ${response.status}`,
+        parsed,
+        requestId,
+      );
+    }
+    return data as Blob;
   },
   del: (path: string) => call<null>("DELETE", path).then((r) => r.data),
 };
