@@ -1,5 +1,25 @@
 import { expect, test } from "@playwright/test";
 
+test("the Gantt draws a time axis, a today line and milestone diamonds (shared module)", async ({
+  page,
+  request,
+}) => {
+  const name = `gantt-ms-${Math.random().toString(36).slice(2, 6)}`;
+  const due = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+  const r = await request.post("http://localhost:8010/api/v1/w/acme/projects/WEB/milestones", {
+    data: { name, due_date: due },
+  });
+  expect(r.ok()).toBeTruthy();
+  await page.goto("/w/acme/views?layout=gantt");
+  const region = page.getByRole("region", { name: "Gantt chart" });
+  await expect(region.locator("svg.rm-svg")).toBeVisible();
+  expect(await region.locator(".rm-month").count()).toBeGreaterThan(3); // time axis ticks
+  await expect(region.locator(".rm-today")).toHaveCount(1);
+  await expect(region.locator(".rm-todaylbl")).toHaveText("today");
+  await expect(region.locator(".rm-ms title", { hasText: name })).toHaveCount(1);
+  expect(await region.locator(".rm-bar").count()).toBeGreaterThan(0);
+});
+
 test("layout tabs switch and filter chips round-trip through the URL", async ({ page }) => {
   await page.goto("/w/acme/views");
   await expect(page.getByRole("toolbar", { name: "View options" })).toBeVisible();

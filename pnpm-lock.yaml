@@ -110,6 +110,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.104.5
         version: 5.104.5(@types/react@18.3.31)(react@18.3.1)
+      '@tt/presentation':
+        specifier: workspace:*
+        version: link:../presentation
       openapi-fetch:
         specifier: ^0.17.0
         version: 0.17.0

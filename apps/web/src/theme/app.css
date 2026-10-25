@@ -430,10 +430,6 @@ dl.props {
   cursor: pointer;
   text-align: right;
 }
-.vgantt text {
-  font-size: 11px;
-  fill: currentColor;
-}
 .vcal {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -865,8 +861,7 @@ dialog.confirm {
 }
 .content .card,
 .content .vlist,
-.content .vmatrix,
-.content .vgantt {
+.content .vmatrix {
   overflow-x: auto;
 }
 @media (max-width: 900px) {
@@ -1051,10 +1046,13 @@ ul.tree {
 
 .vgantt-wrap {
   overflow-x: auto;
+  /* the shared stylesheet sizes .roadmap svg to 100%; the console scrolls at the zoom's fixed size instead */
   max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
 }
-.vgantt text.gl {
-  font-size: 11px;
+.vgantt-wrap.roadmap svg {
+  width: auto;
+  max-width: none;
+  max-height: none;
 }

@@ -1,5 +1,29 @@
 import { expect, test } from "vitest";
-import { AXIS_H, LABEL_W, ROW_H, layoutGantt } from "./gantt";
+import { layoutGantt as shared } from "@tt/presentation/gantt";
+
+/** Contract with the shared Gantt (apps/presentation): the API's GanttRow shape and the web's label/axis sizes. */
+const LABEL_W = 170;
+const AXIS_H = 34;
+const ROW_H = 26;
+type Z = "day" | "week" | "month";
+type Rows = Parameters<typeof shared>[0]["rows"];
+const layoutGantt = (
+  rs: Rows,
+  deps: { from: string; to: string; type?: string }[],
+  milestones: { name: string; project: string; due: string }[],
+  today: string | null,
+  zoom: Z,
+) =>
+  shared({
+    rows: rs.filter((r) => r.planned_start && r.planned_end),
+    deps: deps.map(({ from, to }) => ({ from, to })),
+    milestones,
+    today,
+    zoom,
+    labelWidth: LABEL_W,
+    axisHeight: AXIS_H,
+    rowHeight: ROW_H,
+  });
 
 const rows = [
   {
@@ -44,7 +68,7 @@ test("a time axis, a today line inside the chart, slipped rollups flagged and th
 });
 
 test("zoom changes the scale: day is wider than week is wider than month", () => {
-  const w = (z: "day" | "week" | "month") => layoutGantt(rows, [], [], null, z).width;
+  const w = (z: Z) => layoutGantt(rows, [], [], null, z).width;
   expect(w("day")).toBeGreaterThan(w("week"));
   expect(w("week")).toBeGreaterThan(w("month"));
 });
