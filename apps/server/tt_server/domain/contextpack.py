@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import utcnow
-from tt_schema.enums import Priority, ProjectKind, StateCategory, TargetType
+from tt_schema.enums import ActivityStatus, Priority, ProjectKind, StateCategory, TargetType
 
 from tt_server.db import models as m
 
@@ -153,6 +153,16 @@ async def build_pack(
             select(m.Project.key).where(m.Project.id == project_id)
         )
         my_open_items.append({"key": key, "title": title, "stage": None, "project": proj})
+    running = (
+        await session.execute(
+            select(m.WorkItem.key, m.WorkItem.title)
+            .join(m.Activity, m.Activity.work_item_id == m.WorkItem.id)
+            .where(m.Activity.person_id == person_id, m.Activity.status == ActivityStatus.ACTIVE)
+            .order_by(m.Activity.started_at.desc())
+            .limit(1)
+        )
+    ).first()
+    my_current = {"key": running[0], "title": running[1]} if running else None
 
     # people: team-mates, project members, and co-assignees on my projects
     my_teams = select(m.Membership.team_id).where(
@@ -284,6 +294,7 @@ async def build_pack(
         "generated_at": now.isoformat(),
         "projects": project_rows,
         "my_open_items": my_open_items,
+        "my_current_activity": my_current,
         "people": people,
         "tags": tags,
         "milestones": milestones,

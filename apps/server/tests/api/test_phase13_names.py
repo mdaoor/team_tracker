@@ -63,3 +63,14 @@ async def test_habits_and_violations_label_their_targets(api: Api) -> None:
     assert uuids_in_display(hs, {"subject"}) == []
     vs = (await api.call("GET", "/violations")).json()["data"]
     assert uuids_in_display(vs, {"target", "team", "project", "person"}) == []
+
+
+async def test_asking_for_your_own_day_drafts_the_log_when_work_was_logged(api: Api) -> None:
+    await api.send(as_="@sara", action="log_time", item={"title": "wrote it down"}, project="DATA", minutes=45)
+    today = "2026-10-23"  # the day Api.send stamps on its messages
+    logs = (await api.call("GET", "/daily-logs", as_="@sara", params={"day": today})).json()["data"]
+    assert len(logs) == 1 and logs[0]["status"] == "draft" and logs[0]["minutes_total"] == 45
+    again = (await api.call("GET", "/daily-logs", as_="@sara", params={"day": today})).json()["data"]
+    assert [x["id"] for x in again] == [logs[0]["id"]]  # idempotent: same draft, no duplicate
+    nothing = (await api.call("GET", "/daily-logs", as_="@ali", params={"day": today})).json()["data"]
+    assert nothing == []  # no work, no log

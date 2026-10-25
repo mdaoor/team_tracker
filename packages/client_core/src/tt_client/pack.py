@@ -47,6 +47,19 @@ class ContextPack:
         return list(self.data.get("my_open_items", []))
 
     @property
+    def current_activity(self) -> dict[str, Any] | None:
+        """The task the person has running now (key, title), if the server said so."""
+        cur = self.data.get("my_current_activity")
+        return dict(cur) if cur else None
+
+    def item_project(self, *, key: str | None = None, title: str | None = None) -> str | None:
+        """The project of one of my open items, found by key or exact title."""
+        for i in self.open_items:
+            if (key and i["key"] == key) or (title and i["title"].lower() == title.lower()):
+                return str(i["project"]) if i.get("project") else None
+        return None
+
+    @property
     def required_fields(self) -> list[str]:
         return list(self.data.get("manual_mode", {}).get("required_fields") or DEFAULT_REQUIRED)
 

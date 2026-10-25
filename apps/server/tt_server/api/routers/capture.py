@@ -80,6 +80,11 @@ async def list_daily_logs(
     stmt = stmt.where(m.DailyLog.person_id == subject)
     if day:
         stmt = stmt.where(m.DailyLog.date == day)
+        if subject == actor.person.id and not (await uow.session.scalars(stmt.limit(1))).first():
+            # asking for your own day that has work but no draft yet drafts it now: `tt today` must not say "none" after you logged
+            uow.context["actor_id"] = actor.person.id
+            if await dailylog.build_for_person(uow, actor.ws, actor.member, day, actor.person.id):
+                await uow.commit()
     rows = (await uow.session.scalars(stmt.order_by(m.DailyLog.date.desc()).limit(100))).all()
     return {"data": [dailylog.to_dict(r) for r in rows], "next_cursor": None}
 

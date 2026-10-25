@@ -98,6 +98,15 @@ def _deliver(rt: Runtime, entries: list[Entry]) -> None:
         _flush_feedback(rt)
 
 
+def _nudge(rt: Runtime) -> None:
+    """After a command, remind once per day (after the daily-log time) that today's draft awaits confirmation."""
+    from tt_client.notify import ConsoleNotifier, NudgeLog, end_of_day_nudge
+
+    end_of_day_nudge(
+        ConsoleNotifier(typer.echo), NudgeLog(rt.data / "nudges.json"), rt.api, now(), rt.cfg.time_zone
+    )
+
+
 def _flush_feedback(rt: Runtime) -> None:
     items = rt.feedback.drain()
     if not items:
@@ -130,6 +139,18 @@ def _edit_entry(rt: Runtime, entry: Entry) -> None:
     rt.outbox.db.commit()
 
 
+def _empty_state(pack: Any) -> None:
+    """First-run / empty input: ask the one question and show what a line can look like (UX §2.6)."""
+    from tt_cli.runtime import GHOST_EXAMPLES
+
+    typer.echo("What are you working on?  One line is enough:\n")
+    cur = pack.current_activity if pack else None
+    if cur:
+        typer.echo(f"  now running: {cur['key']} {cur['title']}   (`tt done` when it is finished)\n")
+    for ex in GHOST_EXAMPLES:
+        typer.echo(f'  tt "{ex}"')
+
+
 def _capture(
     rt: Runtime,
     line: str,
@@ -145,8 +166,8 @@ def _capture(
     pack = rt.pack()
     t = translate_line(line, rt.parse_ctx(), pack=pack, translator=rt.translator(), mode=mode)
     if not t.batch.messages:
-        typer.echo("nothing to send", err=True)
-        raise typer.Exit(2)
+        _empty_state(pack)
+        raise typer.Exit(0)
     batch = t.batch.model_copy(update={"workspace": rt.cfg.workspace})
     _set_jira(batch, pack.data if pack else None, jira)
     if as_json or dry_run:
@@ -172,7 +193,10 @@ def _finish(rt: Runtime, batch: ClientBatch, pack: Any, *, yes: bool, no_send: b
     if not yes and sys.stdin.isatty() and not typer.confirm("Send?", default=True):
         typer.echo(f"kept in the outbox: {entry.path}")
         return
+    if not yes and not sys.stdin.isatty():
+        typer.echo("not a terminal, so nothing was asked: sending now (use --no-send to review first)")
     _deliver(rt, [entry])
+    _nudge(rt)
 
 
 # ------------------------------------------------------------------ commands
@@ -397,7 +421,7 @@ def today_cmd(confirm: Annotated[bool, typer.Option("--confirm")] = False) -> No
     day = now().astimezone(__import__("zoneinfo").ZoneInfo(rt.cfg.time_zone)).date().isoformat()
     logs = rt.api.daily_logs(day)
     if not logs:
-        typer.echo("no daily log yet (it is drafted at 17:30 or when you log work)")
+        typer.echo("nothing logged today yet — log some work and your day drafts itself")
         return
     log = logs[0]
     typer.echo(f"{log['date']}  {log['status']}  {log['minutes_total'] / 60:.1f}h\n{log['summary']}")

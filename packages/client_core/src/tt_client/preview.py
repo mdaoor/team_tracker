@@ -30,6 +30,8 @@ def build_preview(msg: ClientMessage, pack: ContextPack | None) -> list[Row]:
     rows: list[Row] = []
     by_key = {i["key"]: i for i in (pack.open_items if pack else [])}
     item = msg.item
+    target_project: str | None = None
+    ambiguous = bool((msg.llm_confidence or {}).get("intent"))
     if item and item.key:
         known = by_key.get(item.key)
         rows.append(
@@ -39,6 +41,7 @@ def build_preview(msg: ClientMessage, pack: ContextPack | None) -> list[Row]:
                 "✓ matched" if known else "",
             )
         )
+        target_project = pack.item_project(key=item.key) if pack else None
     elif item and item.title:
         match = next(
             (i for i in (pack.open_items if pack else []) if i["title"].lower() == item.title.lower()), None
@@ -47,13 +50,22 @@ def build_preview(msg: ClientMessage, pack: ContextPack | None) -> list[Row]:
             Row(
                 "Task",
                 item.title + (f"  {match['key']}" if match else ""),
-                _cue(msg, "item", match is not None) or "new",
+                _cue(msg, "item", match is not None) or ("new — or a note? (ask)" if ambiguous else "new"),
             )
         )
-    elif msg.note:
-        rows.append(Row("Note", msg.note))
+        target_project = match["project"] if match and match.get("project") else None
     else:
-        rows.append(Row("Task", "(current activity)"))
+        # the card always names the row the message lands on, even when it is "whatever is running" (UX 4)
+        cur = pack.current_activity if pack else None
+        rows.append(
+            Row("Task", f"{cur['title']}  {cur['key']}", "running now")
+            if cur
+            else Row("Task", "(no task running)", "ask")
+        )
+        if cur:
+            target_project = pack.item_project(key=cur["key"]) if pack else None
+        if msg.note:
+            rows.append(Row("Note", msg.note))
     if msg.project:
         key = pack.project_by_alias(msg.project) if pack else None
         rows.append(
@@ -63,6 +75,8 @@ def build_preview(msg: ClientMessage, pack: ContextPack | None) -> list[Row]:
                 _cue(msg, "project", key is not None),
             )
         )
+    elif target_project:
+        rows.append(Row("Project", target_project, "✓ from the task"))
     else:
         rows.append(Row("Project", "—", "will be sorted by your manager"))
     if msg.minutes:

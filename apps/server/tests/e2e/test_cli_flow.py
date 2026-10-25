@@ -260,3 +260,23 @@ def test_pack_command_reports_counts(home: Path, live: Live) -> None:
     export = home / "exported.json"
     tt("pack", "--export", str(export))
     assert json.loads(export.read_text())["workspace"] == live.slug
+
+
+def test_a_verbless_noun_phrase_creates_an_item_even_with_a_timer_running(home: Path, live: Live) -> None:
+    tt("doing the retry refactor", "-p", "web", "--yes")  # something is running
+    out = tt("refactor the ingestion retry", "--yes")
+    assert "Task" in out and "new" in out  # the card names the target row
+    titles = {r["title"] for r in items(live)}
+    assert "refactor the ingestion retry" in titles and len(titles) == 2  # not a note on the running item
+
+
+def test_empty_input_asks_the_one_question(home: Path) -> None:
+    out = tt("say", "")
+    assert "What are you working on?" in out and "took 2h" in out
+
+
+def test_today_drafts_the_log_after_work_was_logged(home: Path, live: Live) -> None:
+    tt("fix login, took 45m", "-p", "web", "--yes")
+    out = tt("today")
+    assert "0.8h" in out or "0.7h" in out or "0.75" in out
+    assert "no daily log yet" not in out
