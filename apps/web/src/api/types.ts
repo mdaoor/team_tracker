@@ -226,6 +226,7 @@ export interface SavedView extends Json {
   weight_scheme_id?: string | null;
 }
 export interface GanttRow extends Json {
+  key: string;
   planned_start?: string | null;
   planned_end?: string | null;
   baseline?: { planned_start: string; planned_end: string } | null;
@@ -235,6 +236,7 @@ export interface GanttDep extends Json {
   to: string;
 }
 export interface Milestone extends Json {
+  name: string;
   due: string;
 }
 
