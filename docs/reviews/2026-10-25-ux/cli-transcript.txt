@@ -1,0 +1,276 @@
+$ uv run tt picking up the retry refactor on the pipeline, probably 2 days
+╭─────────────────────────────────── start ────────────────────────────────────╮
+│ ↳ Task      the retry refactor on the         new                            │
+│             pipeline                                                         │
+│ ↳ Project   —                                 will be sorted by your manager │
+│ ↳ Estimate  2 days                                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+✓ INBOX-sara-1 the retry refactor on the pipeline
+[1.11s]
+
+$ uv run tt say picking up the retry refactor on the pipeline, probably 2 days
+╭─────────────────────────────────── start ────────────────────────────────────╮
+│ ↳ Task      the retry refactor on the         new                            │
+│             pipeline                                                         │
+│ ↳ Project   —                                 will be sorted by your manager │
+│ ↳ Estimate  2 days                                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+✓ INBOX-sara-1 the retry refactor on the pipeline
+[0.85s]
+
+$ uv run tt outbox
+outbox is empty
+[0.79s]
+
+$ uv run tt now
+▶ INBOX-sara-1 the retry refactor on the pipeline  [INBOX-sara] since 2026-10-25 08:46
+[0.80s]
+
+$ uv run tt today
+no daily log yet (it is drafted at 17:30 or when you log work)
+[0.80s]
+
+$ uv run tt say fix the login redirect loop, took 2h, plan to finish tomorrow 5pm --dry-run
+{
+  "workspace": "acme",
+  "messages": [
+    {
+      "actor": "@sara",
+      "action": "log_time",
+      "at": "2026-10-25T08:47:06.357381Z",
+      "client_id": "01a1723d-f8a8-7463-8d29-18d337924b2f",
+      "item": {
+        "title": "fix the login redirect loop"
+      },
+      "tags": [],
+      "minutes": 120,
+      "planned_end": "2026-10-26T17:00:00+03:00",
+      "risks": [],
+      "assignees": [],
+      "custom_fields": {},
+      "raw_input": "fix the login redirect loop, took 2h, plan to finish tomorrow 5pm"
+    }
+  ],
+  "client_version": "0.1",
+  "mode": "assisted"
+}
+[0.98s]
+
+$ uv run tt say doing 1. fix login, 2. write tests, 3. deploy | took: 2h --no-send
+╭──────────────────────── start ────────────────────────╮
+│ ↳ Task     fix login   new                            │
+│ ↳ Project  —           will be sorted by your manager │
+│ ↳ Time     2 h logged                                 │
+╰───────────────────────────────────────────────────────╯
+╭──────────────────────── start ─────────────────────────╮
+│ ↳ Task     write tests  new                            │
+│ ↳ Project  —            will be sorted by your manager │
+╰────────────────────────────────────────────────────────╯
+╭────────────────────── start ──────────────────────╮
+│ ↳ Task     deploy  new                            │
+│ ↳ Project  —       will be sorted by your manager │
+╰───────────────────────────────────────────────────╯
+  note: minutes applied to the first item
+saved /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/ttcli-home/.local/share/tt/outbox/20261025T084707270164-01a1723d-fbfc-71d2-a0db-0bcd13991a75.json  (tt edit 01a1723d · tt send 01a1723d)
+[0.81s]
+
+$ uv run tt outbox
+01a1723d  2026-10-25T08:47:07  20261025T084707270164-01a1723d-fbfc-71d2-a0db-0bcd13991a75.json
+[0.87s]
+
+outbox file: /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/ttcli-home/.local/share/tt/outbox/20261025T084707270164-01a1723d-fbfc-71d2-a0db-0bcd13991a75.json
+{
+  "workspace": "acme",
+  "messages": [
+    {
+      "actor": "@sara",
+      "action": "start",
+      "at": "2026-10-25T08:47:07.260058Z",
+      "client_id": "01a1723d-fbfc-71d2-a0db-0bcd13991a75",
+      "item": {
+        "title": "fix login"
+      },
+      "tags": [],
+      "minutes": 120,
+      "risks": [],
+      "assignees": [],
+      "custom_fields": {},
+      "raw_input": "doing 1. fix login, 2. write tests, 3. deploy | took: 2h"
+    },
+    {
+      "actor": "@sara",
+      "action": "start",
+      "at": "2026-10-25T08:47:07.260058Z",
+      "client_id": "01a1723d-fbfc-71d2-a0db-0bce99dd4155",
+      "item": {
+        "title": "write tests"
+      },
+      "tags": [],
+      "risks": [],
+      "assignees": [],
+      "custom_fields": {},
+      "raw_input": "doing 1. fix login, 2. write tests, 3. deploy | took: 2h"
+    },
+    {
+      "actor": "@sara",
+      "action": "start",
+      "at": "2026-10-25T08:47:07.260058Z",
+      "client_id": "01a1723d-fbfc-71d2-a0db-0bcfc31066fa",
+      "item": {
+        "title": "deploy"
+      },
+      "tags": [],
+      "risks": [],
+      "assignees": [],
+      "custom_fields": {},
+      "raw_input": "doing 1. fix login, 2. write tests, 3. deploy | took: 2h"
+    }
+  ],
+  "client_version": "0.1",
+  "mode": "assisted",
+  "_preview": {
+    "cards": [
+      {
+        "action": "start",
+        "rows": [
+          {
+            "label": "Task",
+            "value": "fix login",
+            "cue": "new"
+          },
+          {
+            "label": "Proje
+$ uv run tt send /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/ttcli-home/.local/share/tt/outbox/20261025T084707270164-01a1723d-fbfc-71d2-a0db-0bcd13991a75.json
+✓ WEB-101 fix the login redirect loop
+✓ INBOX-sara-2 write tests
+✓ INBOX-sara-3 deploy
+[1.20s]
+
+$ uv run tt outbox --help
+                                                                                
+ Usage: tt outbox [OPTIONS]                                                     
+                                                                                
+ List pending (or sent) outbox files.                                           
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --sent                                                                       │
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+[0.74s]
+
+$ uv run tt form --help
+                                                                                
+ Usage: tt form [OPTIONS]                                                       
+                                                                                
+ Manual mode: fill a form whose choices come from the ContextPack; mandatory    
+ fields are enforced.                                                           
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --from             <str>   Open an existing outbox file in the form          │
+│ --answers          <path>  JSON file with answers (non-interactive)          │
+│ --yes      -y              Send without asking                               │
+│ --no-send                  Write the outbox file only                        │
+│ --help                     Show this message and exit.                       │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+[0.78s]
+
+$ uv run tt form --answers /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/ttcli-home/answers.json --yes
+╭────────────────────────── done ───────────────────────────╮
+│ ↳ Task     fix the login redirect loop WEB-101  ✓ matched │
+│ ↳ Project  WEB (WEB)                            ✓ matched │
+│ ↳ Time     45 min logged                                  │
+╰───────────────────────────────────────────────────────────╯
+✓ WEB-101 fix the login redirect loop
+[1.39s]
+
+$ uv run tt form --answers /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/ttcli-home/answers2.json --yes
+missing mandatory field(s): item, project
+[0.81s]
+
+$ uv run tt blocked WEB-114 waiting for DB access from @nour
+╭──────────────────────────────── blocked ─────────────────────────────────╮
+│ ↳ Task     migrate session store WEB-114  ✓ matched                      │
+│ ↳ Project  —                              will be sorted by your manager │
+╰──────────────────────────────────────────────────────────────────────────╯
+✓ WEB-114 migrate session store
+[0.95s]
+
+$ uv run tt time took 45 min on WEB-105 yesterday
+╭────────────────────────────────── log_time ──────────────────────────────────╮
+│ ↳ Task     password reset email template      ✓ matched                      │
+│            WEB-105                                                           │
+│ ↳ Project  —                                  will be sorted by your manager │
+│ ↳ Time     45 min logged                                                     │
+╰──────────────────────────────────────────────────────────────────────────────╯
+✓ WEB-105 password reset email template
+[0.96s]
+
+$ uv run tt now
+▶ WEB-114 migrate session store  [WEB] since 2026-10-25 08:47
+[0.95s]
+
+$ uv run tt today
+no daily log yet (it is drafted at 17:30 or when you log work)
+[1.14s]
+
+$ uv run tt say 
+nothing to send
+[0.91s]
+
+$ uv run tt say frobnicate the glorp
+╭───────────────────────────── note ──────────────────────────────╮
+│ ↳ Note     frobnicate the glorp                                 │
+│ ↳ Project  —                     will be sorted by your manager │
+╰─────────────────────────────────────────────────────────────────╯
+✓ WEB-114 migrate session store
+[0.92s]
+
+$ uv run tt pack --help
+                                                                                
+ Usage: tt pack [OPTIONS]                                                       
+                                                                                
+ Refresh, import or export the ContextPack.                                     
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --refresh                                                                    │
+│ --import         <path>  Load a ContextPack JSON file (air-gapped)           │
+│ --export         <path>                                                      │
+│ --help                   Show this message and exit.                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+[0.83s]
+
+$ uv run tt say refactor the ingestion retry p:ingestion #retry-logic
+╭─────────────────────── note ───────────────────────╮
+│ ↳ Note     refactor the ingestion retry            │
+│ ↳ Project  ingestion                               │
+│ ↳ Tags     #retry-logic                  suggested │
+╰────────────────────────────────────────────────────╯
+✓ WEB-114 migrate session store
+   → sent to your manager's review queue (01a17240)
+
+$ uv run tt say new task: oauth provider sunsets v1 in Dec, risk for the website p:web
+╭─────────────────────────────────── create ───────────────────────────────────╮
+│ ↳ Task     oauth provider sunsets v1 in Dec, risk for the website  new       │
+│ ↳ Project  web (WEB)                                               ✓ matched │
+╰──────────────────────────────────────────────────────────────────────────────╯
+✓ WEB-1 oauth provider sunsets v1 in Dec, risk for the website
+
+$ uv run tt say doing the dashboard export with @nobody p:web
+╭───────────────────── start ─────────────────────╮
+│ ↳ Task     the dashboard export with  new       │
+│ ↳ Project  web (WEB)                  ✓ matched │
+╰─────────────────────────────────────────────────╯
+✓ WEB-2 the dashboard export with
+   → sent to your manager's review queue (01a17240)
+
+$ uv run tt say done with WEB-124, shipped it
+╭──────────────────────────────────── done ────────────────────────────────────╮
+│ ↳ Task     accessibility pass on checkout     ✓ matched                      │
+│            WEB-124                                                           │
+│ ↳ Project  —                                  will be sorted by your manager │
+╰──────────────────────────────────────────────────────────────────────────────╯
+✓ WEB-124 accessibility pass on checkout
+
