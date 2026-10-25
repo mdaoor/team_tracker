@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Json } from "../../api/http";
+import { reviewDailyLog } from "../../api/governance";
+import type { Digest as DigestData, Json, Team } from "../../api/types";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty } from "../../components/ui";
@@ -12,13 +13,13 @@ export function Digest() {
   const qc = useQueryClient();
   const toasts = useToasts();
   const { can } = useMe();
-  const teams = useList("/teams");
+  const teams = useList<Team>("/teams");
   const [team, setTeam] = useState("");
   const [days, setDays] = useState(14);
-  const d = useObj("/digest", { days, ...(team ? { team } : {}) }, !!can["dailylog.review"]);
-  const data = d.data as Json | undefined;
+  const d = useObj<DigestData>("/digest", { days, ...(team ? { team } : {}) }, !!can["dailylog.review"]);
+  const data = d.data;
   const review = useMutation({
-    mutationFn: (id: string) => api.post(w(ws, `/daily-logs/${id}/review`)),
+    mutationFn: (id: string) => reviewDailyLog(ws, id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: [ws, "/digest"] }),
     onError: (e) => toasts.error(e),
   });
@@ -39,7 +40,7 @@ export function Digest() {
         )}
         <select aria-label="Team" value={team} onChange={(e) => setTeam(e.target.value)}>
           <option value="">Whole workspace</option>
-          {(teams.data ?? []).map((t: Json) => (
+          {(teams.data ?? []).map((t: Team) => (
             <option key={t.id} value={t.slug}>
               {t.name}
             </option>

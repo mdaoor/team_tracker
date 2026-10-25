@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, w, type Json } from "../../api/http";
+import { generateInsights, setInsightStatus } from "../../api/governance";
+import type { Insight, Project } from "../../api/types";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty } from "../../components/ui";
@@ -20,20 +21,20 @@ export function Insights() {
   const [, setSp] = useSearchParams();
   const [status, setStatus] = useState("");
   const [project, setProject] = useState("");
-  const projects = useList("/projects");
-  const list = useList("/insights", {
+  const projects = useList<Project>("/projects");
+  const list = useList<Insight>("/insights", {
     ...(status ? { status } : {}),
     ...(project ? { project } : {}),
   });
   const refresh = () => void qc.invalidateQueries({ queryKey: [ws, "/insights"] });
   const set = useMutation({
     mutationFn: ({ id, s }: { id: string; s: string }) =>
-      api.patch(w(ws, `/insights/${id}`), { status: s }),
+      setInsightStatus(ws, id, s),
     onSuccess: refresh,
     onError: (e) => toasts.error(e),
   });
   const regen = useMutation({
-    mutationFn: () => api.post(w(ws, "/insights:generate"), { scope: project }),
+    mutationFn: () => generateInsights(ws, project),
     onSuccess: () => {
       refresh();
       toasts.push("Insight regenerated");
@@ -50,7 +51,7 @@ export function Insights() {
         <span className="grow" />
         <select aria-label="Project" value={project} onChange={(e) => setProject(e.target.value)}>
           <option value="">All projects</option>
-          {(projects.data ?? []).map((p: Json) => (
+          {(projects.data ?? []).map((p: Project) => (
             <option key={p.id} value={p.key}>
               {p.key}
             </option>

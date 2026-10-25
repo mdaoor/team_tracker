@@ -1,5 +1,5 @@
 import { api, w } from "./http";
-import type { Habit, Insight, Json, Policy, WeightScheme } from "./types";
+import type { Habit, Insight, Json, Policy, WeightPreview, WeightScheme } from "./types";
 
 export const activatePolicy = (ws: string, key: string, on: boolean) =>
   api.post(w(ws, `/policies/${key}:${on ? "activate" : "deactivate"}`));
@@ -25,9 +25,9 @@ export const markNotificationRead = (ws: string, id: string) =>
 export const reviewDailyLog = (ws: string, id: string) =>
   api.post(w(ws, `/daily-logs/${id}/review`));
 
-export const previewWeightScheme = (ws: string, formula: string) =>
-  api.post<Json>(w(ws, "/weight-schemes:preview"), { formula, sample: 20 });
-export const createWeightScheme = (ws: string, name: string, formula: string) =>
+export const previewWeightScheme = (ws: string, formula: Json) =>
+  api.post<WeightPreview>(w(ws, "/weight-schemes:preview"), { formula, sample: 20 });
+export const createWeightScheme = (ws: string, name: string, formula: Json) =>
   api.post<WeightScheme>(w(ws, "/weight-schemes"), { name, formula });
 export const recomputeWeightScheme = (ws: string, id: string) =>
   api.post(w(ws, `/weight-schemes/${id}/recompute`));

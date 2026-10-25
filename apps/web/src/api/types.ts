@@ -97,7 +97,7 @@ export interface Person extends Json {
 }
 export interface Team extends Json {
   id?: string;
-  key?: string;
+  slug?: string;
   name?: string;
 }
 export interface Link extends Json {
@@ -122,10 +122,22 @@ export interface PolicyVersion extends Json {
 }
 export interface Habit extends Json {
   id: string;
+  subject: string;
+  key: string;
+  polarity?: string;
+  coaching_note?: string | null;
+}
+export interface HabitDefinition extends Json {
+  key: string;
+  category?: string;
 }
 export interface WeightScheme extends Json {
   id: string;
-  name?: string;
+  name: string;
+  formula?: Json;
+}
+export interface WeightPreview extends Json {
+  data: Json[];
 }
 export interface Insight extends Json {
   id: string;
@@ -133,10 +145,11 @@ export interface Insight extends Json {
   body?: string;
 }
 export interface Digest extends Json {
-  daily_logs?: Json[];
-  events?: Json[];
-  notes?: Json[];
-  insights?: Json[];
+  unreviewed?: number;
+  daily_logs: Json[];
+  events: Json[];
+  notes: Json[];
+  insights: Json[];
 }
 export interface ContextSchema extends Json {
   functions?: Json[];
@@ -169,13 +182,21 @@ export interface PresentationTemplate extends Json {
 // -- plan ------------------------------------------------------------------------------------------------------------
 export interface PlanRow extends Json {
   key: string;
-  level?: number;
   planned_start?: string | null;
   planned_end?: string | null;
 }
+/** A phase or deliverable as one roadmap bar (`level` 0 is a phase, 1 a deliverable). */
+export interface PlanBarRow extends PlanRow {
+  level: number;
+  phase?: string;
+}
+export interface PlanPhase extends Json {
+  key: string;
+  deliverables?: PlanRow[];
+}
 export interface Plan extends Json {
   project: Project;
-  phases?: Json[];
+  phases?: PlanPhase[];
   milestones: Json[];
 }
 

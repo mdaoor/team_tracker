@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, w, type Json } from "../../api/http";
+import * as govApi from "../../api/governance";
+import { setItemWeight } from "../../api/items";
+import type { WeightPreview, WeightScheme } from "../../api/types";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Field } from "../../components/ui";
@@ -12,7 +14,7 @@ export function Weights() {
   const qc = useQueryClient();
   const toasts = useToasts();
   const { can } = useMe();
-  const schemes = useList("/weight-schemes");
+  const schemes = useList<WeightScheme>("/weight-schemes");
   const [sel, setSel] = useState("");
   const [name, setName] = useState("");
   const [base, setBase] = useState("estimate_hours");
@@ -20,7 +22,7 @@ export function Weights() {
   const [rows, setRows] = useState<MultRow[]>([]);
   const [lo, setLo] = useState("");
   const [hi, setHi] = useState("");
-  const [prev, setPrev] = useState<Json | null>(null);
+  const [prev, setPrev] = useState<WeightPreview | null>(null);
   const cur = (schemes.data ?? []).find((s) => s.id === sel);
   useEffect(() => {
     if (!cur) return;
@@ -33,14 +35,14 @@ export function Weights() {
   }, [cur]);
   const formula = formulaFrom(base, constant, rows, lo, hi);
   const preview = useMutation({
-    mutationFn: () => api.post<Json>(w(ws, "/weight-schemes:preview"), { formula, sample: 20 }),
+    mutationFn: () => govApi.previewWeightScheme(ws, formula),
     onSuccess: setPrev,
     onError: (e) => toasts.error(e),
   });
   const create = useMutation({
     mutationFn: async () => {
-      const s = await api.post<Json>(w(ws, "/weight-schemes"), { name, formula });
-      await api.post(w(ws, `/weight-schemes/${s.id}/recompute`));
+      const s = await govApi.createWeightScheme(ws, name, formula);
+      await govApi.recomputeWeightScheme(ws, s.id);
       return s;
     },
     onSuccess: (s) => {
@@ -54,7 +56,7 @@ export function Weights() {
   const [oval, setOval] = useState("");
   const override = useMutation({
     mutationFn: () =>
-      api.put(w(ws, `/items/${okey}/weights/${cur?.name ?? ""}`), { value: Number(oval) }),
+      setItemWeight(ws, okey, cur?.name ?? "", Number(oval)),
     onSuccess: () => toasts.push("Override saved"),
     onError: (e) => toasts.error(e),
   });
@@ -204,7 +206,7 @@ export function Weights() {
               </tr>
             </thead>
             <tbody>
-              {prev.data.map((r: Json) => (
+              {prev.data.map((r) => (
                 <tr key={r.key}>
                   <td>
                     {r.key} <small>{r.title}</small>
