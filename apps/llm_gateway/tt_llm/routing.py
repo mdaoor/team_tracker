@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -16,6 +17,13 @@ import structlog
 
 from tt_llm.config import LOCAL_PREFIXES, GatewayConfig
 from tt_llm.storage import Storage
+
+
+def _no_cost_map_download() -> None:
+    """LiteLLM fetches its price table from github.com on first import unless told to use the copy it ships. A gateway in
+    `local_only` mode promises to open no connection beyond loopback, so it never downloads."""
+    os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+
 
 log = structlog.get_logger()
 
@@ -94,6 +102,7 @@ async def litellm_backend(
     max_tokens: int | None,
     api_base: str | None,
 ) -> Completion:
+    _no_cost_map_download()
     import litellm
 
     kw: dict[str, Any] = {
@@ -149,6 +158,7 @@ def parse_json(text: str | None) -> Any:
 
 
 async def litellm_embed(*, model: str, texts: list[str], api_base: str | None) -> list[list[float]]:
+    _no_cost_map_download()
     import litellm
 
     kw: dict[str, Any] = {"model": model, "input": texts}

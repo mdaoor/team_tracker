@@ -60,7 +60,11 @@ timeout = 120
 timeout_method = "thread"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-markers = ["llm: tests that need a real model (opt-in)", "contract: OpenAPI fuzzing against a live server"]
+markers = [
+  "llm: tests that need a real model (opt-in)",
+  "contract: OpenAPI fuzzing against a live server",
+  "perf: latency/throughput budgets; run without coverage tracing (CI runs them in their own step)",
+]
 filterwarnings = ["ignore:.*is deprecated.*:DeprecationWarning:ldap3.*"]
 testpaths = ["packages", "apps"]
 

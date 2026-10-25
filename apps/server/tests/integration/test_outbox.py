@@ -15,9 +15,11 @@ from tt_server.jobs import registry
 
 @pytest.fixture
 def routed() -> Iterator[None]:
+    before = {k: list(v) for k, v in registry.JOBS.items()}
     registry.register("workspace.", "tt_server.jobs.test_task")
     yield
-    registry.JOBS.clear()
+    registry.JOBS.clear()  # restore, not empty: other tests read the built-in routing
+    registry.JOBS.update(before)
 
 
 def test_registry_routes_by_prefix(routed: None) -> None:
