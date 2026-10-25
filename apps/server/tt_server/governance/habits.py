@@ -28,7 +28,20 @@ from tt_schema.enums import (
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit, system_person
-from tt_server.governance.habit_detectors import Counts, detectors
+from tt_server.governance.habit_detectors import (
+    Counts,
+    Detector,
+    d_context_switching,
+    d_early_delivery,
+    d_estimate_drift,
+    d_evidence_consistency,
+    d_learning_consistency,
+    d_log_consistency,
+    d_long_sessions,
+    d_rework,
+    d_unassigned_inbox_age,
+    detectors,
+)
 
 DEFINITIONS: list[dict[str, Any]] = [
     dict(key="late_finish", name="Finishes late", polarity="negative", category="time",
@@ -311,3 +324,25 @@ async def series(
             }
         )
     return out
+
+
+# The detectors moved to `habit_detectors`; the old import path keeps working.
+__all__ = [
+    "Counts",
+    "Detector",
+    "HabitStats",
+    "compute",
+    "d_context_switching",
+    "d_early_delivery",
+    "d_estimate_drift",
+    "d_evidence_consistency",
+    "d_learning_consistency",
+    "d_log_consistency",
+    "d_long_sessions",
+    "d_rework",
+    "d_unassigned_inbox_age",
+    "detectors",
+    "ensure_definitions",
+    "series",
+    "window_days",
+]
