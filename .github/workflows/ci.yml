@@ -25,6 +25,8 @@ jobs:
       - name: Presentation bundle (the seeded deck/export tests serve it)
         run: pnpm --filter @tt/presentation build
       - run: uv sync --all-packages --frozen
+      - name: Chromium for the PDF/PNG export tests
+        run: uv run playwright install --with-deps chromium
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy packages/schema/src packages/client_core/src apps/cli/tt_cli apps/server/tt_server apps/llm_gateway/tt_llm packages/filter_grammar/src packages/cel_policies/src
