@@ -25,6 +25,8 @@ from tt_server.domain.overlay.products import delivering_product
 
 @dataclass
 class PropagationResult:
+    """Outcome of propagating a value down the hierarchy: items touched and values kept as overrides."""
+
     item_keys: list[str] = field(default_factory=list)
     kept: set[str] = field(default_factory=set)
 

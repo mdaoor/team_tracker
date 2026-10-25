@@ -109,6 +109,7 @@ async def ensure_builtins(s: AsyncSession) -> None:
 
 
 async def find_template(s: AsyncSession, ws_id: str, ref: str) -> m.PolicyTemplate:
+    """Find a policy template of the workspace or a built-in one by id or key, or raise NotFound."""
     rows = (
         await s.scalars(
             select(m.PolicyTemplate).where(
@@ -126,6 +127,7 @@ async def find_template(s: AsyncSession, ws_id: str, ref: str) -> m.PolicyTempla
 
 
 def template_view(row: m.PolicyTemplate) -> dict[str, Any]:
+    """Serialise a policy template for the API."""
     t = template_from_row(row)
     return {
         "id": row.id, "key": row.key, "name": row.name, "description": row.description, "category": row.category.value,
@@ -161,6 +163,7 @@ def _cel_error(exc: tt_cel.CelError, pointer: str) -> DomainError:
 
 
 def validate_fields(f: dict[str, Any]) -> None:
+    """Validate policy fields (target, trigger, severity) and raise Invalid with a JSON pointer."""
     if f["target"] not in TARGETS:
         raise Invalid(
             "invalid_target",
@@ -214,6 +217,7 @@ def validate_fields(f: dict[str, Any]) -> None:
 
 
 async def resolve_scope(s: AsyncSession, ws_id: str, scope_type: ScopeType, ref: str | None) -> str | None:
+    """Resolve a policy scope reference to the id of its project, team or product; None for workspace scope."""
     if scope_type in (ScopeType.WORKSPACE, ScopeType.NONE) or not ref:
         return None
     model: Any = {
@@ -282,6 +286,7 @@ async def compile_condition(
 
 # ---------------------------------------------------------------------------------------------------- views
 def policy_view(p: m.Policy, last_test: m.PolicyTestRun | None = None) -> dict[str, Any]:
+    """Serialise a policy, optionally with its latest test run."""
     return {
         "id": p.id, "key": p.key, "name": p.name, "description": p.description, "scope_type": p.scope_type.value, "scope_id": p.scope_id,
         "target": p.target.value, "trigger": p.trigger.value, "event_types": p.event_types, "schedule": p.schedule,
@@ -309,6 +314,7 @@ def definition(p: m.Policy) -> dict[str, Any]:
 
 
 def violation_view(v: m.Violation, policy_key: str | None = None) -> dict[str, Any]:
+    """Serialise a violation for the API."""
     return {
         "id": v.id, "policy_id": v.policy_id, "policy": policy_key, "target_type": v.target_type.value, "target_id": v.target_id,
         "person_id": v.person_id, "team_id": v.team_id, "project_id": v.project_id, "product_id": v.product_id, "severity": v.severity.value,
@@ -318,6 +324,7 @@ def violation_view(v: m.Violation, policy_key: str | None = None) -> dict[str, A
 
 
 def window_delta(w: str) -> timedelta:
+    """Convert a window such as '7d', '12h' or '2w' to a timedelta."""
     n, unit = int(w[:-1]), w[-1]
     return {"d": timedelta(days=n), "h": timedelta(hours=n), "w": timedelta(weeks=n)}[unit]
 

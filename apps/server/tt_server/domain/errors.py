@@ -10,6 +10,8 @@ from typing import Any
 
 
 class DomainError(Exception):
+    """Base of all expected, client-visible failures; carries the HTTP status, code, message and JSON pointer."""
+
     status: int = 500
     default_code: str = "error"
 
@@ -34,10 +36,14 @@ class Invalid(DomainError):
 
 
 class Unauthenticated(DomainError):
+    """The caller has not proven who they are (401)."""
+
     status, default_code = 401, "unauthorized"
 
 
 class Forbidden(DomainError):
+    """The caller is known but lacks the permission for a visible resource (403)."""
+
     status, default_code = 403, "forbidden"
 
 
@@ -48,14 +54,20 @@ class NotFound(DomainError):
 
 
 class Conflict(DomainError):
+    """The request clashes with current state, e.g. a duplicate key or lost update (409)."""
+
     status, default_code = 409, "conflict"
 
 
 class PreconditionRequired(DomainError):
+    """The request must carry an If-Match precondition and did not (428)."""
+
     status, default_code = 428, "precondition_required"
 
 
 class Throttled(DomainError):
+    """Too many requests in the window; the client should retry later (429)."""
+
     status, default_code = 429, "rate_limited"
 
 

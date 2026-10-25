@@ -38,12 +38,15 @@ def sanitise_text(s: str | None) -> str | None:
 
 
 class DeckIn(BaseModel):
+    # Schema of the deck JSON an external LLM returns for import as a presentation.
+
     pack_id: str | None = None
     title: str = Field(min_length=1, max_length=200)
     slides: list[pres.SlideIn] = Field(max_length=MAX_IMPORT_SLIDES)
 
 
 def deck_schema() -> dict[str, Any]:
+    """JSON Schema of DeckIn, shipped inside the generation pack so the LLM can self-validate."""
     return DeckIn.model_json_schema()
 
 
@@ -125,6 +128,7 @@ def build_pack(
 
 
 def to_zip(files: dict[str, bytes]) -> bytes:
+    """Pack files into a deterministic zip (fixed timestamps), so the same input yields identical bytes."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for path in sorted(files):

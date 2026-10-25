@@ -57,6 +57,7 @@ async def _my_projects(session: AsyncSession, ws_id: str, person_id: str, now: d
 async def build_pack(
     session: AsyncSession, ws: m.Workspace, member: m.WorkspaceMember, *, today: date | None = None
 ) -> dict[str, Any]:
+    """Assemble the per-person context pack (role, assignments, activity, plan) that clients and the LLM consume."""
     now = utcnow()
     today = today or now.date()
     person_id = member.person_id
@@ -393,6 +394,7 @@ async def _glossary_target(session: AsyncSession, e: m.GlossaryEntry) -> str | N
 
 
 def etag_of(pack: dict[str, Any]) -> str:
+    """Compute a stable strong ETag of a pack, ignoring its volatile generated_at stamp."""
     stable = {k: v for k, v in pack.items() if k != "generated_at"}
     return (
         '"' + hashlib.sha256(json.dumps(stable, sort_keys=True, default=str).encode()).hexdigest()[:32] + '"'

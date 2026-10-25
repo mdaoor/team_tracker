@@ -37,6 +37,8 @@ CHECKS: dict[str, str] = {
 
 @dataclass
 class Report:
+    """Findings of the integrity checks, grouped by check name."""
+
     findings: dict[str, list[str]] = field(default_factory=dict)
 
     @property
@@ -48,6 +50,7 @@ class Report:
 
 
 async def verify(session: AsyncSession, workspace_id: str) -> Report:
+    """Run every integrity check against a workspace and collect offending row ids."""
     rep = Report()
     for name, sql in CHECKS.items():
         rows = [str(r[0]) for r in (await session.execute(text(sql), {"ws": workspace_id})).all()]

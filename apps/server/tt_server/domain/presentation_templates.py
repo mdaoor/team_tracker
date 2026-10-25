@@ -36,6 +36,8 @@ ALL_SCOPES: list[ScopeKind] = ["workspace", "product", "project", "team", "perso
 
 
 class Param(BaseModel):
+    # A parameter a template asks for (name, type, whether required).
+
     name: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
     type: Literal["project", "product", "team", "process", "dimension", "int", "string", "date_range"] = (
         "string"
@@ -46,6 +48,8 @@ class Param(BaseModel):
 
 
 class TSlide(BaseModel):
+    # A slide blueprint inside a template, with title templates and the data it requires.
+
     kind: str
     title_template: str | None = None
     subtitle_template: str | None = None
@@ -57,12 +61,16 @@ class TSlide(BaseModel):
 
 
 class PostRule(BaseModel):
+    # A rule applied after rendering, e.g. dropping slides when a condition holds.
+
     when: str
     action: Literal["drop_slides"] = "drop_slides"
     kinds: list[str] = Field(default_factory=list)
 
 
 class Theme(BaseModel):
+    # Optional visual defaults of a template (palette, font, logo, footer).
+
     palette: str | None = None
     font: str | None = None
     logo_attachment_id: str | None = None
@@ -70,6 +78,8 @@ class Theme(BaseModel):
 
 
 class TemplateBody(BaseModel):
+    # The validated body of a presentation template.
+
     schema_version: int = SCHEMA_VERSION
     key: str = Field(pattern=r"^[a-z][a-z0-9_]{1,62}$")
     name: str = Field(min_length=1, max_length=120)
@@ -82,6 +92,7 @@ class TemplateBody(BaseModel):
 
 
 def json_schema() -> dict[str, Any]:
+    """JSON Schema of TemplateBody for authoring tools."""
     return TemplateBody.model_json_schema()
 
 
@@ -282,6 +293,7 @@ def instantiate(
 
 # ---------------------------------------------------------------- storage
 def builtin_bodies() -> list[dict[str, Any]]:
+    """Load the template JSON files shipped with the server."""
     return [json.loads(p.read_text()) for p in sorted(TEMPLATE_DIR.glob("*.json"))]
 
 
@@ -348,6 +360,7 @@ async def find(
 
 
 def view(r: m.PresentationTemplate) -> dict[str, Any]:
+    """Serialise a stored template for the API."""
     b = r.body
     return {
         "id": r.id, "key": r.key, "version": r.version, "name": b["name"], "description": b.get("description", ""), "is_builtin": r.is_builtin,

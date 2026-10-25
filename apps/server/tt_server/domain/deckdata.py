@@ -35,6 +35,7 @@ def qctx(
     acl: AclContext,
     scheme_id: str | None = None,
 ) -> QueryCtx:
+    """Build the query context a deck is rendered under for the given viewer and ACL."""
     return QueryCtx(
         session=session, ws_id=ws.id, acl=acl, person_id=person.id, handle=member.handle,
         tz=person.time_zone or "UTC", scheme_id=scheme_id,
@@ -42,6 +43,7 @@ def qctx(
 
 
 async def scheme_by_ref(session: AsyncSession, ws_id: str, ref: str | None) -> m.WeightScheme | None:
+    """Resolve a weight scheme of the workspace by id or name; None when no ref is given or it is unknown."""
     if not ref:
         return None
     row = await session.scalar(
@@ -123,6 +125,7 @@ async def _restricted(qc: QueryCtx, kind: str) -> bool:
 async def slide_payload(
     qc: QueryCtx, slide: dict[str, Any], snapshot: dict[str, Any]
 ) -> dict[str, Any] | None:
+    """Compute the data behind one slide from the snapshot; None when the slide has nothing to show."""
     kind, cfg = slide["kind"], slide["config"]
     s = qc.session
     try:
@@ -225,6 +228,7 @@ async def slide_payload(
 async def deck_data(
     qc: QueryCtx, ws: m.Workspace, p: m.Presentation, *, viewer: str, fresh: bool = False
 ) -> dict[str, Any]:
+    """Resolve every slide of a presentation into renderable data for the viewer (snapshot cached unless fresh)."""
     scheme = await qc.session.get(m.WeightScheme, p.weight_scheme_id) if p.weight_scheme_id else None
     qc.scheme_id = scheme.id if scheme else None
     snapshot = await get_snapshot(
@@ -240,6 +244,7 @@ async def deck_data(
 
 
 def presentation_dict(p: m.Presentation) -> dict[str, Any]:
+    """Serialise a presentation row to its API dict."""
     return {
         "id": p.id, "workspace_id": p.workspace_id, "owner_id": p.owner_id, "title": p.title, "scope": p.scope,
         "range_days": p.range_days, "weight_scheme_id": p.weight_scheme_id, "theme": p.theme, "slides": p.slides,

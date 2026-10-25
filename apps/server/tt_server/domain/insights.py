@@ -91,6 +91,7 @@ def fallback_summary(facts: dict[str, Any]) -> str:
 
 
 def fact_ids(facts: dict[str, Any]) -> set[str]:
+    """Collect the item keys present in a fact sheet; an insight may cite only these."""
     ids = {facts["project"]["key"]}
     ids |= {i["key"] for i in facts.get("stuck_items", [])}
     if facts.get("top_risk"):
@@ -99,6 +100,7 @@ def fact_ids(facts: dict[str, Any]) -> set[str]:
 
 
 def grounded(supporting: list[str], facts: dict[str, Any]) -> bool:
+    """True when every supporting key an insight cites exists in the facts it was generated from."""
     return set(supporting) <= fact_ids(facts)
 
 

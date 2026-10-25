@@ -30,6 +30,8 @@ BATCH = 500
 
 @dataclass
 class Match:
+    """One target that satisfied a policy, with the people and scope it concerns."""
+
     target_type: TargetType
     target_id: str
     person_id: str | None = None
@@ -42,6 +44,8 @@ class Match:
 
 @dataclass
 class EvalResult:
+    """Result of evaluating a policy: targets looked at, matches and errors."""
+
     evaluated: set[tuple[str, str]] = field(default_factory=set)  # (target_type, target_id) we looked at
     matches: list[Match] = field(default_factory=list)
     sweep: bool = False
@@ -70,6 +74,7 @@ async def template_for(s: AsyncSession, policy: m.Policy) -> tt_cel.Template | N
 
 
 async def team_scope_ids(s: AsyncSession, ws_id: str, team_id: str) -> set[str]:
+    """The team and all its descendant teams."""
     teams = (
         await s.execute(select(m.Team.id, m.Team.parent_team_id).where(m.Team.workspace_id == ws_id))
     ).all()
@@ -108,6 +113,7 @@ async def _scope_pred(s: AsyncSession, ws: m.Workspace, policy: m.Policy) -> Any
 
 
 def system_qc(s: AsyncSession, ws: m.Workspace, now: datetime) -> QueryCtx:
+    """Query context with admin rights for policy evaluation, which must see everything."""
     acl = AclContext(ws_id=ws.id, person_id="system", is_admin=True)
     return QueryCtx(session=s, ws_id=ws.id, acl=acl, person_id="system", handle="@system", tz="UTC", now=now)
 
@@ -149,6 +155,7 @@ async def candidate_item_ids(
 async def enumerate_targets(
     s: AsyncSession, ws: m.Workspace, policy: m.Policy, now: datetime, only: list[Ref] | None
 ) -> list[Ref]:
+    """List the targets a policy applies to, or only those given."""
     t = policy.target
     if only is not None and t in (
         TargetType.ACTIVITY,
@@ -284,6 +291,7 @@ async def evaluate(
     s: AsyncSession, ws: m.Workspace, policy: m.Policy, *, now: datetime | None = None, event: m.Event | None = None,
     only: list[Ref] | None = None, limit: int | None = None,
 ) -> EvalResult:  # fmt: skip
+    """Evaluate one policy over its targets, returning matches and the set evaluated (so stale violations can resolve)."""
     now = now or utcnow()
     tmpl = await template_for(s, policy)
     compiled = tt_cel.compile(policy.condition_cel)

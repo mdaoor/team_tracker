@@ -11,7 +11,10 @@ from pathlib import Path
 
 from tt_schema.items import WorkItem
 
-INGEST = Path(__file__).resolve().parents[2] / "tt_server" / "domain" / "capture" / "ingest.py"
+CAPTURE = Path(__file__).resolve().parents[2] / "tt_server" / "domain" / "capture"
+INGEST_MODULES = sorted(
+    CAPTURE.glob("ingest*.py")
+)  # the pipeline is split by concern; the rule covers every part
 OVERLAY = {
     n for n, f in WorkItem.model_fields.items() if (f.json_schema_extra or {}).get("layer") == "overlay"
 }
@@ -40,14 +43,16 @@ def _assigned_attrs(fn: ast.AST) -> set[str]:
 
 
 def test_capture_path_does_not_write_overlay_columns_outside_hints() -> None:
-    tree = ast.parse(INGEST.read_text())
+    assert INGEST_MODULES, "no ingest modules found"
     offenders: dict[str, set[str]] = {}
-    for fn in [n for n in tree.body if isinstance(n, ast.AsyncFunctionDef | ast.FunctionDef)]:
-        if fn.name == "apply_hints":
-            continue
-        bad = _assigned_attrs(fn) & OVERLAY
-        if bad:
-            offenders[fn.name] = bad
+    for path in INGEST_MODULES:
+        tree = ast.parse(path.read_text())
+        for fn in [n for n in tree.body if isinstance(n, ast.AsyncFunctionDef | ast.FunctionDef)]:
+            if fn.name == "apply_hints":
+                continue
+            bad = _assigned_attrs(fn) & OVERLAY
+            if bad:
+                offenders[f"{path.name}:{fn.name}"] = bad
     assert offenders == {}
 
 

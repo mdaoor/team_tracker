@@ -20,6 +20,7 @@ from tt_server.governance.facts import date_ts, day_ts
 
 
 def blank(type_: str) -> Any:
+    """Zero-value for a CEL type name, expanding object types recursively."""
     if type_ in OBJECTS:
         return {k: blank(v) for k, v in OBJECTS[type_].items()}
     if type_.startswith("list<"):
@@ -30,6 +31,7 @@ def blank(type_: str) -> Any:
 
 
 def blank_context() -> dict[str, Any]:
+    """Empty evaluation context with every root present, used to type-check conditions."""
     return {root: blank(t) for root, t in ROOTS.items() if root != "now"}
 
 
@@ -151,6 +153,7 @@ async def load_items(s: AsyncSession, ws_id: str, item_ids: list[str]) -> dict[s
 
 
 def person_root(member: m.WorkspaceMember, person: m.Person, team: str | None) -> dict[str, Any]:
+    """Build the CEL `person` root for a member."""
     return {
         "id": person.id, "handle": member.handle, "team": team,
         "capacity_hours_per_week": float(member.capacity_hours_per_week) if member.capacity_hours_per_week is not None else None,
@@ -159,6 +162,7 @@ def person_root(member: m.WorkspaceMember, person: m.Person, team: str | None) -
 
 
 def activity_root(a: m.Activity, item_key: str | None, now: datetime) -> dict[str, Any]:
+    """Build the CEL `activity` root, with its duration measured up to now when still open."""
     from datetime import timedelta
 
     end = a.ended_at or now
@@ -169,6 +173,7 @@ def activity_root(a: m.Activity, item_key: str | None, now: datetime) -> dict[st
 
 
 def daily_log_root(d: m.DailyLog) -> dict[str, Any]:
+    """Build the CEL `daily_log` root."""
     return {
         "date": date_ts(d.date),
         "status": d.status.value,
@@ -178,6 +183,7 @@ def daily_log_root(d: m.DailyLog) -> dict[str, Any]:
 
 
 def event_root(ev: m.Event | None) -> dict[str, Any]:
+    """Build the CEL `event` root; empty values when there is no event."""
     if ev is None:
         return {"type": "", "source": "", "occurred_at": None, "payload": {}}
     return {
