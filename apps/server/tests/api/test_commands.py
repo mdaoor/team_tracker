@@ -228,7 +228,7 @@ async def test_mixed_batch_applies_in_order_and_a_rejected_command_does_not_affe
         body["results"][0]["status"] in ("applied", "created", "ok")
         or body["results"][0]["status"] != "failed"
     )
-    assert [c["status"] for c in body["command_results"]] == ["applied", "rejected", "applied"]
+    assert [c["status"] for c in body["results"][1:]] == ["applied", "rejected", "applied"]
 
 
 # ----------------------------------------------------------------------------------------------- merge
@@ -372,6 +372,9 @@ async def test_context_pack_carries_role_context_and_team_now(api: Api) -> None:
 def test_every_op_is_documented() -> None:
     from pathlib import Path
 
-    doc = next(p for p in Path(__file__).resolve().parents if (p / "docs").is_dir()) / "docs/client/management-commands.md"
+    doc = (
+        next(p for p in Path(__file__).resolve().parents if (p / "docs").is_dir())
+        / "docs/client/management-commands.md"
+    )
     text = doc.read_text()
     assert [op for op in REGISTRY if f"`{op}`" not in text] == []

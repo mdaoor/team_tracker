@@ -212,7 +212,13 @@ person may select are derived from their roles (`GET /me`).
 | `item.merge` | items | item.write_overlay | preview, destructive | Merge items: their time, evidence, links, tags and assignments move to the target |
 | `item.move_to_iteration` | iterations | iteration.write | – | Put items into an iteration |
 | `item.reparent` | items | item.write_overlay | preview, destructive | Move items under another parent |
+| `item.set_dates` | items | item.write_overlay | – | Set planned start/end and due date |
+| `item.set_estimate` | items | item.write_overlay | – | Record an estimate (the first is the original, later ones revisions) |
+| `item.set_impact` | items | item.write_overlay | preview | Set the impact (1-5) of items |
+| `item.set_priority` | items | item.write_overlay | preview | Set the priority of items (propagates to children that did not override it) |
+| `item.set_stage` | items | item.write_overlay | – | Move one item to a process stage |
 | `item.set_state` | items | item.write_overlay | – | Change an item's workflow state |
+| `item.set_weight` | items | weight.set | – | Override an item's weight in a scheme |
 | `item.split` | items | item.write_overlay | preview | Split an item into several siblings (the original stays, linked) |
 | `item.tag` | items | item.write_overlay | preview | Add or remove tags on items |
 | `item.update` | items | item.write_overlay | – | Change overlay fields of an item (priority, impact, dates, assignee, team) |

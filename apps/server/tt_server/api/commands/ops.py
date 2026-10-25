@@ -8,6 +8,7 @@ scope; the router functions repeat their own checks where they have them (defenc
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from typing import Any, Literal
 
 from fastapi import Response
@@ -16,6 +17,7 @@ from sqlalchemy import func, select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import (
     Decision,
+    EstimationUnit,
     IterationState,
     LinkType,
     MembershipRole,
@@ -244,6 +246,100 @@ async def item_update(ctx: Ctx, a: ItemUpdate) -> Outcome:
         a.key, overlay.ItemPatch(**data), Response(), ctx.actor, ctx.uow, if_match=overlay.etag_of(item)
     )
     return _res(out)
+
+
+class ItemSetPriority(BaseModel):
+    keys: list[str] = Field(min_length=1)
+    priority: Priority
+
+
+@command(
+    "item.set_priority", "items", "Set the priority of items (propagates to children that did not override it)", ItemSetPriority,
+    permission="item.write_overlay", scope="items", scope_arg="keys", preview=True,
+    example_args={"keys": ["WEB-1"], "priority": "high"}, example_text="make WEB-1 high priority",
+)  # fmt: skip
+async def item_set_priority(ctx: Ctx, a: ItemSetPriority) -> Outcome:
+    return await item_bulk_set(ctx, ItemBulkSet(keys=a.keys, set={"priority": a.priority.value}))
+
+
+class ItemSetImpact(BaseModel):
+    keys: list[str] = Field(min_length=1)
+    impact: int = Field(ge=1, le=5)
+
+
+@command(
+    "item.set_impact", "items", "Set the impact (1-5) of items", ItemSetImpact, permission="item.write_overlay", scope="items", scope_arg="keys", preview=True,
+    example_args={"keys": ["WEB-1"], "impact": 4}, example_text="WEB-1 has impact 4",
+)  # fmt: skip
+async def item_set_impact(ctx: Ctx, a: ItemSetImpact) -> Outcome:
+    return await item_bulk_set(ctx, ItemBulkSet(keys=a.keys, set={"impact": a.impact}))
+
+
+class ItemSetWeight(BaseModel):
+    key: str
+    weight: Decimal
+    scheme: str = Field(default="default", description="weight scheme name or id")
+
+
+@command(
+    "item.set_weight", "items", "Override an item's weight in a scheme", ItemSetWeight, permission="weight.set", scope="item", scope_arg="key",
+    example_args={"key": "WEB-1", "weight": "5"}, example_text="set WEB-1 weight to 5",
+)  # fmt: skip
+async def item_set_weight(ctx: Ctx, a: ItemSetWeight) -> Outcome:
+    return _res(
+        await overlay.override_weight(a.key, a.scheme, overlay.WeightIn(value=a.weight), ctx.actor, ctx.uow)
+    )
+
+
+class ItemSetDates(BaseModel):
+    key: str
+    planned_start: date | None = None
+    planned_end: date | None = None
+    due_date: date | None = None
+
+
+@command(
+    "item.set_dates", "items", "Set planned start/end and due date", ItemSetDates, permission="item.write_overlay", scope="item", scope_arg="key",
+    example_args={"key": "WEB-1", "planned_end": "2026-11-20"}, example_text="WEB-1 ends Nov 20",
+)  # fmt: skip
+async def item_set_dates(ctx: Ctx, a: ItemSetDates) -> Outcome:
+    return await item_update(ctx, ItemUpdate(**a.model_dump(exclude_none=True)))
+
+
+class ItemSetEstimate(BaseModel):
+    key: str
+    value: Decimal = Field(gt=0)
+    unit: EstimationUnit = EstimationUnit.HOURS
+    note: str | None = None
+
+
+@command(
+    "item.set_estimate", "items", "Record an estimate (the first is the original, later ones revisions)", ItemSetEstimate, permission="item.write_overlay", scope="item", scope_arg="key",
+    example_args={"key": "WEB-1", "value": "6", "unit": "hours"}, example_text="estimate WEB-1 at 6 hours",
+)  # fmt: skip
+async def item_set_estimate(ctx: Ctx, a: ItemSetEstimate) -> Outcome:
+    item = await core._item(ctx.uow, ctx.actor.ws.id, a.key)
+    est = await items_svc.record_estimate(
+        ctx.uow, item, person_id=ctx.actor.person.id, value=a.value, unit=a.unit, note=a.note
+    )
+    emit(ctx.uow, workspace_id=ctx.actor.ws.id, actor_id=ctx.actor.person.id, entity_type=TargetType.WORK_ITEM, entity_id=item.id, event_type="item.updated", payload={"fields_changed": ["estimate"]})  # fmt: skip
+    return Outcome(
+        result={"key": item.key, "estimate": str(est.value), "unit": est.unit.value, "kind": est.kind.value}
+    )
+
+
+class ItemSetStage(BaseModel):
+    key: str
+    stage: str
+    reason: str | None = None
+
+
+@command(
+    "item.set_stage", "items", "Move one item to a process stage", ItemSetStage, permission="item.write_overlay", scope="item", scope_arg="key",
+    example_args={"key": "WEB-1", "stage": "review"}, example_text="move WEB-1 to review",
+)  # fmt: skip
+async def item_set_stage(ctx: Ctx, a: ItemSetStage) -> Outcome:
+    return await stage_move(ctx, StageMove(keys=[a.key], stage=a.stage, reason=a.reason))
 
 
 class ItemAssign(BaseModel):

@@ -69,7 +69,10 @@ async def post_batch(request: Request, actor: CurrentActor, uow: Uow) -> JSONRes
     body: dict[str, Any] = {"results": [r.as_dict() for r in results]}
     command_results = [await run(uow, actor, c, correlation_id=corr) for c in batch.commands]
     if batch.commands:
-        body["command_results"] = command_results
+        body["results"] = [
+            *body["results"],
+            *command_results,
+        ]  # one list, matched by client_id (messages first, then commands)
     failed = any(r.status == "failed" for r in results) or any(
         r["status"] == "rejected" for r in command_results
     )

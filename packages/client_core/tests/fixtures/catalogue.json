@@ -1,429 +1,691 @@
 {
- "etag": "\"cat-1\"",
+ "etag": "\"476e070f9d1cf283\"",
  "ops": [
   {
-   "op": "project.create",
-   "group": "projects",
-   "description": "Create a project",
-   "permission": "project.create",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "name": {
-      "type": "string",
-      "description": "project name",
-      "minLength": 1
-     },
-     "key": {
-      "type": "string",
-      "description": "short key",
-      "pattern": "^[A-Z][A-Z0-9]{1,9}$"
-     },
-     "process": {
-      "type": "string",
-      "description": "process template"
-     },
-     "product": {
-      "type": "string",
-      "description": "product"
-     },
-     "team": {
-      "type": "string",
-      "description": "team name",
-      "format": "team"
-     },
-     "methodology": {
-      "type": "string",
-      "enum": [
-       "scrum",
-       "kanban",
-       "waterfall",
-       "hybrid"
-      ]
-     }
-    },
-    "required": [
-     "name",
-     "key"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "name": "Payments",
-     "key": "PAY",
-     "methodology": "scrum"
-    },
-    "text": "new project Payments key PAY scrum"
-   }
-  },
-  {
-   "op": "project.update",
-   "group": "projects",
-   "description": "Update project fields",
-   "permission": "project.write",
+   "op": "approval.decide",
+   "group": "process",
+   "description": "Approve or reject a pending approval",
+   "permission": null,
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin",
+    "scrum_master"
+   ],
    "args_schema": {
-    "type": "object",
-    "properties": {
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     },
-     "name": {
-      "type": "string"
-     },
-     "process": {
-      "type": "string"
-     },
-     "product": {
-      "type": "string"
-     },
-     "methodology": {
-      "type": "string",
+    "$defs": {
+     "Decision": {
       "enum": [
-       "scrum",
-       "kanban",
-       "waterfall",
-       "hybrid"
-      ]
+       "pending",
+       "approved",
+       "rejected",
+       "abstained"
+      ],
+      "title": "Decision",
+      "type": "string"
+     }
+    },
+    "properties": {
+     "approval": {
+      "title": "Approval",
+      "type": "string"
+     },
+     "decision": {
+      "$ref": "#/$defs/Decision"
+     },
+     "comment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Comment"
      }
     },
     "required": [
-     "project"
+     "approval",
+     "decision"
     ],
-    "additionalProperties": false
+    "title": "ApprovalDecide",
+    "type": "object"
    },
    "example": {
     "args": {
-     "project": "WEB",
-     "name": "Website 2"
+     "approval": "<approval id>",
+     "decision": "approved",
+     "comment": "ok"
     },
-    "text": "rename project WEB to Website 2"
+    "text": "approve the pending approval"
    }
   },
   {
-   "op": "project.add_member",
-   "group": "projects",
-   "description": "Add a person to a project",
-   "permission": "project.write",
-   "preview": true,
+   "op": "classify",
+   "group": "tags",
+   "description": "Classify an item or project on a dimension",
+   "permission": "classification.write",
+   "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
+     "target": {
+      "description": "item or project key",
+      "title": "Target",
+      "type": "string"
+     },
+     "dimension": {
+      "title": "Dimension",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value",
+      "type": "string"
+     },
+     "target_type": {
+      "default": "work_item",
+      "enum": [
+       "work_item",
+       "project",
+       "product"
+      ],
+      "title": "Target Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "target",
+     "dimension",
+     "value"
+    ],
+    "title": "Classify",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "target": "WEB-101",
+     "dimension": "theme",
+     "value": "checkout"
+    },
+    "text": "classify WEB-101 as theme checkout"
+   }
+  },
+  {
+   "op": "context_note.add",
+   "group": "personal",
+   "description": "Add a context note for a project, team or the workspace",
+   "permission": "context_note.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "coach",
+    "pm",
+    "admin",
+    "scrum_master"
+   ],
+   "args_schema": {
+    "$defs": {
+     "ScopeType": {
+      "enum": [
+       "none",
+       "workspace",
+       "project",
+       "team",
+       "person",
+       "product",
+       "process",
+       "iteration"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+     }
+    },
+    "properties": {
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "body": {
+      "title": "Body",
+      "type": "string"
+     },
+     "scope_type": {
+      "$ref": "#/$defs/ScopeType",
+      "default": "workspace"
+     },
+     "scope": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "project key / team slug the note applies to",
+      "title": "Scope"
+     },
+     "pinned": {
+      "default": false,
+      "title": "Pinned",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "title",
+     "body"
+    ],
+    "title": "ContextNoteAdd",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "title": "Freeze",
+     "body": "Code freeze from Dec 1",
+     "scope_type": "workspace"
+    },
+    "text": "note: code freeze from Dec 1"
+   }
+  },
+  {
+   "op": "dailylog.confirm",
+   "group": "personal",
+   "description": "Confirm your daily log",
+   "permission": null,
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "reporter",
+    "manager",
+    "scrum_master",
+    "coach",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "day": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Day"
+     }
+    },
+    "title": "DailyLogConfirm",
+    "type": "object"
+   },
+   "example": {
+    "args": {},
+    "text": "confirm my day"
+   }
+  },
+  {
+   "op": "dimension.value.add",
+   "group": "tags",
+   "description": "Add a value to a dimension (customer, theme, ...)",
+   "permission": "dimension.admin",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "dimension": {
+      "title": "Dimension",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Parent"
+     }
+    },
+    "required": [
+     "dimension",
+     "name"
+    ],
+    "title": "DimensionValueAdd",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "dimension": "theme",
+     "name": "Checkout"
+    },
+    "text": "add Checkout to theme"
+   }
+  },
+  {
+   "op": "habit.coach_note",
+   "group": "governance",
+   "description": "Write a coaching note on a habit (visible to managers and coaches only)",
+   "permission": "habit.coach",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "coach",
+    "manager",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "habit": {
+      "title": "Habit",
+      "type": "string"
+     },
+     "note": {
+      "minLength": 1,
+      "title": "Note",
+      "type": "string"
+     }
+    },
+    "required": [
+     "habit",
+     "note"
+    ],
+    "title": "HabitCoachNote",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "habit": "<habit id>",
+     "note": "pair on estimates"
+    },
+    "text": "coaching note on habit: pair on estimates"
+   }
+  },
+  {
+   "op": "habit.set_status",
+   "group": "governance",
+   "description": "Set a habit's coaching status",
+   "permission": "habit.coach",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "coach",
+    "manager",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "habit": {
+      "title": "Habit",
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "open",
+       "acknowledged",
+       "improving",
+       "resolved",
+       "dismissed"
+      ],
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "habit",
+     "status"
+    ],
+    "title": "HabitSetStatus",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "habit": "<habit id>",
+     "status": "improving"
+    },
+    "text": "mark habit as improving"
+   }
+  },
+  {
+   "op": "item.assign",
+   "group": "items",
+   "description": "Assign an item to a person",
+   "permission": "item.write_overlay",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "key": {
+      "title": "Key",
+      "type": "string"
      },
      "person": {
-      "type": "string",
-      "description": "@handle",
-      "format": "person"
-     },
-     "role": {
-      "type": "string",
-      "enum": [
-       "member",
-       "lead",
-       "viewer",
-       "owner"
-      ]
+      "title": "Person",
+      "type": "string"
      }
     },
     "required": [
-     "project",
-     "person",
-     "role"
+     "key",
+     "person"
     ],
-    "additionalProperties": false
+    "title": "ItemAssign",
+    "type": "object"
    },
    "example": {
     "args": {
-     "project": "WEB",
-     "person": "@sara",
-     "role": "member"
+     "key": "WEB-101",
+     "person": "@sara"
     },
-    "text": "add @sara to WEB as member"
+    "text": "assign WEB-101 to @sara"
    }
   },
   {
-   "op": "project.plan.create",
-   "group": "projects",
-   "description": "Create a top-down plan (phases, milestones, deliverables)",
-   "permission": "project.write",
+   "op": "item.bulk_set",
+   "group": "items",
+   "description": "Set priority, impact, stage or weight on many items with a propagation preview",
+   "permission": "item.write_overlay",
    "preview": true,
-   "destructive": false,
+   "destructive": true,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
+     "keys": {
+      "items": {
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Keys",
+      "type": "array"
      },
-     "plan": {
-      "type": "object",
-      "description": "plan payload"
+     "set": {
+      "additionalProperties": true,
+      "description": "priority | impact | stage | weight",
+      "title": "Set",
+      "type": "object"
      }
     },
     "required": [
-     "project",
-     "plan"
+     "keys",
+     "set"
     ],
-    "additionalProperties": false
+    "title": "ItemBulkSet",
+    "type": "object"
    },
    "example": {
     "args": {
-     "project": "WEB",
-     "plan": {
-      "phases": [
-       {
-        "name": "Build"
-       }
-      ]
+     "keys": [
+      "WEB-1",
+      "WEB-2"
+     ],
+     "set": {
+      "priority": "high"
      }
     },
-    "text": "plan WEB with a Build phase"
-   }
-  },
-  {
-   "op": "project.baseline.capture",
-   "group": "projects",
-   "description": "Capture a baseline of the current plan",
-   "permission": "project.write",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     },
-     "name": {
-      "type": "string",
-      "description": "baseline name"
-     }
-    },
-    "required": [
-     "project"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "project": "WEB",
-     "name": "Q4 baseline"
-    },
-    "text": "baseline WEB as Q4 baseline"
+    "text": "make WEB-1 and WEB-2 high priority"
    }
   },
   {
    "op": "item.create",
    "group": "items",
-   "description": "Create an overlay item (epic, deliverable, task)",
+   "description": "Create an item (epic, deliverable, task ...)",
    "permission": "item.write_overlay",
-   "preview": true,
+   "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
-    "properties": {
-     "title": {
-      "type": "string",
-      "minLength": 1
-     },
-     "type": {
-      "type": "string",
-      "enum": [
-       "epic",
-       "story",
-       "task",
-       "bug",
-       "deliverable",
-       "milestone"
-      ]
-     },
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     },
-     "parent": {
-      "type": "string",
-      "description": "parent item key",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-     },
-     "priority": {
-      "type": "string",
+    "$defs": {
+     "Priority": {
       "enum": [
        "lowest",
        "low",
        "medium",
        "high",
+       "highest",
        "critical"
-      ]
+      ],
+      "title": "Priority",
+      "type": "string"
+     }
+    },
+    "properties": {
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "item type key: epic, story, task, bug, deliverable ...",
+      "title": "Type"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "parent item key",
+      "title": "Parent"
      },
      "description": {
-      "type": "string"
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Description"
+     },
+     "priority": {
+      "$ref": "#/$defs/Priority",
+      "default": "medium"
+     },
+     "assignee": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "@handle; default: you",
+      "title": "Assignee"
      }
     },
     "required": [
      "title",
-     "type",
      "project"
     ],
-    "additionalProperties": false
+    "title": "ItemCreate",
+    "type": "object"
    },
    "example": {
     "args": {
      "title": "Checkout redesign",
-     "type": "epic",
-     "project": "WEB"
+     "project": "WEB",
+     "type": "epic"
     },
     "text": "new epic Checkout redesign under WEB"
    }
   },
   {
-   "op": "item.update",
+   "op": "item.link",
    "group": "items",
-   "description": "Update item fields",
+   "description": "Link two items (blocks, depends on, relates to ...)",
    "permission": "item.write_overlay",
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
+    "$defs": {
+     "LinkType": {
+      "enum": [
+       "blocks",
+       "is_blocked_by",
+       "relates_to",
+       "duplicates",
+       "clones",
+       "depends_on",
+       "finish_to_start",
+       "start_to_start",
+       "finish_to_finish"
+      ],
+      "title": "LinkType",
+      "type": "string"
+     }
+    },
     "properties": {
-     "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+     "from": {
+      "title": "From",
+      "type": "string"
      },
-     "fields": {
-      "type": "object",
-      "description": "fields to change"
+     "to": {
+      "title": "To",
+      "type": "string"
+     },
+     "type": {
+      "$ref": "#/$defs/LinkType",
+      "default": "relates_to"
      }
     },
     "required": [
-     "key",
-     "fields"
+     "from",
+     "to"
     ],
-    "additionalProperties": false
+    "title": "ItemLink",
+    "type": "object"
    },
    "example": {
     "args": {
-     "key": "WEB-1",
-     "fields": {
-      "title": "Better title"
-     }
+     "from": "WEB-101",
+     "to": "WEB-105",
+     "type": "blocks"
     },
-    "text": "rename WEB-1 to Better title"
-   }
-  },
-  {
-   "op": "item.reparent",
-   "group": "items",
-   "description": "Move items under a new parent",
-   "permission": "item.write_overlay",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "keys": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "description": "item key, e.g. WEB-101",
-       "format": "item",
-       "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-      },
-      "description": "item keys",
-      "minItems": 1
-     },
-     "parent": {
-      "type": "string",
-      "description": "new parent key",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-     }
-    },
-    "required": [
-     "keys",
-     "parent"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "keys": [
-      "WEB-2",
-      "WEB-3"
-     ],
-     "parent": "WEB-1"
-    },
-    "text": "move WEB-2 and WEB-3 under WEB-1"
+    "text": "WEB-101 blocks WEB-105"
    }
   },
   {
    "op": "item.merge",
    "group": "items",
-   "description": "Merge several items into one (sources are soft-deleted)",
+   "description": "Merge items: their time, evidence, links, tags and assignments move to the target",
    "permission": "item.write_overlay",
    "preview": true,
    "destructive": true,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "sources": {
-      "type": "array",
+      "description": "items folded into the target",
       "items": {
-       "type": "string",
-       "description": "item key, e.g. WEB-101",
-       "format": "item",
-       "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+       "type": "string"
       },
-      "description": "items to merge",
-      "minItems": 2
+      "minItems": 1,
+      "title": "Sources",
+      "type": "array"
      },
      "target": {
-      "type": "string",
-      "description": "keep this item",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "existing item that survives",
+      "title": "Target"
      },
      "new_title": {
-      "type": "string",
-      "description": "or create a new merged item with this title"
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "create a new item with this title instead of using a target",
+      "title": "New Title"
      },
      "allow_cross_project": {
+      "default": false,
+      "title": "Allow Cross Project",
       "type": "boolean"
      }
     },
     "required": [
      "sources"
     ],
-    "additionalProperties": false,
-    "anyOf": [
-     {
-      "required": [
-       "target"
-      ]
-     },
-     {
-      "required": [
-       "new_title"
-      ]
-     }
-    ]
+    "title": "ItemMerge",
+    "type": "object"
    },
    "example": {
     "args": {
@@ -433,461 +695,587 @@
      ],
      "target": "WEB-101"
     },
-    "text": "merge WEB-101 and WEB-105"
+    "text": "merge WEB-101 and WEB-105 into one"
    }
   },
   {
-   "op": "item.split",
+   "op": "item.move_to_iteration",
+   "group": "iterations",
+   "description": "Put items into an iteration",
+   "permission": "iteration.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "scrum_master",
+    "pm",
+    "manager",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "keys": {
+      "items": {
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Keys",
+      "type": "array"
+     },
+     "iteration": {
+      "description": "iteration name or id within the items' project",
+      "title": "Iteration",
+      "type": "string"
+     }
+    },
+    "required": [
+     "keys",
+     "iteration"
+    ],
+    "title": "MoveToIteration",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "keys": [
+      "WEB-1"
+     ],
+     "iteration": "Sprint 4"
+    },
+    "text": "move WEB-1 to Sprint 4"
+   }
+  },
+  {
+   "op": "item.reparent",
    "group": "items",
-   "description": "Split an item into several",
+   "description": "Move items under another parent",
    "permission": "item.write_overlay",
    "preview": true,
    "destructive": true,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
-     "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-     },
-     "titles": {
-      "type": "array",
+     "keys": {
       "items": {
-       "type": "string",
-       "minLength": 1
+       "type": "string"
       },
-      "description": "titles of the new items",
-      "minItems": 2
+      "minItems": 1,
+      "title": "Keys",
+      "type": "array"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "new parent key; null makes them top-level",
+      "title": "Parent"
      }
     },
     "required": [
-     "key",
-     "titles"
+     "keys"
     ],
-    "additionalProperties": false
+    "title": "ItemReparent",
+    "type": "object"
    },
    "example": {
     "args": {
-     "key": "WEB-7",
-     "titles": [
-      "Design",
-      "Build"
-     ]
+     "keys": [
+      "WEB-101",
+      "WEB-102"
+     ],
+     "parent": "WEB-90"
     },
-    "text": "split WEB-7 into Design and Build"
+    "text": "move WEB-101 and WEB-102 under WEB-90"
    }
   },
   {
-   "op": "item.assign",
+   "op": "item.set_dates",
    "group": "items",
-   "description": "Assign a person to an item",
+   "description": "Set planned start/end and due date",
    "permission": "item.write_overlay",
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+      "title": "Key",
+      "type": "string"
      },
-     "person": {
-      "type": "string",
-      "description": "@handle",
-      "format": "person"
+     "planned_start": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Planned Start"
      },
-     "role": {
-      "type": "string",
-      "enum": [
-       "owner",
-       "contributor",
-       "reviewer"
-      ]
+     "planned_end": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Planned End"
+     },
+     "due_date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Due Date"
      }
     },
     "required": [
-     "key",
-     "person",
-     "role"
+     "key"
     ],
-    "additionalProperties": false
+    "title": "ItemSetDates",
+    "type": "object"
    },
    "example": {
     "args": {
      "key": "WEB-1",
-     "person": "@sara",
-     "role": "owner"
+     "planned_end": "2026-11-20"
     },
-    "text": "assign WEB-1 to @sara"
+    "text": "WEB-1 ends Nov 20"
    }
   },
   {
-   "op": "item.set_priority",
+   "op": "item.set_estimate",
    "group": "items",
-   "description": "Set priority",
+   "description": "Record an estimate (the first is the original, later ones revisions)",
    "permission": "item.write_overlay",
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
+    "$defs": {
+     "EstimationUnit": {
+      "enum": [
+       "points",
+       "hours",
+       "days",
+       "none"
+      ],
+      "title": "EstimationUnit",
+      "type": "string"
+     }
+    },
     "properties": {
      "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+      "title": "Key",
+      "type": "string"
      },
-     "priority": {
-      "type": "string",
-      "enum": [
-       "lowest",
-       "low",
-       "medium",
-       "high",
-       "critical"
-      ]
+     "value": {
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ],
+      "title": "Value"
+     },
+     "unit": {
+      "$ref": "#/$defs/EstimationUnit",
+      "default": "hours"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Note"
      }
     },
     "required": [
      "key",
-     "priority"
+     "value"
     ],
-    "additionalProperties": false
+    "title": "ItemSetEstimate",
+    "type": "object"
    },
    "example": {
     "args": {
      "key": "WEB-1",
-     "priority": "high"
+     "value": "6",
+     "unit": "hours"
     },
-    "text": "WEB-1 priority high"
+    "text": "estimate WEB-1 at 6 hours"
    }
   },
   {
    "op": "item.set_impact",
    "group": "items",
-   "description": "Set business impact",
+   "description": "Set the impact (1-5) of items",
    "permission": "item.write_overlay",
-   "preview": false,
+   "preview": true,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
-     "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+     "keys": {
+      "items": {
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Keys",
+      "type": "array"
      },
      "impact": {
-      "type": "string",
-      "enum": [
-       "low",
-       "medium",
-       "high"
-      ]
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Impact",
+      "type": "integer"
      }
     },
     "required": [
-     "key",
+     "keys",
      "impact"
     ],
-    "additionalProperties": false
+    "title": "ItemSetImpact",
+    "type": "object"
    },
    "example": {
     "args": {
-     "key": "WEB-1",
-     "impact": "high"
+     "keys": [
+      "WEB-1"
+     ],
+     "impact": 4
     },
-    "text": "WEB-1 impact high"
+    "text": "WEB-1 has impact 4"
    }
   },
   {
-   "op": "item.set_weight",
+   "op": "item.set_priority",
    "group": "items",
-   "description": "Set weight for progress roll-up",
+   "description": "Set the priority of items (propagates to children that did not override it)",
    "permission": "item.write_overlay",
-   "preview": false,
+   "preview": true,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
+    "$defs": {
+     "Priority": {
+      "enum": [
+       "lowest",
+       "low",
+       "medium",
+       "high",
+       "highest",
+       "critical"
+      ],
+      "title": "Priority",
+      "type": "string"
+     }
+    },
     "properties": {
-     "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+     "keys": {
+      "items": {
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Keys",
+      "type": "array"
      },
-     "weight": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 100
+     "priority": {
+      "$ref": "#/$defs/Priority"
      }
     },
     "required": [
-     "key",
-     "weight"
+     "keys",
+     "priority"
     ],
-    "additionalProperties": false
+    "title": "ItemSetPriority",
+    "type": "object"
    },
    "example": {
     "args": {
-     "key": "WEB-1",
-     "weight": 5
+     "keys": [
+      "WEB-1"
+     ],
+     "priority": "high"
     },
-    "text": "WEB-1 weight 5"
+    "text": "make WEB-1 high priority"
    }
   },
   {
    "op": "item.set_stage",
    "group": "items",
-   "description": "Set the stage of one item",
+   "description": "Move one item to a process stage",
    "permission": "item.write_overlay",
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+      "title": "Key",
+      "type": "string"
      },
      "stage": {
-      "type": "string",
-      "description": "stage name"
+      "title": "Stage",
+      "type": "string"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Reason"
      }
     },
     "required": [
      "key",
      "stage"
     ],
-    "additionalProperties": false
+    "title": "ItemSetStage",
+    "type": "object"
    },
    "example": {
     "args": {
      "key": "WEB-1",
-     "stage": "build"
+     "stage": "review"
     },
-    "text": "WEB-1 stage build"
+    "text": "move WEB-1 to review"
    }
   },
   {
    "op": "item.set_state",
    "group": "items",
-   "description": "Set workflow state",
+   "description": "Change an item's workflow state",
    "permission": "item.write_overlay",
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "scrum_master",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+      "title": "Key",
+      "type": "string"
      },
      "state": {
-      "type": "string",
-      "enum": [
-       "todo",
-       "doing",
-       "blocked",
-       "done",
-       "cancelled"
-      ]
+      "description": "workflow state key, e.g. in_progress, done",
+      "title": "State",
+      "type": "string"
      }
     },
     "required": [
      "key",
      "state"
     ],
-    "additionalProperties": false
+    "title": "ItemSetState",
+    "type": "object"
    },
    "example": {
     "args": {
-     "key": "WEB-1",
-     "state": "blocked"
+     "key": "WEB-101",
+     "state": "done"
     },
-    "text": "WEB-1 is blocked"
+    "text": "close WEB-101"
    }
   },
   {
-   "op": "item.set_dates",
+   "op": "item.set_weight",
    "group": "items",
-   "description": "Set planned dates",
-   "permission": "item.write_overlay",
+   "description": "Override an item's weight in a scheme",
+   "permission": "weight.set",
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+      "title": "Key",
+      "type": "string"
      },
-     "start": {
-      "type": "string",
-      "format": "date"
+     "weight": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ],
+      "title": "Weight"
      },
-     "end": {
-      "type": "string",
-      "format": "date"
-     }
-    },
-    "required": [
-     "key"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "key": "WEB-1",
-     "end": "2026-11-30"
-    },
-    "text": "WEB-1 due 2026-11-30"
-   }
-  },
-  {
-   "op": "item.set_estimate",
-   "group": "items",
-   "description": "Set the estimate",
-   "permission": "item.write_overlay",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "key": {
-      "type": "string",
-      "description": "item key, e.g. WEB-101",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-     },
-     "value": {
-      "type": "number",
-      "minimum": 0
-     },
-     "unit": {
-      "type": "string",
-      "enum": [
-       "hours",
-       "days",
-       "points"
-      ]
+     "scheme": {
+      "default": "default",
+      "description": "weight scheme name or id",
+      "title": "Scheme",
+      "type": "string"
      }
     },
     "required": [
      "key",
-     "value",
-     "unit"
+     "weight"
     ],
-    "additionalProperties": false
+    "title": "ItemSetWeight",
+    "type": "object"
    },
    "example": {
     "args": {
      "key": "WEB-1",
-     "value": 3,
-     "unit": "days"
+     "weight": "5"
     },
-    "text": "WEB-1 estimate 3 days"
+    "text": "set WEB-1 weight to 5"
    }
   },
   {
-   "op": "item.link",
+   "op": "item.split",
    "group": "items",
-   "description": "Link two items",
+   "description": "Split an item into several siblings (the original stays, linked)",
    "permission": "item.write_overlay",
-   "preview": false,
+   "preview": true,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
-     "from": {
-      "type": "string",
-      "description": "from item",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+     "key": {
+      "title": "Key",
+      "type": "string"
      },
-     "to": {
-      "type": "string",
-      "description": "to item",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-     },
-     "type": {
-      "type": "string",
-      "enum": [
-       "blocks",
-       "relates",
-       "duplicates",
-       "depends_on"
-      ]
+     "titles": {
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 20,
+      "minItems": 2,
+      "title": "Titles",
+      "type": "array"
      }
     },
     "required": [
-     "from",
-     "to",
-     "type"
+     "key",
+     "titles"
     ],
-    "additionalProperties": false
+    "title": "ItemSplit",
+    "type": "object"
    },
    "example": {
     "args": {
-     "from": "WEB-1",
-     "to": "WEB-2",
-     "type": "blocks"
+     "key": "WEB-101",
+     "titles": [
+      "API part",
+      "UI part"
+     ]
     },
-    "text": "WEB-1 blocks WEB-2"
+    "text": "split WEB-101 into API part and UI part"
    }
   },
   {
    "op": "item.tag",
    "group": "items",
-   "description": "Add or remove tags on many items",
+   "description": "Add or remove tags on items",
    "permission": "item.write_overlay",
    "preview": true,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "keys": {
-      "type": "array",
       "items": {
-       "type": "string",
-       "description": "item key, e.g. WEB-101",
-       "format": "item",
-       "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
+       "type": "string"
       },
-      "description": "item keys",
-      "minItems": 1
+      "minItems": 1,
+      "title": "Keys",
+      "type": "array"
      },
      "add": {
-      "type": "array",
       "items": {
        "type": "string"
       },
-      "description": "tags to add"
+      "title": "Add",
+      "type": "array"
      },
      "remove": {
-      "type": "array",
       "items": {
        "type": "string"
       },
-      "description": "tags to remove"
+      "title": "Remove",
+      "type": "array"
      }
     },
     "required": [
      "keys"
     ],
-    "additionalProperties": false
+    "title": "ItemTag",
+    "type": "object"
    },
    "example": {
     "args": {
@@ -899,57 +1287,1340 @@
       "q4"
      ]
     },
-    "text": "tag DATA-1 DATA-2 #q4"
+    "text": "tag DATA-1 and DATA-2 #q4"
+   }
+  },
+  {
+   "op": "item.update",
+   "group": "items",
+   "description": "Change overlay fields of an item (priority, impact, dates, assignee, team)",
+   "permission": "item.write_overlay",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "$defs": {
+     "Priority": {
+      "enum": [
+       "lowest",
+       "low",
+       "medium",
+       "high",
+       "highest",
+       "critical"
+      ],
+      "title": "Priority",
+      "type": "string"
+     }
+    },
+    "properties": {
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Description"
+     },
+     "priority": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/Priority"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "impact": {
+      "anyOf": [
+       {
+        "maximum": 5,
+        "minimum": 1,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Impact"
+     },
+     "severity": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Severity"
+     },
+     "planned_start": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Planned Start"
+     },
+     "planned_end": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Planned End"
+     },
+     "due_date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Due Date"
+     },
+     "assignee": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "@handle",
+      "title": "Assignee"
+     },
+     "team": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "team slug",
+      "title": "Team"
+     }
+    },
+    "required": [
+     "key"
+    ],
+    "title": "ItemUpdate",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "key": "WEB-101",
+     "priority": "high"
+    },
+    "text": "make WEB-101 high priority"
+   }
+  },
+  {
+   "op": "iteration.close",
+   "group": "iterations",
+   "description": "Close the active iteration",
+   "permission": "iteration.write",
+   "preview": false,
+   "destructive": true,
+   "modes": [
+    "scrum_master",
+    "pm",
+    "manager",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "iteration": {
+      "description": "iteration name or id",
+      "title": "Iteration",
+      "type": "string"
+     }
+    },
+    "required": [
+     "project",
+     "iteration"
+    ],
+    "title": "IterationRef",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "WEB",
+     "iteration": "Sprint 4"
+    },
+    "text": "close sprint 4 on WEB"
+   }
+  },
+  {
+   "op": "iteration.create",
+   "group": "iterations",
+   "description": "Create an iteration",
+   "permission": "iteration.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "scrum_master",
+    "pm",
+    "manager",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "start_date": {
+      "format": "date",
+      "title": "Start Date",
+      "type": "string"
+     },
+     "end_date": {
+      "format": "date",
+      "title": "End Date",
+      "type": "string"
+     },
+     "goal": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Goal"
+     }
+    },
+    "required": [
+     "project",
+     "name",
+     "start_date",
+     "end_date"
+    ],
+    "title": "IterationCreate",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "WEB",
+     "name": "Sprint 4",
+     "start_date": "2026-11-02",
+     "end_date": "2026-11-13"
+    },
+    "text": "new sprint 4 on WEB from Nov 2 to Nov 13"
+   }
+  },
+  {
+   "op": "iteration.start",
+   "group": "iterations",
+   "description": "Start a planned iteration",
+   "permission": "iteration.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "scrum_master",
+    "pm",
+    "manager",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "iteration": {
+      "description": "iteration name or id",
+      "title": "Iteration",
+      "type": "string"
+     }
+    },
+    "required": [
+     "project",
+     "iteration"
+    ],
+    "title": "IterationRef",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "WEB",
+     "iteration": "Sprint 4"
+    },
+    "text": "start sprint 4 on WEB"
+   }
+  },
+  {
+   "op": "milestone.complete",
+   "group": "iterations",
+   "description": "Complete a milestone",
+   "permission": "milestone.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "pm",
+    "manager",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "milestone": {
+      "description": "milestone name or id",
+      "title": "Milestone",
+      "type": "string"
+     }
+    },
+    "required": [
+     "project",
+     "milestone"
+    ],
+    "title": "MilestoneRef",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "WEB",
+     "milestone": "Beta"
+    },
+    "text": "milestone Beta on WEB is done"
+   }
+  },
+  {
+   "op": "milestone.create",
+   "group": "iterations",
+   "description": "Create a milestone",
+   "permission": "milestone.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "pm",
+    "manager",
+    "admin"
+   ],
+   "args_schema": {
+    "$defs": {
+     "MilestoneKind": {
+      "enum": [
+       "gate",
+       "release",
+       "demo",
+       "deadline",
+       "other"
+      ],
+      "title": "MilestoneKind",
+      "type": "string"
+     }
+    },
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "due_date": {
+      "format": "date",
+      "title": "Due Date",
+      "type": "string"
+     },
+     "kind": {
+      "$ref": "#/$defs/MilestoneKind",
+      "default": "deadline"
+     }
+    },
+    "required": [
+     "project",
+     "name",
+     "due_date"
+    ],
+    "title": "MilestoneCreate",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "WEB",
+     "name": "Beta",
+     "due_date": "2026-12-01"
+    },
+    "text": "milestone Beta on WEB due Dec 1"
+   }
+  },
+  {
+   "op": "policy.activate",
+   "group": "governance",
+   "description": "Activate a tested policy",
+   "permission": "policy.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "admin",
+    "manager"
+   ],
+   "args_schema": {
+    "properties": {
+     "policy": {
+      "description": "policy key",
+      "title": "Policy",
+      "type": "string"
+     },
+     "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "policy"
+    ],
+    "title": "PolicyRef",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "policy": "stale-in-progress"
+    },
+    "text": "activate policy stale-in-progress"
+   }
+  },
+  {
+   "op": "policy.deactivate",
+   "group": "governance",
+   "description": "Deactivate a policy",
+   "permission": "policy.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "admin",
+    "manager"
+   ],
+   "args_schema": {
+    "properties": {
+     "policy": {
+      "description": "policy key",
+      "title": "Policy",
+      "type": "string"
+     },
+     "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "policy"
+    ],
+    "title": "PolicyRef",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "policy": "stale-in-progress"
+    },
+    "text": "deactivate policy stale-in-progress"
+   }
+  },
+  {
+   "op": "project.add_member",
+   "group": "projects",
+   "description": "Add a person to a project",
+   "permission": "project_member.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "$defs": {
+     "ProjectRole": {
+      "enum": [
+       "owner",
+       "manager",
+       "contributor",
+       "stakeholder",
+       "viewer"
+      ],
+      "title": "ProjectRole",
+      "type": "string"
+     }
+    },
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "person": {
+      "title": "Person",
+      "type": "string"
+     },
+     "role": {
+      "$ref": "#/$defs/ProjectRole",
+      "default": "contributor"
+     }
+    },
+    "required": [
+     "project",
+     "person"
+    ],
+    "title": "ProjectAddMember",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "PAY",
+     "person": "@sara",
+     "role": "contributor"
+    },
+    "text": "add @sara to PAY"
+   }
+  },
+  {
+   "op": "project.baseline.capture",
+   "group": "projects",
+   "description": "Freeze the current plan as a named baseline",
+   "permission": "project.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "project",
+     "name"
+    ],
+    "title": "BaselineCapture",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "PAY",
+     "name": "kickoff"
+    },
+    "text": "baseline PAY as kickoff"
+   }
+  },
+  {
+   "op": "project.create",
+   "group": "projects",
+   "description": "Create a project",
+   "permission": "project.create",
+   "preview": true,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "key": {
+      "pattern": "^[A-Za-z][A-Za-z0-9]{1,9}$",
+      "title": "Key",
+      "type": "string"
+     },
+     "process": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Process"
+     },
+     "team": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "team slug",
+      "title": "Team"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Description"
+     }
+    },
+    "required": [
+     "name",
+     "key"
+    ],
+    "title": "ProjectCreate",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "name": "Payments",
+     "key": "PAY",
+     "process": "sw-delivery"
+    },
+    "text": "create project Payments PAY"
+   }
+  },
+  {
+   "op": "project.plan.create",
+   "group": "projects",
+   "description": "Create a top-down plan (phases, deliverables, milestones)",
+   "permission": "project.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "plan": {
+      "additionalProperties": true,
+      "description": "the Phase 1 \u00a71.2 plan payload (phases, deliverables, milestones)",
+      "title": "Plan",
+      "type": "object"
+     }
+    },
+    "required": [
+     "project",
+     "plan"
+    ],
+    "title": "ProjectPlanCreate",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "PAY",
+     "plan": {
+      "phases": []
+     }
+    },
+    "text": "plan PAY: discovery, build, launch"
+   }
+  },
+  {
+   "op": "project.update",
+   "group": "projects",
+   "description": "Rename or change a project's status",
+   "permission": "project.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Description"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Status"
+     }
+    },
+    "required": [
+     "project"
+    ],
+    "title": "ProjectUpdate",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "PAY",
+     "name": "Payments v2"
+    },
+    "text": "rename project PAY to Payments v2"
+   }
+  },
+  {
+   "op": "reporting_line.set",
+   "group": "teams",
+   "description": "Set who a person reports to",
+   "permission": "reporting_line.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "admin",
+    "manager"
+   ],
+   "args_schema": {
+    "$defs": {
+     "ReportingKind": {
+      "enum": [
+       "line",
+       "senior",
+       "project",
+       "functional",
+       "mentor",
+       "dotted"
+      ],
+      "title": "ReportingKind",
+      "type": "string"
+     }
+    },
+    "properties": {
+     "person": {
+      "title": "Person",
+      "type": "string"
+     },
+     "manager": {
+      "title": "Manager",
+      "type": "string"
+     },
+     "kind": {
+      "$ref": "#/$defs/ReportingKind",
+      "default": "line"
+     },
+     "is_primary": {
+      "default": false,
+      "title": "Is Primary",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "person",
+     "manager"
+    ],
+    "title": "ReportingLineSet",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "person": "@sara",
+     "manager": "@mia",
+     "is_primary": true
+    },
+    "text": "@sara reports to @mia"
+   }
+  },
+  {
+   "op": "review.bulk",
+   "group": "governance",
+   "description": "Apply one action to many review rows",
+   "permission": null,
+   "preview": true,
+   "destructive": true,
+   "modes": [
+    "manager",
+    "scrum_master",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "rows": {
+      "items": {
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Rows",
+      "type": "array"
+     },
+     "action": {
+      "default": "ignore",
+      "title": "Action",
+      "type": "string"
+     }
+    },
+    "required": [
+     "rows"
+    ],
+    "title": "ReviewBulk",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "rows": [
+      "<ref>"
+     ],
+     "action": "ignore"
+    },
+    "text": "ignore these review rows"
+   }
+  },
+  {
+   "op": "review.resolve",
+   "group": "governance",
+   "description": "Resolve a review-queue row",
+   "permission": null,
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "scrum_master",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "row": {
+      "description": "review-queue ref",
+      "title": "Row",
+      "type": "string"
+     },
+     "choice": {
+      "additionalProperties": true,
+      "title": "Choice",
+      "type": "object"
+     }
+    },
+    "required": [
+     "row"
+    ],
+    "title": "ReviewResolve",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "row": "<ref>",
+     "choice": {}
+    },
+    "text": "resolve review row with the suggested choice"
+   }
+  },
+  {
+   "op": "risk.action.add",
+   "group": "process",
+   "description": "Add a mitigation action to a risk",
+   "permission": "risk.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "risk": {
+      "title": "Risk",
+      "type": "string"
+     },
+     "description": {
+      "title": "Description",
+      "type": "string"
+     },
+     "due_date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Due Date"
+     }
+    },
+    "required": [
+     "risk",
+     "description"
+    ],
+    "title": "RiskActionAdd",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "risk": "RSK-1",
+     "description": "Ask vendor for a firm date"
+    },
+    "text": "add action to RSK-1: ask vendor for a firm date"
+   }
+  },
+  {
+   "op": "risk.create",
+   "group": "process",
+   "description": "Register a risk",
+   "permission": "risk.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "scrum_master",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "project": {
+      "title": "Project",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "probability": {
+      "default": 3,
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Probability",
+      "type": "integer"
+     },
+     "impact": {
+      "default": 3,
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Impact",
+      "type": "integer"
+     },
+     "item": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Item"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Description"
+     }
+    },
+    "required": [
+     "project",
+     "title"
+    ],
+    "title": "RiskCreate",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "project": "WEB",
+     "title": "Vendor delay",
+     "probability": 4,
+     "impact": 3
+    },
+    "text": "new risk on WEB: vendor delay"
+   }
+  },
+  {
+   "op": "risk.link",
+   "group": "process",
+   "description": "Link a risk to an item",
+   "permission": "risk.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "risk": {
+      "title": "Risk",
+      "type": "string"
+     },
+     "item": {
+      "title": "Item",
+      "type": "string"
+     }
+    },
+    "required": [
+     "risk",
+     "item"
+    ],
+    "title": "RiskLink",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "risk": "RSK-1",
+     "item": "WEB-101"
+    },
+    "text": "link risk RSK-1 to WEB-101"
+   }
+  },
+  {
+   "op": "stage.move",
+   "group": "process",
+   "description": "Move items to a process stage",
+   "permission": "item.write_overlay",
+   "preview": true,
+   "destructive": false,
+   "modes": [
+    "scrum_master",
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "keys": {
+      "items": {
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Keys",
+      "type": "array"
+     },
+     "stage": {
+      "title": "Stage",
+      "type": "string"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Reason"
+     },
+     "process": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Process"
+     }
+    },
+    "required": [
+     "keys",
+     "stage"
+    ],
+    "title": "StageMove",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "keys": [
+      "WEB-1",
+      "WEB-2"
+     ],
+     "stage": "build",
+     "reason": "failed QA"
+    },
+    "text": "move WEB-1 and WEB-2 to build, reason failed QA"
+   }
+  },
+  {
+   "op": "tag.create",
+   "group": "tags",
+   "description": "Create a tag",
+   "permission": "classification.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin",
+    "scrum_master"
+   ],
+   "args_schema": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "TagCreate",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "name": "q4"
+    },
+    "text": "new tag q4"
+   }
+  },
+  {
+   "op": "tag.merge",
+   "group": "tags",
+   "description": "Merge one tag into another",
+   "permission": "classification.write",
+   "preview": false,
+   "destructive": true,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "tag": {
+      "title": "Tag",
+      "type": "string"
+     },
+     "into": {
+      "title": "Into",
+      "type": "string"
+     }
+    },
+    "required": [
+     "tag",
+     "into"
+    ],
+    "title": "TagMerge",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "tag": "q-4",
+     "into": "q4"
+    },
+    "text": "merge tag q-4 into q4"
+   }
+  },
+  {
+   "op": "team.add_members",
+   "group": "teams",
+   "description": "Add people to a team",
+   "permission": "team.write",
+   "preview": false,
+   "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
+   "args_schema": {
+    "properties": {
+     "team": {
+      "description": "team slug",
+      "title": "Team",
+      "type": "string"
+     },
+     "members": {
+      "description": "@handles",
+      "items": {
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Members",
+      "type": "array"
+     }
+    },
+    "required": [
+     "team",
+     "members"
+    ],
+    "title": "TeamMembers",
+    "type": "object"
+   },
+   "example": {
+    "args": {
+     "team": "payments",
+     "members": [
+      "@sara"
+     ]
+    },
+    "text": "add @sara to team payments"
    }
   },
   {
    "op": "team.create",
    "group": "teams",
-   "description": "Create a team (org, virtual or ad hoc)",
+   "description": "Create a team (org, virtual or ad hoc) with members",
    "permission": "team.write",
    "preview": true,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
-    "properties": {
-     "name": {
-      "type": "string",
-      "minLength": 1
-     },
-     "kind": {
-      "type": "string",
+    "$defs": {
+     "TeamKind": {
       "enum": [
        "org",
        "virtual",
        "ad_hoc"
-      ]
+      ],
+      "title": "TeamKind",
+      "type": "string"
+     }
+    },
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "kind": {
+      "$ref": "#/$defs/TeamKind",
+      "default": "virtual"
      },
      "lead": {
-      "type": "string",
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
       "description": "@handle",
-      "format": "person"
+      "title": "Lead"
      },
      "members": {
-      "type": "array",
+      "description": "@handles",
       "items": {
-       "type": "string",
-       "description": "@handle",
-       "format": "person"
+       "type": "string"
       },
-      "description": "members"
+      "title": "Members",
+      "type": "array"
      }
     },
     "required": [
-     "name",
-     "kind"
+     "name"
     ],
-    "additionalProperties": false
+    "title": "TeamCreate",
+    "type": "object"
    },
    "example": {
     "args": {
      "name": "payments",
      "kind": "virtual",
-     "lead": "@mahmoud",
+     "lead": "@me",
      "members": [
       "@sara",
       "@ali"
@@ -959,76 +2630,40 @@
    }
   },
   {
-   "op": "team.add_members",
-   "group": "teams",
-   "description": "Add members to a team",
-   "permission": "team.write",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "team": {
-      "type": "string",
-      "description": "team name",
-      "format": "team"
-     },
-     "members": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "description": "@handle",
-       "format": "person"
-      },
-      "minItems": 1
-     }
-    },
-    "required": [
-     "team",
-     "members"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "team": "payments",
-     "members": [
-      "@omar"
-     ]
-    },
-    "text": "add @omar to team payments"
-   }
-  },
-  {
    "op": "team.remove_members",
    "group": "teams",
-   "description": "Remove members from a team",
+   "description": "Remove people from a team",
    "permission": "team.write",
    "preview": true,
    "destructive": true,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "team": {
-      "type": "string",
-      "description": "team name",
-      "format": "team"
+      "description": "team slug",
+      "title": "Team",
+      "type": "string"
      },
      "members": {
-      "type": "array",
+      "description": "@handles",
       "items": {
-       "type": "string",
-       "description": "@handle",
-       "format": "person"
+       "type": "string"
       },
-      "minItems": 1
+      "minItems": 1,
+      "title": "Members",
+      "type": "array"
      }
     },
     "required": [
      "team",
      "members"
     ],
-    "additionalProperties": false
+    "title": "TeamMembers",
+    "type": "object"
    },
    "example": {
     "args": {
@@ -1041,990 +2676,121 @@
    }
   },
   {
-   "op": "reporting_line.set",
-   "group": "teams",
-   "description": "Set a person's manager",
-   "permission": "reporting.write",
-   "preview": true,
-   "destructive": true,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "person": {
-      "type": "string",
-      "description": "@handle",
-      "format": "person"
-     },
-     "manager": {
-      "type": "string",
-      "description": "@handle",
-      "format": "person"
-     },
-     "kind": {
-      "type": "string",
-      "enum": [
-       "solid",
-       "dotted",
-       "functional"
-      ]
-     },
-     "scope": {
-      "type": "string",
-      "description": "project or team scope"
-     }
-    },
-    "required": [
-     "person",
-     "manager",
-     "kind"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "person": "@sara",
-     "manager": "@mahmoud",
-     "kind": "solid"
-    },
-    "text": "@sara reports to me"
-   }
-  },
-  {
-   "op": "tag.create",
-   "group": "tags",
-   "description": "Create a tag",
-   "permission": "tag.write",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "name": {
-      "type": "string",
-      "minLength": 1
-     },
-     "description": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "name"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "name": "q4"
-    },
-    "text": "new tag q4"
-   }
-  },
-  {
-   "op": "tag.merge",
-   "group": "tags",
-   "description": "Merge tags",
-   "permission": "tag.write",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "sources": {
-      "type": "array",
-      "items": {
-       "type": "string"
-      },
-      "minItems": 1
-     },
-     "target": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "sources",
-     "target"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "sources": [
-      "q-4"
-     ],
-     "target": "q4"
-    },
-    "text": "merge tag q-4 into q4"
-   }
-  },
-  {
-   "op": "dimension.value.add",
-   "group": "tags",
-   "description": "Add a value to a dimension",
-   "permission": "dimension.write",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "dimension": {
-      "type": "string",
-      "description": "dimension key"
-     },
-     "value": {
-      "type": "string",
-      "minLength": 1
-     }
-    },
-    "required": [
-     "dimension",
-     "value"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "dimension": "customer",
-     "value": "ACME"
-    },
-    "text": "add value ACME to dimension customer"
-   }
-  },
-  {
-   "op": "classify",
-   "group": "tags",
-   "description": "Classify a target by a dimension value",
-   "permission": "item.write_overlay",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "target": {
-      "type": "string",
-      "description": "item key",
-      "format": "item",
-      "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-     },
-     "dimension": {
-      "type": "string"
-     },
-     "value": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "target",
-     "dimension",
-     "value"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "target": "WEB-1",
-     "dimension": "customer",
-     "value": "ACME"
-    },
-    "text": "classify WEB-1 customer ACME"
-   }
-  },
-  {
-   "op": "risk.create",
-   "group": "process",
-   "description": "Open a risk",
-   "permission": "risk.write",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "title": {
-      "type": "string",
-      "minLength": 1
-     },
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     },
-     "severity": {
-      "type": "string",
-      "enum": [
-       "low",
-       "medium",
-       "high",
-       "critical"
-      ]
-     },
-     "owner": {
-      "type": "string",
-      "description": "@handle",
-      "format": "person"
-     }
-    },
-    "required": [
-     "title",
-     "project"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "title": "Vendor slips",
-     "project": "WEB",
-     "severity": "high"
-    },
-    "text": "new risk Vendor slips on WEB high"
-   }
-  },
-  {
-   "op": "risk.link",
-   "group": "process",
-   "description": "Link a risk to items",
-   "permission": "risk.write",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "risk": {
-      "type": "string",
-      "description": "risk key"
-     },
-     "keys": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "description": "item key, e.g. WEB-101",
-       "format": "item",
-       "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-      },
-      "description": "item keys",
-      "minItems": 1
-     }
-    },
-    "required": [
-     "risk",
-     "keys"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "risk": "WEB-R7",
-     "keys": [
-      "WEB-1"
-     ]
-    },
-    "text": "link risk WEB-R7 to WEB-1"
-   }
-  },
-  {
-   "op": "risk.action.add",
-   "group": "process",
-   "description": "Add a mitigation action",
-   "permission": "risk.write",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "risk": {
-      "type": "string",
-      "description": "risk key"
-     },
-     "action": {
-      "type": "string",
-      "minLength": 1
-     },
-     "owner": {
-      "type": "string",
-      "description": "@handle",
-      "format": "person"
-     },
-     "due": {
-      "type": "string",
-      "format": "date"
-     }
-    },
-    "required": [
-     "risk",
-     "action"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "risk": "WEB-R7",
-     "action": "Ask vendor for date"
-    },
-    "text": "risk WEB-R7 action Ask vendor for date"
-   }
-  },
-  {
-   "op": "approval.decide",
-   "group": "process",
-   "description": "Approve or reject a pending approval",
-   "permission": "approval.decide",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "approval": {
-      "type": "string",
-      "description": "approval id"
-     },
-     "decision": {
-      "type": "string",
-      "enum": [
-       "approve",
-       "reject"
-      ]
-     },
-     "comment": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "approval",
-     "decision"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "approval": "AP-12",
-     "decision": "approve",
-     "comment": "ok"
-    },
-    "text": "approve AP-12"
-   }
-  },
-  {
-   "op": "stage.move",
-   "group": "process",
-   "description": "Move items to a stage with a reason",
-   "permission": "item.write_overlay",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "keys": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "description": "item key, e.g. WEB-101",
-       "format": "item",
-       "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-      },
-      "description": "item keys",
-      "minItems": 1
-     },
-     "stage": {
-      "type": "string",
-      "description": "stage name"
-     },
-     "reason": {
-      "type": "string",
-      "description": "why"
-     }
-    },
-    "required": [
-     "keys",
-     "stage",
-     "reason"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "keys": [
-      "WEB-1",
-      "WEB-2"
-     ],
-     "stage": "test",
-     "reason": "failed QA"
-    },
-    "text": "move WEB-1 WEB-2 to test because failed QA"
-   }
-  },
-  {
-   "op": "review.resolve",
-   "group": "governance",
-   "description": "Resolve a review-queue row",
-   "permission": "review.resolve",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "row": {
-      "type": "string",
-      "description": "review row id"
-     },
-     "choice": {
-      "type": "string",
-      "description": "one of the row's choices"
-     }
-    },
-    "required": [
-     "row",
-     "choice"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "row": "RV-3",
-     "choice": "accept"
-    },
-    "text": "resolve RV-3 accept"
-   }
-  },
-  {
-   "op": "review.bulk",
-   "group": "governance",
-   "description": "Resolve many review rows with their defaults",
-   "permission": "review.resolve",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "rows": {
-      "type": "array",
-      "items": {
-       "type": "string"
-      },
-      "minItems": 1
-     },
-     "choice": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "rows"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "rows": [
-      "RV-3",
-      "RV-4"
-     ]
-    },
-    "text": "accept all review rows"
-   }
-  },
-  {
    "op": "violation.ack",
    "group": "governance",
-   "description": "Acknowledge a violation",
-   "permission": "violation.manage",
+   "description": "Acknowledge a policy violation",
+   "permission": null,
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "reporter",
+    "scrum_master",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "id": {
-      "type": "string",
-      "description": "violation id"
-     },
-     "note": {
+      "title": "Id",
       "type": "string"
      }
     },
     "required": [
      "id"
     ],
-    "additionalProperties": false
+    "title": "ViolationRef",
+    "type": "object"
    },
    "example": {
     "args": {
-     "id": "V-9"
+     "id": "<violation id>"
     },
-    "text": "ack violation V-9"
+    "text": "acknowledge violation"
    }
   },
   {
    "op": "violation.resolve",
    "group": "governance",
    "description": "Mark a violation resolved",
-   "permission": "violation.manage",
+   "permission": "violation.resolve",
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "id": {
+      "title": "Id",
       "type": "string"
      },
      "note": {
-      "type": "string"
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Note"
      }
     },
     "required": [
      "id"
     ],
-    "additionalProperties": false
+    "title": "ViolationNote",
+    "type": "object"
    },
    "example": {
     "args": {
-     "id": "V-9",
+     "id": "<violation id>",
      "note": "fixed"
     },
-    "text": "resolve violation V-9"
+    "text": "resolve violation, fixed"
    }
   },
   {
    "op": "violation.waive",
    "group": "governance",
-   "description": "Waive a violation (reason required)",
+   "description": "Waive a violation with a reason",
    "permission": "violation.waive",
    "preview": false,
    "destructive": false,
+   "modes": [
+    "manager",
+    "pm",
+    "admin"
+   ],
    "args_schema": {
-    "type": "object",
     "properties": {
      "id": {
+      "title": "Id",
       "type": "string"
      },
      "reason": {
-      "type": "string",
-      "minLength": 1
+      "minLength": 3,
+      "title": "Reason",
+      "type": "string"
      }
     },
     "required": [
      "id",
      "reason"
     ],
-    "additionalProperties": false
+    "title": "ViolationReason",
+    "type": "object"
    },
    "example": {
     "args": {
-     "id": "V-9",
-     "reason": "holiday week"
+     "id": "<violation id>",
+     "reason": "customer approved exception"
     },
-    "text": "waive violation V-9 because holiday week"
-   }
-  },
-  {
-   "op": "habit.coach_note",
-   "group": "governance",
-   "description": "Write a coaching note on a habit",
-   "permission": "habit.coach",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "habit": {
-      "type": "string",
-      "description": "habit key"
-     },
-     "person": {
-      "type": "string",
-      "description": "@handle",
-      "format": "person"
-     },
-     "note": {
-      "type": "string",
-      "minLength": 1
-     }
-    },
-    "required": [
-     "habit",
-     "note"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "habit": "daily-log",
-     "person": "@sara",
-     "note": "great streak"
-    },
-    "text": "coach note on daily-log for @sara: great streak"
-   }
-  },
-  {
-   "op": "habit.set_status",
-   "group": "governance",
-   "description": "Set a habit's status",
-   "permission": "habit.coach",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "habit": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string",
-      "enum": [
-       "active",
-       "paused",
-       "retired"
-      ]
-     }
-    },
-    "required": [
-     "habit",
-     "status"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "habit": "daily-log",
-     "status": "paused"
-    },
-    "text": "pause habit daily-log"
-   }
-  },
-  {
-   "op": "policy.activate",
-   "group": "governance",
-   "description": "Activate a policy",
-   "permission": "policy.manage",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "policy": {
-      "type": "string",
-      "description": "policy key"
-     }
-    },
-    "required": [
-     "policy"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "policy": "wip-limit"
-    },
-    "text": "activate policy wip-limit"
-   }
-  },
-  {
-   "op": "policy.deactivate",
-   "group": "governance",
-   "description": "Deactivate a policy",
-   "permission": "policy.manage",
-   "preview": true,
-   "destructive": true,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "policy": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "policy"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "policy": "wip-limit"
-    },
-    "text": "deactivate policy wip-limit"
-   }
-  },
-  {
-   "op": "iteration.create",
-   "group": "iterations",
-   "description": "Create an iteration",
-   "permission": "iteration.manage",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "name": {
-      "type": "string",
-      "minLength": 1
-     },
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     },
-     "start": {
-      "type": "string",
-      "format": "date"
-     },
-     "end": {
-      "type": "string",
-      "format": "date"
-     },
-     "goal": {
-      "type": "string"
-     }
-    },
-    "required": [
-     "name",
-     "project"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "name": "Sprint 15",
-     "project": "WEB",
-     "start": "2026-11-02",
-     "end": "2026-11-13"
-    },
-    "text": "new sprint Sprint 15 on WEB 2026-11-02 to 2026-11-13"
-   }
-  },
-  {
-   "op": "iteration.start",
-   "group": "iterations",
-   "description": "Start an iteration",
-   "permission": "iteration.manage",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "iteration": {
-      "type": "string",
-      "description": "iteration name"
-     },
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     }
-    },
-    "required": [
-     "iteration"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "iteration": "Sprint 15",
-     "project": "WEB"
-    },
-    "text": "start Sprint 15"
-   }
-  },
-  {
-   "op": "iteration.close",
-   "group": "iterations",
-   "description": "Close an iteration",
-   "permission": "iteration.manage",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "iteration": {
-      "type": "string"
-     },
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     },
-     "carry_over": {
-      "type": "boolean",
-      "description": "move open items to the next iteration"
-     }
-    },
-    "required": [
-     "iteration"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "iteration": "Sprint 14",
-     "project": "WEB",
-     "carry_over": true
-    },
-    "text": "close Sprint 14"
-   }
-  },
-  {
-   "op": "milestone.create",
-   "group": "iterations",
-   "description": "Create a milestone",
-   "permission": "milestone.manage",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "name": {
-      "type": "string",
-      "minLength": 1
-     },
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     },
-     "due": {
-      "type": "string",
-      "format": "date"
-     }
-    },
-    "required": [
-     "name",
-     "project"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "name": "Beta",
-     "project": "WEB",
-     "due": "2026-12-01"
-    },
-    "text": "new milestone Beta on WEB due 2026-12-01"
-   }
-  },
-  {
-   "op": "milestone.complete",
-   "group": "iterations",
-   "description": "Complete a milestone",
-   "permission": "milestone.manage",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "milestone": {
-      "type": "string",
-      "description": "milestone name"
-     },
-     "project": {
-      "type": "string",
-      "description": "project key",
-      "format": "project"
-     }
-    },
-    "required": [
-     "milestone"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "milestone": "Beta",
-     "project": "WEB"
-    },
-    "text": "complete milestone Beta"
-   }
-  },
-  {
-   "op": "item.move_to_iteration",
-   "group": "iterations",
-   "description": "Move items into an iteration",
-   "permission": "item.write_overlay",
-   "preview": true,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "keys": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "description": "item key, e.g. WEB-101",
-       "format": "item",
-       "pattern": "^[A-Z][A-Z0-9]+-\\d+$"
-      },
-      "description": "item keys",
-      "minItems": 1
-     },
-     "iteration": {
-      "type": "string",
-      "description": "iteration name"
-     }
-    },
-    "required": [
-     "keys",
-     "iteration"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "keys": [
-      "WEB-1",
-      "WEB-2"
-     ],
-     "iteration": "Sprint 15"
-    },
-    "text": "move WEB-1 WEB-2 to Sprint 15"
-   }
-  },
-  {
-   "op": "dailylog.confirm",
-   "group": "personal",
-   "description": "Confirm my daily log",
-   "permission": "self",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "log": {
-      "type": "string",
-      "description": "daily log id (default: today)"
-     }
-    },
-    "required": [],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {},
-    "text": "confirm my day"
-   }
-  },
-  {
-   "op": "context_note.add",
-   "group": "personal",
-   "description": "Add a context note",
-   "permission": "self",
-   "preview": false,
-   "destructive": false,
-   "args_schema": {
-    "type": "object",
-    "properties": {
-     "target": {
-      "type": "string",
-      "description": "item key, project key or person handle"
-     },
-     "note": {
-      "type": "string",
-      "minLength": 1
-     }
-    },
-    "required": [
-     "target",
-     "note"
-    ],
-    "additionalProperties": false
-   },
-   "example": {
-    "args": {
-     "target": "WEB-1",
-     "note": "waiting on legal"
-    },
-    "text": "note on WEB-1: waiting on legal"
+    "text": "waive violation, customer approved exception"
    }
   }
  ]

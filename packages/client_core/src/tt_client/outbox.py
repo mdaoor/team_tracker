@@ -157,6 +157,13 @@ class SyncReport:
     results: list[dict[str, Any]] | None = None
 
 
+def _stamp_confirmed(batch: dict[str, Any]) -> None:
+    """A batch is only synced after the person confirmed it (or forced it); the server's destructive-op guard reads this."""
+    for c in batch.get("commands", []):
+        args = c.setdefault("args", {})
+        args.setdefault("_meta", {})["confirmed"] = True
+
+
 def sync(api: Any, outbox: Outbox, only: list[Entry] | None = None) -> SyncReport:
     """Send pending batches oldest-first. Stops at the first network failure; nothing is ever dropped."""
     from tt_client.api import Unreachable
@@ -172,6 +179,7 @@ def sync(api: Any, outbox: Outbox, only: list[Entry] | None = None) -> SyncRepor
             outbox.quarantine(entry, f"unreadable outbox file: {exc}")
             report.quarantined += 1
             continue
+        _stamp_confirmed(batch)
         try:
             status, body = api.post_batch(batch)
         except Unreachable as exc:
