@@ -27,6 +27,7 @@ from tt_server.api.session import (
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.integrations import idp
+from tt_server.ratelimit import client_ip
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 api_router = APIRouter()
@@ -35,7 +36,14 @@ MAX_FAILURES, WINDOW = 5, 900.0  # failures per (client address, username) withi
 
 
 def _attempt_key(request: Request, username: str) -> str:
-    host = request.client.host if request.client else "?"
+    host = (
+        client_ip(
+            request.app.state.settings,
+            request.client.host if request.client else None,
+            request.headers.get("x-forwarded-for"),
+        )
+        or "?"
+    )
     return f"{host}|{username.strip().lower()}"
 
 

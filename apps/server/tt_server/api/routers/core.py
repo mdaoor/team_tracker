@@ -32,6 +32,7 @@ from tt_server.api.authz import check, check_project, needs
 from tt_server.api.deps import CurrentActor, Uow, page
 from tt_server.api.errors import ApiError
 from tt_server.api.params import enum_param
+from tt_server.clock import person_today
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.domain.items import service as items
@@ -597,7 +598,7 @@ async def list_milestones(
     )
     stmt = visible(stmt, actor.acl, m.Project)
     if upcoming:
-        today = date.today()
+        today = person_today(actor.person)
         stmt = stmt.where(
             m.Milestone.due_date >= today,
             m.Milestone.due_date <= today + timedelta(days=int(upcoming[:-1])),

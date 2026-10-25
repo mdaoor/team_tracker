@@ -70,9 +70,14 @@ async def test_two_requests_assembling_the_same_snapshot_do_not_collide(committe
     """Builder preview and an export click race on the snapshot cache; the second must not be a 409."""
     import asyncio
 
-    pid = (await committed_api.call("POST", "/presentations", json={"title": "Race", "slides": [{"kind": "kpis"}]})).json()["id"]
+    pid = (
+        await committed_api.call(
+            "POST", "/presentations", json={"title": "Race", "slides": [{"kind": "kpis"}]}
+        )
+    ).json()["id"]
     rs = await asyncio.gather(
-        committed_api.call("GET", f"/presentations/{pid}/data"), committed_api.call("GET", f"/presentations/{pid}/data"),
+        committed_api.call("GET", f"/presentations/{pid}/data"),
+        committed_api.call("GET", f"/presentations/{pid}/data"),
         committed_api.call("GET", f"/presentations/{pid}/data"),
     )
     assert [r.status_code for r in rs] == [200, 200, 200]

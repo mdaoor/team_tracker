@@ -201,3 +201,49 @@ async def test_metrics_are_off_outside_dev_and_need_the_token_when_set(
         assert (await c.get("/metrics", headers={"Authorization": "Bearer wrong"})).status_code == 401
         ok = await c.get("/metrics", headers={"Authorization": "Bearer scrape-me"})
         assert ok.status_code == 200 and "tt_jobs_todo" in ok.text
+
+
+def _proxy_app(engine, migrated_url, session_factory, trusted: str):  # type: ignore[no-untyped-def]
+    s = Settings(
+        database_url=migrated_url, log_json=False, log_level="WARNING", dev_auth=True,
+        rate_capture_per_min=0, rate_auth_per_min=2, trusted_proxies=trusted,
+    )  # fmt: skip
+    app = create_app(s, engine=engine, session_factory=session_factory)
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+
+
+async def _signins(c: httpx.AsyncClient, forwarded: list[str]) -> list[int]:
+    out = []
+    for ip in forwarded:
+        r = await c.post(
+            "/auth/ldap/login", json={"workspace": "acme", "username": "x", "password": "y"},
+            headers={"X-Forwarded-For": ip},
+        )  # fmt: skip
+        out.append(r.status_code)
+    return out
+
+
+async def test_forwarded_for_is_believed_only_from_a_trusted_proxy(
+    api: Api, engine: AsyncEngine, migrated_url: str, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    """Review T1: behind the documented ingress every user shared one bucket (peer = the proxy)."""
+    behind = _proxy_app(engine, migrated_url, session_factory, trusted="127.0.0.1")
+    codes = await _signins(behind, ["198.51.100.1", "198.51.100.2", "198.51.100.3", "198.51.100.4"])
+    assert 429 not in codes, codes  # four different people, four buckets of two
+    codes = await _signins(behind, ["198.51.100.9"] * 4)
+    assert codes[-1] == 429  # but one person still runs out
+    stranger = _proxy_app(engine, migrated_url, session_factory, trusted="")
+    codes = await _signins(stranger, ["198.51.100.1", "198.51.100.2", "198.51.100.3"])
+    assert codes[-1] == 429, codes  # a header from an untrusted peer cannot choose the bucket
+
+
+def test_client_ip_walks_past_trusted_hops() -> None:
+    from tt_server.ratelimit import client_ip
+
+    s = Settings(trusted_proxies="10.0.0.0/8,192.168.1.5")
+    assert client_ip(s, "10.0.0.7", "203.0.113.9, 10.0.0.3") == "203.0.113.9"
+    assert client_ip(s, "10.0.0.7", "203.0.113.9") == "203.0.113.9"
+    assert client_ip(s, "203.0.113.50", "1.2.3.4") == "203.0.113.50"  # peer not trusted: header ignored
+    assert client_ip(s, "10.0.0.7", None) == "10.0.0.7"
+    assert client_ip(s, "10.0.0.7", "10.0.0.2, 10.0.0.3") == "10.0.0.2"  # all hops trusted: the first one
+    assert client_ip(Settings(), "10.0.0.7", "1.2.3.4") == "10.0.0.7"

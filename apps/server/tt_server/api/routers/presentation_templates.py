@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Request, Response
@@ -15,6 +14,7 @@ from tt_schema.enums import TargetType
 from tt_server.api.authz import needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
+from tt_server.clock import person_today
 from tt_server.db import models as m
 from tt_server.domain import deckdata
 from tt_server.domain import presentation_templates as tpl
@@ -283,7 +283,7 @@ async def _variables(
             )
             or ""
         )
-    today = date.today()
+    today = person_today(actor.person)
     variables = {
         "scope.label": label, "scope.kind": kind, "scope.ref": ref, "scope.items": items, "scope.projects": projects,
         "project.key": ref.upper() if kind == "project" else "", "project.name": pname, "range.days": range_days,

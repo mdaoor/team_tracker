@@ -135,7 +135,9 @@ async def truncate_all(engine: AsyncEngine) -> None:
             ).all()
         ]
         if names:
-            await conn.execute(text("TRUNCATE " + ", ".join(f'"{n}"' for n in names) + " RESTART IDENTITY CASCADE"))
+            await conn.execute(
+                text("TRUNCATE " + ", ".join(f'"{n}"' for n in names) + " RESTART IDENTITY CASCADE")
+            )
 
 
 @pytest.fixture

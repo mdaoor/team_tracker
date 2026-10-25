@@ -66,7 +66,9 @@ async def test_habits_and_violations_label_their_targets(api: Api) -> None:
 
 
 async def test_asking_for_your_own_day_drafts_the_log_when_work_was_logged(api: Api) -> None:
-    await api.send(as_="@sara", action="log_time", item={"title": "wrote it down"}, project="DATA", minutes=45)
+    await api.send(
+        as_="@sara", action="log_time", item={"title": "wrote it down"}, project="DATA", minutes=45
+    )
     today = "2026-10-23"  # the day Api.send stamps on its messages
     logs = (await api.call("GET", "/daily-logs", as_="@sara", params={"day": today})).json()["data"]
     assert len(logs) == 1 and logs[0]["status"] == "draft" and logs[0]["minutes_total"] == 45
@@ -74,3 +76,33 @@ async def test_asking_for_your_own_day_drafts_the_log_when_work_was_logged(api: 
     assert [x["id"] for x in again] == [logs[0]["id"]]  # idempotent: same draft, no duplicate
     nothing = (await api.call("GET", "/daily-logs", as_="@ali", params={"day": today})).json()["data"]
     assert nothing == []  # no work, no log
+
+
+async def test_a_reporting_line_that_starts_tomorrow_counts_only_where_it_is_already_tomorrow(
+    api: Api, session_factory
+) -> None:  # type: ignore[no-untyped-def]
+    """Review T8: validity is judged on the person's local date, not the server's."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+    from tt_server.acl.reporting import reports_of
+    from tt_server.clock import utc_today
+    from tt_server.db import models as m
+
+    people = {p["handle"]: p["person_id"] for p in (await api.call("GET", "/people")).json()["data"]}
+    r = await api.call(
+        "POST",
+        "/reporting-lines",
+        json={"person_id": people["@ali"], "manager_id": people["@sara"], "kind": "line"},
+    )
+    assert r.status_code == 201, r.text
+    async with session_factory() as s:
+        ws = await s.scalar(select(m.Workspace).where(m.Workspace.slug == "acme"))
+        line = await s.scalar(select(m.ReportingLine).where(m.ReportingLine.person_id == people["@ali"]))
+        assert ws and line
+        line.valid_from = utc_today() + timedelta(days=1)
+        await s.flush()
+        assert await reports_of(s, ws.id, people["@sara"]) == []  # not yet by the UTC clock
+        assert await reports_of(s, ws.id, people["@sara"], at=utc_today() + timedelta(days=1)) == [
+            people["@ali"]
+        ]

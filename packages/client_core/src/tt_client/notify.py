@@ -85,7 +85,9 @@ def end_of_day_nudge(
         return False
     hours = (logs[0].get("minutes_total") or 0) / 60
     port.notify(
-        Notification(key, "Confirm today's log?", f"{hours:.1f} h across your work today.", ["today --confirm"])
+        Notification(
+            key, "Confirm today's log?", f"{hours:.1f} h across your work today.", ["today --confirm"]
+        )
     )
     log.mark(key)
     return True

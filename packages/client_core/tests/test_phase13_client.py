@@ -111,7 +111,10 @@ def test_end_of_day_nudge_fires_once_after_the_log_time_for_an_unconfirmed_draft
 def test_no_nudge_without_a_draft_or_when_confirmed_or_when_the_server_is_down(tmp_path: Path) -> None:
     evening = datetime(2026, 10, 23, 15, 0, tzinfo=UTC)
     for logs in ([], [{"status": "confirmed", "minutes_total": 60}]):
-        assert end_of_day_nudge(Port(), NudgeLog(tmp_path / "x.json"), FakeApi(logs), evening, "Asia/Riyadh") is False
+        assert (
+            end_of_day_nudge(Port(), NudgeLog(tmp_path / "x.json"), FakeApi(logs), evening, "Asia/Riyadh")
+            is False
+        )
 
     class Down:
         def daily_logs(self, day: str) -> list[dict[str, Any]]:
@@ -121,4 +124,6 @@ def test_no_nudge_without_a_draft_or_when_confirmed_or_when_the_server_is_down(t
 
 
 def test_end_of_day_due_boundary() -> None:
-    assert end_of_day_due(datetime(2026, 1, 1, 17, 30), "17:30") and not end_of_day_due(datetime(2026, 1, 1, 17, 29), "17:30")
+    assert end_of_day_due(datetime(2026, 1, 1, 17, 30), "17:30") and not end_of_day_due(
+        datetime(2026, 1, 1, 17, 29), "17:30"
+    )

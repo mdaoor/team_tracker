@@ -34,9 +34,9 @@ from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import _item, _project, row_dict
 from tt_server.db import models as m
-from tt_server.domain.names import Names
 from tt_server.domain.common import emit
 from tt_server.domain.items import service as items
+from tt_server.domain.names import Names
 from tt_server.domain.overlay import approvals, bulk, mirrors, products, propagation, review, risks, weights
 from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import process as proc
@@ -1372,7 +1372,11 @@ async def patch_item(
                 .limit(1)
             )
         ).first()
-        who = (await Names.load(uow.session, actor.ws.id, [("person", last[0])])).person(last[0]) if last else None
+        who = (
+            (await Names.load(uow.session, actor.ws.id, [("person", last[0])])).person(last[0])
+            if last
+            else None
+        )
         await uow.commit()  # keep the conflict event even though the write is refused
         raise ApiError(
             409,

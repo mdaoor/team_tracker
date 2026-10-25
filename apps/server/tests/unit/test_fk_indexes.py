@@ -26,8 +26,8 @@ async def test_every_foreign_key_has_a_leading_index(engine: AsyncEngine) -> Non
     assert [tuple(r) for r in rows] == []
 
 
-async def test_migration_0011_is_reversible(migrated_url: str) -> None:
-    """Upgrade/downgrade round trip on a scratch database (guards the hashed names for long identifiers)."""
+def test_migration_0011_index_names_are_unique_and_short() -> None:
+    """Long table/column names are hashed to fit Postgres' 63-byte identifier limit without colliding."""
     import importlib.util
     from pathlib import Path
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import datetime
 from typing import Any
 
 import tt_cel
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import utcnow
 from tt_schema.enums import EventSource, PolicyTrigger, TargetType
 
+from tt_server.clock import ws_today
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit, system_person
@@ -234,7 +235,7 @@ async def nightly(
     async with UnitOfWork(factory) as uow:
         ws = await uow.session.get(m.Workspace, ws_id)
         assert ws is not None  # noqa: S101
-        day = now.astimezone(UTC).date() if isinstance(now, datetime) else date.today()
+        day = ws_today(ws, now)
         schemes: list[str | None] = [
             None,
             *(

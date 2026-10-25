@@ -28,4 +28,6 @@ def test_retry_backoff_grows_then_gives_up() -> None:
 
     secs = [(decide(n).retry_at - datetime.now(UTC)).total_seconds() for n in (1, 2, 3, 4)]
     assert secs == sorted(secs) and secs[0] >= 10 and secs[-1] <= 3600  # grows, but within the hour
-    assert decide(5) is None  # the fifth failure dead-letters (status `failed`, tt_jobs_failed, TTJobsFailed alert)
+    assert (
+        decide(5) is None
+    )  # the fifth failure dead-letters (status `failed`, tt_jobs_failed, TTJobsFailed alert)

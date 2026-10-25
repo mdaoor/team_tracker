@@ -88,7 +88,8 @@ async def get_snapshot(
             pg_insert(m.SnapshotCache)
             .values(id=new_id(), **values)
             .on_conflict_do_update(
-                index_elements=["workspace_id", "cache_key"], set_={"body": body, "as_of": now, "deleted_at": None}
+                index_elements=["workspace_id", "cache_key"],
+                set_={"body": body, "as_of": now, "deleted_at": None},
             )
         )
         await s.commit()

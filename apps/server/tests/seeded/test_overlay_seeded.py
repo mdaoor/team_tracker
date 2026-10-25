@@ -408,7 +408,9 @@ async def test_optimistic_concurrency_and_conflict_event(sapi: Api, seed_sf: SF)
     assert stale.status_code == 409
     err = stale.json()["error"]
     assert err["code"] == "conflict" and err["details"]["current"]["description"] == "from manager A"
-    assert err["details"]["changed_by"] == "@mahmoud" and err["details"]["changed_at"]  # who and when (UX review "also")
+    assert (
+        err["details"]["changed_by"] == "@mahmoud" and err["details"]["changed_at"]
+    )  # who and when (UX review "also")
     assert [e.event_type for e in await events_of(seed_sf, key, "item.field_conflict")] == [
         "item.field_conflict"
     ]

@@ -43,7 +43,7 @@ target-version = "py312"
 extend-exclude = ["docs/spec", "tools/gen_snapshot.py"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "DTZ005", "DTZ011"]  # DTZ: no naive/server-local "now" for business dates (use tt_server.clock)
 ignore = ["E501"]  # `ruff format` wraps code; long docstrings/strings are left to the author
 
 [tool.ruff.lint.per-file-ignores]

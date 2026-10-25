@@ -343,5 +343,7 @@ class StructuredParser:
         if self.ctx.default_action is not None:
             return self.ctx.default_action
         if el.title and not el.key and not _OBSERVATION.search(el.title):
-            return ClientAction.CREATE  # a noun phrase names new work; it is never glued to whatever is active
+            return (
+                ClientAction.CREATE
+            )  # a noun phrase names new work; it is never glued to whatever is active
         return ClientAction.NOTE

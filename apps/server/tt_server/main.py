@@ -46,7 +46,7 @@ from tt_server.integrations.llm import gateway_from_settings
 from tt_server.integrations.oidc import oidc_provider_from_settings
 from tt_server.logging import configure_logging
 from tt_server.metrics import Metrics
-from tt_server.ratelimit import SlidingWindow, credential_key
+from tt_server.ratelimit import SlidingWindow, client_ip, credential_key
 from tt_server.settings import Settings, get_settings
 from tt_server.telemetry import configure_telemetry
 
@@ -127,6 +127,11 @@ def create_app(
             )
         return response
 
+    def request_ip(request: Request) -> str | None:
+        return client_ip(
+            settings, request.client.host if request.client else None, request.headers.get("x-forwarded-for")
+        )
+
     capture_window = (
         SlidingWindow(settings.rate_capture_per_min) if settings.rate_capture_per_min > 0 else None
     )
@@ -139,13 +144,11 @@ def create_app(
         if request.method == "POST" and capture_window and path.endswith("/capture/batches"):
             key = credential_key(
                 request.headers.get("authorization"), request.cookies.get("tt_session"),
-                request.headers.get("x-debug-actor"), request.client.host if request.client else None,
+                request.headers.get("x-debug-actor"), request_ip(request),
             )  # fmt: skip
             wait = capture_window.hit(key)
         elif request.method == "POST" and auth_window and path.startswith("/auth/"):
-            wait = auth_window.hit(
-                credential_key(None, None, None, request.client.host if request.client else None)
-            )
+            wait = auth_window.hit(credential_key(None, None, None, request_ip(request)))
         if wait is not None:
             retry = str(int(wait) + 1)
             return JSONResponse(

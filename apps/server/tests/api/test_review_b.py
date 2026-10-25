@@ -374,7 +374,9 @@ async def test_every_declared_hot_path_index_exists_in_the_migrated_database(
     assert declared <= have, sorted(declared - have)
 
 
-async def test_browser_renders_are_bounded_and_the_overflow_is_told_to_retry(committed_api: Api, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+async def test_browser_renders_are_bounded_and_the_overflow_is_told_to_retry(
+    committed_api: Api, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
     """Review 19: at most MAX_BROWSER_RENDERS Chromium exports run at once; the rest get 503 render_busy instead of piling up."""
     import asyncio
 
@@ -397,7 +399,10 @@ async def test_browser_renders_are_bounded_and_the_overflow_is_told_to_retry(com
         await committed_api.call("POST", "/presentations", json={"title": "D", "slides": [{"kind": "kpis"}]})
     ).json()["id"]
     got = await asyncio.gather(
-        *(committed_api.call("POST", f"/presentations/{pid}/render", params={"format": "pdf"}) for _ in range(5))
+        *(
+            committed_api.call("POST", f"/presentations/{pid}/render", params={"format": "pdf"})
+            for _ in range(5)
+        )
     )
     codes = sorted(r.status_code for r in got)
     assert state["peak"] <= pr.MAX_BROWSER_RENDERS
