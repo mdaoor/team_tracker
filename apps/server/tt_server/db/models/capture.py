@@ -120,6 +120,31 @@ class TimeEntry(RowBase):
         nullable=False,
         default=CaptureSource.TIMER,
     )
+    # Phase 15 (ADR-0042): which client message wrote this row and, for calendar-derived time, which occurrence.
+    workspace_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("workspaces.id"), nullable=True)
+    client_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    calendar_provider: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    calendar_event_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    calendar_instance_start: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
+    __table_args__ = (
+        sa.Index(
+            "uq_time_entries_calendar_instance",
+            "workspace_id",
+            "person_id",
+            "calendar_provider",
+            "calendar_event_id",
+            "calendar_instance_start",
+            unique=True,
+            postgresql_where=sa.text("calendar_event_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
+        sa.Index(
+            "ix_time_entries_client",
+            "workspace_id",
+            "person_id",
+            "client_id",
+            postgresql_where=sa.text("client_id IS NOT NULL"),
+        ),
+    )
 
 
 class DailyLog(WorkspaceScopedMixin, RowBase):

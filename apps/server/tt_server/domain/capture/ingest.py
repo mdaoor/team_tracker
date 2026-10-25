@@ -29,13 +29,14 @@ from tt_schema.enums import (
     StateCategory,
     TargetType,
     ValueSource,
+    Visibility,
 )
 
 from tt_server.acl.context import load_context
 from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
-from tt_server.domain.common import aware, emit, zone
+from tt_server.domain.common import aware, emit, system_person, zone
 from tt_server.domain.items import service as items
 from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import process as proc
@@ -139,6 +140,49 @@ async def _can_act_for(session: AsyncSession, ws_id: str, actor_pid: str, subjec
     return shared is not None
 
 
+# ---------------------------------------------------------------- development project (ADR-0043)
+
+DEV_TAG = "development"
+DEFAULT_DEV_KEY = "DEV"
+
+
+def dev_project_key(ws: m.Workspace) -> str:
+    """The workspace setting `development.project_key` (default `DEV`)."""
+    cfg = (ws.settings or {}).get("development") or {}
+    return str(cfg.get("project_key") or DEFAULT_DEV_KEY).upper()
+
+
+def is_dev_project(project: m.Project) -> bool:
+    return bool((project.settings or {}).get("development"))
+
+
+async def ensure_dev_project(ctx: Ctx, key: str) -> m.Project:
+    """Create the per-workspace development project on first use: private, owned by the system bot (no human gains rights)."""
+    from tt_server.domain.projects.service import create_project
+
+    bot = await system_person(ctx.session)
+    project = await create_project(
+        ctx.uow,
+        ctx.ws,
+        key=key,
+        name="Development",
+        owner_id=bot.id,
+        actor_id=ctx.actor.person_id,
+        visibility=Visibility.PRIVATE,
+        settings={"development": True},
+    )
+    await items.get_or_create_tag(ctx.uow, ctx.ws, DEV_TAG, provisional=False)
+    return project
+
+
+def _calendar_key(msg: ClientMessage) -> tuple[str, str, str] | None:
+    ref = msg.source.calendar_ref if msg.source else None
+    if ref is None:
+        return None
+    start = aware(ref.instance_start).isoformat() if ref.instance_start else ""
+    return ref.provider, ref.event_id, start
+
+
 async def resolve_project(ctx: Ctx) -> m.Project:
     """key -> name -> aliases -> glossary -> the subject's Inbox."""
     session, ws = ctx.session, ctx.ws
@@ -171,6 +215,10 @@ async def resolve_project(ctx: Ctx) -> m.Project:
             if lowered in [str(a).lower() for a in (p.settings or {}).get("aliases", [])]:
                 ctx.resolution["project"] = {"method": "alias", "key": p.key}
                 return p
+        if lowered == dev_project_key(ws).lower():  # first use of the development project creates it
+            hit = await ensure_dev_project(ctx, dev_project_key(ws))
+            ctx.resolution["project"] = {"method": "development", "key": hit.key, "created": True}
+            return hit
         entry = await session.scalar(
             select(m.GlossaryEntry).where(
                 m.GlossaryEntry.workspace_id == ws.id,
@@ -583,13 +631,26 @@ async def apply_fields(ctx: Ctx, item: m.WorkItem, activity: m.Activity | None) 
                 minutes=msg.minutes,
                 activity_id=activity.id if activity else None,
                 source=CaptureSource.MANUAL,
+                workspace_id=ctx.ws.id,
+                client_id=msg.client_id,
+                note=msg.note if msg.action == ClientAction.LOG_TIME else None,
             )
+            ckey = _calendar_key(msg)
+            if ckey:
+                te.calendar_provider, te.calendar_event_id, te.calendar_instance_start = ckey
             ctx.session.add(te)
             ctx.emit(
                 "time.logged",
                 TargetType.WORK_ITEM,
                 item.id,
-                {"after": {"time_entry_id": te.id, "minutes": msg.minutes, "date": day.isoformat()}},
+                {
+                    "after": {"time_entry_id": te.id, "minutes": msg.minutes, "date": day.isoformat()}
+                    | (
+                        {"calendar_ref": msg.source.calendar_ref.model_dump(mode="json")}
+                        if ckey and msg.source and msg.source.calendar_ref
+                        else {}
+                    ),
+                },
             )
     elif msg.action == ClientAction.LOG_TIME:
         ctx.warnings.append("log_time_without_minutes")
@@ -895,6 +956,51 @@ class MessageResult:
         }
 
 
+async def _unlog(ctx: Ctx) -> MessageResult:
+    """`time.unlog`: soft-delete the time entry a person's earlier message created (Phase 15 "Unsend"). Only its owner may."""
+    msg = ctx.msg
+    te = await ctx.session.scalar(
+        select(m.TimeEntry).where(
+            m.TimeEntry.workspace_id == ctx.ws.id,
+            m.TimeEntry.client_id == msg.corrects,
+            m.TimeEntry.deleted_at.is_(None),
+        )
+    )
+    if (
+        te is None or te.person_id != ctx.actor.person_id
+    ):  # not yours behaves as if it did not exist (ADR-0008)
+        ctx.warnings.append("unlog_target_not_found")
+        ctx.emit(
+            "time.unlog_ignored",
+            TargetType.PERSON,
+            ctx.actor.person_id,
+            {"after": {"corrects": msg.corrects}},
+        )
+        status, item = "applied_with_warnings", None
+    else:
+        te.deleted_at = utcnow()
+        wi = await ctx.session.get(m.WorkItem, te.work_item_id)
+        ctx.emit(
+            "time.unlogged",
+            TargetType.WORK_ITEM,
+            te.work_item_id,
+            {
+                "before": {"time_entry_id": te.id, "minutes": te.minutes, "date": te.date.isoformat()},
+                "corrects": msg.corrects,
+            },
+        )
+        status = "applied"
+        item = {"id": wi.id, "key": wi.key, "title": wi.title} if wi else None
+    await ctx.session.flush()
+    result = MessageResult(
+        msg.client_id, status, item=item, warnings=ctx.warnings, resolution={"unlog": True}
+    )
+    primary = ctx.events[0]
+    primary.client_id = msg.client_id
+    primary.payload = {**primary.payload, "result": result.as_dict()}
+    return result
+
+
 async def _process(
     uow: UnitOfWork,
     ws: m.Workspace,
@@ -939,7 +1045,35 @@ async def _process(
     )
     uow.context.update(actor_id=actor.person_id, correlation_id=correlation_id)
 
+    if msg.corrects and msg.action == ClientAction.UPDATE:
+        return await _unlog(ctx)
+    ckey = _calendar_key(msg)
+    if (
+        ckey and msg.minutes and msg.minutes > 0
+    ):  # the same calendar occurrence is never logged twice (ADR-0042)
+        existing = await session.scalar(
+            select(m.TimeEntry).where(
+                m.TimeEntry.workspace_id == ws.id,
+                m.TimeEntry.person_id == subject.person_id,
+                m.TimeEntry.calendar_provider == ckey[0],
+                m.TimeEntry.calendar_event_id == ckey[1],
+                m.TimeEntry.calendar_instance_start == ckey[2],
+                m.TimeEntry.deleted_at.is_(None),
+            )
+        )
+        if existing is not None:
+            prior = await session.get(m.WorkItem, existing.work_item_id)
+            return MessageResult(
+                msg.client_id,
+                "deduplicated",
+                item={"id": prior.id, "key": prior.key, "title": prior.title} if prior else None,
+                resolution={"dedup": "calendar_ref", "time_entry_id": existing.id},
+            )
+
     project = await resolve_project(ctx)
+    dev_project = is_dev_project(project)
+    if dev_project and DEV_TAG not in [t.lower().lstrip("#") for t in msg.tags]:
+        msg.tags = [*msg.tags, DEV_TAG]
     item, info = await resolve_item(ctx, project)
     created = item is None
     if (
@@ -972,6 +1106,7 @@ async def _process(
             .where(m.Membership.person_id == subject.person_id, m.Membership.left_at.is_(None))
             .order_by(m.Membership.joined_at)
         )
+        item_fields: dict[str, Any] = {"visibility": Visibility.PRIVATE} if dev_project else {}  # ADR-0043
         item = await items.create_item(
             uow,
             ws,
@@ -982,6 +1117,7 @@ async def _process(
             team_id=team,
             provisional=project.kind.value == "inbox",
             source={"client": client_version, "raw": msg.raw_input},
+            **item_fields,
         )
         ctx.emit(
             "item.created",

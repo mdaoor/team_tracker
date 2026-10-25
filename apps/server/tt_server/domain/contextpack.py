@@ -276,6 +276,25 @@ async def build_pack(
         )
     ).all()
 
+    dev_key = str(((ws.settings or {}).get("development") or {}).get("project_key") or "DEV").upper()
+    dev_exists = (
+        await session.scalar(
+            select(m.Project.id).where(
+                m.Project.workspace_id == ws.id, m.Project.key == dev_key, m.Project.deleted_at.is_(None)
+            )
+        )
+        is not None
+    )
+    team_slugs = dict(
+        (await session.execute(select(m.Team.id, m.Team.slug).where(m.Team.workspace_id == ws.id))).all()
+    )
+    teams_to_projects: dict[str, list[str]] = {}
+    for p in projects:
+        if p.team_id and p.team_id in team_slugs:
+            teams_to_projects.setdefault(team_slugs[p.team_id], []).append(p.key)
+    domains = ((ws.settings or {}).get("calendar") or {}).get("client_domains") or {}
+    capacity = member.capacity_hours_per_week
+
     truncated = len(item_rows) > MAX_ITEMS or len(tag_rows) >= MAX_TAGS or len(people_rows) >= MAX_PEOPLE
     return {
         "context_schema_version": SCHEMA_VERSION,
@@ -330,6 +349,15 @@ async def build_pack(
         ],
         "manual_mode": {"required_fields": required_default, "per_project": per_project_required},
         "truncated": truncated,
+        # Phase 15 (ADR-0042/0043): everything a personal tracker needs to suggest a project without the server seeing a calendar
+        "development_project": {"key": dev_key, "tag": "development", "exists": dev_exists},
+        "calendar_mapping_hints": {
+            "teams": [{"team": t, "projects": sorted(ks)} for t, ks in sorted(teams_to_projects.items())],
+            "client_domains": [
+                {"domain": str(d).lower(), "project": str(k)} for d, k in sorted(domains.items())
+            ],
+        },
+        "my_capacity_hours_per_week": float(capacity) if capacity is not None else None,
     }
 
 

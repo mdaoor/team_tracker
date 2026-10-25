@@ -77,6 +77,9 @@ DEFINITIONS: list[dict[str, Any]] = [
     dict(key="unassigned_inbox_age", name="Inbox items left to age", polarity="negative", category="process",
          formula={"detector": "unassigned_inbox_age", "numerator": "provisional items older than 7 days", "denominator": "provisional items", "min_opportunities": 3},
          thresholds={"flag_rate": 0.5, "windows": ["30d"]}),
+    dict(key="learning_consistency", name="Keeps learning every week", polarity="positive", category="wellbeing",
+         formula={"detector": "learning_consistency", "numerator": "weeks in the window with time logged on #development work", "denominator": "weeks in the window", "min_opportunities": 2},
+         thresholds={"windows": ["30d", "90d"]}),
     dict(key="rework", name="Rework", polarity="negative", category="quality",
          formula={"detector": "rework", "numerator": "items that re-entered an earlier stage", "denominator": "items placed in the window", "min_opportunities": 3},
          thresholds={"flag_rate": 0.25, "windows": ["30d", "90d"]}),
@@ -411,6 +414,42 @@ async def d_rework(s: AsyncSession, ws_id: str, start: datetime, end: datetime) 
     return dict(out)
 
 
+async def d_learning_consistency(
+    s: AsyncSession, ws_id: str, start: datetime, end: datetime
+) -> dict[str, Counts]:
+    """Positive habit (Phase 15): the share of weeks in the window with any time on `#development` work."""
+    weeks = max(1, -(-(_d(end) - _d(start)).days // 7))
+    rows = (
+        await s.execute(
+            select(m.TimeEntry.person_id, m.TimeEntry.date)
+            .join(
+                m.TagLink,
+                (m.TagLink.target_id == m.TimeEntry.work_item_id)
+                & (m.TagLink.target_type == TargetType.WORK_ITEM),
+            )
+            .join(m.Tag, m.Tag.id == m.TagLink.tag_id)
+            .where(
+                m.TimeEntry.date >= _d(start),
+                m.TimeEntry.date < _d(end) + timedelta(days=1),
+                m.TimeEntry.deleted_at.is_(None),
+                func.lower(m.Tag.name) == "development",
+                m.Tag.workspace_id == ws_id,
+            )
+        )
+    ).all()
+    hit: dict[str, set[int]] = defaultdict(set)
+    for pid, day in rows:
+        hit[pid].add(min((day - _d(start)).days // 7, weeks - 1))
+    members = (
+        await s.execute(
+            select(m.WorkspaceMember.person_id).where(
+                m.WorkspaceMember.workspace_id == ws_id, m.WorkspaceMember.deleted_at.is_(None)
+            )
+        )
+    ).scalars()
+    return {pid: Counts(len(hit.get(pid, ())), weeks) for pid in members}
+
+
 def detectors() -> dict[str, Detector]:
     return {
         "late_finish": _violation_detector("overrun", _opp_done),
@@ -425,6 +464,7 @@ def detectors() -> dict[str, Detector]:
         "early_delivery": d_early_delivery,
         "unassigned_inbox_age": d_unassigned_inbox_age,
         "rework": d_rework,
+        "learning_consistency": d_learning_consistency,
     }
 
 
