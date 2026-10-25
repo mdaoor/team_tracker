@@ -6,14 +6,13 @@ from typing import Any
 
 from fastapi import APIRouter, Query, Response
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from tt_schema import tenancy as schema_tenancy
 from tt_schema.enums import (
     Priority,
     StateCategory,
 )
 
-from tt_server.acl.visibility import visible
 from tt_server.api.authz import check_project, needs
 from tt_server.api.deps import CurrentActor, Uow, page
 from tt_server.api.errors import ApiError
@@ -21,23 +20,14 @@ from tt_server.api.params import enum_param
 from tt_server.db import models as m
 from tt_server.domain.common import row_dict
 from tt_server.domain.items import lifecycle, queries
+from tt_server.domain.lookup import visible_item, visible_project
 
 router = APIRouter(prefix="/api/v1/w/{ws}")
 _ = schema_tenancy
 
 
 async def _project(uow: Uow, ws_id: str, key: str) -> m.Project:
-    stmt = select(m.Project).where(
-        m.Project.workspace_id == ws_id,
-        func.lower(m.Project.key) == key.lower(),
-        m.Project.deleted_at.is_(None),
-    )
-    if (acl := uow.context.get("acl")) is not None:
-        stmt = visible(stmt, acl, m.Project)  # invisible => 404, never 403 (ADR-0008)
-    p = await uow.session.scalar(stmt)
-    if p is None:
-        raise ApiError(404, "not_found", "project not found")
-    return p
+    return await visible_project(uow, ws_id, key)
 
 
 async def _project_of(uow: Uow, actor: CurrentActor, project_id: str) -> m.Project:
@@ -49,21 +39,7 @@ async def _project_of(uow: Uow, actor: CurrentActor, project_id: str) -> m.Proje
 
 
 async def _item(uow: Uow, ws_id: str, id_or_key: str) -> m.WorkItem:
-    stmt = (
-        select(m.WorkItem)
-        .join(m.Project, m.Project.id == m.WorkItem.project_id)
-        .where(
-            m.Project.workspace_id == ws_id,
-            m.WorkItem.deleted_at.is_(None),
-            (m.WorkItem.id == id_or_key) | (func.lower(m.WorkItem.key) == id_or_key.lower()),
-        )
-    )
-    if (acl := uow.context.get("acl")) is not None:
-        stmt = visible(stmt, acl, m.WorkItem)
-    it = await uow.session.scalar(stmt)
-    if it is None:
-        raise ApiError(404, "not_found", "item not found")
-    return it
+    return await visible_item(uow, ws_id, id_or_key)
 
 
 # ------------------------------------------------------------------ items
