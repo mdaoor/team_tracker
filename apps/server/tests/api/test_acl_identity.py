@@ -7,7 +7,6 @@ Routers: webauth, identity. The directory is ldap3's in-memory MOCK_SYNC server;
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -18,7 +17,6 @@ from joserfc.jwk import KeySet, RSAKey
 from ldap3 import MOCK_SYNC, Connection, Server
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from tt_server.api.routers import webauth
 from tt_server.db import models as m
 from tt_server.integrations.ldap import LdapProvider
 from tt_server.integrations.oidc import OidcProvider
@@ -70,13 +68,6 @@ class Directory:
             return Connection(self.server, user=dn, password=pw, client_strategy=MOCK_SYNC)
 
         return LdapProvider(base_dn=BASE, bind_dn=f"cn=svc,{BASE}", bind_password="svc", connect=connect)
-
-
-@pytest.fixture(autouse=True)
-def _reset_throttle() -> Iterator[None]:
-    webauth._FAILURES.clear()
-    yield
-    webauth._FAILURES.clear()
 
 
 @pytest.fixture
@@ -137,10 +128,10 @@ async def test_ldap_login_provisions_member_maps_groups_and_sets_a_session(
     assert "tt_session" in r.cookies
     async with session_factory() as s:
         person = await _person(s, "@jdoe")
-        assert ("manager", "idp") in await _assignments(s, person)
+        assert ("manager", "idp:ldap") in await _assignments(s, person)
         assert ("contributor", "manual") in await _assignments(s, person)
         member_of = (await s.scalars(select(m.Membership).where(m.Membership.person_id == person))).all()
-        assert [mb.source for mb in member_of] == ["idp"]
+        assert [mb.source for mb in member_of] == ["idp:ldap"]
     me = (await api.c.get("/auth/me")).json()
     assert me["workspaces"] == [{"slug": "acme", "handle": "@jdoe"}]
     # the cookie alone authenticates API reads (no debug header) ...
@@ -173,7 +164,7 @@ async def test_nested_groups_are_expanded(
 ) -> None:
     assert (await _login(api, "nested")).status_code == 200  # Platform Dev -> TT-Platform-Leads
     async with session_factory() as s:
-        assert ("manager", "idp") in await _assignments(s, await _person(s, "@nested"))
+        assert ("manager", "idp:ldap") in await _assignments(s, await _person(s, "@nested"))
 
 
 async def test_bad_credentials_empty_passwords_and_throttling(api: Api, ad: Directory) -> None:
@@ -250,7 +241,7 @@ async def test_sync_removes_idp_access_but_never_manual_access(
     res = await api.call("POST", "/idp/sync")
     assert res.status_code == 200 and res.json()["changed"] == 1, res.text
     async with session_factory() as s:
-        assert ("manager", "idp") not in await _assignments(s, person)
+        assert ("manager", "idp:ldap") not in await _assignments(s, person)
         assert ("viewer", "manual") in await _assignments(s, person)
         teams = {
             mb.team_id
@@ -275,7 +266,7 @@ async def test_leaving_the_directory_strips_idp_access_and_sync_needs_ldap(
     res = await api.call("POST", "/idp/sync")
     assert res.status_code == 200 and res.json()["changed"] == 1
     async with session_factory() as s:
-        assert ("manager", "idp") not in await _assignments(s, await _person(s, "@jdoe"))
+        assert ("manager", "idp:ldap") not in await _assignments(s, await _person(s, "@jdoe"))
     _app(api).state.ldap = None
     assert (await api.call("POST", "/idp/sync")).status_code == 409
 
@@ -403,7 +394,7 @@ async def test_oidc_login_maps_groups_and_redirects_to_next(
     assert "tt_session" in api.c.cookies
     async with session_factory() as s:
         person = await _person(s, "@ola")
-        assert ("manager", "idp") in await _assignments(s, person)
+        assert ("manager", "idp:oidc") in await _assignments(s, person)
 
 
 @pytest.mark.parametrize(
@@ -503,4 +494,4 @@ async def test_sync_finds_people_by_email_even_when_their_handle_got_a_suffix(
     res = await api.call("POST", "/idp/sync")
     assert res.status_code == 200 and res.json()["changed"] == 0  # still in the group: nothing is stripped
     async with session_factory() as s:
-        assert ("manager", "idp") in await _assignments(s, await _person(s, "@jdoe2"))
+        assert ("manager", "idp:ldap") in await _assignments(s, await _person(s, "@jdoe2"))

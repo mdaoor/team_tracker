@@ -76,6 +76,17 @@ class Settings(BaseSettings):
     trust_forwarded_proto: bool = False
     hsts_max_age: int = 31_536_000
 
+    def validate_for_runtime(self) -> None:
+        """Fail fast on unsafe production configuration (anything but `env=dev`): a guessable cookie-signing secret is account takeover."""
+        if self.env == "dev":
+            return
+        if self.session_secret == "dev-insecure-session-secret" or len(self.session_secret.encode()) < 32:  # noqa: S105
+            raise RuntimeError(
+                "TT_SESSION_SECRET must be set to at least 32 random bytes when TT_ENV is not 'dev' (e.g. `openssl rand -hex 32`)"
+            )
+        if self.dev_auth:
+            raise RuntimeError("TT_DEV_AUTH must be off when TT_ENV is not 'dev'")
+
     @property
     def psycopg_dsn(self) -> str:
         """Plain libpq DSN (for Procrastinate), derived from the SQLAlchemy URL."""

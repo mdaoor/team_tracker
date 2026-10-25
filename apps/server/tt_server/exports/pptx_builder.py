@@ -119,6 +119,10 @@ def _table(
 
 def _bar_chart(slide: Any, cats: list[str], series: dict[str, list[float]], *, y: Any = None) -> None:
     y = y if y is not None else Inches(1.5)
+    if not cats or not series or not any(series.values()):  # python-pptx refuses an empty category axis
+        box = slide.shapes.add_textbox(Inches(0.5), y, Inches(12.3), Inches(1))
+        box.text_frame.text = "No data in scope."
+        return
     cd = CategoryChartData()
     cd.categories = cats
     for name, vals in series.items():

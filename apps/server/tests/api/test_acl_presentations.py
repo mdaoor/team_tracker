@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any
 
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import new_id
@@ -254,7 +255,9 @@ async def test_external_share_token_needs_the_workspace_flag_and_expires(
     assert (await api.c.get(f"/api/v1/public/p/{again}/data")).status_code == 404
 
 
-async def test_exports_html_csv_pptx_are_stamped_and_pdf_png_need_the_bundle(api: Api, tmp_path: Any) -> None:
+async def test_exports_html_csv_pptx_are_stamped_and_pdf_png_need_the_bundle(
+    api: Api, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import io
     import zipfile
 
@@ -293,11 +296,13 @@ async def test_exports_html_csv_pptx_are_stamped_and_pdf_png_need_the_bundle(api
 
     assert is_stamped(csvz.read(next(n for n in names if n.endswith("table.csv"))).decode())
     # the HTML export needs the built bundle; without it the API says so instead of failing obscurely
-    router.BUNDLE = tmp_path / "missing.html"
+    monkeypatch.setattr(
+        router, "BUNDLE", tmp_path / "missing.html"
+    )  # restored after the test (it used to leak a stub)
     miss = await api.call("POST", f"/presentations/{p['id']}/render", params={"format": "html"})
     assert miss.status_code == 503 and miss.json()["error"]["code"] == "bundle_missing"
     (tmp_path / "b.html").write_text("<html><head></head><body></body></html>")
-    router.BUNDLE = tmp_path / "b.html"
+    monkeypatch.setattr(router, "BUNDLE", tmp_path / "b.html")
     html = (await api.call("POST", f"/presentations/{p['id']}/render", params={"format": "html"})).text
     assert "window.__DECK__=" in html and "</script><script" not in html and "Exported by @mahmoud" in html
     assert (

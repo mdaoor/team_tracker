@@ -316,3 +316,19 @@ def test_form_builds_valid_batch_and_roundtrips(ctx: ParseContext, pack: Context
 def test_postprocess_is_pure_on_structured_only_batches(ctx: ParseContext, pack: ContextPack) -> None:
     b, notes = postprocess(llm_batch(), [], pack, ctx, "line")
     assert notes == [] and b.messages[0].raw_input == "line"
+
+
+def test_agent_mode_gets_its_own_longer_timeout(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Review B14: the agent loop is several calls long; the 1.5 s translate timeout made it always fall back."""
+    from tt_client.config import ClientConfig
+
+    cfg = ClientConfig(gateway_url="http://gw", llm_mode="agent")
+    assert cfg.llm_timeout == 1.5 and cfg.llm_agent_timeout >= 15
+    from tt_cli.runtime import Runtime
+
+    rt = Runtime.__new__(Runtime)
+    rt.cfg = cfg  # type: ignore[attr-defined]
+    t = rt.translator()
+    assert t.http.timeout.read == cfg.llm_agent_timeout  # type: ignore[attr-defined]
+    cfg.llm_mode = "translate"
+    assert rt.translator().http.timeout.read == 1.5  # type: ignore[attr-defined]

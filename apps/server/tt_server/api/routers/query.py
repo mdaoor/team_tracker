@@ -118,9 +118,8 @@ async def explain(body: ItemsQuery, actor: CurrentActor, uow: Uow) -> dict[str, 
 @router.post("/query/items:csv")
 async def items_csv(body: ItemsQuery, actor: CurrentActor, uow: Uow) -> Response:
     qc = _qc(actor, uow, await _scheme(uow, actor.ws.id, body.weight_scheme_id), body.time_zone)
-    page = {"size": service.MAX_PAGE, **body.page}
     try:
-        res = await service.query_items(qc, filter=body.filter, sort=body.sort or None, page=page)
+        res = await service.query_all(qc, filter=body.filter, sort=body.sort or None)
     except FilterError as exc:
         raise _bad(exc) from exc
     cols = [
@@ -193,12 +192,7 @@ async def project_board(key: str, actor: CurrentActor, uow: Uow, filter: str | N
     ).all()
     f = {"and": [_filter_param(filter), {"project": {"in": [p.key]}}]}
     try:
-        res = await service.query_items(
-            _qc(actor, uow),
-            filter=f,
-            page={"size": service.MAX_PAGE},
-            sort=[{"field": "priority", "dir": "desc"}],
-        )
+        res = await service.query_all(_qc(actor, uow), filter=f, sort=[{"field": "priority", "dir": "desc"}])
     except FilterError as exc:
         raise _bad(exc) from exc
     cols = []
@@ -224,7 +218,7 @@ async def pipeline(ref: str, actor: CurrentActor, uow: Uow, filter: str | None =
     stages = await proc.stages_of(uow.session, p.id)
     f = {"and": [_filter_param(filter), {"stage": {"process": p.key, "in": [s.key for s in stages]}}]}
     try:
-        res = await service.query_items(_qc(actor, uow), filter=f, page={"size": service.MAX_PAGE})
+        res = await service.query_all(_qc(actor, uow), filter=f)
     except FilterError as exc:
         raise _bad(exc) from exc
     approvals = {
@@ -267,9 +261,7 @@ class GanttQuery(BaseModel):
 async def gantt(body: GanttQuery, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     qc = _qc(actor, uow, await _scheme(uow, actor.ws.id, body.weight_scheme_id))
     try:
-        res = await service.query_items(
-            qc, filter=body.filter, page={"size": service.MAX_PAGE}, sort=[{"field": "key", "dir": "asc"}]
-        )
+        res = await service.query_all(qc, filter=body.filter, sort=[{"field": "key", "dir": "asc"}])
     except FilterError as exc:
         raise _bad(exc) from exc
     items = res["items"]
@@ -373,7 +365,7 @@ async def calendar(body: CalendarQuery, actor: CurrentActor, uow: Uow) -> dict[s
     qc = _qc(actor, uow)
     days: dict[str, list[dict[str, Any]]] = {}
     try:
-        res = await service.query_items(qc, filter=body.filter, page={"size": service.MAX_PAGE})
+        res = await service.query_all(qc, filter=body.filter)
     except FilterError as exc:
         raise _bad(exc) from exc
     for i in res["items"]:

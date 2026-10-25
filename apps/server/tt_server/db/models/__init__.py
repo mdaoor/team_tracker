@@ -11,6 +11,7 @@ from tt_server.db.models.capture import *  # noqa: F403
 from tt_server.db.models.dimensions import *  # noqa: F403
 from tt_server.db.models.governance import *  # noqa: F403
 from tt_server.db.models.governance_runtime import *  # noqa: F403
+from tt_server.db.models.indexes import *  # noqa: F403
 from tt_server.db.models.items import *  # noqa: F403
 from tt_server.db.models.jira import *  # noqa: F403
 from tt_server.db.models.presentations import *  # noqa: F403

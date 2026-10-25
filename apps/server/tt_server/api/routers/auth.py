@@ -66,7 +66,7 @@ async def create_token(
     ws = await uow.session.scalar(select(m.Workspace).where(m.Workspace.slug == body.workspace))
     if ws is None:
         raise ApiError(404, "not_found", "workspace not found")
-    person, _ = await _authenticate(request, uow, authorization, x_debug_actor, ws)
+    person, presenting = await _authenticate(request, uow, authorization, x_debug_actor, ws)
     member = await uow.session.scalar(
         select(m.WorkspaceMember).where(
             m.WorkspaceMember.workspace_id == ws.id, m.WorkspaceMember.person_id == person.id
@@ -82,6 +82,15 @@ async def create_token(
             f"scopes must be a non-empty subset of {list(TOKEN_SCOPES)}",
             pointer="/scopes",
         )
+    if presenting is not None:  # a token can only mint tokens no stronger than itself (scopes are ordered)
+        ceiling = max((TOKEN_SCOPES.index(x) for x in presenting.scopes if x in TOKEN_SCOPES), default=-1)
+        if any(TOKEN_SCOPES.index(x) > ceiling for x in body.scopes):
+            raise ApiError(
+                403,
+                "scope_ceiling",
+                "a token cannot create a token with a wider scope than its own",
+                pointer="/scopes",
+            )
     secret = new_token()
     row = m.ApiToken(
         id=new_id(),

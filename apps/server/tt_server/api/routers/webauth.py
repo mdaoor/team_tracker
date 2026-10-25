@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import secrets
-import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import quote, urlencode, urlparse
 
 from fastapi import APIRouter, Header, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import EventSource, MemberStatus, TargetType
 
@@ -32,20 +31,45 @@ from tt_server.integrations import idp
 router = APIRouter(prefix="/auth", tags=["auth"])
 api_router = APIRouter()
 
-_FAILURES: dict[str, list[float]] = {}
-MAX_FAILURES, WINDOW = 5, 300.0
+MAX_FAILURES, WINDOW = 5, 900.0  # failures per (client address, username) within WINDOW before backoff starts
 
 
-def _throttle(key: str) -> None:
-    now = time.monotonic()
-    recent = [t for t in _FAILURES.get(key.lower(), []) if now - t < WINDOW]
-    _FAILURES[key.lower()] = recent
-    if len(recent) >= MAX_FAILURES:
-        raise ApiError(429, "too_many_attempts", "too many failed sign-ins; try again in a few minutes")
+def _attempt_key(request: Request, username: str) -> str:
+    host = request.client.host if request.client else "?"
+    return f"{host}|{username.strip().lower()}"
 
 
-def _failed(key: str) -> None:
-    _FAILURES.setdefault(key.lower(), []).append(time.monotonic())
+async def _throttle(uow: Uow, key: str) -> None:
+    """Exponential backoff after MAX_FAILURES: 30 s, 1 min, 2 min ... capped at 15 min, per address+username (so one address
+    cannot lock a user out for everybody, and the counters live in the database, shared by every worker)."""
+    cutoff = datetime.now(UTC) - timedelta(seconds=WINDOW)
+    rows = (
+        await uow.session.scalars(
+            select(m.LoginAttempt.created_at)
+            .where(m.LoginAttempt.key == key, m.LoginAttempt.created_at >= cutoff)
+            .order_by(m.LoginAttempt.created_at)
+        )
+    ).all()
+    if len(rows) >= MAX_FAILURES:
+        wait = min(30 * 2 ** (len(rows) - MAX_FAILURES), WINDOW)
+        remaining = wait - (datetime.now(UTC) - rows[-1]).total_seconds()
+        if remaining > 0:
+            raise ApiError(
+                429,
+                "too_many_attempts",
+                "too many failed sign-ins; try again later",
+                details={"retry_after": int(remaining) + 1},
+            )
+
+
+async def _failed(uow: Uow, key: str) -> None:
+    uow.session.add(m.LoginAttempt(id=new_id(), key=key))
+    await uow.commit_bookkeeping()
+
+
+async def _succeeded(uow: Uow, key: str) -> None:
+    await uow.session.execute(delete(m.LoginAttempt).where(m.LoginAttempt.key == key))
+    await uow.commit_bookkeeping()
 
 
 def _secure(request: Request) -> bool:
@@ -147,11 +171,13 @@ async def _ldap_member(request: Request, uow: Uow, body: LdapLogin) -> m.Workspa
     ldap = request.app.state.ldap
     if ldap is None:
         raise ApiError(404, "not_found", "LDAP sign-in is not configured")
-    _throttle(body.username)
+    key = _attempt_key(request, body.username)
+    await _throttle(uow, key)
     user = await ldap.authenticate(body.username, body.password)
     if user is None:
-        _failed(body.username)
+        await _failed(uow, key)
         raise ApiError(401, "invalid_credentials", "invalid username or password")
+    await _succeeded(uow, key)
     ws = await _workspace(uow, body.workspace)
     if not user.email:
         raise ApiError(401, "invalid_credentials", "the directory account has no e-mail address")

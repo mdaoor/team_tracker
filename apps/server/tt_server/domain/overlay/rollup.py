@@ -5,10 +5,12 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.enums import StateCategory, TargetType
 
+from tt_server.acl.context import AclContext
+from tt_server.acl.visibility import item_visible_for
 from tt_server.db import models as m
 from tt_server.domain.overlay.risks import open_risk_score
 
@@ -23,13 +25,17 @@ DIMENSION_FIELDS = {
 }
 
 
-async def rollup(session: AsyncSession, root: m.WorkItem) -> dict[str, Any]:
+async def rollup(session: AsyncSession, root: m.WorkItem, acl: AclContext | None = None) -> dict[str, Any]:
     """Computed on read for the subtree of `root` (<= 500 items; larger trees need the Phase 12 job)."""
     rows = (
         await session.execute(
             select(m.WorkItem, m.WorkflowState.category)
             .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
-            .where(m.WorkItem.path.op("<@")(root.path), m.WorkItem.deleted_at.is_(None))
+            .where(
+                m.WorkItem.path.op("<@")(root.path),
+                m.WorkItem.deleted_at.is_(None),
+                item_visible_for(acl, m.WorkItem) if acl is not None else true(),
+            )  # a roll-up never counts descendants the viewer cannot see
             .limit(501)
         )
     ).all()

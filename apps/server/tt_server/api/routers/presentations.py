@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import re
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -342,6 +344,10 @@ MEDIA = {
 }  # fmt: skip
 
 
+MAX_BROWSER_RENDERS, RENDER_WAIT_S = 2, 5.0
+_RENDER_SLOTS = asyncio.Semaphore(MAX_BROWSER_RENDERS)
+
+
 @router.post("/presentations/{pid}/render")
 async def render(pid: str, request: Request, actor: CurrentActor, uow: Uow, format: str = "html") -> Response:  # noqa: A002
     from tt_server.exports import presentation as exp
@@ -351,7 +357,25 @@ async def render(pid: str, request: Request, actor: CurrentActor, uow: Uow, form
     p = await _get(actor, uow, pid)
     qc = deckdata.qctx(uow.session, actor.ws, actor.person, actor.member, actor.acl)
     payload = await deckdata.deck_data(qc, actor.ws, p, viewer=actor.handle)
-    body = await exp.render(format, payload, BUNDLE, handle=actor.handle)
+    if format in (
+        "pdf",
+        "png",
+    ):  # headless Chromium: a few at a time, the rest are told to come back (review M7)
+        try:
+            await asyncio.wait_for(_RENDER_SLOTS.acquire(), timeout=RENDER_WAIT_S)
+        except TimeoutError as exc:
+            raise ApiError(
+                503,
+                "render_busy",
+                "too many exports are running; try again in a moment",
+                details={"retry_after": 10},
+            ) from exc
+        try:
+            body = await exp.render(format, payload, BUNDLE, handle=actor.handle)
+        finally:
+            _RENDER_SLOTS.release()
+    else:
+        body = await exp.render(format, payload, BUNDLE, handle=actor.handle)
     _ev(uow, actor, p, "presentation.rendered", format=format)
     await uow.commit()
     media, ext = MEDIA[format]
@@ -420,7 +444,9 @@ async def public_data(token: str, request: Request) -> dict[str, Any]:
         qc = deckdata.qctx(session, ws, person, member, acl)
         out = await deckdata.deck_data(qc, ws, p, viewer=f"shared by {member.handle}")
         out["presentation"].pop("owner_id", None)
-        return out
+        return deckdata.redact_for_share(
+            out, str((ws.settings or {}).get("external_share_redaction", "standard"))
+        )
 
 
 def _shell(extra: str) -> HTMLResponse:
@@ -437,14 +463,27 @@ def _shell(extra: str) -> HTMLResponse:
     )
 
 
+_SAFE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+
+def _src(url: str, *parts: str) -> HTMLResponse:
+    """Path segments are attacker-controlled (percent-decoded): accept only a safe alphabet, and JSON-encode with `<` escaped anyway."""
+    if not all(_SAFE.match(p) for p in parts):
+        raise ApiError(404, "not_found", "no such deck")
+    literal = (
+        json.dumps(url.format(*parts)).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    )
+    return _shell(f"window.__DECK_SRC__={literal};")
+
+
 @shell.get("/p/t/{token}")
 async def shell_token(token: str) -> HTMLResponse:
-    return _shell(f'window.__DECK_SRC__="/api/v1/public/p/{token}/data";')
+    return _src("/api/v1/public/p/{}/data", token)
 
 
 @shell.get("/p/{ws}/{pid}")
 async def shell_session(ws: str, pid: str) -> HTMLResponse:
-    return _shell(f'window.__DECK_SRC__="/api/v1/w/{ws}/presentations/{pid}/data";')
+    return _src("/api/v1/w/{}/presentations/{}/data", ws, pid)
 
 
 # ---------------------------------------------------------------- insights

@@ -33,7 +33,7 @@ class Role(RowBase):
     )
 
 
-class RoleAssignment(RowBase):
+class RoleAssignment(WorkspaceScopedMixin, RowBase):
     __tablename__ = "role_assignments"
     person_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=False)
     role_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("roles.id"), nullable=False)
@@ -96,3 +96,10 @@ class AccessGrant(WorkspaceScopedMixin, RowBase):
     inherit_to_children: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=True)
     granted_by: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+
+
+class LoginAttempt(RowBase):
+    """A failed directory sign-in, keyed by client address + username (shared by all workers, survives restarts). Review M8."""
+
+    __tablename__ = "login_attempts"
+    key: Mapped[str] = mapped_column(sa.Text(), nullable=False, index=True)

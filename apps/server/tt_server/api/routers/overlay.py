@@ -365,6 +365,22 @@ async def list_classifications(
         stmt = stmt.where(
             m.Classification.target_id.in_(select(wi.id).where(item_visible_for(actor.acl, wi)))
         )
+    if target_type == TargetType.PROJECT:
+        stmt = stmt.where(
+            m.Classification.target_id.in_(
+                visible(
+                    select(m.Project.id).where(m.Project.workspace_id == actor.ws.id), actor.acl, m.Project
+                )
+            )
+        )
+    elif target_type == TargetType.PRODUCT:
+        stmt = stmt.where(
+            m.Classification.target_id.in_(
+                visible(
+                    select(m.Product.id).where(m.Product.workspace_id == actor.ws.id), actor.acl, m.Product
+                )
+            )
+        )
     if target:
         stmt = stmt.where(
             m.Classification.target_id == await _target_id(uow, actor.ws.id, target_type, target)
@@ -599,22 +615,27 @@ async def create_product(body: ProductIn, actor: CurrentActor, uow: Uow) -> dict
 async def list_products(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     rows = (
         await uow.session.scalars(
-            select(m.Product)
-            .where(m.Product.workspace_id == actor.ws.id, m.Product.deleted_at.is_(None))
-            .order_by(m.Product.key)
+            visible(
+                select(m.Product).where(
+                    m.Product.workspace_id == actor.ws.id, m.Product.deleted_at.is_(None)
+                ),
+                actor.acl,
+                m.Product,
+            ).order_by(m.Product.key)
         )
     ).all()
     return {"data": [row_dict(r) for r in rows], "next_cursor": None}
 
 
 async def _product(uow: Uow, ws_id: str, ref: str) -> m.Product:
-    p = await uow.session.scalar(
-        select(m.Product).where(
-            m.Product.workspace_id == ws_id,
-            m.Product.deleted_at.is_(None),
-            (m.Product.id == ref) | (m.Product.key == ref.upper()),
-        )
+    stmt = select(m.Product).where(
+        m.Product.workspace_id == ws_id,
+        m.Product.deleted_at.is_(None),
+        (m.Product.id == ref) | (m.Product.key == ref.upper()),
     )
+    acl = uow.context.get("acl")
+    p: m.Product | None
+    p = await uow.session.scalar(visible(stmt, acl, m.Product) if acl is not None else stmt)
     if p is None:
         raise ApiError(404, "not_found", "product not found")
     return p
@@ -1269,7 +1290,7 @@ async def provenance(id_or_key: str, actor: CurrentActor, uow: Uow) -> dict[str,
 
 @router.get("/items/{id_or_key}/rollup", tags=["overlay"])
 async def item_rollup(id_or_key: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    return await rollup_svc.rollup(uow.session, await _item(uow, actor.ws.id, id_or_key))
+    return await rollup_svc.rollup(uow.session, await _item(uow, actor.ws.id, id_or_key), acl=actor.acl)
 
 
 class ItemPatch(BaseModel):
@@ -1331,6 +1352,7 @@ async def patch_item(
         )
     priority = data.pop("priority", None)
     changed = list(data)
+    old_team = item.team_id
     for k, v in data.items():
         setattr(item, k, v)
     if "impact" in data:
@@ -1346,6 +1368,8 @@ async def patch_item(
         )
     if "team_id" in data:
         await mirrors.sync_item_mirrors(uow, actor.ws, item, set_by=actor.person.id)
+        if item.team_id != old_team:
+            await propagation.item_team_changed(uow, actor.ws, item, old_team, actor=actor.person.id)
     if priority is not None and priority != item.priority:
         await propagation.set_item_priority(uow, actor.ws, item, priority, actor=actor.person.id)
         changed.append("priority")

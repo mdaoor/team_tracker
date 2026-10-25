@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import re._parser as re_parser  # type: ignore[import-not-found]
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -108,7 +109,7 @@ class Compiled:
         self, context: dict[str, Any], functions: dict[str, Callable[..., Any]], *, now: datetime
     ) -> Any:
         prog = _ENV.program(
-            self.tree, functions=functions
+            self.tree, functions={**functions, "matches": safe_matches}
         )  # cheap: the tree is shared, only the closure set differs
         act = {k: to_cel(v) for k, v in context.items()}
         act["now"] = to_cel(now)
@@ -118,6 +119,56 @@ class Compiled:
             raise CelError(f"evaluation failed: {exc}") from exc
         except (TypeError, KeyError, ValueError, AttributeError) as exc:
             raise CelError(f"evaluation failed: {exc}") from exc
+
+
+MAX_PATTERN = 200
+MAX_SUBJECT = 10_000
+_PATTERNS: dict[str, re.Pattern[str]] = {}
+
+
+def _nested_repeat(parsed: Any, inside: bool = False) -> bool:
+    """True for a quantifier inside a quantifier, the shape behind catastrophic backtracking (`(a+)+`, `(.*)*`)."""
+    for op, av in parsed:
+        name = str(op)
+        if name in ("MAX_REPEAT", "MIN_REPEAT", "POSSESSIVE_REPEAT"):
+            if inside and av[1] > 1:
+                return True
+            if _nested_repeat(av[2], True):
+                return True
+        elif name == "SUBPATTERN" and _nested_repeat(av[-1], inside):
+            return True
+        elif name == "BRANCH" and any(_nested_repeat(b, inside) for b in av[1]):
+            return True
+    return False
+
+
+def safe_pattern(pattern: str) -> re.Pattern[str]:
+    """Compile a user regex under limits: bounded length, no nested quantifiers, no back-references."""
+    cached = _PATTERNS.get(pattern)
+    if cached is not None:
+        return cached
+    if len(pattern) > MAX_PATTERN:
+        raise CelError(f"regular expression too long (limit {MAX_PATTERN} characters)")
+    try:
+        parsed = re_parser.parse(pattern)
+    except re.error as exc:
+        raise CelError(f"invalid regular expression: {exc}") from exc
+    if _nested_repeat(parsed) or any(str(op) == "GROUPREF" for op, _ in parsed):
+        raise CelError(
+            "this regular expression can backtrack without bound; simplify it (no nested quantifiers)"
+        )
+    compiled = re.compile(pattern)
+    if len(_PATTERNS) < 512:
+        _PATTERNS[pattern] = compiled
+    return compiled
+
+
+def safe_matches(subject: Any, pattern: Any) -> Any:
+    """CEL `matches` with bounded patterns and subjects (celpy would hand the raw user pattern to `re`)."""
+    text = str(subject)
+    if len(text) > MAX_SUBJECT:
+        text = text[:MAX_SUBJECT]
+    return celtypes.BoolType(safe_pattern(str(pattern)).search(text) is not None)
 
 
 def _limits(tree: Tree[Any]) -> None:

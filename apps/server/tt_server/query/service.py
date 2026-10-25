@@ -126,6 +126,26 @@ SORTS: dict[str, Any] = {
 }  # fmt: skip
 
 
+async def query_all(qc: QueryCtx, *, hard_cap: int = 100_000, **kw: Any) -> dict[str, Any]:
+    """Every matching row, paging internally (layout endpoints and CSV must not silently stop at one page)."""
+    kw.pop("page", None)
+    items: list[Any] = []
+    offset = 0
+    res: dict[str, Any] = {}
+    while offset < hard_cap:
+        res = await query_items(qc, page={"size": MAX_PAGE, "cursor": str(offset)}, **kw)
+        items += res["items"]
+        if not res["page"].get("next_cursor") or not res["items"]:
+            break
+        offset += MAX_PAGE
+    total = res["page"]["total"] if res else 0
+    return {
+        **res,
+        "items": items,
+        "page": {**dict(res.get("page") or {}), "total": total, "next_cursor": None},
+    }
+
+
 async def query_items(
     qc: QueryCtx,
     *,
@@ -163,8 +183,11 @@ async def query_items(
             )
         order.append(expr.desc().nulls_last() if desc else expr.asc().nulls_last())
     order.append(m.WorkItem.key)
-    size = min(int((page or {}).get("size", 50)), max_page)
-    offset = int((page or {}).get("cursor") or 0)
+    try:
+        size = max(1, min(int((page or {}).get("size", 50)), max_page))
+        offset = max(0, int((page or {}).get("cursor") or 0))
+    except (TypeError, ValueError) as exc:
+        raise FilterError("/page", "page.size and page.cursor must be integers") from exc
     # one scan: the window count rides along with the page instead of a second pass over the filtered set
     id_rows = (
         await qc.session.execute(

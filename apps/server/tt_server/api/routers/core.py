@@ -28,13 +28,13 @@ from tt_schema.enums import (
 )
 
 from tt_server.acl.visibility import visible
-from tt_server.api.authz import check_project, needs
+from tt_server.api.authz import check, check_project, needs
 from tt_server.api.deps import CurrentActor, Uow, page
 from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.domain.items import service as items
-from tt_server.domain.overlay import approvals
+from tt_server.domain.overlay import approvals, propagation
 from tt_server.domain.projects import service as projects
 from tt_server.domain.projects.service import workflow_states
 from tt_server.domain.tenancy import service as tenancy
@@ -398,6 +398,8 @@ async def get_project(key: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]
 
 
 class ProjectPatch(BaseModel):
+    visibility: Visibility | None = None
+    default_process_id: str | None = None
     name: str | None = None
     description: str | None = None
     status: ProjectStatus | None = None
@@ -408,11 +410,29 @@ class ProjectPatch(BaseModel):
 async def patch_project(key: str, body: ProjectPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     p = await _project(uow, actor.ws.id, key)
     changed = []
+    old_vis, old_process = p.visibility.value, p.default_process_id
     for f in ("name", "description", "status"):
         v = getattr(body, f)
         if v is not None and getattr(p, f) != v:
             setattr(p, f, v)
             changed.append(f)
+    uow.context["actor_id"] = actor.person.id
+    if body.visibility is not None and body.visibility != p.visibility:
+        check(actor, "project.write")
+        p.visibility = body.visibility
+        await propagation.project_visibility_changed(uow, actor.ws, p, old_vis, actor=actor.person.id)
+    if body.default_process_id is not None and body.default_process_id != p.default_process_id:
+        proc_row = await uow.session.scalar(
+            select(m.Process).where(
+                m.Process.workspace_id == actor.ws.id, m.Process.id == body.default_process_id
+            )
+        )
+        if proc_row is None:
+            raise ApiError(
+                400, "unknown_process", "no such process in this workspace", pointer="/default_process_id"
+            )
+        p.default_process_id = proc_row.id
+        await propagation.project_process_changed(uow, actor.ws, p, old_process, actor=actor.person.id)
     if body.aliases is not None:
         p.settings = {**(p.settings or {}), "aliases": body.aliases}
         changed.append("settings.aliases")

@@ -5,11 +5,16 @@ import { mountPage } from "./page.js";
 async function load() {
   if (window.__DECK__) return window.__DECK__;
   const q = new URLSearchParams(location.search);
-  const src = q.get("src") || window.__DECK_SRC__;
+  // A server-rendered shell fixes the data URL. `?src=` is only for a locally opened bundle, and only same-origin:
+  // otherwise a crafted link could make the page send the viewer's credentials to another site.
+  const requested = window.__DECK_SRC__ ? null : q.get("src");
+  const src = window.__DECK_SRC__ || requested;
   if (!src)
     throw new Error("no data: open /p/<workspace>/<id>, or add ?src=file.json");
+  if (requested && new URL(requested, location.href).origin !== location.origin)
+    throw new Error("The data source must be on the same origin.");
   const r = await fetch(src, {
-    credentials: "include",
+    credentials: "same-origin",
     headers: { Accept: "application/json" },
   });
   if (!r.ok)

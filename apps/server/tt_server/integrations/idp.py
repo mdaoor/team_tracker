@@ -21,7 +21,7 @@ from tt_server.domain.common import emit
 from tt_server.domain.tenancy import service as tenancy
 from tt_server.integrations.ldap import DirectoryUser
 
-IDP = "idp"
+IDP = "idp"  # legacy prefix; rows are stamped "idp:<provider>" so providers never remove each other's grants
 
 
 @dataclass
@@ -49,6 +49,7 @@ async def apply_groups(
 ) -> GroupDelta:
     """Make the person's idp-sourced roles and team memberships exactly what the mapping table says."""
     s = uow.session
+    src = f"{IDP}:{provider}"
     lowered = {g.lower() for g in groups}
     mappings = [
         mp
@@ -85,7 +86,9 @@ async def apply_groups(
     existing = (
         await s.scalars(
             select(m.RoleAssignment).where(
-                m.RoleAssignment.person_id == person_id, m.RoleAssignment.deleted_at.is_(None)
+                m.RoleAssignment.person_id == person_id,
+                m.RoleAssignment.workspace_id == ws.id,
+                m.RoleAssignment.deleted_at.is_(None),
             )
         )
     ).all()
@@ -97,11 +100,11 @@ async def apply_groups(
     }
     for key, scope_value, sid in want_roles:
         if (key, scope_value, sid) not in have:
-            await acl_roles.assign(s, ws.id, person_id, key, ScopeType(scope_value), sid, source=IDP)
+            await acl_roles.assign(s, ws.id, person_id, key, ScopeType(scope_value), sid, source=src)
             delta.roles_added.append(f"{key}@{scope_value}")
     for a in existing:
         role = role_by_id.get(a.role_id)
-        if a.source != IDP or role is None or a.scope_id not in ws_scopes:
+        if a.source != src or role is None or a.scope_id not in ws_scopes:
             continue
         if (role.key, a.scope_type.value, a.scope_id) not in want_roles:
             a.deleted_at = utcnow()
@@ -125,13 +128,13 @@ async def apply_groups(
                 team_id=tid,
                 person_id=person_id,
                 role=MembershipRole.MEMBER,
-                source=IDP,
+                source=src,
                 joined_at=utcnow(),
             )
         )
         delta.teams_added.append(tid)
     for mb in memberships:
-        if mb.source == IDP and mb.team_id not in want_teams:
+        if mb.source == src and mb.team_id not in want_teams:
             mb.left_at = utcnow()
             delta.teams_removed.append(mb.team_id)
 

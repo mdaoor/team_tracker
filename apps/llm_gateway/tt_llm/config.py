@@ -48,6 +48,7 @@ class ServerCfg(BaseModel):
 class AuthCfg(BaseModel):
     tokens_env: str = "TT_LLM_GATEWAY_TOKENS"  # noqa: S105 - comma separated shared secrets
     admin_env: str = "TT_LLM_ADMIN_TOKEN"  # noqa: S105 - needed for GET /v1/runs/{id}
+    workspace_tokens_env: str = "TT_LLM_WORKSPACE_TOKENS"  # noqa: S105 - "token=workspace,token=workspace": budget cannot be spoofed
     allow_anonymous: bool = False  # laptop sidecar bound to loopback only
 
 

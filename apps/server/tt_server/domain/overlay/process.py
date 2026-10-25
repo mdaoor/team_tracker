@@ -183,6 +183,24 @@ async def place(
     for rule in rules:
         if rule.from_stage_id and (current is None or rule.from_stage_id != current.stage_id):
             continue
+        if rule.allowed_roles:
+            acl = uow.context.get("acl")
+            held = {a.role_key for a in acl.assignments} if acl is not None else None
+            allowed = {str(r) for r in rule.allowed_roles}
+            if held is not None and not (held & allowed) and not getattr(acl, "is_admin", False):
+                if strict:
+                    raise ApiError(
+                        403,
+                        "role_not_allowed",
+                        "your role may not make this transition",
+                        details={"allowed_roles": sorted(allowed)},
+                    )
+                s.add(  # capture-style actors are never blocked: place, then ask a manager
+                    m.ReviewItem(
+                        id=new_id(), workspace_id=ws.id, kind="transition_role", target_type=target_type.value, target_id=target_id,
+                        suggestion={"allowed_roles": sorted(allowed), "stage": stage.key},
+                    )
+                )  # fmt: skip
         if rule.required_evidence_kinds and target_type == TargetType.WORK_ITEM:
             missing = await _missing_evidence(s, target_id, [str(k) for k in rule.required_evidence_kinds])
             if missing and strict:

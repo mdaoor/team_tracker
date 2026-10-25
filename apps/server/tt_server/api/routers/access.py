@@ -125,7 +125,7 @@ async def list_assignments(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
                 (m.WorkspaceMember.person_id == m.RoleAssignment.person_id)
                 & (m.WorkspaceMember.workspace_id == actor.ws.id),
             )
-            .where(m.RoleAssignment.deleted_at.is_(None))
+            .where(m.RoleAssignment.workspace_id == actor.ws.id, m.RoleAssignment.deleted_at.is_(None))
         )
     ).all()
     return {"data": [{**row_dict(a), "role": rk, "handle": h} for a, rk, h in rows], "next_cursor": None}
@@ -136,7 +136,7 @@ async def list_assignments(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
 )
 async def revoke_role(aid: str, actor: CurrentActor, uow: Uow) -> Response:
     row = await uow.session.get(m.RoleAssignment, aid)
-    if row is None or row.deleted_at is not None:
+    if row is None or row.deleted_at is not None or row.workspace_id != actor.ws.id:
         raise ApiError(404, "not_found", "assignment not found")
     row.deleted_at = utcnow()
     emit(

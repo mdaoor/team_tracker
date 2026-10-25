@@ -14,7 +14,11 @@ from tt_server.db import models as m
 from tests.api.conftest import Api
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+import pytest as _pytest
+
 from tools.seed.load import load_items  # noqa: E402
+
+pytestmark = _pytest.mark.timeout(900)  # 50 k-item perf scenarios
 
 ROUTERS_COVERED = ("query",)
 N = 50_000

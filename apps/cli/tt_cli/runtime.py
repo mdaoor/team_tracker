@@ -46,7 +46,7 @@ class Runtime:
             return GatewayTranslator(
                 self.cfg.gateway_url,
                 mode=self.cfg.llm_mode,
-                timeout=self.cfg.llm_timeout,
+                timeout=self.cfg.llm_agent_timeout if self.cfg.llm_mode == "agent" else self.cfg.llm_timeout,
                 verify=verify_context(self.cfg.ca_bundle),
                 workspace=self.cfg.workspace,
                 core_token=self.cfg.token or None,

@@ -60,6 +60,7 @@ async def assign(
         scope_id = ws_id
     existing = await session.scalar(
         select(m.RoleAssignment).where(
+            m.RoleAssignment.workspace_id == ws_id,
             m.RoleAssignment.person_id == person_id,
             m.RoleAssignment.role_id == role.id,
             m.RoleAssignment.scope_type == scope_type,
@@ -71,6 +72,7 @@ async def assign(
         return existing
     row = m.RoleAssignment(
         id=new_id(),
+        workspace_id=ws_id,
         person_id=person_id,
         role_id=role.id,
         scope_type=scope_type,

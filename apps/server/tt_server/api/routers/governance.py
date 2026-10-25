@@ -557,6 +557,15 @@ async def _violation(actor: Actor, uow: Uow, vid: str) -> tuple[m.Violation, str
     return row[0], row[1]
 
 
+def _enum(cls: Any, value: str, name: str) -> Any:
+    try:
+        return cls(value)
+    except ValueError as exc:
+        raise ApiError(
+            400, "invalid_" + name, f"{name} must be one of {[e.value for e in cls]}", pointer=f"/{name}"
+        ) from exc
+
+
 @router.get("/violations")
 async def list_violations(
     actor: CurrentActor, uow: Uow, status: str | None = None, severity: str | None = None, category: str | None = None, policy: str | None = None,
@@ -575,11 +584,13 @@ async def list_violations(
         m.Violation,
     )
     if status:
-        stmt = stmt.where(m.Violation.status.in_([ViolationStatus(x) for x in status.split(",")]))
+        stmt = stmt.where(
+            m.Violation.status.in_([_enum(ViolationStatus, x, "status") for x in status.split(",")])
+        )
     if severity:
-        stmt = stmt.where(m.Violation.severity == Severity(severity))
+        stmt = stmt.where(m.Violation.severity == _enum(Severity, severity, "severity"))
     if category:
-        stmt = stmt.where(m.Violation.category == PolicyCategory(category))
+        stmt = stmt.where(m.Violation.category == _enum(PolicyCategory, category, "category"))
     if policy:
         stmt = stmt.where(m.Policy.key == policy)
     if person:
@@ -595,7 +606,12 @@ async def list_violations(
         )
     if target_id:
         stmt = stmt.where(m.Violation.target_id == target_id)
-    offset = int(cursor or 0)
+    try:
+        offset = max(0, int(cursor or 0))
+    except ValueError as exc:
+        raise ApiError(
+            400, "invalid_cursor", "cursor must be a number from a previous response", pointer="/cursor"
+        ) from exc
     rows = (
         await uow.session.execute(
             stmt.order_by(m.Violation.detected_at.desc(), m.Violation.id)
@@ -775,6 +791,14 @@ async def metric_snapshots(
     actor: CurrentActor, uow: Uow, scope_type: ScopeType, scope_id: str, from_: Annotated[date | None, Query(alias="from")] = None, to: date | None = None, scheme: str | None = None,
 ) -> dict[str, Any]:  # fmt: skip
     sid = scope_id
+    aggregate = scope_type in (ScopeType.WORKSPACE, ScopeType.TEAM, ScopeType.PROCESS)
+    if aggregate and not (actor.acl.is_admin or actor.acl.manager_all or actor.acl.can("habit.view_team")):
+        raise ApiError(
+            403,
+            "forbidden",
+            "missing permission 'habit.view_team'",
+            details={"permission": "habit.view_team"},
+        )
     if scope_type == ScopeType.WORKSPACE:
         sid = actor.ws.id
     elif scope_type == ScopeType.PROJECT:
@@ -843,6 +867,28 @@ async def metric_snapshots(
     if to:
         stmt = stmt.where(m.MetricSnapshot.date <= to)
     rows = (await uow.session.scalars(stmt.order_by(m.MetricSnapshot.date))).all()
+    # wellbeing habit scores belong to the person and their line managers only (object model §13.3)
+    own_view = scope_type == ScopeType.PERSON and (sid == actor.person.id or sid in actor.acl.managed_ids)
+    wellbeing = (
+        set()
+        if own_view
+        else set(
+            (
+                await uow.session.scalars(
+                    select(m.HabitDefinition.key).where(
+                        m.HabitDefinition.category == PolicyCategory.WELLBEING
+                    )
+                )
+            ).all()
+        )
+    )
+
+    def clean(metrics: dict[str, Any]) -> dict[str, Any]:
+        hs = metrics.get("habit_scores")
+        if wellbeing and isinstance(hs, dict):
+            metrics = {**metrics, "habit_scores": {k: v for k, v in hs.items() if k not in wellbeing}}
+        return metrics
+
     return {
         "data": [
             {
@@ -850,7 +896,7 @@ async def metric_snapshots(
                 "scope_type": r.scope_type.value,
                 "scope_id": r.scope_id,
                 "weight_scheme_id": r.weight_scheme_id,
-                "metrics": r.metrics,
+                "metrics": clean(r.metrics),
             }
             for r in rows
         ],
