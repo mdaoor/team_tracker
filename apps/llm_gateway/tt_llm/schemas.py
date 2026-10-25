@@ -64,6 +64,7 @@ def model_batch_schema() -> dict[str, Any]:
     """`ClientBatch` schema as the *model* sees it: identity fields are filled in by code."""
     schema: dict[str, Any] = copy.deepcopy(dict(client_message_json_schema(batch=True)))
     schema["required"] = [r for r in schema.get("required", []) if r != "workspace"]
+    schema["properties"].pop("commands", None)  # capture translation never emits management commands (ADR-0052)
     msgs = schema["properties"]["messages"]["items"]
     msgs["required"] = [r for r in msgs.get("required", []) if r not in {"actor", "at", "client_id"}]
     return schema

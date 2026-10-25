@@ -35,6 +35,7 @@ class ClientConfig:
     time_zone: str = "UTC"
     hours_per_day: int = 8
     jira_default: bool = False
+    role_mode: str = "reporter"  # Phase 14: a lens, never a permission (see tt_client.roles)
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -57,6 +58,7 @@ class ClientConfig:
             time_zone=client.get("time_zone", "UTC"),
             hours_per_day=int(client.get("hours_per_day", 8)),
             jira_default=bool(client.get("jira_default", False)),
+            role_mode=str(client.get("role_mode", "reporter")),
         )
 
     def save(self, path: Path | None = None) -> Path:
@@ -93,6 +95,7 @@ class ClientConfig:
             f"time_zone = {q(self.time_zone)}",
             f"hours_per_day = {self.hours_per_day}",
             f"jira_default = {str(self.jira_default).lower()}",
+            f"role_mode = {q(self.role_mode)}",
         ]
         path.write_text("\n".join(lines) + "\n")
         path.chmod(0o600)  # contains a token
