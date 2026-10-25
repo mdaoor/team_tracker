@@ -15,7 +15,9 @@ export function People() {
     <>
       <Card title="Org tree">
         {lines.isError || !org.length ? (
-          <p className="muted">Reporting lines you can edit appear here as a tree, with each team's weekly capacity.</p>
+          <p className="muted">
+            Reporting lines you can edit appear here as a tree, with each team's weekly capacity.
+          </p>
         ) : (
           <Tree nodes={org} label="Reporting lines" />
         )}
@@ -97,11 +99,16 @@ export function People() {
 export function orgForest(people: OrgPerson[], lines: ReportingLine[]): TreeNode[] {
   const primary = new Map<string, string>();
   for (const l of lines)
-    if (l.kind === "line" && (l.is_primary || !primary.has(l.person_id))) primary.set(l.person_id, l.manager_id);
-  const cap = (id: string) => Number(people.find((p) => p.person_id === id)?.capacity_hours_per_week ?? 0);
-  const total = (n: TreeNode & { own?: number }): number => (n as { own: number }).own + n.children.reduce((a, c) => a + total(c), 0);
+    if (l.kind === "line" && (l.is_primary || !primary.has(l.person_id)))
+      primary.set(l.person_id, l.manager_id);
+  const cap = (id: string) =>
+    Number(people.find((p) => p.person_id === id)?.capacity_hours_per_week ?? 0);
+  const total = (n: TreeNode & { own?: number }): number =>
+    (n as { own: number }).own + n.children.reduce((a, c) => a + total(c), 0);
   return buildForest(
-    people.filter((p) => primary.has(p.person_id) || lines.some((l) => l.manager_id === p.person_id)),
+    people.filter(
+      (p) => primary.has(p.person_id) || lines.some((l) => l.manager_id === p.person_id),
+    ),
     (p) => p.person_id,
     (p) => primary.get(p.person_id),
     (p, kids) => {

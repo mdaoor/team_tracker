@@ -49,9 +49,16 @@ export function ProjectTree() {
   const keyMove = (e: React.KeyboardEvent, p: Product) => {
     if (!e.altKey || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
     e.preventDefault();
-    const target = moveTarget(prods as { id: string; parent_product_id?: string | null }[], p as { id: string; parent_product_id?: string | null }, e.key === "ArrowRight" ? "in" : "out");
+    const target = moveTarget(
+      prods as { id: string; parent_product_id?: string | null }[],
+      p as { id: string; parent_product_id?: string | null },
+      e.key === "ArrowRight" ? "in" : "out",
+    );
     if (target !== undefined) void reparent(p.key, target);
-    else toasts.push(e.key === "ArrowRight" ? "Nothing above it to nest under" : "Already top-level", { key: "tree-move" });
+    else
+      toasts.push(e.key === "ArrowRight" ? "Nothing above it to nest under" : "Already top-level", {
+        key: "tree-move",
+      });
   };
 
   const projectsOf = (productKey: string): TreeNode[] => {
@@ -63,10 +70,18 @@ export function ProjectTree() {
       return [
         {
           id: `${productKey}/${proj.key}`,
-          label: <span><strong>{proj.key}</strong> {proj.name}</span>,
+          label: (
+            <span>
+              <strong>{proj.key}</strong> {proj.name}
+            </span>
+          ),
           children: (epicsBy.get(proj.key) ?? []).map((e) => ({
             id: e.key,
-            label: <span><span className="key">{e.key}</span> {e.title}</span>,
+            label: (
+              <span>
+                <span className="key">{e.key}</span> {e.title}
+              </span>
+            ),
             children: [],
           })),
         } as TreeNode,
@@ -104,14 +119,19 @@ export function ProjectTree() {
   return (
     <>
       {forest.length === 0 ? (
-        <p className="muted">Add a product, link projects to it, and they appear here with their epics.</p>
+        <p className="muted">
+          Add a product, link projects to it, and they appear here with their epics.
+        </p>
       ) : (
         <Tree nodes={forest} label="Products, projects and epics" />
       )}
       {dragging && (
         <p className="muted">
           Drop on a product to nest {dragging} under it.{" "}
-          <button className="linkbtn" onClick={() => void reparent(dragging, null).then(() => setDragging(null))}>
+          <button
+            className="linkbtn"
+            onClick={() => void reparent(dragging, null).then(() => setDragging(null))}
+          >
             Make top-level
           </button>
         </p>

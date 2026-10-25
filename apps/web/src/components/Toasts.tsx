@@ -13,7 +13,12 @@ type Toast = {
 type Ctx = {
   push: (
     text: string,
-    opts?: { undo?: () => void; ms?: number; key?: string; actions?: { label: string; run: () => void }[] },
+    opts?: {
+      undo?: () => void;
+      ms?: number;
+      key?: string;
+      actions?: { label: string; run: () => void }[];
+    },
   ) => void;
   error: (e: unknown) => void;
 };
@@ -26,7 +31,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = Date.now() + Math.random();
     // Same key (or identical text) replaces the visible toast instead of stacking a duplicate (UX review 9).
     const key = t.key ?? `${t.tone}:${t.text}`;
-    setItems((x) => [...x.filter((i) => (i.key ?? `${i.tone}:${i.text}`) !== key), { ...t, key, id }]);
+    setItems((x) => [
+      ...x.filter((i) => (i.key ?? `${i.tone}:${i.text}`) !== key),
+      { ...t, key, id },
+    ]);
     setTimeout(() => setItems((x) => x.filter((i) => i.id !== id)), ms);
   }, []);
   const value = useMemo<Ctx>(

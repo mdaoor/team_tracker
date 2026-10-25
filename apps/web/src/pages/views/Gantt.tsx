@@ -46,7 +46,13 @@ export function GanttLayout({ st }: { st: ViewState }) {
   );
   if (q.isLoading) return <p>Loading…</p>;
   if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
-  const model = layoutGantt(q.data?.rows ?? [], q.data?.dependencies ?? [], q.data?.milestones ?? [], q.data?.today ?? null, zoom);
+  const model = layoutGantt(
+    q.data?.rows ?? [],
+    q.data?.dependencies ?? [],
+    q.data?.milestones ?? [],
+    q.data?.today ?? null,
+    zoom,
+  );
   if (!model.bars.length)
     return (
       <>
@@ -58,11 +64,24 @@ export function GanttLayout({ st }: { st: ViewState }) {
     <>
       {controls}
       <div className="vgantt-wrap" role="region" aria-label="Gantt chart" tabIndex={0}>
-        <svg className="vgantt" width={model.width} height={model.height} role="img" aria-label={`Gantt chart, ${model.bars.length} rows`}>
+        <svg
+          className="vgantt"
+          width={model.width}
+          height={model.height}
+          role="img"
+          aria-label={`Gantt chart, ${model.bars.length} rows`}
+        >
           <title>Gantt chart</title>
           {model.ticks.map((t, i) => (
             <g key={i}>
-              <line x1={t.x} x2={t.x} y1={AXIS_H - 6} y2={model.height} stroke="var(--line)" strokeWidth={t.major ? 1.5 : 0.5} />
+              <line
+                x1={t.x}
+                x2={t.x}
+                y1={AXIS_H - 6}
+                y2={model.height}
+                stroke="var(--line)"
+                strokeWidth={t.major ? 1.5 : 0.5}
+              />
               <text x={t.x + 3} y={AXIS_H - 12}>
                 {t.label}
               </text>
@@ -70,7 +89,14 @@ export function GanttLayout({ st }: { st: ViewState }) {
           ))}
           {model.todayX != null && (
             <g data-today>
-              <line x1={model.todayX} x2={model.todayX} y1={AXIS_H - 6} y2={model.height} stroke="var(--crit)" strokeWidth={1.5} />
+              <line
+                x1={model.todayX}
+                x2={model.todayX}
+                y1={AXIS_H - 6}
+                y2={model.height}
+                stroke="var(--crit)"
+                strokeWidth={1.5}
+              />
               <text x={model.todayX + 3} y={10} fill="var(--crit)">
                 today
               </text>
@@ -81,7 +107,17 @@ export function GanttLayout({ st }: { st: ViewState }) {
               <text x={4} y={b.y + ROW_H / 2 + 4} className="gl">
                 {b.key.length > 22 ? b.key.slice(0, 21) + "…" : b.key}
               </text>
-              {b.ghost && <rect data-ghost x={b.ghost.x} y={b.y + 3} width={b.ghost.w} height={4} fill="var(--text-3)" opacity={0.5} />}
+              {b.ghost && (
+                <rect
+                  data-ghost
+                  x={b.ghost.x}
+                  y={b.y + 3}
+                  width={b.ghost.w}
+                  height={4}
+                  fill="var(--text-3)"
+                  opacity={0.5}
+                />
+              )}
               <rect
                 x={b.x}
                 y={b.y + 8}
@@ -100,7 +136,15 @@ export function GanttLayout({ st }: { st: ViewState }) {
             </g>
           ))}
           {model.arrows.map((a, i) => (
-            <path key={i} d={a.d} fill="none" stroke="var(--text-3)" strokeWidth={1} markerEnd="url(#arrow)" data-dep={`${a.from}>${a.to}`} />
+            <path
+              key={i}
+              d={a.d}
+              fill="none"
+              stroke="var(--text-3)"
+              strokeWidth={1}
+              markerEnd="url(#arrow)"
+              data-dep={`${a.from}>${a.to}`}
+            />
           ))}
           <defs>
             <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">

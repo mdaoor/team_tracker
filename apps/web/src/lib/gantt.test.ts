@@ -2,8 +2,24 @@ import { expect, test } from "vitest";
 import { AXIS_H, LABEL_W, ROW_H, layoutGantt } from "./gantt";
 
 const rows = [
-  { key: "WEB-1", title: "Checkout", type: "epic", planned_start: "2026-10-05", planned_end: "2026-10-16", state_category: "active", rollup: true, baseline: { planned_start: "2026-10-05", planned_end: "2026-10-12" } },
-  { key: "WEB-2", title: "Search", type: "epic", planned_start: "2026-10-12", planned_end: "2026-10-30", state_category: "done" },
+  {
+    key: "WEB-1",
+    title: "Checkout",
+    type: "epic",
+    planned_start: "2026-10-05",
+    planned_end: "2026-10-16",
+    state_category: "active",
+    rollup: true,
+    baseline: { planned_start: "2026-10-05", planned_end: "2026-10-12" },
+  },
+  {
+    key: "WEB-2",
+    title: "Search",
+    type: "epic",
+    planned_start: "2026-10-12",
+    planned_end: "2026-10-30",
+    state_category: "done",
+  },
   { key: "WEB-3", title: "Unscheduled", type: "epic", planned_start: null, planned_end: null },
 ];
 
@@ -34,7 +50,16 @@ test("zoom changes the scale: day is wider than week is wider than month", () =>
 });
 
 test("dependencies become elbow arrows between the two bars; milestones become diamonds", () => {
-  const m = layoutGantt(rows, [{ from: "WEB-1", to: "WEB-2", type: "finish_to_start" }, { from: "WEB-1", to: "GONE-1" }], [{ name: "Beta", project: "WEB", due: "2026-10-20" }], null, "week");
+  const m = layoutGantt(
+    rows,
+    [
+      { from: "WEB-1", to: "WEB-2", type: "finish_to_start" },
+      { from: "WEB-1", to: "GONE-1" },
+    ],
+    [{ name: "Beta", project: "WEB", due: "2026-10-20" }],
+    null,
+    "week",
+  );
   expect(m.arrows).toHaveLength(1);
   expect(m.arrows[0].d).toMatch(/^M[\d.]+,[\d.]+ H[\d.]+ V[\d.]+ H[\d.]+$/);
   expect(m.milestones).toHaveLength(1);

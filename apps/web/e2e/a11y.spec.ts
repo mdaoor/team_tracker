@@ -58,8 +58,14 @@ for (const [name, url] of LAYOUT_SCREENS) {
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
     const bad = res.violations;
-    console.log(`a11y ${name}: ${bad.map((v) => `${v.id}(${v.impact}) x${v.nodes.length}`).join("; ") || "none"}`);
-    expect(bad.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 120)}`)).toEqual([]);
+    console.log(
+      `a11y ${name}: ${bad.map((v) => `${v.id}(${v.impact}) x${v.nodes.length}`).join("; ") || "none"}`,
+    );
+    expect(
+      bad
+        .filter((v) => v.impact === "serious" || v.impact === "critical")
+        .map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 120)}`),
+    ).toEqual([]);
     expect(bad.map((v) => v.id)).not.toContain("page-has-heading-one");
   });
 }
@@ -69,15 +75,30 @@ test("axe: review queue with rows", async ({ page, request }) => {
     data: {
       workspace: "acme",
       messages: [
-        { actor: "@mahmoud", action: "create", at: new Date().toISOString(), client_id: `a11y-${Date.now()}`, item: { title: "tune the retry" }, project: "the retry thing" },
+        {
+          actor: "@mahmoud",
+          action: "create",
+          at: new Date().toISOString(),
+          client_id: `a11y-${Date.now()}`,
+          item: { title: "tune the retry" },
+          project: "the retry thing",
+        },
       ],
     },
   });
   await page.goto("/w/acme/review");
   await page.waitForSelector(".rq-row");
-  const res = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-  console.log(`a11y review rows: ${res.violations.map((v) => `${v.id}(${v.impact}) x${v.nodes.length}`).join("; ") || "none"}`);
-  expect(res.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
+  const res = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  console.log(
+    `a11y review rows: ${res.violations.map((v) => `${v.id}(${v.impact}) x${v.nodes.length}`).join("; ") || "none"}`,
+  );
+  expect(
+    res.violations
+      .filter((v) => v.impact === "serious" || v.impact === "critical")
+      .map((v) => v.id),
+  ).toEqual([]);
 });
 
 /** Phase 13 R5.3: at 390 px no console screen scrolls sideways, and navigation is a drawer. */

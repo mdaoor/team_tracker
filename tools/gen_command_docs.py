@@ -20,8 +20,13 @@ def main() -> None:
     cat = catalogue()
     rows = []
     for e in cat["ops"]:
-        flags = ", ".join(f for f, v in (("preview", e["preview"]), ("destructive", e["destructive"])) if v) or "–"
-        rows.append(f"| `{e['op']}` | {e['group']} | {e['permission'] or 'any member'} | {flags} | {e['description']} |")
+        flags = (
+            ", ".join(f for f, v in (("preview", e["preview"]), ("destructive", e["destructive"])) if v)
+            or "–"
+        )
+        rows.append(
+            f"| `{e['op']}` | {e['group']} | {e['permission'] or 'any member'} | {flags} | {e['description']} |"
+        )
     text = DOC.read_text()
     head = text[: text.rindex(HEADER)]
     DOC.write_text(head + HEADER + "\n".join(rows) + "\n")

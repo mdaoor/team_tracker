@@ -66,7 +66,10 @@ export function ItemDrawer({
     }
     await qc.invalidateQueries({ queryKey: [ws, "item", itemKey] });
     await qc.invalidateQueries({ queryKey: [ws, "prov", itemKey] });
-    toasts.push(`${field} → ${String(value)}`, { key: `edit:${field}`, undo: () => void save(field, before) });
+    toasts.push(`${field} → ${String(value)}`, {
+      key: `edit:${field}`,
+      undo: () => void save(field, before),
+    });
   };
 
   return (
@@ -75,8 +78,8 @@ export function ItemDrawer({
       {it && (
         <>
           <p className="muted">
-            reported by {it.reporter ?? "a former member"} · {it.state} · stage {it.stage ?? "—"}{" "}
-            · {it.hours_logged} h logged
+            reported by {it.reporter ?? "a former member"} · {it.state} · stage {it.stage ?? "—"} ·{" "}
+            {it.hours_logged} h logged
           </p>
           <div role="tablist" className="tabs">
             {(
@@ -164,7 +167,11 @@ export function ItemDrawer({
                             source={v.source}
                             setBy={v.set_by_name}
                             setAt={v.set_at}
-                            inheritedFrom={v.inherited_from ? (v.inherited_from.name ?? v.inherited_from.type) : null}
+                            inheritedFrom={
+                              v.inherited_from
+                                ? (v.inherited_from.name ?? v.inherited_from.type)
+                                : null
+                            }
                           />{" "}
                         </span>
                       ))}

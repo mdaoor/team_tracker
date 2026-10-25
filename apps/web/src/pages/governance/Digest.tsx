@@ -16,7 +16,11 @@ export function Digest() {
   const teams = useList<Team>("/teams");
   const [team, setTeam] = useState("");
   const [days, setDays] = useState(14);
-  const d = useObj<DigestData>("/digest", { days, ...(team ? { team } : {}) }, !!can["dailylog.review"]);
+  const d = useObj<DigestData>(
+    "/digest",
+    { days, ...(team ? { team } : {}) },
+    !!can["dailylog.review"],
+  );
   const data = d.data;
   const review = useMutation({
     mutationFn: (id: string) => reviewDailyLog(ws, id),
@@ -83,8 +87,7 @@ export function Digest() {
               <ul className="plain">
                 {data.events.map((e: Json) => (
                   <li key={e.id}>
-                    <small>{String(e.occurred_at).slice(0, 10)}</small> {e.event_type} ·{" "}
-                    {e.entity}
+                    <small>{String(e.occurred_at).slice(0, 10)}</small> {e.event_type} · {e.entity}
                     {e.actor ? ` · by ${e.actor}` : ""}
                   </li>
                 ))}

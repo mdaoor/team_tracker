@@ -135,7 +135,11 @@ function Col({
         {count != null && onCount && (
           <>
             {" · "}
-            <button className="linkbtn" onClick={onCount} aria-label={`Show the ${count} items in ${title}`}>
+            <button
+              className="linkbtn"
+              onClick={onCount}
+              aria-label={`Show the ${count} items in ${title}`}
+            >
               {count}
             </button>
           </>
@@ -332,7 +336,11 @@ export function CalendarLayout({ st }: { st: ViewState }) {
     queryFn: () => itemsApi.queryCalendar(ws, body),
     enabled: !!ws,
   });
-  const label = anchor.toLocaleString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+  const label = anchor.toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
   const nav = (
     <div className="row" role="group" aria-label="Month">
       <button className="btn" aria-label="Previous month" onClick={() => setOffset((o) => o - 1)}>
@@ -369,7 +377,11 @@ export function CalendarLayout({ st }: { st: ViewState }) {
           <div key={i} data-day={d ?? ""} className={d === iso(now) ? "today" : ""}>
             {d && <strong>{d.slice(8)}</strong>}
             {(d ? (days[d] ?? []) : []).map((e, j) => (
-              <div key={j} className={`ev ${e.kind}`} title={`${e.key ?? e.kind}: ${e.title ?? ""}`}>
+              <div
+                key={j}
+                className={`ev ${e.kind}`}
+                title={`${e.key ?? e.kind}: ${e.title ?? ""}`}
+              >
                 {e.key && <span className="key">{e.key} </span>}
                 {e.title}
               </div>

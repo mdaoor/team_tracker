@@ -78,8 +78,7 @@ function PresentList() {
   const decks = useList("/presentations");
   const tpls = useList("/presentations/templates");
   const fromTemplate = useMutation({
-    mutationFn: (template: string) =>
-      presentApi.fromTemplate(ws, { template }),
+    mutationFn: (template: string) => presentApi.fromTemplate(ws, { template }),
     onSuccess: (p) => {
       void qc.invalidateQueries({ queryKey: [ws, "/presentations"] });
       nav(p.id);
@@ -194,7 +193,15 @@ function PresentList() {
 }
 
 // slide kinds whose rows can outgrow one slide
-const FITS = new Set(["projects", "table", "view", "people", "radar", "deliverables", "plan_vs_actual"]);
+const FITS = new Set([
+  "projects",
+  "table",
+  "view",
+  "people",
+  "radar",
+  "deliverables",
+  "plan_vs_actual",
+]);
 
 function Builder({ id }: { id: string }) {
   const ws = useWs();
@@ -235,7 +242,8 @@ function Builder({ id }: { id: string }) {
     onSuccess: refresh,
     onError: (e) => toasts.error(e),
   });
-  const patch = (body: Json) => save.mutate({ path: `/presentations/${id}`, body, method: "patch" });
+  const patch = (body: Json) =>
+    save.mutate({ path: `/presentations/${id}`, body, method: "patch" });
   const patchSlide = (sid: string, body: Json) =>
     save.mutate({ path: `/presentations/${id}/slides/${sid}`, body, method: "patch" });
   const move = (i: number, d: number) => {
@@ -276,8 +284,7 @@ function Builder({ id }: { id: string }) {
       remove.mutate();
   };
   const share = useMutation({
-    mutationFn: (enabled: boolean) =>
-      presentApi.sharePresentation(ws, id, enabled),
+    mutationFn: (enabled: boolean) => presentApi.sharePresentation(ws, id, enabled),
     onSuccess: (r) => (
       refresh(),
       toasts.push(r.url ? `Link: ${location.origin}${r.url}` : "Link disabled", { ms: 12000 })
@@ -381,7 +388,14 @@ function Builder({ id }: { id: string }) {
               {admin ? (
                 <button
                   className="btn btn-ghost"
-                  onClick={() => void enableExternalShare(ws).then(() => Promise.all([qc.invalidateQueries({ queryKey: [ws, "/me"] }), qc.invalidateQueries({ queryKey: [ws, "me"] })]))}
+                  onClick={() =>
+                    void enableExternalShare(ws).then(() =>
+                      Promise.all([
+                        qc.invalidateQueries({ queryKey: [ws, "/me"] }),
+                        qc.invalidateQueries({ queryKey: [ws, "me"] }),
+                      ]),
+                    )
+                  }
                 >
                   Turn it on
                 </button>
@@ -499,7 +513,10 @@ function Builder({ id }: { id: string }) {
             <h2>
               {idx + 1}. {cur.title || SLIDE_LABELS[cur.kind]}
             </h2>
-            <div className={previewLoaded === `${rev}-${cur.id}` ? "" : "skeleton"} style={{ aspectRatio: "16/9" }}>
+            <div
+              className={previewLoaded === `${rev}-${cur.id}` ? "" : "skeleton"}
+              style={{ aspectRatio: "16/9" }}
+            >
               <iframe
                 key={`${rev}-${cur.id}`}
                 title="Slide preview"

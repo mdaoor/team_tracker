@@ -3,11 +3,7 @@ import { moveTarget } from "./tree";
 import { buildForest } from "../components/Tree";
 import { orgForest } from "../pages/setup/People";
 
-const prods = [
-  { id: "a" },
-  { id: "b" },
-  { id: "c", parent_product_id: "b" },
-];
+const prods = [{ id: "a" }, { id: "b" }, { id: "c", parent_product_id: "b" }];
 
 test("Alt+Right nests under the previous sibling, Alt+Left lifts out to the parent's level", () => {
   expect(moveTarget(prods, prods[1], "in")).toBe("a");
@@ -19,10 +15,20 @@ test("Alt+Right nests under the previous sibling, Alt+Left lifts out to the pare
 });
 
 test("buildForest makes cycles into roots instead of hiding or looping", () => {
-  const rows = [{ id: "x", p: "y" }, { id: "y", p: "x" }, { id: "z", p: "x" }];
-  const f = buildForest(rows, (r) => r.id, (r) => r.p, (r, kids) => ({ id: r.id, label: r.id, children: kids }));
+  const rows = [
+    { id: "x", p: "y" },
+    { id: "y", p: "x" },
+    { id: "z", p: "x" },
+  ];
+  const f = buildForest(
+    rows,
+    (r) => r.id,
+    (r) => r.p,
+    (r, kids) => ({ id: r.id, label: r.id, children: kids }),
+  );
   expect(f.length).toBeGreaterThan(0);
-  const count = (n: { children: unknown[] }): number => 1 + (n.children as { children: unknown[] }[]).reduce((a, c) => a + count(c), 0);
+  const count = (n: { children: unknown[] }): number =>
+    1 + (n.children as { children: unknown[] }[]).reduce((a, c) => a + count(c), 0);
   expect(f.reduce((a, n) => a + count(n), 0)).toBe(3);
 });
 

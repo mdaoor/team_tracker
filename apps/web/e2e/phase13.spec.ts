@@ -42,7 +42,10 @@ test("R1.1 the Views CSV export downloads", async ({ page }) => {
 test("R1.2 the builder preview renders the selected slide", async ({ page, request }) => {
   const id = await deck(request, "Preview me");
   const violations: string[] = [];
-  page.on("console", (m) => /frame-ancestors|Refused to frame/i.test(m.text()) && violations.push(m.text()));
+  page.on(
+    "console",
+    (m) => /frame-ancestors|Refused to frame/i.test(m.text()) && violations.push(m.text()),
+  );
   await page.goto(`/w/acme/present/${id}`);
   const frame = page.frameLocator("iframe[title='Slide preview']");
   await expect(frame.locator(".slide.active")).toBeVisible({ timeout: 20_000 });
@@ -51,10 +54,14 @@ test("R1.2 the builder preview renders the selected slide", async ({ page, reque
 
 test("R1.2 a share link page cannot be framed by anyone", async ({ request }) => {
   const r = await request.get("http://localhost:8010/p/t/not-a-real-token");
-  if (r.status() === 200) expect(r.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  if (r.status() === 200)
+    expect(r.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
 });
 
-test("R1.3 delete asks first, goes back to the list, and undo restores", async ({ page, request }) => {
+test("R1.3 delete asks first, goes back to the list, and undo restores", async ({
+  page,
+  request,
+}) => {
   const id = await deck(request, "Mis-click me");
   await page.goto(`/w/acme/present/${id}`);
   await page.getByRole("button", { name: "Delete presentation" }).click();
@@ -71,7 +78,10 @@ test("R1.3 delete asks first, goes back to the list, and undo restores", async (
   expect(list.map((p) => p.id)).toContain(id);
 });
 
-test("R1.6 sharing is explained when it is off, and an admin can switch it on", async ({ page, request }) => {
+test("R1.6 sharing is explained when it is off, and an admin can switch it on", async ({
+  page,
+  request,
+}) => {
   await request.patch(`${API}/settings`, { data: { external_share: false } });
   const id = await deck(request, "Share me");
   await page.goto(`/w/acme/present/${id}`);
@@ -86,7 +96,9 @@ test("R1.6 sharing is explained when it is off, and an admin can switch it on", 
 
 test.describe("R1.5 a contributor", () => {
   test.use({ extraHTTPHeaders: { "X-Debug-Actor": "@ali" } });
-  test("sees only the areas they can use, and a forbidden deep link explains itself", async ({ page }) => {
+  test("sees only the areas they can use, and a forbidden deep link explains itself", async ({
+    page,
+  }) => {
     await page.goto("/w/acme");
     await expect(page).toHaveURL(/\/views/);
     const nav = page.getByRole("navigation", { name: "Main" });
@@ -100,13 +112,23 @@ test.describe("R1.5 a contributor", () => {
   });
 });
 
-test("R1.4 resolving a review row offers Undo and Don't learn, with one toast", async ({ page, request }) => {
+test("R1.4 resolving a review row offers Undo and Don't learn, with one toast", async ({
+  page,
+  request,
+}) => {
   const phrase = `the odd place ${Date.now()}`;
   await request.post(`${API}/capture/batches`, {
     data: {
       workspace: "acme",
       messages: [
-        { actor: "@mahmoud", action: "create", at: new Date().toISOString(), client_id: `r14-${Date.now()}`, item: { title: "needs a home" }, project: phrase },
+        {
+          actor: "@mahmoud",
+          action: "create",
+          at: new Date().toISOString(),
+          client_id: `r14-${Date.now()}`,
+          item: { title: "needs a home" },
+          project: phrase,
+        },
       ],
     },
   });
@@ -114,19 +136,29 @@ test("R1.4 resolving a review row offers Undo and Don't learn, with one toast", 
   const row = page.locator(".rq-row", { hasText: "needs a home" });
   await expect(row).toBeVisible();
   await expect(row.getByText(/@mahmoud · /)).toBeVisible();
-  await row.getByRole("button").filter({ hasText: /^[A-Z]+/ }).first().click();
+  await row
+    .getByRole("button")
+    .filter({ hasText: /^[A-Z]+/ })
+    .first()
+    .click();
   await expect(page.locator(".toast")).toHaveCount(1);
   await page.getByRole("button", { name: "Don't learn" }).click();
   await expect
-    .poll(async () => Object.keys((await (await request.get(`${API}/context-pack`)).json()).glossary))
+    .poll(async () =>
+      Object.keys((await (await request.get(`${API}/context-pack`)).json()).glossary),
+    )
     .not.toContain(phrase);
   await expect(page.locator(".rq-row", { hasText: "needs a home" })).toHaveCount(0);
 });
 
-test("R1.7 a garbage ?f= says so, and the weight selector lists each scheme once", async ({ page }) => {
+test("R1.7 a garbage ?f= says so, and the weight selector lists each scheme once", async ({
+  page,
+}) => {
   await page.goto("/w/acme/views?f=garbage");
   await expect(page.getByText(/could not be read/)).toBeVisible();
-  await expect(page.getByLabel("Weights").locator("option", { hasText: "effort-only" })).toHaveCount(1);
+  await expect(
+    page.getByLabel("Weights").locator("option", { hasText: "effort-only" }),
+  ).toHaveCount(1);
   const names = await page.getByLabel("Weights").locator("option").allTextContents();
   expect(names.filter((n) => n === "default")).toHaveLength(1);
 });

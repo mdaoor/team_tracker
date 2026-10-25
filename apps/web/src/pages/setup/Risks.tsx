@@ -51,7 +51,8 @@ export function Risks() {
       </Card>
       <Card title="Heat map">
         <p className="muted">
-          Rows are impact (5 = severe), columns are probability (5 = near certain). Click a cell to list its risks.
+          Rows are impact (5 = severe), columns are probability (5 = near certain). Click a cell to
+          list its risks.
           {cell && (
             <>
               {" "}

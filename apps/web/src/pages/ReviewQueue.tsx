@@ -132,7 +132,8 @@ export function ReviewQueue() {
         else
           listRef.current
             ?.querySelectorAll<HTMLElement>(".rq-row")
-            [cursor]?.querySelector<HTMLElement>("select")
+            .item(cursor)
+            ?.querySelector<HTMLElement>("select")
             ?.focus();
       }
     };
@@ -172,7 +173,8 @@ export function ReviewQueue() {
         {rows.isSuccess && data.length > 0 ? ` (${data.length})` : ""}
       </h1>
       <p className="rq-hint">
-        <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>Enter</kbd> accept the suggestion or pick · <kbd>x</kbd> select
+        <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>Enter</kbd> accept the suggestion or pick ·{" "}
+        <kbd>x</kbd> select
       </p>
       <div className="bulk row">
         <label>

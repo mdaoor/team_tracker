@@ -12,8 +12,10 @@ import { getMe, listMyWorkspaces } from "./api/session";
 import type { Workspace } from "./api/types";
 
 // One chunk per route group: the main bundle carries only the shell and the review queue (Phase 13 R5.2).
-const lazyNamed = <T extends Record<string, React.ComponentType>>(load: () => Promise<T>, name: keyof T & string) =>
-  lazy(async () => ({ default: (await load())[name] }));
+const lazyNamed = <T extends Record<string, React.ComponentType>>(
+  load: () => Promise<T>,
+  name: keyof T & string,
+) => lazy(async () => ({ default: (await load())[name] }));
 const Setup = lazyNamed(() => import("./pages/setup/Setup"), "Setup");
 const ViewsRoute = lazyNamed(() => import("./pages/views/Views"), "ViewsPage");
 const PresentRoute = lazyNamed(() => import("./pages/present/Present"), "PresentRoute");
@@ -55,30 +57,72 @@ export function App() {
   return (
     <QueryClientProvider client={qc}>
       <ToastProvider>
-       <ConfirmProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/status" element={<HealthPage />} />
-            <Route path="/w/:ws" element={<Shell />}>
-              <Route index element={<Landing />} />
-              <Route path="review" element={<RequireAccess area="review"><ReviewQueue /></RequireAccess>} />
-              <Route path="setup/:section?" element={<RequireAccess area="setup"><Setup /></RequireAccess>} />
-              <Route path="views/*" element={<ViewsRoute />} />
-              <Route path="present/*" element={<PresentRoute />} />
-              <Route path="plan/*" element={<PlanRoute />} />
-              <Route path="policies/*" element={<RequireAccess area="policies"><PoliciesRoute /></RequireAccess>} />
-              <Route path="violations" element={<RequireAccess area="violations"><Violations /></RequireAccess>} />
-              <Route path="habits" element={<Habits />} />
-              <Route path="performance" element={<Performance />} />
-              <Route path="digest" element={<RequireAccess area="digest"><Digest /></RequireAccess>} />
-              <Route path="insights" element={<Insights />} />
-              <Route path="weights" element={<RequireAccess area="weights"><Weights /></RequireAccess>} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-       </ConfirmProvider>
+        <ConfirmProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/status" element={<HealthPage />} />
+              <Route path="/w/:ws" element={<Shell />}>
+                <Route index element={<Landing />} />
+                <Route
+                  path="review"
+                  element={
+                    <RequireAccess area="review">
+                      <ReviewQueue />
+                    </RequireAccess>
+                  }
+                />
+                <Route
+                  path="setup/:section?"
+                  element={
+                    <RequireAccess area="setup">
+                      <Setup />
+                    </RequireAccess>
+                  }
+                />
+                <Route path="views/*" element={<ViewsRoute />} />
+                <Route path="present/*" element={<PresentRoute />} />
+                <Route path="plan/*" element={<PlanRoute />} />
+                <Route
+                  path="policies/*"
+                  element={
+                    <RequireAccess area="policies">
+                      <PoliciesRoute />
+                    </RequireAccess>
+                  }
+                />
+                <Route
+                  path="violations"
+                  element={
+                    <RequireAccess area="violations">
+                      <Violations />
+                    </RequireAccess>
+                  }
+                />
+                <Route path="habits" element={<Habits />} />
+                <Route path="performance" element={<Performance />} />
+                <Route
+                  path="digest"
+                  element={
+                    <RequireAccess area="digest">
+                      <Digest />
+                    </RequireAccess>
+                  }
+                />
+                <Route path="insights" element={<Insights />} />
+                <Route
+                  path="weights"
+                  element={
+                    <RequireAccess area="weights">
+                      <Weights />
+                    </RequireAccess>
+                  }
+                />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   );

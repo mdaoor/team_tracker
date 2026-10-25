@@ -38,7 +38,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             <Button data-autofocus onClick={() => done(false)}>
               Cancel
             </Button>
-            <Button variant={ask.danger === false ? "primary" : "default"} onClick={() => done(true)}>
+            <Button
+              variant={ask.danger === false ? "primary" : "default"}
+              onClick={() => done(true)}
+            >
               {ask.confirmLabel ?? "Delete"}
             </Button>
           </div>

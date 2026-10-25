@@ -159,7 +159,7 @@ class PersonalStore:
         return item if include_deleted or item.deleted_at is None else None
 
     def items(self, *, include_deleted: bool = False) -> list[PersonalItem]:
-        sql = "SELECT blob FROM items" + ("" if include_deleted else " WHERE deleted = 0")  # noqa: S608 - constants only
+        sql = "SELECT blob FROM items" + ("" if include_deleted else " WHERE deleted = 0")  # noqa: S608  # nosec B608 - constants only
         return [PersonalItem.model_validate_json(self._dec(r[0])) for r in self.db.execute(sql)]
 
     def items_on_days(self, first: date, last: date) -> list[PersonalItem]:
@@ -295,7 +295,7 @@ class PersonalStore:
     def wipe(self) -> None:
         with self.db:
             for table in ("items", "rules", "timers", "calendar_state"):
-                self.db.execute(f"DELETE FROM {table}")  # noqa: S608 - a fixed list of our own tables
+                self.db.execute(f"DELETE FROM {table}")  # noqa: S608  # nosec B608 - a fixed list of our own tables
             self.db.execute("DELETE FROM settings WHERE key != '__canary__'")
 
     def close(self) -> None:

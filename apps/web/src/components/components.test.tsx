@@ -168,7 +168,13 @@ test("review queue: rows say who and when, the heading counts them, Enter withou
 
 test("review queue: no control is nested inside another interactive role", async () => {
   renderQueue([
-    { ref: "review_item:1", kind: "stage_suggestion", item_key: "WEB-1", item_title: "a", suggestion: { stage: "test" } },
+    {
+      ref: "review_item:1",
+      kind: "stage_suggestion",
+      item_key: "WEB-1",
+      item_title: "a",
+      suggestion: { stage: "test" },
+    },
   ]);
   await screen.findByText("WEB-1");
   expect(document.querySelector('[role="option"]')).toBeNull();

@@ -20,13 +20,7 @@ import {
 } from "../../lib/viewState";
 import { FilterBar } from "./Filters";
 import { GanttLayout } from "./Gantt";
-import {
-  CalendarLayout,
-  Columns,
-  ListLayout,
-  MatrixLayout,
-  NowLayout,
-} from "./Layouts";
+import { CalendarLayout, Columns, ListLayout, MatrixLayout, NowLayout } from "./Layouts";
 
 const SORTS = [
   "priority:desc",
@@ -67,7 +61,10 @@ export function ViewsPage() {
 
   const toasts = useToasts();
   useEffect(() => {
-    if (st.ignored) toasts.push("The filter in this link could not be read, so it was ignored.", { key: "filter-ignored" });
+    if (st.ignored)
+      toasts.push("The filter in this link could not be read, so it was ignored.", {
+        key: "filter-ignored",
+      });
   }, [st.ignored, toasts]);
   const save = useMutation({
     mutationFn: (shared: boolean) =>
@@ -150,10 +147,10 @@ export function ViewsPage() {
             {(schemes.data ?? [])
               .filter((s) => s.name !== "default") // the empty option above *is* the default scheme (UX review, "also")
               .map((s) => (
-              <option key={s.id} value={s.name}>
-                {s.name}
-              </option>
-            ))}
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
           </select>
         </label>
         {needsTarget && (

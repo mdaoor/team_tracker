@@ -1,6 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
-import { NavLink, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { ApiError } from "../api/http";
 import { getMe, listMyWorkspaces } from "../api/session";
 import type { Workspace } from "../api/types";
@@ -134,42 +141,22 @@ export function Shell({ topbar }: { topbar?: ReactNode }) {
         <span aria-label="Signed in as">{me.data?.handle}</span>
       </header>
       <nav className="sidenav" id="main-nav" aria-label="Main" onClick={() => setNavOpen(false)}>
-        {allowed("setup") && (
-          <NavLink to={`${base}/setup/projects`}>{t("nav.setup")}</NavLink>
-        )}
-        {allowed("review") && (
-          <NavLink to={`${base}/review`}>{t("nav.review")}</NavLink>
-        )}
-        {allowed("views") && (
-          <NavLink to={`${base}/views`}>{t("nav.views")}</NavLink>
-        )}
-        {allowed("plan") && (
-          <NavLink to={`${base}/plan`}>{t("nav.plan")}</NavLink>
-        )}
-        {allowed("present") && (
-          <NavLink to={`${base}/present`}>{t("nav.present")}</NavLink>
-        )}
-        {allowed("policies") && (
-          <NavLink to={`${base}/policies`}>{t("nav.policies")}</NavLink>
-        )}
+        {allowed("setup") && <NavLink to={`${base}/setup/projects`}>{t("nav.setup")}</NavLink>}
+        {allowed("review") && <NavLink to={`${base}/review`}>{t("nav.review")}</NavLink>}
+        {allowed("views") && <NavLink to={`${base}/views`}>{t("nav.views")}</NavLink>}
+        {allowed("plan") && <NavLink to={`${base}/plan`}>{t("nav.plan")}</NavLink>}
+        {allowed("present") && <NavLink to={`${base}/present`}>{t("nav.present")}</NavLink>}
+        {allowed("policies") && <NavLink to={`${base}/policies`}>{t("nav.policies")}</NavLink>}
         {allowed("violations") && (
           <NavLink to={`${base}/violations`}>{t("nav.violations")}</NavLink>
         )}
-        {allowed("habits") && (
-          <NavLink to={`${base}/habits`}>{t("nav.habits")}</NavLink>
-        )}
+        {allowed("habits") && <NavLink to={`${base}/habits`}>{t("nav.habits")}</NavLink>}
         {allowed("performance") && (
           <NavLink to={`${base}/performance`}>{t("nav.performance")}</NavLink>
         )}
-        {allowed("digest") && (
-          <NavLink to={`${base}/digest`}>{t("nav.digest")}</NavLink>
-        )}
-        {allowed("insights") && (
-          <NavLink to={`${base}/insights`}>{t("nav.insights")}</NavLink>
-        )}
-        {allowed("weights") && (
-          <NavLink to={`${base}/weights`}>{t("nav.weights")}</NavLink>
-        )}
+        {allowed("digest") && <NavLink to={`${base}/digest`}>{t("nav.digest")}</NavLink>}
+        {allowed("insights") && <NavLink to={`${base}/insights`}>{t("nav.insights")}</NavLink>}
+        {allowed("weights") && <NavLink to={`${base}/weights`}>{t("nav.weights")}</NavLink>}
       </nav>
       <main className="content" id="main">
         {me.isError ? (

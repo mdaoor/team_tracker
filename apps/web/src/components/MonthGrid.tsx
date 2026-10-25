@@ -18,7 +18,11 @@ export function MonthGrid({
   const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
   const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0));
   const iso = (d: Date) => d.toISOString().slice(0, 10);
-  const title = first.toLocaleString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+  const title = first.toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
   const cells: (string | null)[] = [
     ...Array((first.getUTCDay() + 6) % 7).fill(null),
     ...Array.from({ length: last.getUTCDate() }, (_, i) =>
@@ -63,7 +67,11 @@ export function MonthGrid({
 /** Spread items that span dates (iterations) over every day they cover. */
 export function spanDays(start: string, end: string): string[] {
   const out: string[] = [];
-  for (let d = new Date(start + "T00:00:00Z"); d <= new Date(end + "T00:00:00Z") && out.length < 120; d.setUTCDate(d.getUTCDate() + 1))
+  for (
+    let d = new Date(start + "T00:00:00Z");
+    d <= new Date(end + "T00:00:00Z") && out.length < 120;
+    d.setUTCDate(d.getUTCDate() + 1)
+  )
     out.push(d.toISOString().slice(0, 10));
   return out;
 }

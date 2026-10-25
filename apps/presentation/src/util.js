@@ -93,4 +93,3 @@ export const projectShown = (ctx, p) =>
   ctx.items.some((i) => i.project === p.key) ||
   (ctx.D.deliverables ?? []).some((d) => d.project === p.key) ||
   (ctx.D.phases ?? []).some((ph) => ph.project === p.key);
-

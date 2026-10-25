@@ -128,7 +128,7 @@ async def _backfill() -> None:
 
 @app.command("serve")
 def serve(
-    host: Annotated[str, typer.Option(help="Bind address")] = "0.0.0.0",  # noqa: S104
+    host: Annotated[str, typer.Option(help="Bind address")] = "0.0.0.0",  # noqa: S104  # nosec B104 - a server binds all interfaces by design; the operator narrows it
     port: Annotated[int, typer.Option(help="HTTPS port")] = 8443,
     certfile: Annotated[Path | None, typer.Option(help="PEM certificate (full chain)")] = None,
     keyfile: Annotated[Path | None, typer.Option(help="PEM private key")] = None,

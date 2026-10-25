@@ -11,7 +11,9 @@ console.log(`entry chunk ${entry}: ${kb.toFixed(1)} kB gzip (budget 250)`);
 let bad = 0;
 if (kb > 250) (console.error("entry chunk over budget"), bad++);
 for (const f of files.filter((f) => f !== entry && !f.startsWith("Policies-"))) {
-  if (/@codemirror|EditorView/.test(readFileSync(dir + f, "utf8"))) (console.error(`CodeMirror leaked into ${f}`), bad++);
+  if (/@codemirror|EditorView/.test(readFileSync(dir + f, "utf8")))
+    (console.error(`CodeMirror leaked into ${f}`), bad++);
 }
-if (/@codemirror|EditorView/.test(readFileSync(dir + entry, "utf8"))) (console.error("CodeMirror in the entry chunk"), bad++);
+if (/@codemirror|EditorView/.test(readFileSync(dir + entry, "utf8")))
+  (console.error("CodeMirror in the entry chunk"), bad++);
 process.exit(bad ? 1 : 0);

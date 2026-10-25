@@ -379,4 +379,6 @@ select:disabled {
 }
 
 /* fit: shrink — one slide, scaled so the long list fits (Phase 13 R6.5) */
-.s-body[data-shrink] { zoom: var(--fit, 1); }
+.s-body[data-shrink] {
+  zoom: var(--fit, 1);
+}

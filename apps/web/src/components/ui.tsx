@@ -98,7 +98,9 @@ export function ProvenanceChip({
   // Visible text answers "who, when, from where" at a glance (UX §3.4); the tooltip repeats it with the source.
   const when = setAt ? ago(setAt) : null;
   const who = setBy ? `set by ${setBy}` : source === "manual" ? "set manually" : `set by ${source}`;
-  const short = [who, when, inheritedFrom ? `inherited from ${inheritedFrom}` : null].filter(Boolean).join(" · ");
+  const short = [who, when, inheritedFrom ? `inherited from ${inheritedFrom}` : null]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <span className="prov" data-source={source} title={`${short} (${source})`} tabIndex={0}>
       <span aria-hidden>{source === "manual" ? "✎" : source === "inherited" ? "↳" : "ƒ"}</span>{" "}

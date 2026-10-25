@@ -63,10 +63,19 @@ export function Process() {
   // live mini-pipeline: what the line looks like with the edits applied (bar width = expected days)
   const preview = stages.map((s) =>
     s.key === editing
-      ? { ...s, expected_duration_days: draft.expected_duration_days === "" ? null : Number(draft.expected_duration_days), name: draft.name, wip_limit: draft.wip_limit === "" ? null : Number(draft.wip_limit) }
+      ? {
+          ...s,
+          expected_duration_days:
+            draft.expected_duration_days === "" ? null : Number(draft.expected_duration_days),
+          name: draft.name,
+          wip_limit: draft.wip_limit === "" ? null : Number(draft.wip_limit),
+        }
       : s,
   );
-  const totalDays = Math.max(1, preview.reduce((n, s) => n + (Number(s.expected_duration_days) || 1), 0));
+  const totalDays = Math.max(
+    1,
+    preview.reduce((n, s) => n + (Number(s.expected_duration_days) || 1), 0),
+  );
   const drop = (target: string) => {
     if (!drag || drag === target) return;
     const keys = stages.map((s) => s.key).filter((k) => k !== drag);
@@ -122,7 +131,10 @@ export function Process() {
           <div className="row">
             <label>
               Name
-              <input value={String(draft.name ?? "")} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              <input
+                value={String(draft.name ?? "")}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              />
             </label>
             <label>
               Expected days
@@ -152,7 +164,10 @@ export function Process() {
             </label>
             <label>
               Category
-              <select value={String(draft.category ?? "")} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
+              <select
+                value={String(draft.category ?? "")}
+                onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+              >
                 {["intake", "build", "verify", "release", "done"].map((c) => (
                   <option key={c}>{c}</option>
                 ))}

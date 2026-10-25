@@ -28,12 +28,29 @@ export function buildForest<T extends { id?: string }>(
   return roots.map(build);
 }
 
-export function Tree({ nodes, label, level = 1 }: { nodes: TreeNode[]; label: string; level?: number }) {
+export function Tree({
+  nodes,
+  label,
+  level = 1,
+}: {
+  nodes: TreeNode[];
+  label: string;
+  level?: number;
+}) {
   if (!nodes.length) return null;
   return (
-    <ul className="tree" role={level === 1 ? "tree" : "group"} aria-label={level === 1 ? label : undefined}>
+    <ul
+      className="tree"
+      role={level === 1 ? "tree" : "group"}
+      aria-label={level === 1 ? label : undefined}
+    >
       {nodes.map((n) => (
-        <li key={n.id} role="treeitem" aria-expanded={n.children.length ? true : undefined} aria-level={level}>
+        <li
+          key={n.id}
+          role="treeitem"
+          aria-expanded={n.children.length ? true : undefined}
+          aria-level={level}
+        >
           <span className="tree-row">
             {n.label}
             {n.meta && <small className="muted"> {n.meta}</small>}
