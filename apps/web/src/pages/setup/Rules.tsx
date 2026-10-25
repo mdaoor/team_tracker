@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Json } from "../../api/http";
+import { deleteRule, dryRunRule } from "../../api/teams";
+import type { DryRunResult } from "../../api/types";
 import { Button, Card, Empty } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
@@ -12,16 +13,14 @@ export function Rules() {
   const toasts = useToasts();
   const rules = useList("/translator-rules");
   const [draft, setDraft] = useState("");
-  const [result, setResult] = useState<Json | null>(null);
+  const [result, setResult] = useState<DryRunResult | null>(null);
   const active = (rules.data ?? [])
     .filter((r) => r.is_active !== false)
     .map((r) => r.text as string);
   const dry = async () => {
     try {
       setResult(
-        await api.post<Json>(w(ws, "/translator-rules:dry-run"), {
-          rules: draft ? [...active, draft] : active,
-        }),
+        await dryRunRule(ws, { rules: draft ? [...active, draft] : active }),
       );
     } catch (e) {
       toasts.error(e);
@@ -37,7 +36,7 @@ export function Rules() {
               variant="ghost"
               aria-label={`delete rule ${r.position}`}
               onClick={async () => {
-                await api.del(w(ws, `/translator-rules/${r.id}`));
+                await deleteRule(ws, r.id);
                 await qc.invalidateQueries({ queryKey: [ws, "/translator-rules"] });
               }}
             >
@@ -75,7 +74,7 @@ export function Rules() {
               Would change {result.changed} of {result.checked} lines.
             </p>
             <ul>
-              {(result.results as Json[]).map((r) => (
+              {result.results.map((r) => (
                 <li key={r.line}>
                   {r.line} → {(r.fields as string[]).join(", ")}
                 </li>

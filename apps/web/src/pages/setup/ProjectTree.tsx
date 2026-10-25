@@ -1,6 +1,8 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Json } from "../../api/http";
+import { queryItems } from "../../api/items";
+import { productLinks, reparentProduct } from "../../api/teams";
+import type { Item, Link, Product, Project } from "../../api/types";
 import { Tree, buildForest, type TreeNode } from "../../components/Tree";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
@@ -14,37 +16,37 @@ export function ProjectTree() {
   const ws = useWs();
   const qc = useQueryClient();
   const toasts = useToasts();
-  const products = useList("/products");
-  const projects = useList("/projects");
+  const products = useList<Product>("/products");
+  const projects = useList<Project>("/projects");
   const prods = products.data ?? [];
   const links = useQueries({
     queries: prods.map((p) => ({
       queryKey: [ws, `/products/${p.key}/links`],
-      queryFn: async () => ((await api.get<Json>(w(ws, `/products/${p.key}/links`))).data ?? []) as Json[],
+      queryFn: async () => (await productLinks(ws, p.key)).data ?? [],
     })),
   });
   const epics = useQuery({
     queryKey: [ws, "setup-epics"],
-    queryFn: () => api.post<Json>(w(ws, "/query/items"), { filter: { type: { in: ["epic"] } }, page: { size: 200 } }),
+    queryFn: () => queryItems(ws, { filter: { type: { in: ["epic"] } }, page: { size: 200 } }),
   });
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
 
   const projectById = new Map((projects.data ?? []).map((p) => [p.id, p]));
-  const epicsBy = new Map<string, Json[]>();
-  for (const e of (epics.data?.items ?? []) as Json[])
+  const epicsBy = new Map<string, Item[]>();
+  for (const e of epics.data?.items ?? [])
     epicsBy.set(e.project, [...(epicsBy.get(e.project) ?? []), e]);
 
   const reparent = async (key: string, parentId: string | null) => {
     try {
-      await api.patch(w(ws, `/products/${key}`), { parent_product_id: parentId });
+      await reparentProduct(ws, key, parentId);
       toasts.push(`Moved ${key}`);
       await qc.invalidateQueries({ queryKey: [ws, "/products"] });
     } catch (e) {
       toasts.error(e);
     }
   };
-  const keyMove = (e: React.KeyboardEvent, p: Json) => {
+  const keyMove = (e: React.KeyboardEvent, p: Product) => {
     if (!e.altKey || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
     e.preventDefault();
     const target = moveTarget(prods as { id: string; parent_product_id?: string | null }[], p as { id: string; parent_product_id?: string | null }, e.key === "ArrowRight" ? "in" : "out");
@@ -54,7 +56,7 @@ export function ProjectTree() {
 
   const projectsOf = (productKey: string): TreeNode[] => {
     const idx = prods.findIndex((p) => p.key === productKey);
-    const rows = ((links[idx]?.data ?? []) as Json[]).filter((l) => l.target_type === "project");
+    const rows = (links[idx]?.data ?? []).filter((l: Link) => l.target_type === "project");
     return rows.flatMap((l) => {
       const proj = projectById.get(l.target_id);
       if (!proj) return [];

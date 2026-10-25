@@ -1,5 +1,5 @@
 import { api, w } from "./http";
-import type { Json, Link } from "./types";
+import type { DryRunResult, Json, Link } from "./types";
 
 export const idpSync = (ws: string) => api.post<Json>(w(ws, "/idp/sync"), {});
 export const deleteIdpMapping = (ws: string, id: string) => api.del(w(ws, `/idp/mappings/${id}`));
@@ -16,7 +16,7 @@ export const markGlossaryManual = (ws: string, id: string) =>
 export const deleteGlossary = (ws: string, id: string) => api.del(w(ws, `/glossary/${id}`));
 export const deleteRule = (ws: string, id: string) => api.del(w(ws, `/translator-rules/${id}`));
 export const dryRunRule = (ws: string, body: unknown) =>
-  api.post<Json>(w(ws, "/translator-rules:dry-run"), body);
+  api.post<DryRunResult>(w(ws, "/translator-rules:dry-run"), body);
 export const getContextPack = (ws: string, who?: string) =>
   api.get(w(ws, "/context-pack"), who ? { for: who } : undefined);
 export const reorderStages = (ws: string, process: string, order: string[]) =>

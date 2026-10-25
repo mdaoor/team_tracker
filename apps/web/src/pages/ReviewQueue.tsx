@@ -1,6 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, w, type Json } from "../api/http";
+import { w } from "../api/http";
+import * as reviewApi from "../api/review";
+import type { Person, Project, ReviewChoice, ReviewRow } from "../api/types";
 import { Button, ConfidenceCue, Empty, Pill } from "../components/ui";
 import { useToasts } from "../components/Toasts";
 import { useList, useWs } from "../lib/hooks";
@@ -10,7 +12,9 @@ import { t } from "../lib/i18n";
 export const DEFAULT_THRESHOLD = 0.7;
 
 /** The suggestion's primary choice for a row, if any (stored suggestion or the LLM gateway's best guess). */
-export function suggestedChoice(row: Json): Json | null {
+export function suggestedChoice(
+  row: Pick<ReviewRow, "kind" | "suggestion" | "suggested">,
+): ReviewChoice | null {
   const det = row.suggested?.choice;
   if (!row.suggestion?.llm?.suggestions?.[0]?.choice && det) return det;
   const llm = row.suggestion?.llm?.suggestions?.[0]?.choice;
@@ -34,9 +38,9 @@ export function ReviewQueue() {
   const ws = useWs();
   const qc = useQueryClient();
   const toasts = useToasts();
-  const rows = useList("/review-queue");
-  const projects = useList("/projects");
-  const people = useList("/people");
+  const rows = useList<ReviewRow>("/review-queue");
+  const projects = useList<Project>("/projects");
+  const people = useList<Person>("/people");
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
@@ -60,9 +64,9 @@ export function ReviewQueue() {
   }, [ws, qc]);
 
   const resolve = useCallback(
-    async (row: Json, choice: Json) => {
+    async (row: ReviewRow, choice: ReviewChoice) => {
       try {
-        const done = await api.post<Json>(w(ws, "/review-queue/resolve"), { ref: row.ref, choice });
+        const done = await reviewApi.resolveReview(ws, row.ref, choice);
         await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
         const phrase = row.suggestion?.phrase;
         const text =
@@ -75,7 +79,7 @@ export function ReviewQueue() {
           undo: done.undoable
             ? async () => {
                 try {
-                  await api.post(w(ws, "/review-queue/undo"), { ref: row.ref });
+                  await reviewApi.undoReview(ws, row.ref);
                   await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
                 } catch (e) {
                   toasts.error(e);
@@ -88,7 +92,7 @@ export function ReviewQueue() {
                   label: "Don't learn",
                   run: async () => {
                     try {
-                      await api.post(w(ws, "/review-queue/unlearn"), { ref: row.ref });
+                      await reviewApi.unlearnReview(ws, row.ref);
                     } catch (e) {
                       toasts.error(e);
                     }
@@ -138,7 +142,7 @@ export function ReviewQueue() {
 
   const confirmAll = async () => {
     try {
-      const done = await api.post<Json>(w(ws, "/review-queue/confirm-all-suggested"), {});
+      const done = await reviewApi.confirmAllSuggested(ws);
       toasts.push(`Confirmed ${done.confirmed} suggested`);
       await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
     } catch (e) {
@@ -150,7 +154,7 @@ export function ReviewQueue() {
       for (const row of data.filter(
         (r) => selected.has(r.ref) && r.kind === "unclassified_project",
       ))
-        await api.post(w(ws, "/review-queue/resolve"), { ref: row.ref, choice: { project } });
+        await reviewApi.resolveReview(ws, row.ref, { project });
       setSelected(new Set());
       await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
     } catch (e) {
@@ -263,11 +267,11 @@ function RowActions({
   people,
   onResolve,
 }: {
-  row: Json;
-  choice: Json | null;
-  projects: Json[];
-  people: Json[];
-  onResolve: (r: Json, c: Json) => void;
+  row: ReviewRow;
+  choice: ReviewChoice | null;
+  projects: Project[];
+  people: Person[];
+  onResolve: (r: ReviewRow, c: ReviewChoice) => void;
 }) {
   const label = choice ? Object.values(choice)[0] : null;
   return (
@@ -324,7 +328,13 @@ function RowActions({
 }
 
 /** One-click mapping fix for a Jira gap: name the Jira value (outbound) or the Team Tracker state (inbound status). */
-function JiraGapFix({ row, onResolve }: { row: Json; onResolve: (r: Json, c: Json) => void }) {
+function JiraGapFix({
+  row,
+  onResolve,
+}: {
+  row: ReviewRow;
+  onResolve: (r: ReviewRow, c: ReviewChoice) => void;
+}) {
   const [v, setV] = useState("");
   const s = row.suggestion ?? {};
   const inbound = s.jira_status != null;

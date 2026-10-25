@@ -76,7 +76,7 @@ export interface Project extends Json {
   name?: string;
 }
 export interface Product extends Json {
-  id?: string;
+  id: string;
   key: string;
   name?: string;
   parent_product_id?: string | null;
@@ -84,6 +84,8 @@ export interface Product extends Json {
 export interface Stage extends Json {
   key: string;
   name?: string;
+  expected_duration_days?: number | null;
+  wip_limit?: number | null;
 }
 export interface Process extends Json {
   key: string;
@@ -180,6 +182,10 @@ export interface Plan extends Json {
 // -- review queue ----------------------------------------------------------------------------------------------------
 export interface ReviewRow extends Json {
   ref: string;
+  kind?: string;
+  item_key?: string;
+  suggestion?: Json;
+  suggested?: Json;
 }
 export type ReviewChoice = Json;
 export type Row = Json;
@@ -203,4 +209,38 @@ export interface GanttDep extends Json {
 }
 export interface Milestone extends Json {
   due: string;
+}
+
+// -- org and integrations --------------------------------------------------------------------------------------------
+export interface OrgPerson extends Json {
+  id?: string;
+  person_id: string;
+  handle: string;
+  display_name?: string;
+  capacity_hours_per_week?: number;
+}
+export interface ReportingLine extends Json {
+  kind?: string;
+  is_primary?: boolean;
+  person_id: string;
+  manager_id: string;
+}
+export interface JiraConnection extends Json {
+  configured?: boolean;
+  base_url: string;
+  email: string;
+  webhook_secret: string;
+  config?: Json;
+}
+export interface JiraTestResult extends Json {
+  ok?: boolean;
+  error?: string;
+  options?: Json;
+  account?: { name?: string };
+}
+export interface DryRunResult extends Json {
+  available?: boolean;
+  changed?: number;
+  checked?: number;
+  results: { line: string; fields: string[] }[];
 }

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w } from "../../api/http";
+import { linkRisk } from "../../api/teams";
 import { Card } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
@@ -22,7 +22,7 @@ export function Risks() {
   const link = async (itemKey: string) => {
     if (!dragRisk) return;
     try {
-      await api.post(w(ws, `/risks/${dragRisk}/links`), { item: itemKey });
+      await linkRisk(ws, dragRisk, itemKey);
       toasts.push(`Linked ${dragRisk} to ${itemKey}; children inherit it`);
       await qc.invalidateQueries({ queryKey: [ws, "/risks"] });
     } catch (e) {

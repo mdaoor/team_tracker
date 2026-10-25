@@ -1,15 +1,15 @@
 import { Card } from "../../components/ui";
 import { Tree, buildForest, type TreeNode } from "../../components/Tree";
-import type { Json } from "../../api/http";
+import type { OrgPerson, ReportingLine } from "../../api/types";
 import { useList } from "../../lib/hooks";
 import { CreateForm, Table } from "./common";
 
 export function People() {
-  const people = useList("/people");
+  const people = useList<OrgPerson>("/people");
   const teams = useList("/teams");
   const ids = (people.data ?? []).map((p) => p.person_id);
   const byHandle = Object.fromEntries((people.data ?? []).map((p) => [p.handle, p.person_id]));
-  const lines = useList("/reporting-lines");
+  const lines = useList<ReportingLine>("/reporting-lines");
   const org = orgForest(people.data ?? [], lines.data ?? []);
   return (
     <>
@@ -94,7 +94,7 @@ export function People() {
 }
 
 /** People under their primary line manager; each node shows its own and its subtree's weekly capacity. */
-export function orgForest(people: Json[], lines: Json[]): TreeNode[] {
+export function orgForest(people: OrgPerson[], lines: ReportingLine[]): TreeNode[] {
   const primary = new Map<string, string>();
   for (const l of lines)
     if (l.kind === "line" && (l.is_primary || !primary.has(l.person_id))) primary.set(l.person_id, l.manager_id);

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Json } from "../../api/http";
+import { patchStage, reorderStages } from "../../api/teams";
+import type { BoardResult, Json, Process as ProcessT, Stage } from "../../api/types";
 import { Card } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useObj, useWs } from "../../lib/hooks";
@@ -13,27 +14,27 @@ export function Process() {
   const ws = useWs();
   const qc = useQueryClient();
   const toasts = useToasts();
-  const processes = useList("/processes");
+  const processes = useList<ProcessT>("/processes");
   const [drag, setDrag] = useState<string | null>(null);
   const proc = processes.data?.[0];
-  const board = useObj(`/processes/${proc?.key}/board`, undefined, !!proc);
+  const board = useObj<BoardResult>(`/processes/${proc?.key}/board`, undefined, !!proc);
   const counts: Record<string, number> = {};
-  for (const col of (board.data?.columns ?? []) as Json[])
-    counts[col.stage] = col.items?.length ?? col.wip ?? 0;
+  for (const col of board.data?.columns ?? [])
+    counts[col.stage as string] = col.items?.length ?? col.wip ?? 0;
   const max = Math.max(1, ...Object.values(counts));
 
   const reorder = async (order: string[]) => {
     try {
-      await api.patch(w(ws, `/processes/${proc?.key}/stages:reorder`), { order });
+      await reorderStages(ws, proc?.key ?? "", order);
       await qc.invalidateQueries({ queryKey: [ws, "/processes"] });
     } catch (e) {
       toasts.error(e);
     }
   };
-  const stages: Json[] = proc?.stages ?? [];
+  const stages: Stage[] = proc?.stages ?? [];
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Json>({});
-  const open = (s: Json) => {
+  const open = (s: Stage) => {
     setEditing(s.key);
     setDraft({
       name: s.name,
@@ -47,7 +48,7 @@ export function Process() {
   const save = async () => {
     try {
       const num = (v: unknown) => (v === "" || v == null ? null : Number(v));
-      await api.patch(w(ws, `/processes/${proc?.key}/stages/${editing}`), {
+      await patchStage(ws, proc?.key ?? "", editing ?? "", {
         ...draft,
         expected_duration_days: num(draft.expected_duration_days),
         wip_limit: num(draft.wip_limit),
