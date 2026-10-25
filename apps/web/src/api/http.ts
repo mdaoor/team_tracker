@@ -97,12 +97,14 @@ export const api = {
     const { data, error, response } = await (client as any).POST(path, { body, parseAs: "blob" });
     const requestId = response.headers.get("X-Request-Id") ?? undefined;
     if (!response.ok) {
-      let parsed: any = null;
-      try {
-        const text = error instanceof Blob ? await error.text() : String(error ?? "");
-        parsed = text ? JSON.parse(text) : null;
-      } catch {
-        parsed = null;
+      // openapi-fetch hands back the error body already read (JSON-parsed when it is JSON)
+      let parsed: any = error ?? null;
+      if (typeof parsed === "string") {
+        try {
+          parsed = parsed ? JSON.parse(parsed) : null;
+        } catch {
+          parsed = null;
+        }
       }
       const e = parsed?.error ?? {};
       throw new ApiError(

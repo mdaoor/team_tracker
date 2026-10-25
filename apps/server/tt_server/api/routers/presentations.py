@@ -17,13 +17,13 @@ from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import DailyLogStatus, InsightStatus, ScopeType, TargetType
 
-from tt_server.csp import add_nonce, html_csp, new_nonce
 from tt_server.acl.context import load_context
 from tt_server.api.authz import check, check_project, needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.params import enum_param
 from tt_server.api.routers.core import _project, row_dict
+from tt_server.csp import add_nonce, html_csp, new_nonce
 from tt_server.db import models as m
 from tt_server.domain import deckdata, insights
 from tt_server.domain import generation_pack as gen
@@ -493,7 +493,9 @@ async def restore_presentation(pid: str, actor: CurrentActor, uow: Uow) -> dict[
     """Undo a delete (UX 6). The share link stays revoked: re-share explicitly."""
     p = await uow.session.scalar(
         select(m.Presentation).where(
-            m.Presentation.id == pid, m.Presentation.workspace_id == actor.ws.id, m.Presentation.deleted_at.is_not(None)
+            m.Presentation.id == pid,
+            m.Presentation.workspace_id == actor.ws.id,
+            m.Presentation.deleted_at.is_not(None),
         )
     )
     if p is None or not (p.owner_id == actor.person.id or actor.acl.is_admin):

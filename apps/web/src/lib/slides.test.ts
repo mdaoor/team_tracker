@@ -10,6 +10,7 @@ const base: ViewState = {
   scheme: null,
   matrix: { rows: "team", cols: "stage", measure: "count" },
   drill: [],
+  ignored: false,
 };
 
 describe("Add to presentation", () => {

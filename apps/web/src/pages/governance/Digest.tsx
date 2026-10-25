@@ -83,7 +83,8 @@ export function Digest() {
                 {data.events.map((e: Row) => (
                   <li key={e.id}>
                     <small>{String(e.occurred_at).slice(0, 10)}</small> {e.event_type} ·{" "}
-                    {e.entity_id}
+                    {e.entity}
+                    {e.actor ? ` · by ${e.actor}` : ""}
                   </li>
                 ))}
               </ul>

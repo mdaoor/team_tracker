@@ -17,6 +17,8 @@ export interface ViewState {
   scheme: string | null;
   matrix: { rows: string; cols: string; measure: string };
   drill: Crumb[];
+  /** `?f=` / `?d=` was present but could not be decoded: the page ignores it and says so. */
+  ignored: boolean;
 }
 
 const b64 = {
@@ -50,6 +52,17 @@ export function toFilter(chips: Chip[]): Row {
   return out;
 }
 
+/** True when a param is present but is not valid base64-JSON. */
+export function undecodable(raw: string | null): boolean {
+  if (!raw) return false;
+  try {
+    JSON.parse(decodeURIComponent(escape(atob(raw))));
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export function useViewState(): [ViewState, (patch: Partial<ViewState>) => void] {
   const [sp, setSp] = useSearchParams();
   const state = useMemo<ViewState>(
@@ -63,6 +76,7 @@ export function useViewState(): [ViewState, (patch: Partial<ViewState>) => void]
       scheme: sp.get("ws"),
       matrix: b64.dec(sp.get("m"), { rows: "team", cols: "stage", measure: "count" }),
       drill: b64.dec<Crumb[]>(sp.get("d"), []),
+      ignored: undecodable(sp.get("f")) || undecodable(sp.get("d")),
     }),
     [sp],
   );

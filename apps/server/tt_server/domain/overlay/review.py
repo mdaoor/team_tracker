@@ -168,7 +168,11 @@ async def _owned_rows(session: AsyncSession, ws_id: str, actor_id: str) -> list[
                     "item_title": c[0].title,
                     "project_key": c[1].key,
                     "reporter": handles.get(c[0].reporter_id),
-                    "suggested": {"choice": {"action": "confirm"}, "reason": "the suggested value", "confidence": float(cl.confidence or 0.5)},
+                    "suggested": {
+                        "choice": {"action": "confirm"},
+                        "reason": "the suggested value",
+                        "confidence": float(cl.confidence or 0.5),
+                    },
                     "suggestion": {"dimension": dim.key if dim else None, "value": val.key if val else None},
                     "confidence": float(cl.confidence) if cl.confidence is not None else None,
                     "created_at": cl.created_at.isoformat(),
@@ -332,7 +336,7 @@ async def undo(uow: UnitOfWork, ws: m.Workspace, ref: str, *, actor_id: str) -> 
 
 
 async def unlearn(uow: UnitOfWork, ws: m.Workspace, ref: str, *, actor_id: str) -> dict[str, Any]:
-    """"Don't learn": drop the glossary phrase this resolve created, keeping the item where it was put."""
+    """ "Don't learn": drop the glossary phrase this resolve created, keeping the item where it was put."""
     s = uow.session
     kind, row = await _load(uow, ws, ref)
     await authorise(uow, kind, row, actor_id)
@@ -436,7 +440,10 @@ async def _apply_choice(
         role = AssignmentRole(sug.get("role") or choice.get("role") or "contributor")
         asg = m.Assignment(id=new_id(), work_item_id=item.id, person_id=member.person_id, role=role)
         s.add(asg)
-        row.suggestion = {**sug, "_undo": {"kind": "assignment", "assignment_id": asg.id, "assignee_id": item.assignee_id}}
+        row.suggestion = {
+            **sug,
+            "_undo": {"kind": "assignment", "assignment_id": asg.id, "assignee_id": item.assignee_id},
+        }
         if role == AssignmentRole.OWNER:
             item.assignee_id = member.person_id
         return f"assigned {member.handle}"

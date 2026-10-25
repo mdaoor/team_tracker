@@ -73,7 +73,7 @@ export function ItemDrawer({
       {it && (
         <>
           <p className="muted">
-            reported by {String(it.reporter_id).slice(0, 8)} · {it.state} · stage {it.stage ?? "—"}{" "}
+            reported by {it.reporter ?? "a former member"} · {it.state} · stage {it.stage ?? "—"}{" "}
             · {it.hours_logged} h logged
           </p>
           <div role="tablist" className="tabs">
@@ -122,7 +122,7 @@ export function ItemDrawer({
                 </select>
                 <ProvenanceChip
                   source={String(it.priority_source ?? "manual")}
-                  setBy={prov.data?.priority?.[0]?.set_by}
+                  setBy={prov.data?.priority?.[0]?.set_by_name}
                   setAt={prov.data?.priority?.[0]?.set_at}
                 />
               </dd>
@@ -158,9 +158,9 @@ export function ItemDrawer({
                           {v.value}{" "}
                           <ProvenanceChip
                             source={v.source}
-                            setBy={v.set_by}
+                            setBy={v.set_by_name}
                             setAt={v.set_at}
-                            inheritedFrom={v.inherited_from ? `${v.inherited_from.type}` : null}
+                            inheritedFrom={v.inherited_from ? (v.inherited_from.name ?? v.inherited_from.type) : null}
                           />{" "}
                         </span>
                       ))}

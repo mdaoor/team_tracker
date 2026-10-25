@@ -82,15 +82,26 @@ export function ListLayout({ st }: { st: ViewState }) {
   );
 }
 
+/** The drag handle is its own button, a sibling of the card's link (axe `nested-interactive`; keyboard drag works from it). */
 function DragCard({ item }: { item: Row }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: item.key });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform } = useDraggable({
+    id: item.key,
+  });
   return (
     <div
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
+      className="dragcard"
       style={{ transform: transform ? `translate(${transform.x}px,${transform.y}px)` : undefined }}
     >
+      <button
+        ref={setActivatorNodeRef}
+        className="drag-handle"
+        aria-label={`Drag ${item.key}`}
+        {...attributes}
+        {...listeners}
+      >
+        ⠿
+      </button>
       <Card item={item} />
     </div>
   );
@@ -100,10 +111,14 @@ function Col({
   over,
   children,
   title,
+  count,
+  onCount,
 }: {
   id: string;
   over?: boolean;
   title: string;
+  count?: number;
+  onCount?: () => void;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -114,7 +129,17 @@ function Col({
       aria-label={title}
       data-col={id}
     >
-      <h3>{title}</h3>
+      <h3>
+        {title}
+        {count != null && onCount && (
+          <>
+            {" · "}
+            <button className="linkbtn" onClick={onCount} aria-label={`Show the ${count} items in ${title}`}>
+              {count}
+            </button>
+          </>
+        )}
+      </h3>
       {children}
     </section>
   );
@@ -125,10 +150,12 @@ export function Columns({
   kind,
   ref_,
   st,
+  drill,
 }: {
   kind: "board" | "pipeline";
   ref_: string;
   st: ViewState;
+  drill?: Drill;
 }) {
   const ws = useWs();
   const qc = useQueryClient();
@@ -168,8 +195,25 @@ export function Columns({
               key={idOf(c)}
               id={idOf(c)}
               over={c.over_wip}
-              title={`${c.name} · ${kind === "board" ? c.count : c.wip_count}${c.wip_limit ? `/${c.wip_limit}` : ""}`}
+              title={c.name}
+              count={kind === "board" ? c.count : c.wip_count}
+              onCount={
+                drill
+                  ? () =>
+                      drill(`${c.name}`, [
+                        {
+                          id: chipId(),
+                          label: kind === "board" ? `state = ${c.name}` : `stage = ${c.name}`,
+                          clause:
+                            kind === "board"
+                              ? { state: { in: [c.state] } }
+                              : { stage: { in: [c.stage] } },
+                        },
+                      ])
+                  : undefined
+              }
             >
+              {c.wip_limit ? <small>limit {c.wip_limit}</small> : null}
               {kind === "pipeline" && (
                 <small>
                   Σ weight {c.weight_sum}

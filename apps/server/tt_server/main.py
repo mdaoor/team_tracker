@@ -39,6 +39,7 @@ from tt_server.api.routers import (
     webauth,
 )
 from tt_server.api.session import CSRF_COOKIE, set_session
+from tt_server.csp import html_csp
 from tt_server.db.session import make_engine, make_session_factory
 from tt_server.integrations.ldap import ldap_provider_from_settings
 from tt_server.integrations.llm import gateway_from_settings
@@ -47,7 +48,6 @@ from tt_server.logging import configure_logging
 from tt_server.metrics import Metrics
 from tt_server.ratelimit import SlidingWindow, credential_key
 from tt_server.settings import Settings, get_settings
-from tt_server.csp import html_csp
 from tt_server.telemetry import configure_telemetry
 
 log = structlog.get_logger()

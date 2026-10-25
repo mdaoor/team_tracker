@@ -6,12 +6,21 @@ from tests.api.conftest import Api
 
 
 async def pid(api: Api, handle: str) -> str:
-    return next(p["person_id"] for p in (await api.call("GET", "/people")).json()["data"] if p["handle"] == handle)
+    return next(
+        p["person_id"] for p in (await api.call("GET", "/people")).json()["data"] if p["handle"] == handle
+    )
 
 
 async def line(api: Api, person: str, manager: str) -> None:
     r = await api.call(
-        "POST", "/reporting-lines", json={"person_id": await pid(api, person), "manager_id": await pid(api, manager), "kind": "line", "is_primary": True}
+        "POST",
+        "/reporting-lines",
+        json={
+            "person_id": await pid(api, person),
+            "manager_id": await pid(api, manager),
+            "kind": "line",
+            "is_primary": True,
+        },
     )
     assert r.status_code == 201, r.text
 
@@ -27,7 +36,9 @@ async def test_a_line_goes_to_the_reporters_line_manager_not_back_to_the_reporte
     sara_id = await pid(api, "@sara")
     r = await api.call("PATCH", "/projects/DATA", json={"owner_id": sara_id})
     assert r.status_code == 200, r.text
-    res = await api.send(as_="@sara", action="create", item={"title": "tidy ingest"}, project="DATA", stage="build")
+    res = await api.send(
+        as_="@sara", action="create", item={"title": "tidy ingest"}, project="DATA", stage="build"
+    )
     key = res["item"]["key"]
     assert key in {r["item_key"] for r in await queue(api, "@ali")}
     assert key not in {r["item_key"] for r in await queue(api, "@mahmoud")}
@@ -55,10 +66,13 @@ async def test_glossary_hit_outranks_the_reporters_habit(api: Api) -> None:
     await api.send(as_="@ali", action="create", item={"title": "x"}, project="DATA")
     web = next(p for p in (await api.call("GET", "/projects")).json()["data"] if p["key"] == "WEB")
     g = await api.call(
-        "POST", "/glossary", json={"phrase": "the shop", "resolves_to_type": "project", "resolves_to_id": web["id"]}
+        "POST",
+        "/glossary",
+        json={"phrase": "the shop", "resolves_to_type": "project", "resolves_to_id": web["id"]},
     )
     assert g.status_code == 201, g.text
     from tt_server.domain.overlay.defaults import suggest_default  # noqa: F401  (ladder order is unit-tested below)
+
     res = await api.send(as_="@ali", action="create", item={"title": "y"}, project="somewhere new")
     item_row = next(r for r in await queue(api) if r["item_key"] == res["item"]["key"])
     assert item_row["suggested"]["choice"] == {"project": "DATA"}  # phrase differs: habit wins
@@ -67,9 +81,15 @@ async def test_glossary_hit_outranks_the_reporters_habit(api: Api) -> None:
 
 
 async def test_resolve_can_be_undone_and_the_learned_phrase_goes_with_it(api: Api) -> None:
-    res = await api.send(as_="@ali", action="create", item={"title": "tune it"}, project="the ingestion retry")
+    res = await api.send(
+        as_="@ali", action="create", item={"title": "tune it"}, project="the ingestion retry"
+    )
     row = next(r for r in await queue(api) if r["item_key"] == res["item"]["key"])
-    done = (await api.call("POST", "/review-queue/resolve", json={"ref": row["ref"], "choice": {"project": "DATA"}})).json()
+    done = (
+        await api.call(
+            "POST", "/review-queue/resolve", json={"ref": row["ref"], "choice": {"project": "DATA"}}
+        )
+    ).json()
     assert done["undoable"] and done["learned"]
     pack = (await api.call("GET", "/context-pack")).json()
     assert pack["glossary"].get("the ingestion retry") == "PROJECT:DATA"
@@ -77,7 +97,9 @@ async def test_resolve_can_be_undone_and_the_learned_phrase_goes_with_it(api: Ap
     again = [r for r in await queue(api) if r["ref"] == row["ref"]]
     assert again, "the row is open again"
     assert "the ingestion retry" not in (await api.call("GET", "/context-pack")).json()["glossary"]
-    assert (await api.call("POST", "/review-queue/undo", json={"ref": row["ref"]})).status_code == 409  # not resolved any more
+    assert (
+        await api.call("POST", "/review-queue/undo", json={"ref": row["ref"]})
+    ).status_code == 409  # not resolved any more
 
 
 async def test_dont_learn_removes_the_phrase_but_keeps_the_move(api: Api) -> None:
@@ -88,13 +110,21 @@ async def test_dont_learn_removes_the_phrase_but_keeps_the_move(api: Api) -> Non
     assert out["unlearned"] is True
     assert "the retry thing" not in (await api.call("GET", "/context-pack")).json()["glossary"]
     assert [r for r in await queue(api) if r["ref"] == row["ref"]] == []
-    assert (await api.call("POST", "/review-queue/unlearn", json={"ref": row["ref"]})).json()["unlearned"] is False
+    assert (await api.call("POST", "/review-queue/unlearn", json={"ref": row["ref"]})).json()[
+        "unlearned"
+    ] is False
 
 
 async def test_resolve_with_learn_false_never_writes_the_glossary(api: Api) -> None:
     res = await api.send(as_="@ali", action="create", item={"title": "one-off"}, project="that odd place")
     row = next(r for r in await queue(api) if r["item_key"] == res["item"]["key"])
-    done = (await api.call("POST", "/review-queue/resolve", json={"ref": row["ref"], "choice": {"project": "DATA", "learn": False}})).json()
+    done = (
+        await api.call(
+            "POST",
+            "/review-queue/resolve",
+            json={"ref": row["ref"], "choice": {"project": "DATA", "learn": False}},
+        )
+    ).json()
     assert done["learned"] is False
     assert "that odd place" not in (await api.call("GET", "/context-pack")).json()["glossary"]
 
@@ -111,7 +141,9 @@ async def test_a_stranger_cannot_undo_someone_elses_row(api: Api) -> None:
     res = await api.send(as_="@ali", action="create", item={"title": "mine"}, project="nowhere")
     row = next(r for r in await queue(api) if r["item_key"] == res["item"]["key"])
     await api.call("POST", "/review-queue/resolve", json={"ref": row["ref"], "choice": {"ignore": True}})
-    assert (await api.call("POST", "/review-queue/undo", as_="@sara", json={"ref": row["ref"]})).status_code in (403, 404)
+    assert (
+        await api.call("POST", "/review-queue/undo", as_="@sara", json={"ref": row["ref"]})
+    ).status_code in (403, 404)
 
 
 async def test_ladder_prefers_glossary_phrase_over_habit(api: Api, session_factory) -> None:  # type: ignore[no-untyped-def]
@@ -121,7 +153,11 @@ async def test_ladder_prefers_glossary_phrase_over_habit(api: Api, session_facto
 
     await api.send(as_="@ali", action="create", item={"title": "x"}, project="DATA")
     web = next(p for p in (await api.call("GET", "/projects")).json()["data"] if p["key"] == "WEB")
-    await api.call("POST", "/glossary", json={"phrase": "the shop", "resolves_to_type": "project", "resolves_to_id": web["id"]})
+    await api.call(
+        "POST",
+        "/glossary",
+        json={"phrase": "the shop", "resolves_to_type": "project", "resolves_to_id": web["id"]},
+    )
     res = await api.send(as_="@ali", action="create", item={"title": "q"})
     async with session_factory() as s:
         ws = await s.scalar(select(m.Workspace).where(m.Workspace.slug == "acme"))

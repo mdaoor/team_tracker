@@ -29,6 +29,7 @@ from tt_server.api.errors import ApiError
 from tt_server.api.routers.core import row_dict
 from tt_server.db import models as m
 from tt_server.domain.common import emit
+from tt_server.domain.names import Names
 from tt_server.governance import apply as applymod
 from tt_server.governance import engine, habits, runner, service
 
@@ -666,8 +667,24 @@ async def list_violations(
         )
     ).all()
     size = min(limit, 500)
+    names = await Names.load(
+        uow.session,
+        actor.ws.id,
+        [(v.target_type, v.target_id) for v, _, _ in rows[:size]]
+        + [("team", v.team_id) for v, _, _ in rows[:size]]
+        + [("project", v.project_id) for v, _, _ in rows[:size]],
+    )
     return {
-        "data": [{**service.violation_view(v, pk), "person": h} for v, pk, h in rows[:size]],
+        "data": [
+            {
+                **service.violation_view(v, pk),
+                "person": h,
+                "target": names.label(v.target_type, v.target_id),
+                "team": names.label("team", v.team_id),
+                "project": names.label("project", v.project_id),
+            }
+            for v, pk, h in rows[:size]
+        ],
         "next_cursor": str(offset + size) if len(rows) > size else None,
     }
 
@@ -796,7 +813,14 @@ async def list_habits(
         want = subject if subject.startswith("@") else "@" + subject
         stmt = stmt.where(m.Habit.subject_id.in_([p for p, h in handles.items() if h == want]))
     rows = (await uow.session.scalars(stmt.order_by(m.Habit.key, m.Habit.subject_id))).all()
-    return {"data": [habit_view(h, handles.get(h.subject_id), actor) for h in rows], "next_cursor": None}
+    names = await Names.load(uow.session, actor.ws.id, [(h.subject_type, h.subject_id) for h in rows])
+    return {
+        "data": [
+            habit_view(h, handles.get(h.subject_id) or names.label(h.subject_type, h.subject_id), actor)
+            for h in rows
+        ],
+        "next_cursor": None,
+    }
 
 
 @router.get("/habits/{hid}/series")

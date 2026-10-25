@@ -158,7 +158,7 @@ export function Violations() {
             </h2>
             {g.policies.map((p) => (
               <div key={p.policy}>
-                <h3>{p.policy}</h3>
+                <h3>{String(p.policy).replaceAll("_", " ")}</h3>
                 <ul className="plain violations">
                   {p.rows.map((v) => (
                     <li
@@ -169,18 +169,18 @@ export function Violations() {
                     >
                       <input
                         type="checkbox"
-                        aria-label={`Select ${v.target_id}`}
+                        aria-label={`Select ${v.target}`}
                         checked={sel.has(v.id)}
                         onChange={() => toggle(v.id)}
                       />
                       <a
-                        href={`?item=${v.evidence?.item ?? v.target_id}`}
+                        href={`?item=${v.evidence?.item ?? v.target}`}
                         onClick={(e) => {
                           e.preventDefault();
                           setSp((q) => (q.set("item", v.evidence?.item ?? v.target_id), q));
                         }}
                       >
-                        {v.evidence?.item ?? v.target_id}
+                        {v.evidence?.item ?? v.target}
                       </a>
                       <span className="chips">
                         {evidenceChips(v.evidence).map((c) => (

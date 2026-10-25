@@ -71,3 +71,10 @@ test("suggested choice comes from the gateway suggestion first, then from the ro
   });
   expect(suggestedChoice({ kind: "unknown_person", suggestion: {} })).toBeNull();
 });
+
+import { undecodable } from "./viewState";
+test("a garbage ?f= is reported, a good one is not", () => {
+  expect(undecodable("garbage")).toBe(true);
+  expect(undecodable(null)).toBe(false);
+  expect(undecodable(btoa(JSON.stringify([{ id: "a" }])))).toBe(false);
+});

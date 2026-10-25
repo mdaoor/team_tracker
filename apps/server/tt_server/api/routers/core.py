@@ -35,6 +35,7 @@ from tt_server.api.params import enum_param
 from tt_server.db import models as m
 from tt_server.domain.common import emit
 from tt_server.domain.items import service as items
+from tt_server.domain.names import Names
 from tt_server.domain.overlay import approvals, propagation
 from tt_server.domain.projects import service as projects
 from tt_server.domain.projects.service import workflow_states
@@ -771,6 +772,10 @@ async def _item_detail(uow: Uow, item: m.WorkItem) -> dict[str, Any]:
     d["hours_logged"] = round((mins or 0) / 60, 2)
     proj = await s.get(m.Project, item.project_id)
     d["project_key"] = proj.key if proj else None
+    people = await Names.load(
+        s, proj.workspace_id if proj else "", [("person", item.reporter_id), ("person", item.assignee_id)]
+    )
+    d["reporter"], d["assignee"] = people.person(item.reporter_id), people.person(item.assignee_id)
     state = await s.get(m.WorkflowState, item.state_id)
     d["state"], d["state_category"] = (state.key, state.category.value) if state else (None, None)
     placement = (

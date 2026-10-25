@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
@@ -37,14 +37,21 @@ test("pill, cue and provenance chip render their semantics", () => {
     <>
       <Pill severity="critical">late</Pill>
       <ConfidenceCue confidence={0.92} />
-      <ProvenanceChip source="inherited" setBy="rule" inheritedFrom="project WEB" />
+      <ProvenanceChip
+        source="inherited"
+        setBy="@sara"
+        setAt={new Date(Date.now() - 2 * 86_400_000).toISOString()}
+        inheritedFrom="Product X"
+      />
     </>,
   );
   expect(screen.getByText("late")).toHaveAttribute("data-severity", "critical");
   expect(screen.getByLabelText("confidence: 92 %")).toHaveAttribute("data-cue", "percent");
+  // UX §3.4: the chip text itself says who, when and where from (no UUID, no bare glyph)
+  expect(screen.getByText("set by @sara · 2 d ago · inherited from Product X")).toBeInTheDocument();
   expect(screen.getByText("↳").closest(".prov")).toHaveAttribute(
     "title",
-    "inherited · rule · from project WEB",
+    "set by @sara · 2 d ago · inherited from Product X (inherited)",
   );
 });
 

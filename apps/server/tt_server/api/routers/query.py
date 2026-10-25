@@ -586,7 +586,9 @@ async def restore_view(vid: str, actor: CurrentActor, uow: Uow) -> dict[str, Any
     """Undo a view delete (UX 6)."""
     v: m.SavedView | None = await uow.session.scalar(
         select(m.SavedView).where(
-            m.SavedView.id == vid, m.SavedView.workspace_id == actor.ws.id, m.SavedView.deleted_at.is_not(None)
+            m.SavedView.id == vid,
+            m.SavedView.workspace_id == actor.ws.id,
+            m.SavedView.deleted_at.is_not(None),
         )
     )
     if v is None or not (v.owner_id == actor.person.id or actor.acl.is_admin):

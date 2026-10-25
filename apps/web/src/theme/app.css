@@ -179,21 +179,7 @@ small {
   cursor: help;
   margin-inline-start: 4px;
 }
-.prov-tip {
-  display: none;
-  position: absolute;
-  inset-inline-start: 0;
-  top: 1.3em;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  padding: 2px 6px;
-  white-space: nowrap;
-  z-index: 5;
-}
-.prov:hover .prov-tip,
-.prov:focus .prov-tip {
-  display: block;
-}
+.prov-text { font-size: 0.85em; }
 .toasts {
   position: fixed;
   inset-inline-end: 16px;
@@ -748,3 +734,10 @@ dialog.confirm { position: fixed; inset: 0; margin: auto; z-index: 50; max-width
 @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
 @keyframes sk { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 .denied { padding: 2rem; max-width: 36rem; }
+
+.dragcard { position: relative; }
+.drag-handle { position: absolute; top: 2px; right: 2px; border: 0; background: none; cursor: grab; color: var(--muted); padding: 2px 6px; z-index: 1; }
+.drag-handle:focus-visible { outline: 2px solid var(--focus, currentColor); }
+.linkbtn { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

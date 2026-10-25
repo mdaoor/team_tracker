@@ -126,7 +126,9 @@ async def test_html_shells_get_a_nonce_csp_without_remote_origins(api: Api) -> N
     assert r.status_code in (200, 404, 503)
     if r.status_code == 200:
         csp = r.headers["content-security-policy"]
-        assert "default-src 'none'" in csp and "http://" not in csp and "https://" not in csp and "*" not in csp
+        assert (
+            "default-src 'none'" in csp and "http://" not in csp and "https://" not in csp and "*" not in csp
+        )
         # R3.7: scripts need the per-response nonce; no 'unsafe-inline' for script-src
         script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
         assert "'unsafe-inline'" not in script_src and "'nonce-" in script_src

@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { confidenceCue, severityColor, type Severity } from "../lib/confidence";
+import { ago } from "../lib/format";
 
 export function Button({
   variant = "default",
@@ -94,16 +95,14 @@ export function ProvenanceChip({
   setAt?: string | null;
   inheritedFrom?: string | null;
 }) {
-  const parts = [
-    source,
-    setBy,
-    setAt ? new Date(setAt).toLocaleDateString() : null,
-    inheritedFrom ? `from ${inheritedFrom}` : null,
-  ].filter(Boolean);
+  // Visible text answers "who, when, from where" at a glance (UX §3.4); the tooltip repeats it with the source.
+  const when = setAt ? ago(setAt) : null;
+  const who = setBy ? `set by ${setBy}` : source === "manual" ? "set manually" : `set by ${source}`;
+  const short = [who, when, inheritedFrom ? `inherited from ${inheritedFrom}` : null].filter(Boolean).join(" · ");
   return (
-    <span className="prov" data-source={source} title={parts.join(" · ")} tabIndex={0}>
-      {source === "manual" ? "✎" : source === "inherited" ? "↳" : "ƒ"}
-      <span className="prov-tip">{parts.join(" · ")}</span>
+    <span className="prov" data-source={source} title={`${short} (${source})`} tabIndex={0}>
+      <span aria-hidden>{source === "manual" ? "✎" : source === "inherited" ? "↳" : "ƒ"}</span>{" "}
+      <span className="prov-text">{short}</span>
     </span>
   );
 }

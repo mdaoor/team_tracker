@@ -63,6 +63,9 @@ export function ViewsPage() {
   });
 
   const toasts = useToasts();
+  useEffect(() => {
+    if (st.ignored) toasts.push("The filter in this link could not be read, so it was ignored.", { key: "filter-ignored" });
+  }, [st.ignored, toasts]);
   const save = useMutation({
     mutationFn: (shared: boolean) =>
       api.post(w(ws, "/views"), {
@@ -102,6 +105,7 @@ export function ViewsPage() {
   const ref = target || targetList?.[0]?.key || "";
   return (
     <div className="views">
+      <h1 className="sr-only">Views</h1>
       <div className="vtoolbar" role="toolbar" aria-label="View options">
         <div className="vtabs" role="tablist">
           {LAYOUTS.map((l) => (
@@ -140,7 +144,9 @@ export function ViewsPage() {
           Weights{" "}
           <select value={st.scheme ?? ""} onChange={(e) => set({ scheme: e.target.value || null })}>
             <option value="">default</option>
-            {(schemes.data ?? []).map((s) => (
+            {(schemes.data ?? [])
+              .filter((s) => s.name !== "default") // the empty option above *is* the default scheme (UX review, "also")
+              .map((s) => (
               <option key={s.id} value={s.name}>
                 {s.name}
               </option>
@@ -249,7 +255,7 @@ export function ViewsPage() {
       </div>
       {st.layout === "list" && <ListLayout st={st} />}
       {(st.layout === "board" || st.layout === "pipeline") && (
-        <Columns kind={st.layout} ref_={ref} st={st} />
+        <Columns kind={st.layout} ref_={ref} st={st} drill={push} />
       )}
       {st.layout === "matrix" && <MatrixLayout st={st} drill={push} />}
       {st.layout === "gantt" && <GanttLayout st={st} />}

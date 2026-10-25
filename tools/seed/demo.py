@@ -33,6 +33,7 @@ from tt_schema.enums import (
     ReportingKind,
     RiskCategory,
     RiskStatus,
+    ScopeType,
     StateCategory,
     TargetType,
     TeamKind,
@@ -236,6 +237,15 @@ async def persist_demo(
         }
         default_scheme = await weights.ensure_default_scheme(s, ws.id)
         _ = default_scheme
+        s.add(  # a second scheme so "compare weightings" has something to compare (UX review "also")
+            m.WeightScheme(
+                id=new_id(),
+                workspace_id=ws.id,
+                name="effort-only",
+                scope_type=ScopeType.WORKSPACE,
+                formula={"base": "estimate_hours", "multipliers": {}},
+            )
+        )
         team_of = {p["handle"]: ids["team"][p["team"]] for p in snap["people"]}
         epic: dict[str, m.WorkItem] = {}
         for e in snap["epics"]:

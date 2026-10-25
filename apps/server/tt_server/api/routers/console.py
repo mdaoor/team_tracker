@@ -223,7 +223,7 @@ async def get_settings(actor: CurrentActor) -> dict[str, Any]:
 async def patch_settings(body: SettingsPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """Admin-only workspace switches the console needs (external sharing). One event per change."""
     ws = await uow.session.get(m.Workspace, actor.ws.id)
-    assert ws is not None
+    assert ws is not None  # noqa: S101
     before = dict(ws.settings or {})
     after = {**before, **body.model_dump(exclude_none=True)}
     if after != before:
@@ -235,7 +235,10 @@ async def patch_settings(body: SettingsPatch, actor: CurrentActor, uow: Uow) -> 
             entity_type=TargetType.PERSON,
             entity_id=actor.person.id,
             event_type="workspace.settings_changed",
-            payload={"before": {k: before.get(k) for k in body.model_dump(exclude_none=True)}, "after": body.model_dump(exclude_none=True)},
+            payload={
+                "before": {k: before.get(k) for k in body.model_dump(exclude_none=True)},
+                "after": body.model_dump(exclude_none=True),
+            },
         )
         await uow.commit()
     return {
