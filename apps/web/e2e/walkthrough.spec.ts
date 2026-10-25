@@ -53,7 +53,7 @@ test("7.2 manager, mid-morning: one click settles a review row", async ({ page, 
   });
   expect(r.ok()).toBeTruthy();
   await page.goto("/w/acme/review");
-  const row = page.getByRole("option", { name: new RegExp(phrase) });
+  const row = page.getByRole("group", { name: new RegExp(phrase) });
   await expect(row).toBeVisible();
   await row.getByLabel("other project").selectOption({ index: 1 });
   await expect(row).toHaveCount(0);

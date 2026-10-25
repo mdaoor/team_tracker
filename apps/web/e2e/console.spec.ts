@@ -48,7 +48,7 @@ test("resolving a review row teaches the glossary", async ({ page, request }) =>
   const phrase = "the thing " + unique().toLowerCase();
   await capture(request, { action: "create", item: { title: "fix " + phrase }, project: phrase });
   await page.goto("/w/acme/review");
-  const row = page.getByRole("option", { name: new RegExp(phrase) });
+  const row = page.getByRole("group", { name: new RegExp(phrase) });
   await expect(row).toBeVisible();
   await row.getByLabel("other project").selectOption({ index: 1 });
   await expect(row).toHaveCount(0);
@@ -61,7 +61,7 @@ test("review queue works by keyboard alone", async ({ page, request }) => {
   await capture(request, { action: "create", item: { title: a }, project: a });
   await page.goto("/w/acme/review");
   await expect(
-    page.getByRole("listbox", { name: "Review rows" }).getByRole("option").first(),
+    page.getByRole("group", { name: "Review rows" }).getByRole("group").first(),
   ).toBeVisible();
   await page.keyboard.press("j");
   await page.keyboard.press("k");

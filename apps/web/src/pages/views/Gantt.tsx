@@ -57,7 +57,7 @@ export function GanttLayout({ st }: { st: ViewState }) {
   return (
     <>
       {controls}
-      <div className="vgantt-wrap">
+      <div className="vgantt-wrap" role="region" aria-label="Gantt chart" tabIndex={0}>
         <svg className="vgantt" width={model.width} height={model.height} role="img" aria-label={`Gantt chart, ${model.bars.length} rows`}>
           <title>Gantt chart</title>
           {model.ticks.map((t, i) => (

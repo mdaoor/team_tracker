@@ -17,7 +17,6 @@ test("R1.1 every export button in the builder downloads a file", async ({ page, 
     ["PDF", /\.pdf$/],
     ["PPTX", /\.pptx$/],
     ["PNG", /\.zip$/],
-    ["CSV", /\.zip$/],
   ] as const) {
     const [dl] = await Promise.all([
       page.waitForEvent("download", { timeout: 60_000 }),
@@ -26,6 +25,9 @@ test("R1.1 every export button in the builder downloads a file", async ({ page, 
     expect(dl.suggestedFilename(), fmt).toMatch(ext);
   }
   await expect(page.getByText(/Downloaded Export me/).first()).toBeVisible();
+  // a deck without a tabular slide has nothing to put in a CSV: the person is told, not left with a silent button
+  await page.getByRole("button", { name: "CSV", exact: true }).click();
+  await expect(page.getByText(/no tabular slide/).first()).toBeVisible();
 });
 
 test("R1.1 the Views CSV export downloads", async ({ page }) => {
