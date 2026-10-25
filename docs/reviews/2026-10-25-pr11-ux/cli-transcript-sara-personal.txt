@@ -1,0 +1,103 @@
+$ tt day
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+Sun 25 Oct 2026   planned - of - (0 %)
+  nothing planned: try `tt add "run 30m at 6pm"`
+
+$ tt add run 30m at 6pm
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+added run  [personal]  Sun 25 Oct 18:00  ffedf89d
+
+$ tt add 9-10 reading
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+added reading  [development]  Sun 25 Oct 09:00  5ff10823
+
+$ tt add --preview Tue/Thu 18:00 Arabic course 1h
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+Arabic course  [development]  every Tuesday and Thursday at 18:00
+
+$ tt recur add every weekday 7:00 run 30m
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+run: every weekday at 07:00  [personal]  e605c6fb
+
+$ tt day
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+Sun 25 Oct 2026   planned 1 h 30 of - (100 %)
+  09:00-10:00     reading                               1 h  [development]  5ff10823
+  18:00-18:30     run                                30 min  [personal]  ffedf89d
+
+$ tt week
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+Mon 19  ··········         - / 8 h     
+Tue 20  ··········         - / 8 h     
+Wed 21  ··········         - / 8 h     
+Thu 22  ··········         - / 8 h     
+Fri 23  ··········         - / 8 h     
+Sat 24  ··········         - / -       
+Sun 25  ██████████    1 h 30 / -       
+   09:00-10:00     reading                               1 h  [development]  5ff10823
+   18:00-18:30     run                                30 min  [personal]  ffedf89d
+
+work -   meeting -   development 1 h   personal 30 min
+
+$ tt month
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+October 2026
+  Mo   Tu   We   Th   Fr   Sa   Su
+                     1     2     3     4   
+   5     6     7     8     9    10    11   
+  12    13    14    15    16    17    18   
+  19    20    21    22    23    24    25dp 
+  26p   27p   28p   29p   30p   31         
+
+hours: work 0.0  meeting 0.0  development 1.0  personal 3.0
+sent - · private 4 h
+
+$ tt timer start --title reading
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+▶ reading
+
+$ tt timer status
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+▶ reading  -
+
+$ tt timer stop
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+■ reading  -
+
+$ tt tray
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+nothing to send
+
+$ tt privacy
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+Your personal items stay on this device. Meetings and work you choose to send go to Team Tracker.
+store: /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/personal.db  (encrypted; key in file)
+work: ask · meetings: ask · development: off · personal: never (no way to send it)
+calendars: none
+
+choose once: `tt privacy --first-run --work ask --meeting ask --no-development`
+
+$ tt sent
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+nothing sent yet
+
+$ tt outbox
+outbox is empty
+
+$ tt cal connect google
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+no client id for google: set TT_GOOGLE_CLIENT_ID / [calendar] google_client_id (see docs/client/calendar-integrations.md)
+
+$ tt cal status
+no OS keyring available: secrets are kept in /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/secrets.json (mode 0600). Use a desktop session for the keychain.
+no calendars connected
+
+ls: cannot access '/tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.config/tt/': No such file or directory
+/tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara-noserver/.local/share/tt/:
+total 84
+drwxr-xr-x 3 root root  4096 Oct 25 22:02 .
+drwxr-xr-x 3 root root  4096 Oct 25 22:02 ..
+drwxr-xr-x 5 root root  4096 Oct 25 22:02 outbox
+-rw------- 1 root root 57344 Oct 25 22:02 personal.db
+-rw-r--r-- 1 root root 12288 Oct 25 22:02 queue.db
+-rw------- 1 root root    70 Oct 25 22:02 secrets.json

@@ -1,0 +1,354 @@
+$ tt role
+* reporter      Capture your own work. No management verbs.
+  manager       Run your teams and projects day to day.
+  pm            Projects, plans, milestones, risks.
+  admin         Teams, reporting lines, tags, dimensions and policies.
+
+$ tt role manager
+role: Manager
+
+$ tt ops
+                             Manager — 51 of 51 ops                             
+ op                          group       description                            
+ ★ item.create               items       Create an item (epic, deliverable,     
+                                         task ...)                              
+ ★ item.merge                items       Merge items: their time, evidence,  !p 
+                                         links, tags and assignments move       
+                                         to the target                          
+ ★ item.tag                  items       Add or remove tags on items         p  
+ ★ item.assign               items       Assign an item to a person             
+ ★ item.reparent             items       Move items under another parent     !p 
+ ★ stage.move                process     Move items to a process stage       p  
+ ★ team.create               teams       Create a team (org, virtual or ad   p  
+                                         hoc) with members                      
+ ★ team.add_members          teams       Add people to a team                   
+ ★ approval.decide           process     Approve or reject a pending            
+                                         approval                               
+ ★ review.resolve            governance  Resolve a review-queue row             
+ ★ violation.waive           governance  Waive a violation with a reason        
+   item.bulk_set             items       Set priority, impact, stage or      !p 
+                                         weight on many items with a            
+                                         propagation preview                    
+   item.link                 items       Link two items (blocks, depends        
+                                         on, relates to ...)                    
+   item.set_dates            items       Set planned start/end and due date     
+   item.set_estimate         items       Record an estimate (the first is       
+                                         the original, later ones               
+                                         revisions)                             
+   item.set_impact           items       Set the impact (1-5) of items       p  
+   item.set_priority         items       Set the priority of items           p  
+                                         (propagates to children that did       
+                                         not override it)                       
+   item.set_stage            items       Move one item to a process stage       
+   item.set_state            items       Change an item's workflow state        
+   item.set_weight           items       Override an item's weight in a         
+                                         scheme                                 
+   item.split                items       Split an item into several          p  
+                                         siblings (the original stays,          
+                                         linked)                                
+   item.update               items       Change overlay fields of an item       
+                                         (priority, impact, dates,              
+                                         assignee, team)                        
+   reporting_line.set        teams       Set who a person reports to            
+   team.remove_members       teams       Remove people from a team           !p 
+   risk.action.add           process     Add a mitigation action to a risk      
+   risk.create               process     Register a risk                        
+   risk.link                 process     Link a risk to an item                 
+   habit.coach_note          governance  Write a coaching note on a habit       
+                                         (visible to managers and coaches       
+                                         only)                                  
+   habit.set_status          governance  Set a habit's coaching status          
+   policy.activate           governance  Activate a tested policy               
+   policy.deactivate         governance  Deactivate a policy                    
+   review.bulk               governance  Apply one action to many review     !p 
+                                         rows                                   
+   violation.ack             governance  Acknowledge a policy violation         
+   violation.resolve         governance  Mark a violation resolved              
+   project.add_member        projects    Add a person to a project              
+   project.baseline.capture  projects    Freeze the current plan as a named     
+                                         baseline                               
+   project.create            projects    Create a project                    p  
+   project.plan.create       projects    Create a top-down plan (phases,        
+                                         deliverables, milestones)              
+   project.update            projects    Rename or change a project's           
+                                         status                                 
+   classify                  tags        Classify an item or project on a       
+                                         dimension                              
+   dimension.value.add       tags        Add a value to a dimension             
+                                         (customer, theme, ...)                 
+   tag.create                tags        Create a tag                           
+   tag.merge                 tags        Merge one tag into another          !  
+   item.move_to_iteration    iterations  Put items into an iteration            
+   iteration.close           iterations  Close the active iteration          !  
+   iteration.create          iterations  Create an iteration                    
+   iteration.start           iterations  Start a planned iteration              
+   milestone.complete        iterations  Complete a milestone                   
+   milestone.create          iterations  Create a milestone                     
+   context_note.add          personal    Add a context note for a project,      
+                                         team or the workspace                  
+   dailylog.confirm          personal    Confirm your daily log                 
+★ first for this role · ! destructive (needs --force with --yes) · p has an 
+effect preview
+
+$ tt do create project PAY Payments with process sw-delivery --no-send
+  note: not understood locally and no gateway is configured: use `tt cmd <op> --form`
+I could not turn that into a command. Try `tt ops` for the verbs, or `tt cmd <op> --form`.
+
+$ tt outbox
+outbox is empty
+
+$ tt do new epic Checkout v2 under WEB --no-send
+(parser)
+╭───────────── item.create ─────────────╮
+│ ↳ title                   Checkout v2 │
+│ ↳ type                    epic        │
+│ ↳ project                 WEB         │
+│                                       │
+│ Effect preview                        │
+│   this op has no preview              │
+╰─ role: Manager · needs item.write_ove─╯
+saved /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-mahmoud/.local/share/tt/outbox/20261025T220305482779-01a17516-b783-73d8-94b5-bc0f02bed856.json  (tt preview 01a17516 · tt send 01a17516 --yes)
+
+$ tt do merge WEB-101 and WEB-105 into one --no-send
+(parser)
+╭─────────── item.merge destructive ────────────╮
+│ ↳ sources       WEB-101, WEB-105              │
+│ ↳ target        WEB-101                       │
+│                                               │
+│ Effect preview                                │
+│   Removes       WEB-105 (merged into WEB-101) │
+│   Affects       1 item                        │
+│   Sample        1050 2                        │
+╰── role: Manager · needs item.write_overlay ───╯
+saved /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-mahmoud/.local/share/tt/outbox/20261025T220306488717-01a17516-bafb-719c-8573-e8114f6af08e.json  (tt preview 01a17516 · tt send 01a17516 --yes)
+
+$ tt do create virtual team payments with @sara @ali --no-send
+(parser)
+╭────────────────────────── team.create ───────────────────────────╮
+│ ↳ name          payments                                         │
+│ ↳ kind          virtual                                          │
+│ ↳ members       @sara, @ali                                      │
+│                                                                  │
+│ Effect preview                                                   │
+│   Creates       virtual team payments, member @sara, member @ali │
+│   Affects       2 items                                          │
+╰──────────────── role: Manager · needs team.write ────────────────╯
+saved /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-mahmoud/.local/share/tt/outbox/20261025T220307567430-01a17516-bf7a-72a8-abd4-ffcb7727b3e8.json  (tt preview 01a17516 · tt send 01a17516 --yes)
+
+$ tt do tag all open DATA items #q4 --no-send
+  note: not understood locally and no gateway is configured: use `tt cmd <op> --form`
+I could not turn that into a command. Try `tt ops` for the verbs, or `tt cmd <op> --form`.
+
+$ tt do move WEB-101 to build with reason 'failed QA' --no-send
+(parser)
+╭──────────── stage.move ────────────╮
+│ ↳ keys          WEB-101            │
+│ ↳ stage         build with         │
+│ ↳ reason        failed QA          │
+│                                    │
+│ Effect preview                     │
+│   Affects       1 item             │
+│   Sample        WEB-101 build with │
+╰─ role: Manager · needs item.write_─╯
+saved /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-mahmoud/.local/share/tt/outbox/20261025T220309571712-01a17516-c73f-70a8-9a40-8066c4c40064.json  (tt preview 01a17516 · tt send 01a17516 --yes)
+
+$ tt outbox
+01a17516  2026-10-25T22:03:05  20261025T220305482779-01a17516-b783-73d8-94b5-bc0f02bed856.json
+01a17516  2026-10-25T22:03:06  20261025T220306488717-01a17516-bafb-719c-8573-e8114f6af08e.json
+01a17516  2026-10-25T22:03:07  20261025T220307567430-01a17516-bf7a-72a8-abd4-ffcb7727b3e8.json
+01a17516  2026-10-25T22:03:09  20261025T220309571712-01a17516-c73f-70a8-9a40-8066c4c40064.json
+
+$ tt queue
+None    → default: suggested
+None    → default: suggested
+None    → default: suggested
+None    → default: suggested
+None    → default: suggested
+
+$ tt team now
+@sara                   
+@nour                   
+@lina                   
+
+$ tt approve
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/s │
+│ cratchpad/pr11/apps/cli/tt_cli/commands_cli.py:600 in approve_cmd            │
+│                                                                              │
+│   597 │   │   cat = _catalogue(rt)                                           │
+│   598 │   │   pack = rt.pack()                                               │
+│   599 │   │   if approval is None:                                           │
+│ ❱ 600 │   │   │   pending = pack.pending_approvals if pack else []           │
+│   601 │   │   │   if not pending:                                            │
+│   602 │   │   │   │   typer.echo("no pending approvals")                     │
+│   603 │   │   │   │   return                                                 │
+│                                                                              │
+│ /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/s │
+│ cratchpad/pr11/packages/client_core/src/tt_client/pack.py:81 in              │
+│ pending_approvals                                                            │
+│                                                                              │
+│    78 │                                                                      │
+│    79 │   @property                                                          │
+│    80 │   def pending_approvals(self) -> list[dict[str, Any]]:               │
+│ ❱  81 │   │   return list(self.data.get("pending_approvals", []))            │
+│    82 │                                                                      │
+│    83 │   def item_project(self, *, key: str | None = None, title: str |     │
+│       None = None) -> str | None:                                            │
+│    84 │   │   """The project of one of my open items, found by key or exact  │
+│       title."""                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+TypeError: 'int' object is not iterable
+
+$ tt waive
+Usage: tt waive [OPTIONS] {violation}
+Try 'tt waive --help' for help.
+╭─ Error ──────────────────────────────────────────────────────────────────────╮
+│ Missing argument 'violation'.                                                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+$ tt preview 01a17516-bafb-719c-8573-e8114f6af08e
+╭─────────── item.merge destructive ────────────╮
+│ ↳ sources       WEB-101, WEB-105              │
+│ ↳ target        WEB-101                       │
+│                                               │
+│ Effect preview                                │
+│   Removes       WEB-105 (merged into WEB-101) │
+│   Affects       1 item                        │
+│   Sample        1050 2                        │
+╰── role: Manager · needs item.write_overlay ───╯
+
+$ tt send 01a17516-b783-73d8-94b5-bc0f02bed856
+╭───────────── item.create ─────────────╮
+│ ↳ title                   Checkout v2 │
+│ ↳ type                    epic        │
+│ ↳ project                 WEB         │
+│                                       │
+│ Effect preview                        │
+│   this op has no preview              │
+╰─ role: Manager · needs item.write_ove─╯
+needs confirmation and this is not a terminal: kept in the outbox; re-run with --yes.
+  /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-mahmoud/.local/share/tt/outbox/20261025T220305482779-01a17516-b783-73d8-94b5-bc0f02bed856.json
+
+$ tt send 01a17516-b783-73d8-94b5-bc0f02bed856 --yes
+╭───────────── item.create ─────────────╮
+│ ↳ title                   Checkout v2 │
+│ ↳ type                    epic        │
+│ ↳ project                 WEB         │
+│                                       │
+│ Effect preview                        │
+│   this op has no preview              │
+╰─ role: Manager · needs item.write_ove─╯
+✓ item.create
+
+$ tt send 01a17516-bafb-719c-8573-e8114f6af08e --yes
+╭─────────── item.merge destructive ────────────╮
+│ ↳ sources       WEB-101, WEB-105              │
+│ ↳ target        WEB-101                       │
+│                                               │
+│ Effect preview                                │
+│   Removes       WEB-105 (merged into WEB-101) │
+│   Affects       1 item                        │
+│   Sample        1050 2                        │
+╰── role: Manager · needs item.write_overlay ───╯
+needs confirmation and this is not a terminal: kept in the outbox; re-run with --yes --force (destructive).
+  /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-mahmoud/.local/share/tt/outbox/20261025T220306488717-01a17516-bafb-719c-8573-e8114f6af08e.json
+
+$ tt send 01a17516-bafb-719c-8573-e8114f6af08e --yes --force
+╭─────────── item.merge destructive ────────────╮
+│ ↳ sources       WEB-101, WEB-105              │
+│ ↳ target        WEB-101                       │
+│                                               │
+│ Effect preview                                │
+│   Removes       WEB-105 (merged into WEB-101) │
+│   Affects       1 item                        │
+│   Sample        1050 2                        │
+╰── role: Manager · needs item.write_overlay ───╯
+forced: sending destructive command(s) without confirmation (logged).
+✓ item.merge
+
+$ tt send 01a17516-bf7a-72a8-abd4-ffcb7727b3e8 --yes
+╭────────────────────────── team.create ───────────────────────────╮
+│ ↳ name          payments                                         │
+│ ↳ kind          virtual                                          │
+│ ↳ members       @sara, @ali                                      │
+│                                                                  │
+│ Effect preview                                                   │
+│   Creates       virtual team payments, member @sara, member @ali │
+│   Affects       2 items                                          │
+╰──────────────── role: Manager · needs team.write ────────────────╯
+✓ team.create
+
+$ tt send 01a17516-c73f-70a8-9a40-8066c4c40064 --yes
+╭──────────── stage.move ────────────╮
+│ ↳ keys          WEB-101            │
+│ ↳ stage         build with         │
+│ ↳ reason        failed QA          │
+│                                    │
+│ Effect preview                     │
+│   Affects       1 item             │
+│   Sample        WEB-101 build with │
+╰─ role: Manager · needs item.write_─╯
+✗ stage.move rejected: stage 'build with' not found in process 'sw-delivery' (/stage)
+
+$ tt cmd project.create --arg name=Payments --arg key=PAY --arg process=sw-delivery --no-send
+╭─────────────────────────── project.create ───────────────────────────╮
+│ ↳ name          Payments                                             │
+│ ↳ key           PAY                                                  │
+│ ↳ process       sw-delivery                                          │
+│                                                                      │
+│ Effect preview                                                       │
+│   Creates       project PAY “Payments”, inherits process sw-delivery │
+│   Affects       1 item                                               │
+╰──────────────── role: Manager · needs project.create ────────────────╯
+saved /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-mahmoud/.local/share/tt/outbox/20261025T220452893635-01a17518-5af2-74e2-978b-3dbe49322710.json  (tt preview 01a17518 · tt send 01a17518 --yes)
+
+$ tt cmd project.create --arg name=Payments --arg key=PAY --arg process=sw-delivery --yes
+╭─────────────────────────── project.create ───────────────────────────╮
+│ ↳ name          Payments                                             │
+│ ↳ key           PAY                                                  │
+│ ↳ process       sw-delivery                                          │
+│                                                                      │
+│ Effect preview                                                       │
+│   Creates       project PAY “Payments”, inherits process sw-delivery │
+│   Affects       1 item                                               │
+╰──────────────── role: Manager · needs project.create ────────────────╯
+✓ project.create
+
+$ tt cmd item.tag --no-send
+item.tag needs: keys  (use --arg keys=… or --form)
+
+$ tt cmd item.tag --arg keys=DATA-101,DATA-116 --arg add=q4 --yes
+╭───────────── item.tag ─────────────╮
+│ ↳ keys          DATA-101, DATA-116 │
+│ ↳ add           q4                 │
+│                                    │
+│ Effect preview                     │
+│   Creates       tag #q4            │
+│   Affects       2 items            │
+│   Sample        DATA-101; DATA-116 │
+╰─ role: Manager · needs item.write_─╯
+✓ item.tag
+
+$ tt cmd project.creat
+unknown op 'project.creat'. Did you mean: project.add_member, project.baseline.capture, project.create, project.plan.create, project.update?
+
+$ tt outbox --sent
+20261025T220305482779-01a17516-b783-73d8-94b5-bc0f02bed856.json
+20261025T220306488717-01a17516-bafb-719c-8573-e8114f6af08e.json
+20261025T220307567430-01a17516-bf7a-72a8-abd4-ffcb7727b3e8.json
+20261025T220309571712-01a17516-c73f-70a8-9a40-8066c4c40064.json
+20261025T220454158962-01a17518-5f1e-74e5-ac2c-e9ba4ec43f61.json
+20261025T220456435099-01a17518-6893-73b9-8e6d-4b8ed9cfd814.json
+
+$ tt cmd team.create --form   (driven through a pty with `script`)
+ops-squad
+warning: The `tool.uv.dev-dependencies` field (used in `pyproject.toml`) is deprecated and will be removed in a future release; use `dependency-groups.dev` instead
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+? Name *? Name * ops-squad
+╭───────────────────────── team.create ─────────────────────────╮
+│ ↳ name          ops-squad                                     │
+│                                                               │
+│ Effect preview                                                │
+│   offline       the server will validate this when it is sent │
+╰────────────── role: Manager · needs team.write ───────────────╯
+saved /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-mahmoud/.local/share/tt/outbox/20261025T221619724260-01a17522-d603-70ec-83f0-05186059cb60.json  (tt preview 01a17522 · tt send 01a17522 --yes)

@@ -1,0 +1,71 @@
+$ tt say 
+What are you working on?  One line is enough:
+
+  now running: WEB-105 password reset email template   (`tt done` when it is finished)
+
+  tt "fix the login redirect loop, took 2h, plan to finish tomorrow 5pm"
+  tt "doing 1. write tests, 2. deploy | est 3h"
+  tt "stuck on db access waiting for ops"
+
+$ tt say started on WEB-114 the login redirect loop, took 45m
+╭────────────────────────── start ──────────────────────────╮
+│ ↳ Task     migrate session store WEB-114  ✓ matched       │
+│ ↳ Project  WEB                            ✓ from the task │
+│ ↳ Time     45 min logged                                  │
+╰───────────────────────────────────────────────────────────╯
+not a terminal, so nothing was asked: sending now (use --no-send to review first)
+✓ WEB-114 migrate session store
+
+$ tt blocked WEB-114 waiting on infra for the staging cert
+╭───────────────────────── blocked ─────────────────────────╮
+│ ↳ Task     migrate session store WEB-114  ✓ matched       │
+│ ↳ Project  WEB                            ✓ from the task │
+╰───────────────────────────────────────────────────────────╯
+not a terminal, so nothing was asked: sending now (use --no-send to review first)
+✓ WEB-114 migrate session store
+
+$ tt today
+nothing logged today yet — log some work and your day drafts itself
+
+$ tt say refactor the ingestion retry
+╭──────────────────────────────── create ─────────────────────────────────╮
+│ ↳ Task     refactor the ingestion retry  new                            │
+│ ↳ Project  —                             will be sorted by your manager │
+╰─────────────────────────────────────────────────────────────────────────╯
+not a terminal, so nothing was asked: sending now (use --no-send to review first)
+✓ INBOX-sara-1 refactor the ingestion retry
+   → sent to your manager's review queue (01a17512)
+
+$ tt say frobnicate the glorp
+╭──────────────────────────── create ─────────────────────────────╮
+│ ↳ Task     frobnicate the glorp  new                            │
+│ ↳ Project  —                     will be sorted by your manager │
+╰─────────────────────────────────────────────────────────────────╯
+not a terminal, so nothing was asked: sending now (use --no-send to review first)
+✓ INBOX-sara-2 frobnicate the glorp
+   → sent to your manager's review queue (01a17512)
+
+$ tt say fix the pipeline export #etl p:ingestion with @nobody
+╭────────────────────────── create ──────────────────────────╮
+│ ↳ Task     fix the pipeline export with @nobody  new       │
+│ ↳ Project  ingestion                                       │
+│ ↳ Tags     #etl                                  suggested │
+╰────────────────────────────────────────────────────────────╯
+not a terminal, so nothing was asked: sending now (use --no-send to review first)
+✓ INBOX-sara-3 fix the pipeline export with @nobody
+   → sent to your manager's review queue (01a17512)
+   → sent to your manager's review queue (01a17512)
+
+$ tt say the dashboard export is slow, took 30m
+╭─────────────────────────────── log_time ────────────────────────────────╮
+│ ↳ Task     the dashboard export is slow  new                            │
+│ ↳ Project  —                             will be sorted by your manager │
+│ ↳ Time     30 min logged                                                │
+╰─────────────────────────────────────────────────────────────────────────╯
+not a terminal, so nothing was asked: sending now (use --no-send to review first)
+✓ INBOX-sara-4 the dashboard export is slow
+   → sent to your manager's review queue (01a17512)
+
+$ tt now
+▶ WEB-114 migrate session store  [WEB] since 2026-10-25 21:58
+

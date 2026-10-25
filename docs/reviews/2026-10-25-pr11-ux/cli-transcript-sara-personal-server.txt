@@ -1,0 +1,151 @@
+$ tt privacy
+Your personal items stay on this device. Meetings and work you choose to send go to Team Tracker.
+store: /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara/.local/share/tt/personal.db  (encrypted; key in file)
+work: ask · meetings: ask · development: off · personal: never (no way to send it)
+calendars: none
+
+choose once: `tt privacy --first-run --work ask --meeting ask --no-development`
+
+$ tt add review the PR for WEB-114 1h
+added review the PR for WEB-114  [work]  anytime  84dcac98
+
+$ tt add course: Rust ch.3 1h
+added Rust ch.3  [development]  anytime  03060e09
+
+$ tt add run 30m at 6pm
+added run  [personal]  Mon 26 Oct 18:00  76a135e6
+
+$ tt day
+Mon 26 Oct 2026   planned 2 h 30 of 8 h (31 %)
+  18:00-18:30     run                                30 min  [personal]  76a135e6
+    anytime       Rust ch.3                             1 h  [development]  03060e09
+    anytime       review the PR for WEB-114             1 h  [work]  84dcac98
+   (server)      WEB-101 fix the login redirect loop
+   (server)      WEB-105 password reset email template
+   (server)      WEB-114 migrate session store
+   (server)      WEB-124 accessibility pass on checkout
+   (server)      WEB-131 e2e tests for reset flow
+
+$ tt tray
+nothing to send
+
+ids: 01a1751d-3d43-70d0-b0bd-566776a135e6 01a1751d-3a00-7747-8427-446e03060e09 01a1751d-370a-70e7-b32b-cf6784dcac98
+$ tt item done 01a1751d-3d43-70d0-b0bd-566776a135e6
+run: done
+
+$ tt item done 01a1751d-3a00-7747-8427-446e03060e09
+Rust ch.3: done
+
+$ tt item done 01a1751d-370a-70e7-b32b-cf6784dcac98
+review the PR for WEB-114: done
+
+$ tt tray
+1. Send 1 h review the PR for WEB-114 → WEB   (70 % suggested)   "review the PR for WEB-114"
+
+`tt tray send <n>` · `tt tray skip <n>` · `tt tray notwork <n>`
+
+$ tt tray send 1 --yes
+queued 1 h → WEB
+delivered 1 batch(es)
+
+$ tt tray
+nothing to send
+
+$ tt privacy --first-run --development
+Your personal items stay on this device. Meetings and work you choose to send go to Team Tracker.
+store: /tmp/claude-0/-home-user-team-tracker/bbf59105-281c-5d37-bd38-76a2ac732625/scratchpad/home-sara/.local/share/tt/personal.db  (encrypted; key in file)
+work: ask · meetings: ask · development: on · personal: never (no way to send it)
+calendars: none
+
+$ tt tray
+1. Send 1 h Rust ch.3   (ask)   "Rust ch.3"
+
+`tt tray send <n>` · `tt tray skip <n>` · `tt tray notwork <n>`
+
+$ tt tray send 1 --yes
+queued 1 h → DEV  #development
+delivered 1 batch(es)
+
+$ tt tray
+nothing to send
+
+$ tt sent
+1. 2026-10-25T22:10  Rust ch.3                         1 h → DEV DEV-1  [can unsend]
+2. 2026-10-25T22:10  review the PR for WEB-114         1 h → WEB WEB-138  [can unsend]
+
+$ tt outbox --sent
+20261025T215816581723-01a17512-4efe-77ee-a573-74f7b6250723.json
+20261025T215817612339-01a17512-5305-7247-8c40-280a0d9073fb.json
+20261025T215819568370-01a17512-5aa9-701d-a07e-011fe81b6f0d.json
+20261025T215820554703-01a17512-5e83-7132-a80d-106dd94f4113.json
+20261025T215821542054-01a17512-625f-7384-9d73-ecc39ebaf667.json
+20261025T215822538321-01a17512-6642-7022-83cc-f9eb63967949.json
+20261025T221019591466-01a1751d-5747-772c-9dc7-f37d92e08029.json
+20261025T221023245883-01a1751d-658d-728f-8575-6164cf740e1c.json
+
+$ tt eod
+2026-10-26: work 1.0 h  meeting 0.0 h  development 1.0 h  personal 0.5 h   done 3, sent 2
+
+$ tt eod --confirm
+2026-10-26: work 1.0 h  meeting 0.0 h  development 1.0 h  personal 0.5 h   done 3, sent 2
+{"confirmed": false, "reason": "no daily log yet"}
+
+$ tt sent unsend 1
+correction queued (time.unlog)
+
+$ tt sent
+1. 2026-10-25T22:10  Rust ch.3                         1 h → DEV DEV-1  [unsent]
+2. 2026-10-25T22:10  review the PR for WEB-114         1 h → WEB WEB-138  [can unsend]
+
+$ tt today
+nothing logged today yet — log some work and your day drafts itself
+
+$ tt tray send 01a1751d-3d43-70d0-b0bd-566776a135e6
+error: personal items are never sent
+
+$ tt tray send 76a135e6 -p WEB
+error: personal items are never sent
+
+$ tt item share 76a135e6 auto
+run: share never
+
+$ tt review
+week of 2026-10-26: planned 2.5 h, done 2.5 h (100 %)
+development 1.0 h · meetings 0.0 h (0 % of capacity)
+
+$ tt sent --help
+                                                                                
+ Usage: tt sent [OPTIONS] [action] [n]                                          
+                                                                                
+ What has been sent (with server keys); `tt sent unsend <n>` takes one back     
+ within 10 minutes.                                                             
+                                                                                
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│   action      <str>  unsend                                                  │
+│   n           <int>                                                          │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --json          Print JSON                                                   │
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+Opening your browser to sign in ...
+https://accounts.google.com/o/oauth2/v2/auth?client_id=fake-client-id&response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A8765%2Fcallback&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly&state=V2pDHB7_hl_lyN4XxW-KZw&code_challenge=7pereEbt3MNVD5uMnrHsASlp_yWdnN-Yx-2mXJ1Nu3s&code_challenge_method=S256&access_type=offline&prompt=consent
+exit=0
+$ tt erase-local
+nothing erased (pass --yes)
+
+$ tt erase-local --yes
+erased personal.db; removed secrets: personal-store-key
+
+total 28
+drwxr-xr-x 3 root root  4096 Oct 25 22:12 .
+drwxr-xr-x 3 root root  4096 Oct 25 22:02 ..
+drwxr-xr-x 5 root root  4096 Oct 25 22:02 outbox
+-rw-r--r-- 1 root root 12288 Oct 25 22:02 queue.db
+-rw------- 1 root root     2 Oct 25 22:12 secrets.json
+$ tt day
+Sun 25 Oct 2026   planned - of - (0 %)
+  nothing planned: try `tt add "run 30m at 6pm"`
+
