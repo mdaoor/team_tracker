@@ -76,3 +76,75 @@ def test_batch_schema() -> None:
     assert batch.client_version == "0.1" and len(batch.messages) == 3
     assert isinstance(batch.messages[0].at, datetime) and batch.messages[0].at.tzinfo is not None
     assert batch.messages[0].at.astimezone(UTC).hour == 6
+
+
+# ---------------------------------------------------------------- Phase 15 additions (ADR-0042): source and corrects
+def test_phase_15_fields_are_optional_so_old_clients_still_validate() -> None:
+    old = {
+        "actor": "@x",
+        "action": "log_time",
+        "at": "2026-10-23T09:00:00+03:00",
+        "client_id": "c",
+        "minutes": 5,
+    }
+    m = ClientMessage.model_validate(old)
+    assert m.source is None and m.corrects is None
+
+
+def test_calendar_ref_and_source_round_trip() -> None:
+    m = ClientMessage.model_validate(
+        {
+            "actor": "@x",
+            "action": "log_time",
+            "at": "2026-10-26T10:00:00+03:00",
+            "client_id": "c",
+            "minutes": 60,
+            "source": {
+                "origin": "calendar:microsoft",
+                "calendar_ref": {
+                    "provider": "microsoft",
+                    "event_id": "AAMk1",
+                    "series_id": "AAMk0",
+                    "instance_start": "2026-10-26T09:00:00+03:00",
+                },
+            },
+        }
+    )
+    assert m.source and m.source.calendar_ref and m.source.calendar_ref.provider == "microsoft"
+    assert ClientMessage.model_validate(json.loads(m.model_dump_json())) == m
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {"origin": "calendar:caldav"},  # not a supported origin
+        {"origin": "personal", "calendar_ref": {"provider": "ical", "event_id": "x"}},  # unknown provider
+        {"origin": "personal", "calendar_ref": {"provider": "google"}},  # event_id is required
+        {"origin": "personal", "titel": "typo"},  # extra fields are refused
+    ],
+)
+def test_bad_sources_are_rejected(source: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        ClientMessage.model_validate(
+            {
+                "actor": "@x",
+                "action": "log_time",
+                "at": "2026-10-26T10:00:00+03:00",
+                "client_id": "c",
+                "source": source,
+            }
+        )
+
+
+def test_the_generated_json_schema_lists_the_new_fields_without_refs() -> None:
+    schema = client_message_json_schema()
+    props = schema["properties"]
+    assert isinstance(props, dict) and {"source", "corrects"} <= set(props)
+    assert "$ref" not in json.dumps(schema)
+    assert "calendar:microsoft" in json.dumps(props["source"])
+
+
+def test_schema_minor_is_declared_and_the_default_stays_backwards_compatible() -> None:
+    from tt_schema import CLIENT_SCHEMA_MINOR
+
+    assert CLIENT_SCHEMA_MINOR == "0.2" and ClientBatch(workspace="w", messages=[]).client_version == "0.1"

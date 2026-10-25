@@ -34,6 +34,25 @@ class ClientTaskRef(_Client):
     title: Optional[str] = None
 
 
+# ADR-0042 (Phase 15): where a message came from. Backwards compatible additions, always optional.
+CLIENT_SCHEMA_MINOR = "0.2"  # client_version a Phase 15 client sends; the server accepts 0.1 and 0.2
+ClientOrigin = Literal["manual", "assisted", "personal", "calendar:google", "calendar:microsoft"]
+
+
+class CalendarRef(_Client):
+    """Which calendar occurrence a sent message stands for. The server never sees titles or attendees, only this key."""
+
+    provider: Literal["google", "microsoft"]
+    event_id: str
+    series_id: Optional[str] = None
+    instance_start: Optional[datetime] = None  # the occurrence start; part of the dedup key
+
+
+class ClientSource(_Client):
+    origin: ClientOrigin = "assisted"
+    calendar_ref: Optional[CalendarRef] = None
+
+
 class ClientMessage(_Client):
     """One line from the reporter, after the local LLM has structured it.
     Everything except actor/action/at/client_id is optional."""
@@ -65,6 +84,10 @@ class ClientMessage(_Client):
     raw_input: Optional[str] = None
     llm_confidence: Optional[dict[str, float]] = None  # per-field confidence
     jira: Optional[dict[str, Any]] = None  # {"project":"WEB","issuetype":"Task"} pass-through
+    # Phase 15 additions (ADR-0042). `corrects` + action=update asks the server to remove the time entry
+    # created by that earlier client_id (time.unlog; only its owner may).
+    corrects: Optional[str] = None
+    source: Optional[ClientSource] = None
 
 
 class ClientBatch(_Client):
