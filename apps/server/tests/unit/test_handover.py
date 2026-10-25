@@ -41,7 +41,7 @@ def test_kickoff_names_the_branch_phase_file_and_neighbours() -> None:
 
 
 def test_the_last_phase_has_no_next_phase() -> None:
-    assert "none" in h.kickoff(h.find("15"), url="x")
+    assert "none" in h.kickoff(h.phases()[-1], url="x")
 
 
 def test_resume_review_and_spec_change() -> None:

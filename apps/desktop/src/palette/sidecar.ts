@@ -59,3 +59,6 @@ export const commandBridge: CommandBridge = {
   teamNow: () =>
     invoke("tt_cmd_team_now") as ReturnType<CommandBridge["teamNow"]>,
 };
+
+/** Phase 15: the personal tracker views use the same sidecar through one extra command (see ../personal/sidecar.ts). */
+export { personalSidecarBridge } from "../personal/sidecar";

@@ -59,7 +59,9 @@ event_types:
   - activity.resumed
   - activity.ended
   - activity.blocked
-  - time.logged
+  - time.logged  # payload.after may carry calendar_ref{provider,event_id,series_id,instance_start} (Phase 15, ADR-0054)
+  - time.unlogged  # Phase 15: a person removed a time entry they sent ("Unsend"); payload before{time_entry_id,minutes,date}, corrects=client_id
+  - time.unlog_ignored  # Phase 15: an unlog request whose target was not found or not the actor's (warning unlog_target_not_found)
   - evidence.added
   - estimate.set
   - comment.*
@@ -150,3 +152,14 @@ and documents the payload schema in a section below.
 
 _Phase 0 defines no concrete emitters; payload schemas are added by the phase that introduces
 each event type (Phase 1 starts with `item.created`, `activity.*`, `time.logged`, `evidence.added`)._
+
+### Phase 15 (personal tracker send path)
+
+| event | entity | payload |
+|---|---|---|
+| `time.logged` | work_item | `after{time_entry_id, minutes, date, calendar_ref?}`; the primary event of the message also carries `result` as before |
+| `time.unlogged` | work_item | `before{time_entry_id, minutes, date}`, `corrects` (the original `client_id`); primary event of the unlog message, so a retry deduplicates by its own `client_id` |
+| `time.unlog_ignored` | person | `after{corrects}`; written so the unlog message stays idempotent when the target is unknown or belongs to someone else |
+
+A second send of the same calendar occurrence (same workspace, person, `calendar_ref.provider`, `event_id`, `instance_start`) writes **no** event and answers
+`status: deduplicated` (ADR-0054). Titles, attendees and notes of a calendar entry never reach the server except in the `note` the person chose to send.

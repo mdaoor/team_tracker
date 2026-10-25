@@ -6,6 +6,22 @@ Tier 1 of the policy design: a manager picks a template and fills in its paramet
 evaluated against the context schema (see `context-schema-v1.md`). Raw CEL needs `policy.admin`. Parameter syntax inside a template:
 `{name}` (typed literal), `{name|expr}` (fall back to an expression when unset), `<<?name ... ?>>` (text only when set).
 
+## `development_hours_below` — Little time on development
+
+A person logged fewer hours than planned on #development work (training, courses, reading) in the last 7 days. Positive-habit nudge, wellbeing category: visible to the person and their line manager only.
+
+* category `wellbeing`, severity `info`, target `person`, trigger `scheduled` (cron `0 8 * * 1`)
+
+| parameter | type | default | bounds | meaning |
+|---|---|---|---|---|
+| `hours` | int | 2 | 1..40 | Hours per week on development work |
+
+```cel
+metrics.development_minutes(person.id, "7d") < 60 * {hours}
+```
+
+Violation text: `{metrics.development_minutes(person.id, "7d")} min on development in 7 days (target {hours} h)` — e.g. _35 min on development in 7 days (target 2 h)_
+
 ## `evidence_gap` — No evidence while active
 
 An active item has no evidence at all, or (with `days`) none in the last N working days.

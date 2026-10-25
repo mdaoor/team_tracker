@@ -3,10 +3,13 @@
 from tt_schema.base import Base, new_id, utcnow
 from tt_schema.client import (
     CLIENT_SCHEMA_VERSION,
+    CLIENT_SCHEMA_MINOR,
+    CalendarRef,
     ClientAction,
     ClientBatch,
     ClientCommand,
     ClientMessage,
+    ClientSource,
     ClientTaskRef,
     client_message_json_schema,
 )
@@ -17,6 +20,9 @@ __all__ = [
     "CLIENT_SCHEMA_VERSION",
     "ClientCommand",
     "ALL_MODELS",
+    "CLIENT_SCHEMA_MINOR",
+    "CalendarRef",
+    "ClientSource",
     "CAPTURE_FIELDS",
     "Base",
     "ClientAction",

@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "prettier --check src",
     "test": "vitest run",
+    "e2e": "playwright test",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -16,6 +17,9 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.47.0",
+    "axe-core": "^4.10.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
     "@types/node": "^22",

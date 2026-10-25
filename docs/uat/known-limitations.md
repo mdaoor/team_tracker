@@ -21,3 +21,11 @@ Plan budgets: capture < 150 ms/message, `query/items` < 300 ms, snapshot < 2 s c
 2. External packs: default **off** for downloads, **on** for in-product "Generate with AI" when a gateway exists. Confirm.
 3. Share-token redaction: `standard` by default (no wellbeing/habits/live sessions); `strict` additionally pseudonymises people. Confirm the default.
 4. Should admins get an *audited override* of the Inbox privacy rule (today: private even from admins, ADR-0024)?
+
+## Phase 15 (personal tracker)
+* Calendar adapters were exercised only against hand-assembled fixtures (Google v3 and Graph v1.0 shapes); no live Google or Microsoft account, no real consent screen, no admin-consent case.
+* OS keyring behaviour on macOS, Windows and Linux desktops is not verified (a fake backend and the 0600 file fallback are tested).
+* The Tauri desktop/mobile shells (tray timer, notifications "meeting ended - send?", share sheet, background sync, installers) are scaffolds that were not compiled; the React views, the sidecar commands and the CLI are tested. `tt-sidecar` as a PyInstaller binary is still not built.
+* The development project is visible to workspace admins (platform rule for private items), not only to the person and their line manager (ADR-0055).
+* A meeting moved on the calendar after it was sent can be logged a second time (new `instance_start`); Unsend the first.
+* Write-back of focus blocks to calendars is not implemented.

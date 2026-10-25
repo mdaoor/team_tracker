@@ -51,6 +51,12 @@ bridge!(tt_cmd_queue, "cmd-queue");
 bridge!(tt_cmd_resolve, "cmd-resolve");
 bridge!(tt_cmd_team_now, "cmd-team-now");
 
+// Phase 15 (scaffold, uncompiled): the personal tracker sends every command through one entry, `tt_personal {command, args}`.
+#[tauri::command]
+async fn tt_personal(app: tauri::AppHandle, command: String, args: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    sidecar(&app, &command, args.unwrap_or(serde_json::json!({}))).await
+}
+
 #[tauri::command]
 fn hotkey(state: State<Hotkey>) -> String {
     state.0.clone()
@@ -63,7 +69,7 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Hotkey("CommandOrControl+Shift+Space".into()))
         .invoke_handler(tauri::generate_handler![
-            tt_parse, tt_pack, tt_send, tt_build_manual, tt_outbox, tt_resend, tt_discard, tt_open_editor, tt_active, hotkey,
+            tt_parse, tt_pack, tt_send, tt_build_manual, tt_outbox, tt_resend, tt_discard, tt_open_editor, tt_active, tt_personal, hotkey,
             tt_cmd_state, tt_cmd_role, tt_cmd_propose, tt_cmd_fields, tt_cmd_build, tt_cmd_preview, tt_cmd_send, tt_cmd_queue,
             tt_cmd_resolve, tt_cmd_team_now
         ])

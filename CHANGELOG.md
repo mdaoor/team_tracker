@@ -14,6 +14,10 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow `docs/op
 * Phase 12: rate limiting, security headers/CSP, Prometheus metrics + Grafana/alert rules, retention purge, GDPR export/erase, `verify-projection`, backup/restore drill scripts,
   systemd units, Helm chart (unverified), config reference generated from `Settings`, threat model, runbooks, guides.
 * Phase 14 (server): management commands (`GET /commands/catalogue`, `POST /commands`, commands inside `/capture/batches`, `POST /items:merge`) with 45 ops over the same services as the web console, `item.merge`/`item.split`, role presets (scrum master, coach, project manager) and role modes in `GET /me`, ContextPack role context, `GET /activities?team=mine`, migration 0013 (`command_log`).
+* Phase 15: personal time tracker. Local encrypted store, timer, DST-safe recurrence, quick-add parser (68-line golden set), Google Calendar and Microsoft Graph/Teams adapters,
+  ready-to-send tray with deterministic suggestions and learned rules, one-tap send with `calendar_ref` dedup, Unsend (`time.unlog`), end-of-day and weekly reviews, `tt day|week|month|add|timer|cal|tray|recur|...`,
+  desktop/mobile React views (axe 100 in light and dark, 390 px), gateway `/v1/translate/personal`, `development_hours_below` policy and `learning_consistency` habit, ContextPack `development_project`/`calendar_mapping_hints`/`my_capacity_hours_per_week`.
+  Schema minor 0.2 (`source`, `corrects`), migration 0014, ADR-0053..0055.
 ### Changed
 * Light-theme text colours darkened to meet WCAG AA contrast.
 ### Fixed

@@ -59,6 +59,9 @@ class ClientConfig:
             hours_per_day=int(client.get("hours_per_day", 8)),
             jira_default=bool(client.get("jira_default", False)),
             role_mode=str(client.get("role_mode", "reporter")),
+            extra={
+                "calendar": dict(data.get("calendar", {}))
+            },  # Phase 15: client ids, e-mail, ports (never tokens)
         )
 
     def save(self, path: Path | None = None) -> Path:
@@ -97,6 +100,9 @@ class ClientConfig:
             f"jira_default = {str(self.jira_default).lower()}",
             f"role_mode = {q(self.role_mode)}",
         ]
+        cal = self.extra.get("calendar") or {}
+        if cal:
+            lines += ["", "[calendar]", *(f"{k} = {q(str(v))}" for k, v in sorted(cal.items()))]
         path.write_text("\n".join(lines) + "\n")
         path.chmod(0o600)  # contains a token
         return path

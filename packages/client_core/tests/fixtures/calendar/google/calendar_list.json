@@ -1,0 +1,24 @@
+{
+  "kind": "calendar#calendarList",
+  "items": [
+    {
+      "id": "mahmoud@acme.com",
+      "summary": "mahmoud@acme.com",
+      "primary": true,
+      "selected": true,
+      "accessRole": "owner"
+    },
+    {
+      "id": "team-web@group.calendar.google.com",
+      "summary": "Web team",
+      "selected": true,
+      "accessRole": "reader"
+    },
+    {
+      "id": "holidays@group.v.calendar.google.com",
+      "summary": "Holidays",
+      "selected": false,
+      "accessRole": "reader"
+    }
+  ]
+}

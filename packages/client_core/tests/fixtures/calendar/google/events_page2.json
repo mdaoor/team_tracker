@@ -1,0 +1,156 @@
+{
+  "kind": "calendar#events",
+  "summary": "mahmoud@acme.com",
+  "timeZone": "Asia/Riyadh",
+  "nextSyncToken": "SYNC-1",
+  "items": [
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-6-1\"",
+      "id": "g-evt-6",
+      "status": "confirmed",
+      "summary": "Focus time",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-28T13:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-28T15:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-6@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "accepted",
+          "self": true
+        }
+      ],
+      "eventType": "focusTime"
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-7-1\"",
+      "id": "g-evt-7",
+      "status": "confirmed",
+      "summary": "Out of office",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-30T09:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-30T17:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-7@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "accepted",
+          "self": true
+        }
+      ],
+      "eventType": "outOfOffice"
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-8-1\"",
+      "id": "g-evt-8",
+      "status": "confirmed",
+      "summary": "Design review",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-28T11:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-28T11:45:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-8@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "tentative",
+          "self": true
+        }
+      ]
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-9-2\"",
+      "id": "g-evt-9",
+      "status": "cancelled"
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-10-1\"",
+      "id": "g-evt-10",
+      "status": "confirmed",
+      "summary": "Retro",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-29T15:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-29T16:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-10@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "accepted",
+          "self": true
+        }
+      ],
+      "recurringEventId": "g-series-retro",
+      "originalStartTime": {
+        "dateTime": "2026-10-29T15:00:00+03:00"
+      }
+    }
+  ]
+}

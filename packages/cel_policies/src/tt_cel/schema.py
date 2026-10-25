@@ -124,6 +124,7 @@ FUNCTIONS: tuple[Func, ...] = (
     Func("missing_required_dimensions", "Item", (), "list<string>", "Keys of dimensions required for the item's stage that have no confirmed value.", needs="dimensions"),
     Func("wip_count", "Stage", (), "int", "Open items in this stage within the policy's scope (the project for project-grouped policies).", needs="wip"),
     Func("minutes_logged", None, ("string", "string"), "int", "Minutes a person logged in a window (`today`, `7d`).", namespace="metrics", needs="minutes"),
+    Func("development_minutes", None, ("string", "string"), "int", "Minutes a person logged on `#development` work (training, courses, reading) in a window (`7d`, `30d`).", namespace="metrics", needs="development"),
     Func("active_items", None, ("string",), "int", "Items a person currently has an active session on.", namespace="metrics", needs="active"),
     Func("distinct_items", None, ("string", "string"), "int", "Distinct items a person worked on in a window.", namespace="metrics", needs="minutes"),
     Func("wip", None, ("string", "string?"), "int", "Open items of a project, optionally in one stage.", namespace="metrics", needs="wip"),
