@@ -192,6 +192,7 @@ person may select are derived from their roles (`GET /me`).
 * **Authorisation** is declared per op and enforced before it runs; an invisible object is `not_found`, a missing right `forbidden`
   with `details.permission`.
 * **Scope.** Tokens need scope `manage` or above; a `capture` token gets `403 insufficient_scope`. People-admin ops (flag "admin token" below, catalogue field `token_scope`: teams, reporting lines, project members, dimension values, policy activation, tag merge) need the `admin` scope: a `manage` token gets a per-command `rejected` result `insufficient_scope`. Interactive sessions are not narrowed.
+* **Limits.** At most 50 commands per request or batch (`422`, pointer `/commands`; send more with `POST /commands` in chunks). Commands are rate limited per credential (`TT_RATE_COMMANDS_PER_MIN`, default 120): over it the whole request is `429` with `Retry-After`; wait and resend (client ids make that safe).
 * **Audit.** Events carry `source=client` and `payload.command = {op, client_id, client_version, mode, role_mode, forced?, on_behalf_of?}`.
 * See ADR-0050 (merge semantics) and ADR-0056 (execution semantics).
 
