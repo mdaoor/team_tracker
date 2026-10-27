@@ -348,6 +348,7 @@ export interface paths {
         /**
          * Post Commands
          * @description Apply or preview commands in order; a rejected command never fails the others. 207 when any was rejected.
+         *     429 + Retry-After past `TT_RATE_COMMANDS_PER_MIN` commands per credential.
          */
         post: operations["post_commands_api_v1_w__ws__commands_post"];
         delete?: never;
@@ -1406,7 +1407,7 @@ export interface paths {
         put?: never;
         /**
          * Merge Items
-         * @description Direct form of `item.merge` (same service, same permission, same events).
+         * @description Direct form of `item.merge` (same service, same permission, same events); counts as one command for the rate limit.
          */
         post: operations["merge_items_api_v1_w__ws__items_merge_post"];
         delete?: never;
