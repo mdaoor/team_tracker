@@ -45,7 +45,8 @@ from tt_server.domain.capture.ingest_resolve import (
     resolve_item,
     resolve_project,
 )
-from tt_server.domain.common import aware
+from tt_server.domain.capture import dailylog
+from tt_server.domain.common import aware, zone
 from tt_server.domain.items import service as items
 from tt_server.domain.overlay import weights
 from tt_server.domain.overlay.mirrors import sync_item_mirrors
@@ -275,6 +276,10 @@ async def _process(
     await sync_item_mirrors(uow, ws, item, set_by=actor.person_id)
     await weights.recompute_item(uow, ws, item, actor_id=actor.person_id)
     await session.flush()
+    if any(e.event_type in ("time.logged", "activity.ended") for e in ctx.events):
+        # the person-day has work now: keep its DailyLog draft current without waiting for the nightly job or a GET
+        day = aware(ctx.at).astimezone(zone(subject_person.time_zone)).date()
+        await dailylog.build_for_person(uow, ws, subject, day, actor.person_id)
 
     result = MessageResult(
         msg.client_id,

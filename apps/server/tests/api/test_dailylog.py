@@ -45,3 +45,27 @@ async def test_build_confirm_review(api: Api, session_factory) -> None:  # type:
             (await s.scalars(select(m.Event.event_type).where(m.Event.event_type.like("dailylog.%")))).all()
         )
     assert types == {"dailylog.drafted", "dailylog.confirmed", "dailylog.reviewed"}
+
+
+async def test_logging_time_drafts_the_day_at_once(api: Api, session_factory) -> None:  # type: ignore[no-untyped-def]
+    # no GET and no nightly job in between: the ingest path itself keeps the draft current
+    await api.send(action="log_time", item={"title": "review"}, project="WEB", minutes=45)
+    async with session_factory() as s:
+        rows = (await s.scalars(select(m.DailyLog))).all()
+    assert len(rows) == 1 and rows[0].date == date(2026, 10, 23) and rows[0].minutes_total == 45
+    assert rows[0].status.value == "draft"
+    await api.send(action="log_time", item={"title": "review"}, project="WEB", minutes=15)
+    got = (await api.call("GET", "/daily-logs", params={"day": "2026-10-23"})).json()["data"]
+    assert len(got) == 1 and got[0]["minutes_total"] == 60 and got[0]["status"] == "draft"
+
+
+async def test_ending_an_activity_drafts_the_day_in_the_persons_zone(api: Api, session_factory) -> None:  # type: ignore[no-untyped-def]
+    await api.send(action="start", item={"title": "ship"}, project="WEB")
+    async with session_factory() as s:
+        for row in (await s.scalars(select(m.DailyLog))).all():
+            await s.delete(row)
+        await s.commit()
+    await api.send(action="done", item={"title": "ship"}, project="WEB")
+    async with session_factory() as s:
+        rows = (await s.scalars(select(m.DailyLog))).all()
+    assert [r.date for r in rows] == [date(2026, 10, 23)]

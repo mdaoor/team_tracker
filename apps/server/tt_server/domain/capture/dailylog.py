@@ -108,8 +108,16 @@ async def build_for_person(
         session.add(log)
     elif log.status != DailyLogStatus.DRAFT:
         return log
-    log.summary, log.item_ids = "\n".join(lines), sorted(minutes)
-    log.minutes_total, log.blockers = sum(minutes.values()), "; ".join(blockers) or None
+    summary, item_ids = "\n".join(lines), sorted(minutes)
+    total, blocked = sum(minutes.values()), "; ".join(blockers) or None
+    if not created and (log.summary, log.item_ids, log.minutes_total, log.blockers) == (
+        summary,
+        item_ids,
+        total,
+        blocked,
+    ):
+        return log  # nothing changed: no new event
+    log.summary, log.item_ids, log.minutes_total, log.blockers = summary, item_ids, total, blocked
     await session.flush()
     emit(
         uow,
