@@ -149,6 +149,8 @@ export interface PrivacyInfo {
     development: "on" | "off";
     personal: "never";
   };
+  assist: "off" | "on";
+  assist_note: string;
   first_run_done: boolean;
   calendars: string[];
 }
@@ -265,6 +267,7 @@ export interface PersonalBridge {
     work: string;
     meeting: string;
     development: boolean;
+    assist: boolean;
   }): Promise<PrivacyInfo>;
   sent(): Promise<{ sent: SentRow[] }>;
   eraseLocal(): Promise<{ files: string[]; secrets: string[] }>;

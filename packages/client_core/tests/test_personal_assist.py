@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 from conftest import NOW
 from tt_client.parser.personal import parse_personal
 from tt_client.parser.personal_llm import apply_assist, fetch
@@ -67,12 +68,11 @@ def test_fetch_posts_only_the_line_and_project_keys_and_survives_every_failure()
         now=NOW.isoformat(),
         time_zone="UTC",
         projects=[{"key": "WEB"}],
-        token="t",
         client=http,
     )
     assert got == [{"kind": "other", "category": "personal"}]
     body = json.loads(seen[0].content)
-    assert body["pack"] == {"projects": [{"key": "WEB"}]} and seen[0].headers["Authorization"] == "Bearer t"
+    assert body["pack"] == {"projects": [{"key": "WEB"}]} and "authorization" not in seen[0].headers
     assert seen[0].url.path == "/v1/translate/personal"
     for bad in (
         httpx.Response(503, json={}),
@@ -110,11 +110,34 @@ def test_fetch_posts_only_the_line_and_project_keys_and_survives_every_failure()
 
 
 def test_tracker_add_uses_the_assist_callable(tracker: Tracker) -> None:
-    (item,) = tracker.add("fix login 1h", assist=lambda line: [{"kind": "other", "category": "personal"}])
-    assert (
-        item.category == Category.PERSONAL and item.share_policy.value == "never"
-    )  # the model made it more private
+    tracker.settings.set("privacy.assist", "on")
+    (item,) = tracker.add(
+        "sort out the offsite 1h", assist=lambda line: [{"kind": "task", "category": "work"}]
+    )
+    # a less private reading is only ever a suggestion for the person to confirm, never applied
+    assert item.category == Category.PERSONAL
     (plain,) = tracker.add("sort out the offsite 1h", assist=lambda line: None)
     assert (
         plain.category == Category.PERSONAL
     )  # without help an unrecognised line is private; the person can recategorise it
+
+
+def test_the_assist_callable_is_never_called_unless_assist_is_on_and_the_parser_left_a_kind_undecided(
+    tracker: Tracker,
+) -> None:
+    calls: list[str] = []
+
+    def assist(line: str) -> list[dict[str, str]] | None:
+        calls.append(line)
+        return None
+
+    assert tracker.settings.get("privacy.assist") == "off"
+    tracker.add("sort out the offsite 1h", assist=assist)
+    assert calls == []  # off by default
+    tracker.settings.set("privacy.assist", "on")
+    tracker.add("run 30m at 6pm", assist=assist)
+    assert calls == []  # decided by the deterministic parser
+    tracker.add("sort out the offsite 1h", assist=assist)
+    assert calls == ["sort out the offsite 1h"]
+    with pytest.raises(ValueError):
+        tracker.settings.set("privacy.assist", "maybe")

@@ -245,6 +245,9 @@ export function demoBridge(opts: DemoOptions = {}): PersonalBridge & {
       development: "off",
       personal: "never",
     },
+    assist: "off",
+    assist_note:
+      "off: quick-add lines never leave this device. on: a line the parser cannot place may be sent to your [llm] gateway (never to the Team Tracker server).",
     first_run_done: !opts.firstRun,
     calendars: ["google", "microsoft"],
   };
@@ -791,11 +794,12 @@ export function demoBridge(opts: DemoOptions = {}): PersonalBridge & {
       })
     ),
     privacy: async () => (log("privacy"), wait(privacy)),
-    firstRun: async ({ work, meeting, development }) => {
+    firstRun: async ({ work, meeting, development, assist }) => {
       log("firstRun");
       privacy = {
         ...privacy,
         first_run_done: true,
+        assist: assist ? "on" : "off",
         categories: {
           work: work as "ask",
           meeting: meeting as "ask",

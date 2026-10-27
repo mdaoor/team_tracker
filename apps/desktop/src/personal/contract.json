@@ -24,6 +24,7 @@
     "personal_reschedule",
     "personal_send",
     "personal_sent",
+    "personal_set_assist",
     "personal_set_category",
     "personal_setting_set",
     "personal_settings",
@@ -295,6 +296,8 @@
       ]
     },
     "personal_privacy": {
+      "assist": "string",
+      "assist_note": "string",
       "calendars": [],
       "categories": {
         "development": "string",
@@ -343,6 +346,7 @@
       "calendar.skip_private": "boolean",
       "calendar.write_back": "boolean",
       "capacity_hours_per_week": "number",
+      "privacy.assist": "string",
       "privacy.first_run_done": "boolean",
       "share.development": "boolean",
       "share.meeting": "string",
