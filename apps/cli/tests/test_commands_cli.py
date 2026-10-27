@@ -28,7 +28,11 @@ PACK: dict[str, Any] = {
     "manager_rules": [], "glossary": {}, "manual_mode": {"required_fields": ["action", "item", "project"]},
     "my_role_modes": ["reporter", "manager"],
     "my_teams_with_members": [{"name": "payments", "members": ["@sara"]}],
-    "pending_approvals": [{"id": "AP-12", "title": "scope change"}],
+    "pending_approvals": [
+        {"id": "AP-12", "title": "scope change", "project_key": "WEB", "requested_by": "@sara", "requested_at": NOW},
+        {"id": "AP-13", "title": "extra budget", "project_key": "DATA", "requested_by": "@ali", "requested_at": NOW},
+    ],
+    "pending_approvals_count": 2,
 }  # fmt: skip
 
 
@@ -199,7 +203,7 @@ def test_capture_still_works_in_manager_mode(home: Path, server: FakeServer) -> 
 
 def test_approve_waive_queue_and_team_now(home: Path, server: FakeServer) -> None:
     tt("role", "manager")
-    assert "AP-12" in tt("approve")
+    assert "scope change" in tt("approve")
     assert "✓ approval.decide" in tt("approve", "AP-12", "-c", "ok", "--yes")
     assert server.state["commands"][-1]["args"] == {
         "approval": "AP-12",
@@ -220,6 +224,18 @@ def test_approve_waive_queue_and_team_now(home: Path, server: FakeServer) -> Non
     ]
     server.team_activities = [{"person": {"handle": "@sara"}, "item": {"key": "WEB-1", "title": "Login"}}]
     assert "@sara" in tt("team", "now")
+
+
+def test_approve_lists_numbered_rows_and_a_number_decides_that_row(home: Path, server: FakeServer) -> None:
+    tt("role", "manager")
+    out = tt("approve")
+    assert "1  scope change" in out and "2  extra budget" in out and "AP-12" not in out  # ids are not for people
+    assert "tt approve <number>" in out
+    assert "✓ approval.decide" in tt("approve", "1", "--yes")
+    assert server.state["commands"][-1]["args"] == {"approval": "AP-12", "decision": "approved"}
+    assert "✓ approval.decide" in tt("approve", "2", "--reject", "-c", "no budget", "--yes")
+    assert server.state["commands"][-1]["args"]["approval"] == "AP-13"
+    assert "no pending approval number 9" in tt("approve", "9", code=2)
 
 
 def test_preview_command_for_saved_entry(home: Path, server: FakeServer) -> None:

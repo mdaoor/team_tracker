@@ -18,6 +18,14 @@ export interface OpInfo {
   preview: boolean;
   first: boolean;
 }
+/** One row of `pending_approvals` in the ContextPack (a list, never a bare count; the count is `pending_approvals_count`). */
+export interface PendingApproval {
+  id: string;
+  title?: string;
+  project_key?: string;
+  requested_by?: string;
+  requested_at?: string;
+}
 export interface RoleState {
   role: string;
   modes: RoleMode[];
@@ -25,7 +33,7 @@ export interface RoleState {
   ops: OpInfo[];
   offline_catalogue?: boolean;
   review_queue_count?: number;
-  pending_approvals?: { id: string; title?: string }[];
+  pending_approvals?: PendingApproval[];
   error?: string;
 }
 

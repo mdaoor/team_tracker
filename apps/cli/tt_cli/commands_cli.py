@@ -596,18 +596,27 @@ def register_commands(app: typer.Typer) -> None:
         rt = load_runtime()
         cat = _catalogue(rt)
         pack = rt.pack()
+        pending = pack.pending_approvals if pack else []
         if approval is None:
-            pending = pack.pending_approvals if pack else []
             if not pending:
                 typer.echo("no pending approvals")
                 return
-            for a in pending:
-                typer.echo(f"{a.get('id')}  {a.get('title', '')}")
+            for n, a in enumerate(pending, 1):
+                where = f"  [{a['project_key']}]" if a.get("project_key") else ""
+                who = f"  {a['requested_by']}" if a.get("requested_by") else ""
+                typer.echo(f"{n}  {a.get('title') or a.get('id')}{where}{who}")
+            typer.echo("decide with: tt approve <number>  (or --reject)")
             if not is_interactive():
                 raise typer.Exit(0)
-            approval = typer.prompt("approve which id?")
+            approval = typer.prompt("approve which number?")
+        if approval.isdigit():  # the number printed by `tt approve`; ids stay available for scripts
+            n = int(approval)
+            if not 1 <= n <= len(pending):
+                typer.echo(f"no pending approval number {n}; run `tt approve` to list them", err=True)
+                raise typer.Exit(2)
+            approval = str(pending[n - 1]["id"])
         args: dict[str, Any] = {
-            "approval": approval.upper(),
+            "approval": approval if len(approval) > 8 else approval.upper(),
             "decision": "rejected" if reject else "approved",
         }
         if comment:
