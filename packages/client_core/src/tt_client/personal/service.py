@@ -465,18 +465,24 @@ class Tracker:
         return {"sent": sent, "needs_project": needs_project}
 
     def confirm_daily_log(self, api: Any, day: date | None = None) -> dict[str, Any]:
-        """Confirm the server DailyLog for `day` — only when something was actually sent that day."""
+        """Confirm the server DailyLog for `day`.
+
+        The planner's own "sent" list gates it only when the server has no time for the day: work reported through
+        `tt say` makes a draft with minutes by itself, and that is as confirmable as anything sent from the planner."""
         day = day or self.today
         start, end = views.day_bounds(day, self.env.tz)
-        if not any(
+        sent_today = any(
             r.unsent_at is None and start <= r.at < end + timedelta(days=1)
             for i in self.store.items() for r in i.sent_refs
-        ):  # fmt: skip
-            return {
-                "confirmed": False,
-                "reason": "nothing was sent today",
-                "sentence": "Nothing to confirm yet: nothing was sent today.",
-            }
+        )  # fmt: skip
+        if not sent_today:
+            existing = api.daily_logs(day.isoformat())
+            if not existing or not (existing[0].get("minutes_total") or 0):
+                return {
+                    "confirmed": False,
+                    "reason": "nothing was sent today",
+                    "sentence": "Nothing to confirm yet: nothing was sent today.",
+                }
         self.deliver(api)
         logs = api.daily_logs(day.isoformat())
         if not logs:

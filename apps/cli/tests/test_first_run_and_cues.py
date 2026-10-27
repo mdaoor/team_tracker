@@ -264,6 +264,16 @@ def test_eod_confirm_without_a_draft_explains_in_words(personal_api: Backend) ->
     assert "{" not in out and "no draft" in out.lower() and personal_api.confirmed == []
 
 
+def test_eod_confirm_confirms_work_logged_through_capture_even_if_nothing_was_sent_from_the_planner(
+    personal_api: Backend,
+) -> None:
+    """The draft exists because time was reported (`tt say ... took 45m`); the planner's own 'sent' list is empty."""
+    personal_api.log = RECORDED_LOG
+    out = tt("eod", "--confirm")
+    assert "Confirmed your day: 45 min on WEB-136." in out and "nothing was sent" not in out
+    assert personal_api.confirmed == [RECORDED_LOG["id"]]
+
+
 def test_eod_confirm_with_nothing_sent_today_says_why(personal_api: Backend) -> None:
     out = tt("eod", "--confirm")
     assert "{" not in out and "nothing was sent today" in out
