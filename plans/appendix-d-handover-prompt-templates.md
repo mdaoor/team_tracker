@@ -131,3 +131,54 @@ Build in the numbered task order: encrypted local store + model + RRULE material
 
 Final report per phase: what changed by module, tests and coverage per package against appendix B floors, review findings closed by number (Phase 13), deviations from the plans and why, ADRs written, open product questions (at minimum: Kerberos/Postgres TLS waiver status, default share policy for meetings, whether coaches may see development hours, Graph admin-consent for attendance reports).
 ```
+
+## D.7 Must‑fix prompt for PR #11 (phases 13–15), after the 2026‑10‑25 PR review
+```
+You are fixing the must-fix findings of the review of PR #11 in repository mdaoor/team_tracker.
+
+Branches
+- PR #11 is feat/phase-14-server → claude/listed-plan-implementation-hygguz (HEAD 91d85c3 at review time). Create `fix/pr11-must-fix` from feat/phase-14-server, push it, and open a PR into feat/phase-14-server (so PR #11 absorbs it) — or push to feat/phase-14-server directly if you own it. Never commit to `main`; never rewrite history on a branch you did not create.
+- The review is on `main`: docs/reviews/2026-10-25-pr11-review.md (merge mdaoor/team_tracker#12 first if still open; until then read it from branch claude/optimistic-pasteur-lb1pvw). Parts 1–4 carry file:line evidence at HEAD 91d85c3; re-locate lines if the files moved. The plans it checks against are plans/15-*, 16-*, 17-*.md; the seven non-negotiable rules are in plans/README.md.
+
+Rules of engagement
+- One failing regression test per item BEFORE the fix; the fix is done when that test passes and `make check` is green. A finding without a test that would fail on the old code is not closed.
+- Run the DB suite with TT_TEST_DATABASE_URL set, `-n 4 --timeout 120 -k "not perf"` (it takes ~7 min). Run `pnpm --filter @tt/web test`, `pnpm --filter @tt/web build`, `pnpm --filter @tt/presentation test`, and the package suites (`uv run pytest packages apps/cli apps/llm_gateway apps/slack_bot`).
+- Small conventional commits, one per item (`fix(cmd): …`, `fix(personal): …`). Update docs/api/openapi.json when a contract changes; add ADR amendments where named below.
+- Do not widen scope to the should-fix list; list anything you notice for later in the final report.
+
+ITEM 1 — pending_approvals contract (review Part 2 H2; UX Part 4 §(c) 2)
+Server (apps/server/tt_server/domain/contextpack_roles.py:61-76) returns an int; clients expect a list. Change the server to return `pending_approvals: [{id, title, project_key, requested_by, requested_at}]` (keep a separate `pending_approvals_count` if anything needs the number). Verify tt_client/pack.py:80-81,130-132, apps/cli (`tt approve`), Slack `/tt approvals`, desktop types.ts:28 and both gateway tasks consume the list. Tests: (a) server test asserting the list shape; (b) a client parity test that loads a REAL `/context-pack` response from the seeded API into `ContextPack` and calls `.compact()` without error; (c) CLI test: `tt approve` with no id lists approvals numbered and `tt approve 1` decides the first.
+
+ITEM 2 — `tt sync` auto-confirms destructive commands (Part 2 H1)
+packages/client_core/src/tt_client/outbox.py:160-164,182 stamps `_meta.confirmed=True` on every queued command. Only stamp `confirmed` for commands whose outbox entry carries `confirmed_at` set by `plan_confirmation` (CLI `tt do`/`tt cmd`/`tt send`, sidecar `_send`, Slack confirm). `tt sync` must skip unconfirmed destructive commands, print "kept in the outbox: needs confirmation (tt send <id> --yes)", and `_deliver` (apps/cli/tt_cli/main.py:67-97) must print per-command results and exit 1 when any command was rejected. Tests: stage a destructive command with `--no-send`, run `tt sync`, assert the server never received it and the entry remains; a confirmed one is delivered; a rejected command makes `tt sync` exit non-zero with the reason shown.
+
+ITEM 3 — `manage` token reaches people-admin ops via /commands (Part 2 H3)
+apps/server/tt_server/api/commands/execute.py:51-52 only requires scope `manage`. Add `token_scope` to the command spec (default `manage`; `admin` for team.create|add_members|remove_members, reporting_line.set, project.add_member, dimension.value.add, policy.activate|deactivate, tag.merge) and check it in `run()` before the permission check, returning per-command `rejected` with code `insufficient_scope`. Test: a token minted with scopes [capture, read, manage] can run item.* ops but gets `insufficient_scope` on team.create and reporting_line.set, via both POST /commands and /capture/batches; an admin-scoped token succeeds. Add a registry test asserting every op declares token_scope ∈ {manage, admin}.
+
+ITEM 4 — rate limit and batch cap for commands (Part 2 H4, M9)
+Add `rate_commands_per_min` (default 120) to settings and include POST /commands and POST /items:merge in the credential-keyed window (apps/server/tt_server/main.py:172-180, ratelimit.py). Add `max_length=50` to `ClientBatch.commands` in packages/schema (tt_schema.client:121) and return 422 with a pointer when exceeded. Tests: 121st command in a minute → 429 with Retry-After; a batch with 51 commands → 422 naming /commands.
+
+ITEM 5 — personal quick-add lines leave the device without opt-in (Part 3 High 1)
+apps/cli/tt_cli/personal.py:212-220 and tt_client/personal/service.py:add call the gateway for every line; parser/personal_llm.py:fetch sends the line, actor, project keys AND the server bearer token. Add personal setting `privacy.assist` (default `off`), shown on the first-run sheet and in `tt privacy`; call the gateway only when `on` AND the deterministic parser did not already decide (`kind_source == "default"`); never send the server token (the gateway has its own caller auth). Tests: with `[llm] gateway_url` configured and assist off, `tt add "therapy 5pm"` makes no HTTP request (use the existing network-deny fixture); with assist on, the request body contains no `Authorization` header and no token field. Amend ADR-0053 with the decision.
+
+ITEM 6 — auto-sent meetings carry title and attendee handles (Part 3 High 2)
+tt_client/personal/send.py:44-50,98,103. When `share.meeting=auto` or `send_each_instance` is set, send a neutral title ("Meeting · 1 h") and omit attendee handles unless the person has confirmed the note template once for that series (store `note_consent_at` on the series memory; the tray shows the exact note before the first auto-send of a series). Manual sends from the tray keep showing the full note for the person to edit. Fix ADR-0054 §4 and the send.py docstring to state what is actually sent in each mode. Tests: auto mode without consent → title "Meeting · 1 h", no handles, no raw calendar subject in `raw_input`; after consent → the template is used; manual send → whatever the person saw in the tray.
+
+ITEM 7 — CLI/desktop payload mismatches and end-of-day (Part 4 §(c) 1–3, §(d) 1; Part 4 issue 15)
+7a `tt queue`: CLI reads id/summary/title/default_choice but the API returns ref/item_key/item_title/suggested.choice; the desktop QueuePanel reads the same wrong fields. Map once in tt_client (one `ReviewRow` dataclass from the API shape) and render `INBOX-sara-1 · <title> · @sara · 3 min → WEB [Enter]`. Test against a recorded real `/review-queue` response.
+7b `tt team now`: payload key mismatch (person/item). Map in tt_client; show `@sara · WEB-114 fix the login redirect loop · 12 min`. Test with a recorded `/activities?team=mine` response.
+7c Daily log: a DailyLog draft must exist as soon as time is logged or an activity ends for that person-day (server: create/update the draft in the ingest path for time.logged and activity.ended, in the person's zone), and `GET /daily-logs?date=` must return it. `tt today` then shows it; `tt eod --confirm` confirms it and prints a sentence, never raw JSON. Tests: server test "log 45 min → draft exists for that date with minutes_total 45"; CLI test for `tt today` and `tt eod --confirm` output.
+
+ITEM 8 — glossary learning regressed on review resolve (Part 4 §(a) 9)
+Resolving an unclassified_project row to a project no longer writes a learned glossary entry (previous build did) and the "Don't learn" affordance is gone. Restore learning in domain/overlay/review.py resolve (phrase = the item's raw title words that matched, → project), keep the Undo and add "Don't learn" to the toast (removes the learned row). Tests: server test asserting a `glossary_entries{source=learned}` row after resolve and its removal via the don't-learn endpoint; the existing e2e for the toast.
+
+ITEM 9 — commit allow-list unpinned (Part 1 High 1)
+`uow.commit_bookkeeping()` (db/uow.py:61-67) commits anything pending and resets the projection flag; it is now called mid-workflow (integrations/jira/sync.py:196,284,336,350; api/deps.py:142) and `commit(allow_unlogged=True)` is used in api/commands/execute.py:160 and recurrence.py:151. Make `commit_bookkeeping()` raise `MissingEventError` if `_touched_projection` is already True (so it can only commit bookkeeping rows), fix any caller that relied on the leak by emitting the proper event, and add tests/unit/test_commit_allowlist.py that asserts the exact permitted call sites of `commit_bookkeeping`, `commit_derived` and `allow_unlogged=True` (a frozen list in the test; adding a site requires editing the test). If the command executor needs `allow_unlogged`, replace it with a real `command.applied` event so the guard holds.
+
+ITEM 10 — CI security job (pip-audit)
+`filelock 3.32.7` has three CVEs; bump to ≥ 4.2.1 in uv.lock (`uv lock --upgrade-package filelock`), re-run `uv run --with pip-audit pip-audit …` locally as in .github/workflows/ci.yml, and confirm the job is green on the PR.
+
+Also update the PR #11 description: R5.2/R5.3 are done; router max is 391 lines; docstring coverage 94 %; the missing desktop piece is the PyInstaller sidecar binary and Tauri build (Phase 14), not the entry point; add the ten items above as "fixed in <commit>".
+
+Final report: per item — test added (path::name), fix (files), suite results (counts), anything out of scope you noticed. Then run the review doc's UX re-walk commands for `tt approve`, `tt queue`, `tt team now`, `tt today`/`tt eod --confirm`, `tt sync` with a staged destructive command, and paste the terminal output.
+```
