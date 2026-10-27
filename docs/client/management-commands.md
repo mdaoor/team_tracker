@@ -116,6 +116,12 @@ or use `tt say …` for capture lines that start with one of them.
   skips it, and `--force` is recorded: `args._meta.forced = true`. Without a terminal and without the flags the entry stays in the outbox
   (exit code 3). The desktop sidecar and Slack enforce the same rule in code, not only in the UI (two confirmations; Slack uses its native
   confirmation dialog and refuses a click that did not come through it).
+* **`tt sync` delivers only what a person confirmed.** Every outbox entry that carries commands has a `confirmed_at`, set when the
+  confirmation step passed (`tt do` / `tt cmd` / `tt approve` / `tt send` with an answer or `--yes`/`--force`, the sidecar's `_send`, a Slack
+  button). `tt sync` sends such entries and stamps `_meta.confirmed` on exactly those commands. An entry saved with `--no-send`, adopted
+  from a file, or left behind by a destructive command that only had `--yes` has no `confirmed_at`: `tt sync` prints
+  `kept in the outbox: needs confirmation (tt send <id> --yes)` and never posts it, ordinary or destructive. `tt sync` prints one line per
+  command (`✓ op` / `✗ op rejected: <reason>`) and exits 1 if the server rejected any.
 * **Audit.** Every command carries `args._meta = {client_version, mode, role_mode, forced}`; the server records it in the event payload
   next to `payload.command`. `on_behalf_of` is recorded too.
 * **The gateway cannot be talked into new powers.** It offers the model only catalogue ops, drops any op or argument that is not in the

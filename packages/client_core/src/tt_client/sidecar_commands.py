@@ -208,6 +208,7 @@ def _send(ctx: CommandContext, cat: Catalogue, args: dict[str, Any]) -> dict[str
         return {"status": "needs_second_confirmation", "destructive": plan.destructive}
     cmds = apply_force(cat, cmds, force)
     entry = stage(ctx.outbox, ctx.workspace, cmds, mode=str(args.get("mode", "assisted")))
+    ctx.outbox.confirm(entry)
     report = sync(ctx.api, ctx.outbox, only=[entry])
     if report.offline:
         return {"status": "queued", "kept": report.kept}

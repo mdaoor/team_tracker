@@ -184,6 +184,60 @@ def test_cmd_offline_queues_then_sync_delivers(home: Path, server: FakeServer) -
     assert server.state["tags"] == ["q4"]
 
 
+def _queued(home: Path) -> list[Path]:
+    return sorted((home / "data" / "outbox").glob("*.json"))
+
+
+def test_sync_never_delivers_an_unconfirmed_destructive_command(home: Path, server: FakeServer) -> None:
+    tt("role", "manager")
+    assert "saved" in tt("do", "merge WEB-101 and WEB-105", "--no-send")
+    out = tt("sync")
+    assert "kept in the outbox: needs confirmation (tt send " in out and "--yes)" in out
+    assert not [c for c in server.commands_seen if not c.get("preview_only")]  # the server never got it
+    assert not server.state.get("merged") and not server.applied_log
+    assert len(_queued(home)) == 1
+    again = tt("sync")  # still kept, still unsent
+    assert "needs confirmation" in again and not server.state.get("merged")
+
+
+def test_sync_keeps_an_unconfirmed_ordinary_command_too(home: Path, server: FakeServer) -> None:
+    tt("role", "manager")
+    tt("do", "tag WEB-101 #q4", "--no-send")
+    assert "needs confirmation" in tt("sync")
+    assert not [c for c in server.commands_seen if not c.get("preview_only")] and len(_queued(home)) == 1
+    ref = json.loads(_queued(home)[0].read_text())["commands"][0]["client_id"][:8]
+    assert "✓ item.tag" in tt("send", ref, "--yes")  # the explicit confirmation delivers it
+
+
+def test_a_confirmed_destructive_command_queued_offline_is_delivered_by_sync(
+    home: Path, server: FakeServer
+) -> None:
+    tt("role", "manager")
+    tt("ops")
+    server.offline = True
+    tt("cmd", "item.merge", "--arg", "sources=WEB-101,WEB-105", "--arg", "target=WEB-101", "--yes", "--force")
+    assert len(_queued(home)) == 1 and not server.state.get("merged")
+    server.offline = False
+    tt("sync")
+    assert server.state["merged"]
+    last = [e for e in server.applied_log if e["kind"] == "command"][-1]
+    assert last["meta"]["confirmed"] is True and last["meta"]["forced"] is True
+
+
+def test_sync_reports_each_command_and_exits_nonzero_when_one_is_rejected(
+    home: Path, server: FakeServer
+) -> None:
+    tt("role", "manager")
+    tt("ops")
+    server.offline = True
+    tt("cmd", "tag.create", "--arg", "name=q4", "--yes")  # confirmed, queued
+    server.offline = False
+    server.rejects["tag.create"] = "tags are frozen this week"
+    out = tt("sync", code=1)
+    assert "tag.create" in out and "rejected" in out and "tags are frozen this week" in out
+    assert not server.state["tags"]
+
+
 def test_mixed_batch_capture_and_command_in_one_file(home: Path, server: FakeServer) -> None:
     tt("role", "manager")
     tt("do", "new tag q4", "--and", "fix the login redirect loop, took 2h", "--yes")

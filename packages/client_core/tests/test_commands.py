@@ -342,7 +342,7 @@ def test_mixed_batch_applies_in_order_and_a_rejection_isolated(tmp_path: Path, c
     batch = make_batch("acme", commands=[ok1, bad, ok2]).model_dump(mode="json", exclude_none=True)
     batch["messages"] = [_msg("m1"), _msg("m2")]
     ob = Outbox(tmp_path)
-    ob.write(batch)
+    ob.confirm(ob.write(batch))
     assert ob.pending()[0].batch_id == "m1"
     report = sync(server, ob)
     assert [e["kind"] + ":" + e["id"] for e in server.applied_log] == [
@@ -365,13 +365,27 @@ def test_commands_only_batch_and_idempotent_retry(tmp_path: Path, cat: Catalogue
     server = FakeServer(cat)
     cmd = new_command("tag.create", {"name": "q4"}, actor="@m", now=NOW, client_id="only1")
     ob = Outbox(tmp_path)
-    ob.write(make_batch("acme", commands=[cmd]).model_dump(mode="json", exclude_none=True))
+    ob.confirm(ob.write(make_batch("acme", commands=[cmd]).model_dump(mode="json", exclude_none=True)))
     Outbox.validate(ob.load(ob.pending()[0]))  # schema 0.2 file is a valid ClientBatch
     sync(server, ob)
     again = ob.write(make_batch("acme", commands=[cmd]).model_dump(mode="json", exclude_none=True))
+    ob.confirm(again)
     rep = sync(server, ob, only=[again])
     assert server.state["tags"] == ["q4"] and rep.applied_commands == 1  # deduplicated counts as done
     assert [r["status"] for r in rep.results or []] == ["deduplicated"]
+
+
+def test_sync_skips_unconfirmed_commands_and_stamps_only_confirmed_ones(tmp_path: Path, cat: Catalogue) -> None:
+    server = FakeServer(cat)
+    ob = Outbox(tmp_path)
+    cmd = new_command("tag.create", {"name": "q4"}, actor="@m", now=NOW, client_id="draft1")
+    entry = ob.write(make_batch("acme", commands=[cmd]).model_dump(mode="json", exclude_none=True))
+    rep = sync(server, ob)
+    assert [e.batch_id for e in rep.unconfirmed or []] == ["draft1"] and rep.sent == 0
+    assert not server.commands_seen and len(ob.pending()) == 1  # kept, never posted
+    ob.confirm(entry)
+    assert sync(server, ob).sent == 1
+    assert server.applied_log[-1]["meta"]["confirmed"] is True
 
 
 def test_old_batches_stay_valid() -> None:
@@ -387,7 +401,7 @@ def test_failed_message_keeps_unanswered_commands(tmp_path: Path, cat: Catalogue
     batch = make_batch("acme", commands=[cmd]).model_dump(mode="json", exclude_none=True)
     batch["messages"] = [_msg("m1")]
     ob = Outbox(tmp_path)
-    ob.write(batch)
+    ob.confirm(ob.write(batch))
     rep = sync(server, ob)
     assert rep.failed_messages == 1
     kept = ob.load(ob.pending()[0])

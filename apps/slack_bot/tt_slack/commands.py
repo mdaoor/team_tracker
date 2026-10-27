@@ -262,6 +262,7 @@ class CommandHandlers:
 
     def _send(self, rt: Any, entry: Any) -> Reply:
         doc = rt.outbox.load(entry)
+        rt.outbox.confirm(entry)  # reached only from the Confirm / Approve / Reject buttons
         report = sync(rt.api, rt.outbox, only=[entry])
         if report.offline:
             return self._reply(

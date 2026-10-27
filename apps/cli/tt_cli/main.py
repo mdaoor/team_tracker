@@ -65,7 +65,17 @@ def _set_jira(batch: ClientBatch, pack_data: dict[str, Any] | None, force: bool)
 
 
 def _deliver(rt: Runtime, entries: list[Entry]) -> None:
+    from tt_cli.commands_cli import print_command_result
+
+    commands: dict[str, dict[str, Any]] = {}
+    for e in entries:
+        try:
+            commands.update({c["client_id"]: c for c in rt.outbox.load(e).get("commands", [])})
+        except (OSError, ValueError):
+            continue
     report = sync(rt.api, rt.outbox, only=entries)
+    for e in report.unconfirmed or []:
+        typer.echo(f"kept in the outbox: needs confirmation (tt send {e.batch_id[:8]} --yes)")
     if report.offline:
         typer.echo(f"offline — queued {report.kept} batch(es); `tt sync` will deliver them (exactly once).")
         return
@@ -75,6 +85,9 @@ def _deliver(rt: Runtime, entries: list[Entry]) -> None:
             err=True,
         )
     for r in report.results or []:
+        if r.get("client_id") in commands:
+            print_command_result(r, commands[r["client_id"]])
+            continue
         flag = {
             "applied": "✓",
             "deduplicated": "✓ (already had it)",
@@ -93,7 +106,7 @@ def _deliver(rt: Runtime, entries: list[Entry]) -> None:
             typer.echo(f"   → sent to your manager's review queue ({rid[:8]})")
         if r["status"] == "failed":
             typer.echo(f"   error: {r.get('error_code')}", err=True)
-    if report.failed_messages:
+    if report.failed_messages or report.rejected_commands:
         raise typer.Exit(1)
     if rt.cfg.feedback:
         _flush_feedback(rt)
