@@ -209,8 +209,10 @@ async def test_a_manage_token_cannot_run_admin_scope_ops_but_an_admin_token_can(
         ok, t, rl = await via(mg, cmd("item.create", {"title": "x", "project": "WEB"}), cmd("team.create", team), cmd("reporting_line.set", line))  # fmt: skip
         assert ok["status"] == "applied", ok
         for denied in (t, rl):
-            assert denied["status"] == "rejected" and denied["errors"][0]["code"] == "insufficient_scope", denied
-    created = (await via_commands(adm, cmd("team.create", team), cmd("reporting_line.set", line)))
+            assert denied["status"] == "rejected" and denied["errors"][0]["code"] == "insufficient_scope", (
+                denied
+            )
+    created = await via_commands(adm, cmd("team.create", team), cmd("reporting_line.set", line))
     assert [r["status"] for r in created] == ["applied", "applied"], created
     # an interactive session (no token) is unaffected
     assert (await one(api, "team.create", {**team, "name": "Sq2"}))["status"] == "applied"
@@ -408,7 +410,9 @@ async def test_context_pack_carries_role_context_and_team_now(api: Api) -> None:
 
 
 async def test_context_pack_lists_pending_approvals_with_ids(api: Api) -> None:
-    ms = await api.call("POST", "/projects/WEB/milestones", json={"name": "Go-live", "due_date": "2026-12-01"})
+    ms = await api.call(
+        "POST", "/projects/WEB/milestones", json={"name": "Go-live", "due_date": "2026-12-01"}
+    )
     assert ms.status_code == 201, ms.text
     appr = await api.call("POST", f"/milestones/{ms.json()['id']}/approval")
     assert appr.status_code == 201, appr.text

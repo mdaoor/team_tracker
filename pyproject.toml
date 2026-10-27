@@ -53,6 +53,8 @@ ignore = ["E501"]  # `ruff format` wraps code; long docstrings/strings are left 
 "**/slack_tests/**" = ["S", "E501"]
 "tools/**" = ["S"]
 "packages/schema/src/tt_schema/*.py" = ["F403", "F405", "UP007", "UP042", "UP045", "S101"]
+# `token_scope` is the API-token scope an op needs ("manage" | "admin"), not a credential
+"apps/server/tt_server/api/commands/*.py" = ["S105", "S106", "S107"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

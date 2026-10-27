@@ -80,10 +80,14 @@ def _cmd(name: str) -> dict:
     }
 
 
-async def test_commands_are_limited_per_command_across_all_three_entry_points(limited: httpx.AsyncClient) -> None:
+async def test_commands_are_limited_per_command_across_all_three_entry_points(
+    limited: httpx.AsyncClient,
+) -> None:
     h = {"X-Debug-Actor": "@mahmoud"}
     base = "/api/v1/w/acme"
-    r = await limited.post(f"{base}/commands", headers=h, json={"commands": [_cmd(f"a{i}") for i in range(3)]})
+    r = await limited.post(
+        f"{base}/commands", headers=h, json={"commands": [_cmd(f"a{i}") for i in range(3)]}
+    )
     assert r.status_code == 200
     # two more via a capture batch still fit (3 + 2 = 5); the 6th command anywhere is refused
     b = {**batch(), "commands": [_cmd("b0"), _cmd("b1")]}
@@ -91,21 +95,31 @@ async def test_commands_are_limited_per_command_across_all_three_entry_points(li
     over = await limited.post(f"{base}/commands", headers=h, json={"commands": [_cmd("c0")]})
     assert over.status_code == 429 and over.json()["error"]["code"] == "rate_limited"
     assert int(over.headers["retry-after"]) >= 1
-    over = await limited.post(f"{base}/capture/batches", headers=h, json={**batch(), "commands": [_cmd("c1")]})
+    over = await limited.post(
+        f"{base}/capture/batches", headers=h, json={**batch(), "commands": [_cmd("c1")]}
+    )
     assert over.status_code == 429 and int(over.headers["retry-after"]) >= 1
-    merge = await limited.post(f"{base}/items:merge", headers=h, json={"sources": ["WEB-1"], "target": "WEB-2"})
+    merge = await limited.post(
+        f"{base}/items:merge", headers=h, json={"sources": ["WEB-1"], "target": "WEB-2"}
+    )
     assert merge.status_code == 429
     # another credential has its own bucket
     ok = await limited.post(f"{base}/commands", headers={"X-Debug-Actor": "@sara"}, json={"commands": [{**_cmd("s"), "actor": "@sara"}]})  # fmt: skip
     assert ok.status_code in (200, 207)
 
 
-async def test_a_batch_with_too_many_commands_is_a_422_that_points_at_commands(limited: httpx.AsyncClient) -> None:
+async def test_a_batch_with_too_many_commands_is_a_422_that_points_at_commands(
+    limited: httpx.AsyncClient,
+) -> None:
     h = {"X-Debug-Actor": "@mahmoud"}
     r = await limited.post("/api/v1/w/acme/capture/batches", headers=h, json={**batch(), "commands": [_cmd(f"t{i}") for i in range(51)]})  # fmt: skip
     assert r.status_code == 422
     err = r.json()["error"]
-    assert err["code"] == "schema_violation" and err["pointer"] == "/commands" and "POST /commands" in err["message"]
+    assert (
+        err["code"] == "schema_violation"
+        and err["pointer"] == "/commands"
+        and "POST /commands" in err["message"]
+    )
 
 
 async def test_sign_in_endpoints_are_limited_per_address(limited: httpx.AsyncClient) -> None:
