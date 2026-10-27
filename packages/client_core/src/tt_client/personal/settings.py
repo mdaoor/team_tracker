@@ -14,6 +14,7 @@ DEFAULTS: dict[str, Any] = {
     "share.development": False,  # off; one toggle sends development items tagged #development
     "share.personal": "never",  # fixed: there is no control for it
     "privacy.first_run_done": False,
+    "privacy.assist": "off",  # "on": undecided quick-add lines may be classified by the [llm] gateway (ADR-0053); off = never leaves the device
     "unsend_minutes": 10,
     "tray.delay_min": 2,
     "tray.max_age_days": 14,
@@ -47,6 +48,8 @@ class Settings:
             raise ValueError("personal items can never be shared: there is no such control")
         if key in ("share.work", "share.meeting") and value not in ("ask", "auto", "never"):
             raise ValueError("share mode must be ask, auto or never")
+        if key == "privacy.assist" and value not in ("off", "on"):
+            raise ValueError("privacy.assist must be off or on")
         self.store.set_setting(key, value)
 
     def all(self) -> dict[str, Any]:

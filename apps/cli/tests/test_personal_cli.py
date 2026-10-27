@@ -234,3 +234,55 @@ def test_login_keeps_the_calendar_section_of_the_config(home: Path) -> None:
     cfg.save()
     again = ClientConfig.load()
     assert again.extra["calendar"] == {"email": "mahmoud@acme.com"} and again.time_zone == "Asia/Riyadh"
+
+
+# ------------------------------------------------------------------ PR #11 review: quick-add lines leave the device only by opt-in
+GATEWAY = "http://gateway.invalid"
+
+
+@pytest.fixture
+def gateway_calls(home: Path, monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    import httpx
+
+    cfg = ClientConfig(gateway_url=GATEWAY, time_zone="Asia/Riyadh")
+    cfg.extra["calendar"] = {"email": "mahmoud@acme.com"}
+    cfg.save(home / "cfg" / "config.toml")
+    monkeypatch.setenv("TT_TOKEN", "server-bearer-token-123")
+    calls: list[dict[str, Any]] = []
+
+    def post(self: httpx.Client, url: Any, **kw: Any) -> httpx.Response:
+        calls.append({"url": str(url), **kw})
+        return httpx.Response(
+            200,
+            json={"output": {"drafts": [{"kind": "task", "category": "work"}]}},
+            request=httpx.Request("POST", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.Client, "post", post)
+    return calls
+
+
+def test_quick_add_makes_no_http_request_while_assist_is_off(
+    gateway_calls: list[dict[str, Any]],
+) -> None:
+    assert "assist: off" in tt("privacy")
+    tt("add", "therapy 5pm")
+    tt("add", "sort out the offsite 1h")  # undecided kind: still nothing leaves the device
+    assert gateway_calls == []
+
+
+def test_with_assist_on_only_undecided_lines_are_sent_and_never_with_the_server_token(
+    gateway_calls: list[dict[str, Any]],
+) -> None:
+    assert "assist: on" in tt("privacy", "--assist")
+    tt("add", "run 30m at 6pm")  # the deterministic parser decided: no request
+    assert gateway_calls == []
+    tt("add", "sort out the offsite 1h")
+    assert len(gateway_calls) == 1
+    call = gateway_calls[0]
+    assert call["url"] == f"{GATEWAY}/v1/translate/personal"
+    assert "authorization" not in {k.lower() for k in (call.get("headers") or {})}
+    assert "server-bearer-token-123" not in json.dumps(call, default=str)
+    assert tt("privacy", "--no-assist").count("assist: off") == 1
+    tt("add", "another vague thing 1h")
+    assert len(gateway_calls) == 1

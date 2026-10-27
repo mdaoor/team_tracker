@@ -25,6 +25,13 @@ sending is one tap. Spec reference: plan 17 §15.1, §15.6; UX §2 (the reporter
    line (tests scan all of them). "Erase all local data" removes the store (and WAL/SHM files), the store key, the tokens and sync state.
 7. **Export/import** is plaintext JSON on purpose (the person asked for a backup), written 0600.
 8. Sending = a normal `ClientBatch` in the existing outbox (same files, same exactly-once sync).
+9. **Quick-add assist is opt-in (amended after the PR #11 review).** Personal setting `privacy.assist` is `off` by default; it is shown on
+   the first-run sheet and in `tt privacy` (`--assist/--no-assist`). Only when it is `on` **and** the deterministic parser left the kind
+   undecided (`kind_source == "default"`) is the line sent to the `[llm] gateway_url` (`POST /v1/translate/personal`: the line, the
+   handle, the time zone and the project keys/names). A configured gateway alone never causes a request. The Team Tracker server token is
+   never sent to the gateway (it has its own caller auth), and the answer can only make a line more private; a less private reading is a
+   suggestion the person confirms. Tests: `apps/cli/tests/test_personal_cli.py::test_quick_add_makes_no_http_request_while_assist_is_off`,
+   `::test_with_assist_on_only_undecided_lines_are_sent_and_never_with_the_server_token`.
 
 ## Consequences
 * The personal tracker works with no server, no account and no network (a test denies every non-loopback socket).

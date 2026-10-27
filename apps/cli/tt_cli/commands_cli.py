@@ -31,6 +31,7 @@ from tt_client.command_flow import (
 from tt_client.commands import META, new_command, strip_meta
 from tt_client.config import config_dir
 from tt_client.outbox import Entry, SyncReport, sync
+from tt_client.rows import ReviewRow, TeamNowRow
 from tt_client.tls import verify_context
 from tt_schema.client import ClientCommand, ClientMessage
 
@@ -163,21 +164,26 @@ def _confirm_interactive(plan_destructive: list[str]) -> bool:
     return True
 
 
+def print_command_result(r: dict[str, Any], cmd: dict[str, Any]) -> None:
+    """One line per command result: `✓ op`, or `✗ op rejected: <reason>` on stderr."""
+    op = cmd["op"]
+    if r["status"] == "rejected":
+        why = "; ".join(
+            e.get("message", e.get("code", "")) + (f" ({e['pointer']})" if e.get("pointer") else "")
+            for e in r.get("errors", [])
+        )
+        typer.echo(f"✗ {op} rejected: {why}", err=True)
+    else:
+        flag = "✓ (already applied)" if r["status"] == "deduplicated" else "✓"
+        typer.echo(f"{flag} {op}")
+
+
 def _print_results(report: SyncReport, batch: dict[str, Any]) -> None:
     cmd_ids = {c["client_id"]: c for c in batch.get("commands", [])}
     for r in report.results or []:
         cid = r.get("client_id")
         if cid in cmd_ids:
-            op = cmd_ids[cid]["op"]
-            if r["status"] == "rejected":
-                why = "; ".join(
-                    e.get("message", e.get("code", "")) + (f" ({e['pointer']})" if e.get("pointer") else "")
-                    for e in r.get("errors", [])
-                )
-                typer.echo(f"✗ {op} rejected: {why}", err=True)
-            else:
-                flag = "✓ (already applied)" if r["status"] == "deduplicated" else "✓"
-                typer.echo(f"{flag} {op}")
+            print_command_result(r, cmd_ids[cid])
         else:
             item = r.get("item") or {}
             flag = "✓" if r.get("status") in ("applied", "deduplicated", "applied_with_warnings") else "✗"
@@ -251,6 +257,7 @@ def deliver_entry(rt: Runtime, cat: Catalogue, entry: Entry, *, yes: bool, force
             return
     elif plan.forced:
         typer.echo("forced: sending destructive command(s) without confirmation (logged).", err=True)
+    rt.outbox.confirm(entry)  # the person said yes (or passed --yes/--force): `tt sync` may now deliver it
     report = sync(rt.api, rt.outbox, only=[entry])
     if report.offline:
         typer.echo(f"offline — queued {report.kept} batch(es); `tt sync` delivers them (exactly once).")
@@ -532,27 +539,26 @@ def register_commands(app: typer.Typer) -> None:
             typer.echo("review queue is empty")
             return
         cat = _catalogue(rt)
-        picks: list[tuple[str, str]] = []
-        for r in rows:
-            rid = str(r.get("id"))
-            raw_default = r.get("default_choice") or (r.get("choices") or [""])[0]
-            default = json.dumps(raw_default) if isinstance(raw_default, dict) else str(raw_default)
-            typer.echo(
-                f"{rid}  {r.get('summary') or r.get('title') or ''}  → default: {default or 'suggested'}"
-            )
+        picks: list[tuple[str, dict[str, Any]]] = []
+        for row in (ReviewRow.from_api(r) for r in rows):
+            typer.echo(row.line(now()))
+            if row.choice is None:
+                continue  # nothing suggested: the web console is the place to decide
             if accept_defaults or yes:
-                picks.append((rid, default))  # an empty choice means "the server's suggested resolution"
+                picks.append((row.ref, row.choice))
             elif is_interactive():
-                answer = typer.prompt(
-                    "  accept default, type another choice, or [s]kip", default=default or "s"
-                )
-                if answer.lower() not in ("s", "skip"):
-                    picks.append((rid, default if answer == default else answer))
+                answer = typer.prompt("  Enter = accept, s = skip", default="", show_default=False)
+                if answer.strip().lower() not in ("s", "skip"):
+                    picks.append((row.ref, row.choice))
         if not picks:
+            if not (accept_defaults or yes or is_interactive()):
+                typer.echo(
+                    "resolve with: tt queue --accept-defaults (or run it in a terminal and press Enter per row)"
+                )
             return
         meta = cat.require("review.resolve")
         mode = "manual"
-        cmds = [_build(rt, cat, meta, {"row": rid, "choice": ch}, mode=mode) for rid, ch in picks]
+        cmds = [_build(rt, cat, meta, {"row": ref, "choice": ch}, mode=mode) for ref, ch in picks]
         run_commands(rt, cat, cmds, mode=mode, yes=True)
 
     team_app = typer.Typer(help="Your teams", no_args_is_help=True)
@@ -569,16 +575,8 @@ def register_commands(app: typer.Typer) -> None:
         if not acts:
             typer.echo("nobody on your teams has an active task")
             return
-        for a in acts:
-            who = (
-                (a.get("person") or {}).get("handle")
-                if isinstance(a.get("person"), dict)
-                else a.get("person")
-            )
-            item = a.get("item") or {}
-            typer.echo(
-                f"{who or '?':<12} {item.get('key', a.get('key', '')):<10} {item.get('title', a.get('title', ''))}"
-            )
+        for line in (TeamNowRow.from_api(a).line(now()) for a in acts):
+            typer.echo(line)
 
     app.add_typer(team_app, name="team")
 
@@ -596,18 +594,27 @@ def register_commands(app: typer.Typer) -> None:
         rt = load_runtime()
         cat = _catalogue(rt)
         pack = rt.pack()
+        pending = pack.pending_approvals if pack else []
         if approval is None:
-            pending = pack.pending_approvals if pack else []
             if not pending:
                 typer.echo("no pending approvals")
                 return
-            for a in pending:
-                typer.echo(f"{a.get('id')}  {a.get('title', '')}")
+            for n, a in enumerate(pending, 1):
+                where = f"  [{a['project_key']}]" if a.get("project_key") else ""
+                who = f"  {a['requested_by']}" if a.get("requested_by") else ""
+                typer.echo(f"{n}  {a.get('title') or a.get('id')}{where}{who}")
+            typer.echo("decide with: tt approve <number>  (or --reject)")
             if not is_interactive():
                 raise typer.Exit(0)
-            approval = typer.prompt("approve which id?")
+            approval = typer.prompt("approve which number?")
+        if approval.isdigit():  # the number printed by `tt approve`; ids stay available for scripts
+            n = int(approval)
+            if not 1 <= n <= len(pending):
+                typer.echo(f"no pending approval number {n}; run `tt approve` to list them", err=True)
+                raise typer.Exit(2)
+            approval = str(pending[n - 1]["id"])
         args: dict[str, Any] = {
-            "approval": approval.upper(),
+            "approval": approval if len(approval) > 8 else approval.upper(),
             "decision": "rejected" if reject else "approved",
         }
         if comment:

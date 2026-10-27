@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -28,8 +29,17 @@ PACK: dict[str, Any] = {
     "manager_rules": [], "glossary": {}, "manual_mode": {"required_fields": ["action", "item", "project"]},
     "my_role_modes": ["reporter", "manager"],
     "my_teams_with_members": [{"name": "payments", "members": ["@sara"]}],
-    "pending_approvals": [{"id": "AP-12", "title": "scope change"}],
+    "pending_approvals": [
+        {"id": "AP-12", "title": "scope change", "project_key": "WEB", "requested_by": "@sara", "requested_at": NOW},
+        {"id": "AP-13", "title": "extra budget", "project_key": "DATA", "requested_by": "@ali", "requested_at": NOW},
+    ],
+    "pending_approvals_count": 2,
 }  # fmt: skip
+
+
+SERVER_FIXTURES = HERE.parents[2] / "packages" / "client_core" / "tests" / "fixtures" / "server"
+RECORDED_QUEUE = json.loads((SERVER_FIXTURES / "review-queue.json").read_text())["data"]
+RECORDED_TEAM = json.loads((SERVER_FIXTURES / "activities-team-mine.json").read_text())["data"]
 
 
 @pytest.fixture
@@ -180,6 +190,60 @@ def test_cmd_offline_queues_then_sync_delivers(home: Path, server: FakeServer) -
     assert server.state["tags"] == ["q4"]
 
 
+def _queued(home: Path) -> list[Path]:
+    return sorted((home / "data" / "outbox").glob("*.json"))
+
+
+def test_sync_never_delivers_an_unconfirmed_destructive_command(home: Path, server: FakeServer) -> None:
+    tt("role", "manager")
+    assert "saved" in tt("do", "merge WEB-101 and WEB-105", "--no-send")
+    out = tt("sync")
+    assert "kept in the outbox: needs confirmation (tt send " in out and "--yes)" in out
+    assert not [c for c in server.commands_seen if not c.get("preview_only")]  # the server never got it
+    assert not server.state.get("merged") and not server.applied_log
+    assert len(_queued(home)) == 1
+    again = tt("sync")  # still kept, still unsent
+    assert "needs confirmation" in again and not server.state.get("merged")
+
+
+def test_sync_keeps_an_unconfirmed_ordinary_command_too(home: Path, server: FakeServer) -> None:
+    tt("role", "manager")
+    tt("do", "tag WEB-101 #q4", "--no-send")
+    assert "needs confirmation" in tt("sync")
+    assert not [c for c in server.commands_seen if not c.get("preview_only")] and len(_queued(home)) == 1
+    ref = json.loads(_queued(home)[0].read_text())["commands"][0]["client_id"][:8]
+    assert "✓ item.tag" in tt("send", ref, "--yes")  # the explicit confirmation delivers it
+
+
+def test_a_confirmed_destructive_command_queued_offline_is_delivered_by_sync(
+    home: Path, server: FakeServer
+) -> None:
+    tt("role", "manager")
+    tt("ops")
+    server.offline = True
+    tt("cmd", "item.merge", "--arg", "sources=WEB-101,WEB-105", "--arg", "target=WEB-101", "--yes", "--force")
+    assert len(_queued(home)) == 1 and not server.state.get("merged")
+    server.offline = False
+    tt("sync")
+    assert server.state["merged"]
+    last = [e for e in server.applied_log if e["kind"] == "command"][-1]
+    assert last["meta"]["confirmed"] is True and last["meta"]["forced"] is True
+
+
+def test_sync_reports_each_command_and_exits_nonzero_when_one_is_rejected(
+    home: Path, server: FakeServer
+) -> None:
+    tt("role", "manager")
+    tt("ops")
+    server.offline = True
+    tt("cmd", "tag.create", "--arg", "name=q4", "--yes")  # confirmed, queued
+    server.offline = False
+    server.rejects["tag.create"] = "tags are frozen this week"
+    out = tt("sync", code=1)
+    assert "tag.create" in out and "rejected" in out and "tags are frozen this week" in out
+    assert not server.state["tags"]
+
+
 def test_mixed_batch_capture_and_command_in_one_file(home: Path, server: FakeServer) -> None:
     tt("role", "manager")
     tt("do", "new tag q4", "--and", "fix the login redirect loop, took 2h", "--yes")
@@ -199,7 +263,7 @@ def test_capture_still_works_in_manager_mode(home: Path, server: FakeServer) -> 
 
 def test_approve_waive_queue_and_team_now(home: Path, server: FakeServer) -> None:
     tt("role", "manager")
-    assert "AP-12" in tt("approve")
+    assert "scope change" in tt("approve")
     assert "✓ approval.decide" in tt("approve", "AP-12", "-c", "ok", "--yes")
     assert server.state["commands"][-1]["args"] == {
         "approval": "AP-12",
@@ -208,18 +272,67 @@ def test_approve_waive_queue_and_team_now(home: Path, server: FakeServer) -> Non
     }
     assert "reason is required" in tt("waive", "V-9", code=2)
     assert "✓ violation.waive" in tt("waive", "V-9", "--reason", "holiday week", "--yes")
-    server.review_rows = [
-        {"id": "RV-3", "summary": "Tag auth?", "default_choice": "accept", "choices": ["accept", "reject"]},
-        {"id": "RV-4", "summary": "Merge dupes?", "default_choice": "accept"},
-    ]
+    server.review_rows = RECORDED_QUEUE
     out = tt("queue", "--accept-defaults")
-    assert out.count("✓ review.resolve") == 2
-    assert [c["args"]["row"] for c in server.state["commands"] if c["op"] == "review.resolve"] == [
-        "RV-3",
-        "RV-4",
+    assert out.count("✓ review.resolve") == 1
+    assert [c["args"] for c in server.state["commands"] if c["op"] == "review.resolve"] == [
+        {"row": RECORDED_QUEUE[0]["ref"], "choice": {"project": "WEB"}}
     ]
-    server.team_activities = [{"person": {"handle": "@sara"}, "item": {"key": "WEB-1", "title": "Login"}}]
-    assert "@sara" in tt("team", "now")
+    server.team_activities = RECORDED_TEAM[:1]
+    assert RECORDED_TEAM[0]["person"] in tt("team", "now")
+
+
+def test_queue_renders_the_real_server_rows_and_never_prints_none(
+    home: Path, server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tt("role", "manager")
+    server.review_rows = RECORDED_QUEUE
+    created = datetime.fromisoformat(RECORDED_QUEUE[0]["created_at"])
+    monkeypatch.setenv("TT_NOW", (created + timedelta(minutes=3)).isoformat())
+    out = tt("queue")  # no terminal: list, do not resolve
+    assert "INBOX-sara-1 · tidy the ingest retry · @sara · 3 min → WEB [Enter]" in out
+    assert "None" not in out and not server.state["commands"]
+
+
+def test_queue_enter_accepts_the_suggestion_row_by_row(
+    home: Path, server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tt("role", "manager")
+    server.review_rows = RECORDED_QUEUE
+    monkeypatch.setattr("tt_cli.commands_cli.is_interactive", lambda: True)
+    out = tt("queue", input="\n")  # Enter = take the suggested project
+    assert "✓ review.resolve" in out
+    assert server.state["commands"][-1]["args"] == {
+        "row": RECORDED_QUEUE[0]["ref"],
+        "choice": {"project": "WEB"},
+    }
+
+
+def test_team_now_shows_person_item_and_minutes_from_the_real_rows(
+    home: Path, server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tt("role", "manager")
+    server.team_activities = RECORDED_TEAM
+    first = RECORDED_TEAM[0]
+    started = datetime.fromisoformat(first["started_at"].replace("Z", "+00:00"))
+    monkeypatch.setenv("TT_NOW", (started + timedelta(minutes=12)).isoformat())
+    out = tt("team", "now")
+    assert f"{first['person']} · {first['item_key']} {first['item_title']} · 12 min" in out
+    assert "?" not in out.split("\n")[0]
+
+
+def test_approve_lists_numbered_rows_and_a_number_decides_that_row(home: Path, server: FakeServer) -> None:
+    tt("role", "manager")
+    out = tt("approve")
+    assert (
+        "1  scope change" in out and "2  extra budget" in out and "AP-12" not in out
+    )  # ids are not for people
+    assert "tt approve <number>" in out
+    assert "✓ approval.decide" in tt("approve", "1", "--yes")
+    assert server.state["commands"][-1]["args"] == {"approval": "AP-12", "decision": "approved"}
+    assert "✓ approval.decide" in tt("approve", "2", "--reject", "-c", "no budget", "--yes")
+    assert server.state["commands"][-1]["args"]["approval"] == "AP-13"
+    assert "no pending approval number 9" in tt("approve", "9", code=2)
 
 
 def test_preview_command_for_saved_entry(home: Path, server: FakeServer) -> None:

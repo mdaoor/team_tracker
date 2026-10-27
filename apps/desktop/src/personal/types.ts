@@ -103,6 +103,8 @@ export interface TrayEntry {
   note: string;
   due_at: string;
   auto: boolean;
+  /** The exact note an automatic send of this entry carries now (neutral until the series note template is confirmed). */
+  auto_sends: string;
   online_meeting_url: string | null;
   suggestion: Suggestion;
   needs_project: boolean;
@@ -149,6 +151,8 @@ export interface PrivacyInfo {
     development: "on" | "off";
     personal: "never";
   };
+  assist: "off" | "on";
+  assist_note: string;
   first_run_done: boolean;
   calendars: string[];
 }
@@ -247,9 +251,13 @@ export interface PersonalBridge {
   eodSendAll(
     date?: string,
   ): Promise<{ sent: SendResult[]; needs_project: string[] }>;
-  eodConfirm(
-    date?: string,
-  ): Promise<{ confirmed: boolean; reason?: string; minutes_total?: number }>;
+  eodConfirm(date?: string): Promise<{
+    confirmed: boolean;
+    reason?: string;
+    minutes_total?: number;
+    /** One plain sentence, e.g. "Confirmed your day: 45 min on WEB-114." */
+    sentence?: string;
+  }>;
   weeklyReview(date?: string): Promise<WeeklyReview>;
   developmentSummary(
     date?: string,
@@ -265,6 +273,7 @@ export interface PersonalBridge {
     work: string;
     meeting: string;
     development: boolean;
+    assist: boolean;
   }): Promise<PrivacyInfo>;
   sent(): Promise<{ sent: SentRow[] }>;
   eraseLocal(): Promise<{ files: string[]; secrets: string[] }>;

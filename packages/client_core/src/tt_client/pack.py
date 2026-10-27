@@ -78,7 +78,9 @@ class ContextPack:
 
     @property
     def pending_approvals(self) -> list[dict[str, Any]]:
-        return list(self.data.get("pending_approvals", []))
+        """`[{id, title, project_key, requested_by, requested_at}]`. A server that still sends a bare count gives no rows."""
+        raw = self.data.get("pending_approvals")
+        return [dict(a) for a in raw if isinstance(a, dict)] if isinstance(raw, list) else []
 
     def item_project(self, *, key: str | None = None, title: str | None = None) -> str | None:
         """The project of one of my open items, found by key or exact title."""
@@ -128,7 +130,8 @@ class ContextPack:
             ],
             "my_projects_as_manager": self.my_projects_as_manager,
             "pending_approvals": [
-                {"id": a.get("id"), "title": a.get("title")} for a in d.get("pending_approvals", [])
+                {"id": a.get("id"), "title": a.get("title"), "project_key": a.get("project_key")}
+                for a in self.pending_approvals
             ],
             "manager_rules": d.get("manager_rules", []),
             "glossary": d.get("glossary", {}),

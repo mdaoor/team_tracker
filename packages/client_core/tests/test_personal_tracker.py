@@ -435,7 +435,8 @@ def test_end_of_day_sends_every_unsent_work_item_in_two_taps_and_confirms_the_da
     ]  # the third needs a 3-choice chip, nothing is guessed
     api.logs[0]["minutes_total"] = 180
     tap2 = tracker.confirm_daily_log(api)  # tap 2: confirm the DailyLog
-    assert tap2 == {"confirmed": True, "minutes_total": 180} and api.confirmed == ["dl-1"]
+    assert tap2 == {"confirmed": True, "minutes_total": 180, "sentence": "Confirmed your day: 3 h."}
+    assert api.confirmed == ["dl-1"]
     assert [m["project"] for b_ in api.batches for m in b_["messages"]] == ["WEB", "DATA"]
     assert tracker.end_of_day()["sent_count"] == 2
 
@@ -443,7 +444,11 @@ def test_end_of_day_sends_every_unsent_work_item_in_two_taps_and_confirms_the_da
 def test_the_daily_log_is_only_confirmed_for_what_was_sent(tracker: Tracker) -> None:
     api = StubApi()
     tracker.complete(tracker.add("run 30m at 6pm")[0].id)
-    assert tracker.confirm_daily_log(api) == {"confirmed": False, "reason": "nothing was sent today"}
+    assert tracker.confirm_daily_log(api) == {
+        "confirmed": False,
+        "reason": "nothing was sent today",
+        "sentence": "Nothing to confirm yet: nothing was sent today.",
+    }
     assert api.confirmed == [] and api.batches == []
 
 
@@ -651,3 +656,77 @@ def test_a_calendar_project_hint_never_leaks_attendees_or_titles_into_developmen
         and "attendees" not in msg
         and Status.DONE.value not in json.dumps(msg["source"])
     )
+
+
+# ---------------------------------------------------------------------------------------------------- PR #11 review: auto-send disclosure
+def _retro(tracker: Tracker, event: str, day: int, *, subject: str = "Retro: layoffs plan") -> PersonalItem:
+    return tracker.store.put_item(
+        PersonalItem(
+            title=subject,
+            kind="meeting",
+            category="meeting",
+            start=datetime(2026, 10, day, 6, 0, tzinfo=UTC),
+            duration_min=60,
+            project_hint="WEB",
+            calendar_ref={
+                "provider": "google",
+                "calendar_id": "mahmoud@acme.com",
+                "event_id": event,
+                "series_id": "g-series-retro",
+            },  # type: ignore[arg-type]
+            attendees=["sara@acme.com", "ali@acme.com"],
+        )
+    )
+
+
+def test_auto_sent_meetings_carry_a_neutral_title_and_no_handles_until_the_note_is_confirmed(
+    tracker: Tracker, clock: FakeClock
+) -> None:
+    tracker.remember_share(Category.MEETING, "auto")
+    first = _retro(tracker, "g-1", 20)
+    clock.now = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
+    (row,) = tracker.autosend()
+    assert row["item"] == first.id
+    (msg,) = outbox_messages(tracker)
+    assert msg["note"] == "Meeting · 1 h" and msg["item"] == {"title": "Meeting · 1 h"}
+    wire = json.dumps(msg)
+    assert "@sara" not in wire and "@ali" not in wire and "Retro" not in wire and "layoffs" not in wire
+    assert "layoffs" not in msg["raw_input"]  # no raw calendar subject in raw_input either
+
+
+def test_after_the_person_confirmed_the_template_auto_sends_use_it(
+    tracker: Tracker, clock: FakeClock
+) -> None:
+    tracker.remember_share(Category.MEETING, "auto")
+    first = _retro(tracker, "g-1", 20)
+    clock.now = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
+    tray = next(e for e in tracker.tray() if e.item.id == first.id)
+    assert (
+        tray.as_dict()["auto_sends"] == "Meeting · 1 h"
+    )  # the tray shows exactly what an auto-send would say
+    tracker.send(
+        first.id
+    )  # the person sees the full note in the tray and sends it: that confirms the template
+    second = _retro(tracker, "g-2", 21)
+    clock.now = datetime(2026, 10, 22, 12, 0, tzinfo=UTC)
+    assert next(e for e in tracker.tray() if e.item.id == second.id).as_dict()["auto_sends"] == (
+        "Retro: layoffs plan with @sara, @ali"
+    )
+    tracker.autosend()
+    msgs = outbox_messages(tracker)
+    assert msgs[0]["note"] == "Retro: layoffs plan with @sara, @ali"  # manual: what the person saw
+    assert msgs[1]["note"] == "Retro: layoffs plan with @sara, @ali" and msgs[1]["item"]["title"].startswith(
+        "Retro"
+    )
+
+
+def test_an_edited_manual_note_does_not_confirm_the_template(tracker: Tracker, clock: FakeClock) -> None:
+    tracker.remember_share(Category.MEETING, "auto")
+    first = _retro(tracker, "g-1", 20)
+    clock.now = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
+    tracker.send(first.id, note="Retro (edited by hand)")
+    _retro(tracker, "g-2", 21)
+    clock.now = datetime(2026, 10, 22, 12, 0, tzinfo=UTC)
+    tracker.autosend()
+    msgs = outbox_messages(tracker)
+    assert msgs[0]["note"] == "Retro (edited by hand)" and msgs[1]["note"] == "Meeting · 1 h"

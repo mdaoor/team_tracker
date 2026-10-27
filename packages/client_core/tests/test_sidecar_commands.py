@@ -15,6 +15,7 @@ from tt_client.pack import ContextPack
 from tt_client.sidecar_commands import VERBS, CommandContext, dispatch
 from tt_client.testing.fake_command_server import FakeServer
 
+FIXTURES = Path(__file__).parent / "fixtures" / "server"
 NOW = datetime.fromisoformat("2026-10-23T12:00:00+00:00")
 CAT = Path(__file__).parent / "fixtures" / "catalogue.json"
 
@@ -113,14 +114,28 @@ def test_incomplete_phrase_returns_a_prefilled_form(ctx: CommandContext) -> None
 
 
 def test_queue_team_now_and_resolve(ctx: CommandContext, server: FakeServer) -> None:
-    server.review_rows = [{"id": "RV-3", "summary": "x", "default_choice": "accept"}]
-    server.team_activities = [{"person": "@sara"}]
-    assert dispatch("cmd-queue", {}, ctx)["rows"][0]["id"] == "RV-3"
-    assert dispatch("cmd-team-now", {}, ctx)["activities"][0]["person"] == "@sara"
-    res: Any = dispatch("cmd-resolve", {"rows": [{"id": "RV-3", "choice": "accept"}]}, ctx)
+    queue = json.loads((FIXTURES / "review-queue.json").read_text())["data"]
+    team = json.loads((FIXTURES / "activities-team-mine.json").read_text())["data"]
+    server.review_rows, server.team_activities = queue, team
+    (row,) = dispatch("cmd-queue", {}, ctx)[
+        "rows"
+    ]  # mapped once in tt_client.rows: the palette never sees API field names
+    assert (row["ref"], row["item_key"], row["reporter"], row["choice_label"]) == (
+        queue[0]["ref"],
+        "INBOX-sara-1",
+        "@sara",
+        "WEB",
+    )
+    assert (
+        row["line"].startswith("INBOX-sara-1 · tidy the ingest retry · @sara") and "None" not in row["line"]
+    )
+    first = dispatch("cmd-team-now", {}, ctx)["activities"][0]
+    assert (first["person"], first["item_key"]) == (team[0]["person"], team[0]["item_key"])
+    assert first["line"].startswith(f"{team[0]['person']} · {team[0]['item_key']} {team[0]['item_title']}")
+    res: Any = dispatch("cmd-resolve", {"rows": [{"ref": row["ref"], "choice": row["choice"]}]}, ctx)
     assert res["status"] == "sent" and server.state["commands"][-1]["args"] == {
-        "row": "RV-3",
-        "choice": {"choice": "accept"},
+        "row": queue[0]["ref"],
+        "choice": {"project": "WEB"},
     }
 
 

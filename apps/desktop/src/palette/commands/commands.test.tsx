@@ -130,6 +130,25 @@ const TEAM_FORM: FormSpec = {
   ],
 };
 
+function queueRow(
+  ref: string,
+  item_key: string,
+  item_title: string,
+  project: string | null,
+) {
+  return {
+    ref,
+    item_key,
+    item_title,
+    reporter: "@sara",
+    age: "3 min",
+    kind: "unclassified_project",
+    choice: project ? { project } : null,
+    choice_label: project,
+    line: `${item_key} · ${item_title} · @sara · 3 min${project ? ` → ${project} [Enter]` : " · no suggestion (web console)"}`,
+  };
+}
+
 function bridge(over: Partial<CommandBridge> = {}): CommandBridge {
   return {
     state: vi.fn(async () => STATE),
@@ -157,15 +176,27 @@ function bridge(over: Partial<CommandBridge> = {}): CommandBridge {
     send: vi.fn(async () => ({ status: "sent" as const })),
     queue: vi.fn(async () => ({
       rows: [
-        { id: "RV-3", summary: "Tag auth?", default_choice: "accept" },
-        { id: "RV-4", summary: "Merge dupes?", default_choice: "accept" },
-        { id: "RV-5", summary: "No default" },
+        queueRow(
+          "review_item:3",
+          "INBOX-sara-1",
+          "tidy the ingest retry",
+          "WEB",
+        ),
+        queueRow("review_item:4", "INBOX-ali-2", "merge the dupes", "DATA"),
+        queueRow("review_item:5", "INBOX-ali-3", "something vague", null),
       ],
     })),
     resolve: vi.fn(async () => ({ status: "sent" as const })),
     teamNow: vi.fn(async () => ({
       activities: [
-        { person: { handle: "@sara" }, item: { key: "WEB-1", title: "Login" } },
+        {
+          person: "@sara",
+          item_key: "WEB-114",
+          item_title: "fix the login redirect loop",
+          project_key: "WEB",
+          age: "12 min",
+          line: "@sara · WEB-114 fix the login redirect loop · 12 min",
+        },
       ],
     })),
     ...over,
@@ -467,13 +498,19 @@ describe("My queue and Team now", () => {
     await ready(b);
     fireEvent.click(screen.getByRole("button", { name: "My queue" }));
     const panel = await screen.findByRole("region", { name: "My queue" });
-    expect(within(panel).getByText(/no default/)).toBeInTheDocument();
+    expect(within(panel).getByText(/no suggestion/)).toBeInTheDocument();
+    expect(panel).toHaveTextContent(
+      "INBOX-sara-1 · tidy the ingest retry · @sara · 3 min → WEB",
+    );
+    expect(panel).not.toHaveTextContent("undefined");
     fireEvent.click(
-      within(panel).getByRole("button", { name: "Accept accept for RV-3" }),
+      within(panel).getByRole("button", {
+        name: "Accept WEB for INBOX-sara-1",
+      }),
     );
     await waitFor(() =>
       expect(b.resolve).toHaveBeenCalledWith([
-        { id: "RV-3", choice: "accept" },
+        { ref: "review_item:3", choice: { project: "WEB" } },
       ]),
     );
     fireEvent.click(
@@ -481,8 +518,8 @@ describe("My queue and Team now", () => {
     );
     await waitFor(() =>
       expect(b.resolve).toHaveBeenLastCalledWith([
-        { id: "RV-3", choice: "accept" },
-        { id: "RV-4", choice: "accept" },
+        { ref: "review_item:3", choice: { project: "WEB" } },
+        { ref: "review_item:4", choice: { project: "DATA" } },
       ]),
     );
   });
@@ -492,7 +529,9 @@ describe("My queue and Team now", () => {
     await ready(b);
     fireEvent.click(screen.getByRole("button", { name: "Team now" }));
     const panel = await screen.findByRole("region", { name: "Team now" });
-    expect(panel).toHaveTextContent("@sara · WEB-1 Login");
+    expect(panel).toHaveTextContent(
+      "@sara · WEB-114 fix the login redirect loop · 12 min",
+    );
   });
 });
 

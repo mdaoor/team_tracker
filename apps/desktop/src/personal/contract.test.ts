@@ -89,7 +89,12 @@ describe("the bridge contract written by the Python sidecar tests", () => {
       b.developmentSummary(),
       b.deliver(),
       b.privacy(),
-      b.firstRun({ work: "ask", meeting: "ask", development: false }),
+      b.firstRun({
+        work: "ask",
+        meeting: "ask",
+        development: false,
+        assist: false,
+      }),
       b.sent(),
       b.eraseLocal(),
     ]);
