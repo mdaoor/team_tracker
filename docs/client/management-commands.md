@@ -172,7 +172,7 @@ answers `207`, and nothing is written for the rejected command or changed for it
 * Result: `{client_id, op, status: applied|rejected|previewed, result, preview, errors[{pointer, code, message}]}`.
 * `POST /items:merge` is the direct form of `item.merge`.
 * `GET /me` lists `roles[]`, `role_modes[]`, `can{}`; the ContextPack carries `my_role_modes`, `my_teams_with_members`,
-  `my_projects_as_manager`, `review_queue_count`, `pending_approvals`; `GET /activities?team=mine` is "team now".
+  `my_projects_as_manager`, `review_queue_count`, `pending_approvals` (a list of `{id, title, project_key, requested_by, requested_at}`, the id is what `approval.decide` takes) and `pending_approvals_count`; `GET /activities?team=mine` is "team now".
 
 ### Role modes
 `reporter`, `manager`, `scrum_master`, `coach`, `pm`, `admin`. A mode is a **lens**: it changes which verbs and forms the client

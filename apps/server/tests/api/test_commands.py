@@ -369,6 +369,26 @@ async def test_context_pack_carries_role_context_and_team_now(api: Api) -> None:
     assert (await api.call("GET", "/activities?team=mine", as_="@ali")).json()["data"] == []
 
 
+async def test_context_pack_lists_pending_approvals_with_ids(api: Api) -> None:
+    ms = await api.call("POST", "/projects/WEB/milestones", json={"name": "Go-live", "due_date": "2026-12-01"})
+    assert ms.status_code == 201, ms.text
+    appr = await api.call("POST", f"/milestones/{ms.json()['id']}/approval")
+    assert appr.status_code == 201, appr.text
+    pack = (await api.call("GET", "/context-pack")).json()
+    assert pack["pending_approvals_count"] == 1
+    assert len(pack["pending_approvals"]) == 1
+    row = pack["pending_approvals"][0]
+    assert set(row) == {"id", "title", "project_key", "requested_by", "requested_at"}
+    assert row["id"] == appr.json()["id"] and row["title"] == "Milestone Go-live"
+    assert row["project_key"] == "WEB" and row["requested_by"] == "@mahmoud" and row["requested_at"]
+    res = await one(api, "approval.decide", {"approval": row["id"], "decision": "approved"})
+    assert res["status"] == "applied", res
+    after = (await api.call("GET", "/context-pack")).json()
+    assert after["pending_approvals"] == [] and after["pending_approvals_count"] == 0
+    other = (await api.call("GET", "/context-pack", as_="@ali")).json()
+    assert other["pending_approvals"] == [] and other["pending_approvals_count"] == 0
+
+
 def test_every_op_is_documented() -> None:
     from pathlib import Path
 
