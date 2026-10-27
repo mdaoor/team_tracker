@@ -229,7 +229,7 @@ def test_now_today_and_confirm(home: Path, live: Live) -> None:
     assert asyncio.run(build()) == 1
     today = tt("today")
     assert "draft" in today and "another thing" in today
-    assert "confirmed" in tt("today", "--confirm")
+    assert "Confirmed your day" in tt("today", "--confirm")  # one sentence, not raw JSON
     assert "confirmed" in tt("today")
 
 
