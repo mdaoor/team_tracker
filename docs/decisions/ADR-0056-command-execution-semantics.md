@@ -25,3 +25,15 @@ Date: 2026-10-25   Status: accepted (Phase 14)
    role_mode, forced?, on_behalf_of?}`.
 9. **Previews never write.** Ops with `preview: true` compute their effect in the handler and the executor rolls back whatever the
    handler touched; ops without it answer with a generic description and are not executed.
+
+## Amendments (PR #11 review)
+10. **Per-op token scope.** Every op declares `token_scope` (`manage`, the default, or `admin`; also in the catalogue entry). People-admin
+    ops (`team.create`, `team.add_members`, `team.remove_members`, `reporting_line.set`, `project.add_member`, `dimension.value.add`,
+    `policy.activate`, `policy.deactivate`, `tag.merge`) need `admin`. The check runs before the permission check and rejects that one
+    command with `insufficient_scope` (`details.required_scope`), on `/commands` and on `commands[]` of `/capture/batches`. An interactive
+    session carries the person's full authority and is not narrowed.
+11. **Rate limit and batch cap.** Commands count against a per-credential sliding window (`TT_RATE_COMMANDS_PER_MIN`, default 120; each
+    command counts once, `POST /items:merge` counts as one): over the limit is `429` + `Retry-After` for the whole request. A
+    `ClientBatch` carries at most 50 commands (`422`, pointer `/commands`, message names `POST /commands`).
+12. **The idempotency row rides on an event.** An applied command emits `command.applied` (`op`, `client_id`, `status`), so the
+    `CommandLog` row commits through the normal guard; the executor no longer uses `allow_unlogged`.

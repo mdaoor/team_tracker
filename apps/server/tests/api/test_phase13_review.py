@@ -208,5 +208,7 @@ async def test_resolving_an_inbox_row_without_a_project_phrase_still_learns_from
     ] is True
     assert await learned() == []
     async with session_factory() as s:
-        item = await s.scalar(select(m.WorkItem).where(m.WorkItem.title == "Refactor the ingestion retry loop"))
+        item = await s.scalar(
+            select(m.WorkItem).where(m.WorkItem.title == "Refactor the ingestion retry loop")
+        )
     assert item is not None and item.project_id == data["id"]

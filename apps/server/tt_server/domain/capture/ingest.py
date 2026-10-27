@@ -280,7 +280,7 @@ async def _process(
     if any(e.event_type in ("time.logged", "activity.ended") for e in ctx.events):
         # the person-day has work now: keep its DailyLog draft current without waiting for the nightly job or a GET
         day = aware(ctx.at).astimezone(zone(subject_person.time_zone)).date()
-        await dailylog.build_for_person(uow, ws, subject, day, actor.person_id)
+        await dailylog.build_for_person(uow, ws, subject, day, actor.person_id, quiet=True)
 
     result = MessageResult(
         msg.client_id,

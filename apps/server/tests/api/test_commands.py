@@ -228,6 +228,17 @@ def test_every_op_declares_a_token_scope() -> None:
 # ----------------------------------------------------------------------------------------------- idempotency, destructive, batches
 
 
+async def test_an_applied_command_is_logged_by_a_command_applied_event(api: Api, session_factory: async_sessionmaker[AsyncSession]) -> None:  # fmt: skip
+    c = cmd("tag.create", {"name": "evented"})
+    assert (await send(api, c))[0]["status"] == "applied"
+    assert (await send(api, c))[0]["deduplicated"] is True  # a replay writes nothing new
+    async with session_factory() as s:
+        evs = (await s.scalars(select(m.Event).where(m.Event.event_type == "command.applied"))).all()
+        logs = (await s.scalars(select(m.CommandLog).where(m.CommandLog.client_id == c["client_id"]))).all()
+    assert len(evs) == 1 and len(logs) == 1
+    assert evs[0].payload["after"] == {"op": "tag.create", "client_id": c["client_id"], "status": "applied"}
+
+
 async def test_a_command_is_applied_once_per_client_id(api: Api) -> None:
     c = cmd("tag.create", {"name": "once"})
     a = (await send(api, c))[0]
