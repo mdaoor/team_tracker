@@ -21,6 +21,7 @@ from tt_schema.enums import (
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
+from tt_server.domain.capture import dailylog
 from tt_server.domain.capture.ingest_actions import apply_action, apply_fields, current_activity
 from tt_server.domain.capture.ingest_context import (
     CONFIDENCE_FLOOR,
@@ -44,8 +45,9 @@ from tt_server.domain.capture.ingest_resolve import (
     member_by_handle,
     resolve_item,
     resolve_project,
+    title_phrase,
 )
-from tt_server.domain.common import aware
+from tt_server.domain.common import aware, zone
 from tt_server.domain.items import service as items
 from tt_server.domain.overlay import weights
 from tt_server.domain.overlay.mirrors import sync_item_mirrors
@@ -267,7 +269,7 @@ async def _process(
             ctx,
             "unclassified_project",
             item.id,
-            {"phrase": ctx.resolution["project"].get("unresolved") or ""},
+            {"phrase": ctx.resolution["project"].get("unresolved") or title_phrase(item.title)},
         )
     await apply_hints(ctx, item, project)
     if created and project.kind.value != "inbox":
@@ -275,6 +277,10 @@ async def _process(
     await sync_item_mirrors(uow, ws, item, set_by=actor.person_id)
     await weights.recompute_item(uow, ws, item, actor_id=actor.person_id)
     await session.flush()
+    if any(e.event_type in ("time.logged", "activity.ended") for e in ctx.events):
+        # the person-day has work now: keep its DailyLog draft current without waiting for the nightly job or a GET
+        day = aware(ctx.at).astimezone(zone(subject_person.time_zone)).date()
+        await dailylog.build_for_person(uow, ws, subject, day, actor.person_id, quiet=True)
 
     result = MessageResult(
         msg.client_id,

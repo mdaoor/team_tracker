@@ -27,6 +27,7 @@ async def limited(
         dev_auth=True,
         rate_capture_per_min=3,
         rate_auth_per_min=2,
+        rate_commands_per_min=5,
     )
     app = create_app(s, engine=engine, session_factory=session_factory)
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
@@ -67,6 +68,58 @@ async def test_capture_is_limited_per_credential_with_retry_after(limited: httpx
         assert (
             await limited.get("/api/v1/w/acme/me", headers={"X-Debug-Actor": "@mahmoud"})
         ).status_code == 200
+
+
+def _cmd(name: str) -> dict:
+    return {
+        "client_id": str(uuid.uuid4()),
+        "actor": "@mahmoud",
+        "at": "2026-10-25T10:00:00+03:00",
+        "op": "tag.create",
+        "args": {"name": name},
+    }
+
+
+async def test_commands_are_limited_per_command_across_all_three_entry_points(
+    limited: httpx.AsyncClient,
+) -> None:
+    h = {"X-Debug-Actor": "@mahmoud"}
+    base = "/api/v1/w/acme"
+    r = await limited.post(
+        f"{base}/commands", headers=h, json={"commands": [_cmd(f"a{i}") for i in range(3)]}
+    )
+    assert r.status_code == 200
+    # two more via a capture batch still fit (3 + 2 = 5); the 6th command anywhere is refused
+    b = {**batch(), "commands": [_cmd("b0"), _cmd("b1")]}
+    assert (await limited.post(f"{base}/capture/batches", headers=h, json=b)).status_code == 200
+    over = await limited.post(f"{base}/commands", headers=h, json={"commands": [_cmd("c0")]})
+    assert over.status_code == 429 and over.json()["error"]["code"] == "rate_limited"
+    assert int(over.headers["retry-after"]) >= 1
+    over = await limited.post(
+        f"{base}/capture/batches", headers=h, json={**batch(), "commands": [_cmd("c1")]}
+    )
+    assert over.status_code == 429 and int(over.headers["retry-after"]) >= 1
+    merge = await limited.post(
+        f"{base}/items:merge", headers=h, json={"sources": ["WEB-1"], "target": "WEB-2"}
+    )
+    assert merge.status_code == 429
+    # another credential has its own bucket
+    ok = await limited.post(f"{base}/commands", headers={"X-Debug-Actor": "@sara"}, json={"commands": [{**_cmd("s"), "actor": "@sara"}]})  # fmt: skip
+    assert ok.status_code in (200, 207)
+
+
+async def test_a_batch_with_too_many_commands_is_a_422_that_points_at_commands(
+    limited: httpx.AsyncClient,
+) -> None:
+    h = {"X-Debug-Actor": "@mahmoud"}
+    r = await limited.post("/api/v1/w/acme/capture/batches", headers=h, json={**batch(), "commands": [_cmd(f"t{i}") for i in range(51)]})  # fmt: skip
+    assert r.status_code == 422
+    err = r.json()["error"]
+    assert (
+        err["code"] == "schema_violation"
+        and err["pointer"] == "/commands"
+        and "POST /commands" in err["message"]
+    )
 
 
 async def test_sign_in_endpoints_are_limited_per_address(limited: httpx.AsyncClient) -> None:
@@ -253,3 +306,13 @@ def test_client_ip_walks_past_trusted_hops() -> None:
     assert client_ip(s, "10.0.0.7", None) == "10.0.0.7"
     assert client_ip(s, "10.0.0.7", "10.0.0.2, 10.0.0.3") == "10.0.0.2"  # all hops trusted: the first one
     assert client_ip(Settings(), "10.0.0.7", "1.2.3.4") == "10.0.0.7"
+
+
+def test_sliding_window_counts_n_hits_at_once() -> None:
+    t = [0.0]
+    w = SlidingWindow(5, 10.0, clock=lambda: t[0])
+    assert w.hit("a", 3) is None
+    assert w.hit("a", 3) == pytest.approx(10.0)  # 3 + 3 > 5: refused, nothing recorded
+    assert w.hit("a", 2) is None
+    t[0] = 10.0
+    assert w.hit("a", 5) is None

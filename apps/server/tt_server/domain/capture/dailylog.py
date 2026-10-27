@@ -48,9 +48,17 @@ def _day_bounds(day: date, tz_name: str) -> tuple[datetime, datetime]:
 
 
 async def build_for_person(
-    uow: UnitOfWork, ws: m.Workspace, member: m.WorkspaceMember, day: date, actor_id: str
+    uow: UnitOfWork,
+    ws: m.Workspace,
+    member: m.WorkspaceMember,
+    day: date,
+    actor_id: str,
+    *,
+    quiet: bool = False,
 ) -> m.DailyLog | None:
-    """Upsert the draft for `member` on a local `day`; None if no activity. Never edits confirmed logs."""
+    """Upsert the draft for `member` on a local `day`; None if no activity. Never edits confirmed logs.
+
+    `quiet=True` (the per-message ingest path) emits no event when the draft is already up to date."""
     session = uow.session
     person = await session.get(m.Person, member.person_id)
     assert person is not None  # noqa: S101
@@ -108,8 +116,21 @@ async def build_for_person(
         session.add(log)
     elif log.status != DailyLogStatus.DRAFT:
         return log
-    log.summary, log.item_ids = "\n".join(lines), sorted(minutes)
-    log.minutes_total, log.blockers = sum(minutes.values()), "; ".join(blockers) or None
+    summary, item_ids = "\n".join(lines), sorted(minutes)
+    total, blocked = sum(minutes.values()), "; ".join(blockers) or None
+    if (
+        quiet
+        and not created
+        and (log.summary, log.item_ids, log.minutes_total, log.blockers)
+        == (
+            summary,
+            item_ids,
+            total,
+            blocked,
+        )
+    ):
+        return log  # nothing changed: no new event
+    log.summary, log.item_ids, log.minutes_total, log.blockers = summary, item_ids, total, blocked
     await session.flush()
     emit(
         uow,

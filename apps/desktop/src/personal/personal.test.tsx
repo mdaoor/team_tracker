@@ -586,6 +586,7 @@ describe("privacy", () => {
         work: "never",
         meeting: "ask",
         development: true,
+        assist: false, // quick-add lines stay on the device unless the box is ticked
       }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

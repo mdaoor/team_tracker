@@ -3,6 +3,16 @@
 Same rules as every other capture: a file in the outbox is the source of truth, the server deduplicates by `client_id` and, for calendar
 occurrences, by `calendar_ref` (ADR-0054). The `personal` category has **no** path here: `build_message` raises `NotSendable`.
 `calendar_ref` carries ids only; titles, attendees and locations stay on the device unless the person puts them in the note they send.
+
+What a message says depends on who pressed send (ADR-0054 section 4):
+
+* **Manual** (the person taps Send in the tray, `tt tray send`, `tt send`): the note is exactly what the person saw and may have edited,
+  by default `note_template` ("Sprint planning with @sara, @ali"); the item title is the item's own title. Calendar subjects and
+  attendee emails are never sent by themselves; the handles are in the note only because the person saw them.
+* **Automatic** (`share.meeting = auto`, or a recurring item with `send_each_instance`): until the person has confirmed the note
+  template once for that series (`note_consent_at`, kept in the series memory, set by an unedited manual send of that series), the message
+  carries a neutral title and note, "Meeting · 1 h", no attendee handles, and the raw subject appears nowhere, `raw_input` included.
+  After the confirmation the template is used as in the manual case.
 """
 
 from __future__ import annotations
@@ -50,6 +60,46 @@ def note_template(item: PersonalItem) -> str:
     return item.title
 
 
+def neutral_note(item: PersonalItem, minutes: int) -> str:
+    """What an automatic send says before the series is confirmed: the kind and the duration, nothing from the calendar."""
+    label = "Meeting" if item.kind.value == "meeting" else item.category.value.capitalize()
+    return f"{label} · {_h(minutes)}"
+
+
+def neutralised_when_auto(item: PersonalItem) -> bool:
+    """Meetings (any `share.meeting = auto` send) and recurring items sent every instance start neutral."""
+    return item.kind.value == "meeting" or item.category == Category.MEETING or item.send_each_instance
+
+
+CONSENT_KEY = "series.note_consent"  # series memory: {series key: ISO time the note template was confirmed (note_consent_at)}
+
+
+def _series_key(item: PersonalItem) -> str | None:
+    from tt_client.personal.rules import _series_key as key
+
+    return key(item)
+
+
+def note_consent_at(store: Any, item: PersonalItem) -> str | None:
+    key = _series_key(item)
+    return None if key is None else (store.get_setting(CONSENT_KEY, {}) or {}).get(key)
+
+
+def confirm_note_template(store: Any, item: PersonalItem, at: datetime) -> None:
+    key = _series_key(item)
+    if key is not None:
+        memory = dict(store.get_setting(CONSENT_KEY, {}) or {})
+        memory[key] = at.isoformat()
+        store.set_setting(CONSENT_KEY, memory)
+
+
+def auto_note(store: Any, item: PersonalItem, minutes: int) -> str:
+    """The exact note an automatic send of this item would carry right now (the tray shows it before the first auto-send)."""
+    if neutralised_when_auto(item) and note_consent_at(store, item) is None:
+        return neutral_note(item, minutes)
+    return note_template(item)
+
+
 def build_message(
     item: PersonalItem,
     *,
@@ -59,7 +109,9 @@ def build_message(
     now: datetime,
     minutes: int | None = None,
     note: str | None = None,
+    neutral: bool = False,
 ) -> ClientMessage:
+    """`neutral=True` (an automatic send of a series nobody confirmed) replaces title, note and raw_input by `neutral_note`."""
     if item.category == Category.PERSONAL:
         raise NotSendable("personal items are never sent")
     if item.deleted_at is not None:
@@ -89,13 +141,18 @@ def build_message(
         if ref
         else None,
     )
-    text = note if note is not None else note_template(item)
+    text = neutral_note(item, mins) if neutral else note if note is not None else note_template(item)
+    title_ref = (
+        ClientTaskRef(key=item.item_hint)
+        if item.item_hint
+        else ClientTaskRef(title=text if neutral else item.title)
+    )
     return ClientMessage(
         actor=actor,
         action=ClientAction.LOG_TIME,
         at=min(at, now),
         client_id=new_id(),
-        item=ClientTaskRef(key=item.item_hint) if item.item_hint else ClientTaskRef(title=item.title),
+        item=title_ref,
         project=target,
         tags=tags,
         note=text,
@@ -133,10 +190,12 @@ def send_item(
     now: datetime,
     minutes: int | None = None,
     note: str | None = None,
+    neutral: bool = False,
 ) -> tuple[PersonalItem, ClientMessage]:
     msg = build_message(
-        item, actor=actor, project=project, dev_project=dev_project, now=now, minutes=minutes, note=note
-    )
+        item, actor=actor, project=project, dev_project=dev_project, now=now, minutes=minutes, note=note,
+        neutral=neutral,
+    )  # fmt: skip
     queue_message(outbox, workspace, msg)
     item.sent_refs.append(SentRef(client_id=msg.client_id, at=now, minutes=msg.minutes, project=msg.project))
     if msg.project and item.category != Category.DEVELOPMENT:

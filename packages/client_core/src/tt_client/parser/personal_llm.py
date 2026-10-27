@@ -1,7 +1,8 @@
 """Optional gateway assist for the personal quick-add (Phase 15 §15.2): classification only, with the deterministic parser always first.
 
 The gateway answers `POST /v1/translate/personal` with refined `kind`/`category`/`project_hint` for lines the parser could not place.
-Only those three fields are taken from the answer; every number and date stays what the local parser produced. Any failure (no gateway,
+The Team Tracker server token is never sent (the gateway has its own caller auth), and the call is made only when the person
+turned `privacy.assist` on (ADR-0053). Only those three fields are taken from the answer; every number and date stays what the local parser produced. Any failure (no gateway,
 slow, no local model, bad JSON) returns the parser's drafts unchanged: personal capture never waits on a model.
 """
 
@@ -24,16 +25,14 @@ def fetch(
     now: str,
     time_zone: str,
     projects: list[dict[str, Any]],
-    token: str | None = None,
     timeout: float = DEFAULT_TIMEOUT,
     verify: Any = True,
     client: httpx.Client | None = None,
 ) -> list[dict[str, Any]] | None:
     body = {"actor": actor, "line": line, "now": now, "time_zone": time_zone, "pack": {"projects": projects}}
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
         http = client or httpx.Client(timeout=timeout, verify=verify)
-        r = http.post(f"{gateway_url.rstrip('/')}/v1/translate/personal", json=body, headers=headers)
+        r = http.post(f"{gateway_url.rstrip('/')}/v1/translate/personal", json=body)
         if r.status_code != 200:
             return None
         drafts = r.json()["output"]["drafts"]

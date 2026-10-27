@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tt_schema.enums import Decision, ProjectKind
+from tt_schema.enums import ApprovalStatus, Decision, ProjectKind
 
 from tt_server.acl.context import load_context
 from tt_server.acl.modes import modes_for
@@ -58,20 +58,41 @@ async def role_context(session: AsyncSession, ws: m.Workspace, person_id: str) -
     queue = 0
     if acl.can("review_queue.resolve") or acl.managed_ids:
         queue = len(await review.list_queue(session, ws.id, person_id))
-    pending = int(
-        await session.scalar(
-            select(func.count())
-            .select_from(m.ApprovalDecision)
-            .where(
-                m.ApprovalDecision.approver_id == person_id, m.ApprovalDecision.decision == Decision.PENDING
+    rows = (
+        await session.execute(
+            select(m.Approval, m.Project.key, m.WorkspaceMember.handle)
+            .join(m.ApprovalDecision, m.ApprovalDecision.approval_id == m.Approval.id)
+            .join(m.Project, m.Project.id == m.Approval.project_id)
+            .outerjoin(
+                m.WorkspaceMember,
+                (m.WorkspaceMember.person_id == m.Approval.requested_by)
+                & (m.WorkspaceMember.workspace_id == ws.id),
             )
+            .where(
+                m.ApprovalDecision.approver_id == person_id,
+                m.ApprovalDecision.decision == Decision.PENDING,
+                m.Approval.status == ApprovalStatus.PENDING,
+                m.Project.workspace_id == ws.id,
+            )
+            .order_by(m.Approval.created_at, m.Approval.id)
+            .limit(100)
         )
-        or 0
-    )
+    ).all()
+    pending = [
+        {
+            "id": a.id,
+            "title": a.title,
+            "project_key": key,
+            "requested_by": handle,
+            "requested_at": a.created_at.isoformat(),
+        }
+        for a, key, handle in rows
+    ]
     return {
         "my_role_modes": modes,
         "my_teams_with_members": teams,
         "my_projects_as_manager": projects,
         "review_queue_count": queue,
         "pending_approvals": pending,
+        "pending_approvals_count": len(pending),
     }

@@ -164,6 +164,31 @@ def create_app(
         SlidingWindow(settings.rate_capture_per_min) if settings.rate_capture_per_min > 0 else None
     )
     auth_window = SlidingWindow(settings.rate_auth_per_min) if settings.rate_auth_per_min > 0 else None
+    command_window = (
+        SlidingWindow(settings.rate_commands_per_min) if settings.rate_commands_per_min > 0 else None
+    )
+
+    def throttle_commands(request: Request, n: int) -> JSONResponse | None:
+        """Count `n` management commands against the caller's credential bucket; a 429 response when over the limit.
+        Called by the three entry points that run commands (their bodies are only known after parsing)."""
+        if command_window is None or n <= 0:
+            return None
+        wait = command_window.hit(
+            credential_key(
+                request.headers.get("authorization"), request.cookies.get("tt_session"),
+                request.headers.get("x-debug-actor"), request_ip(request),
+            ),
+            n,
+        )  # fmt: skip
+        if wait is None:
+            return None
+        retry = str(int(wait) + 1)
+        return JSONResponse(
+            error_body("rate_limited", "too many commands; slow down", None, {"retry_after": int(retry)}),
+            429, headers={"Retry-After": retry},
+        )  # fmt: skip
+
+    app.state.throttle_commands = throttle_commands
 
     @app.middleware("http")
     async def rate_limit(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

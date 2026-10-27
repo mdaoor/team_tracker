@@ -150,7 +150,7 @@ class ProjectAddMember(BaseModel):
 
 
 @command(
-    "project.add_member", "projects", "Add a person to a project", ProjectAddMember, permission="project_member.write", scope="project", scope_arg="project",
+    "project.add_member", "projects", "Add a person to a project", ProjectAddMember, token_scope="admin", permission="project_member.write", scope="project", scope_arg="project",
     example_args={"project": "PAY", "person": "@sara", "role": "contributor"}, example_text="add @sara to PAY",
 )  # fmt: skip
 async def project_add_member(ctx: Ctx, a: ProjectAddMember) -> Outcome:
@@ -602,7 +602,7 @@ class TeamCreate(BaseModel):
 
 
 @command(
-    "team.create", "teams", "Create a team (org, virtual or ad hoc) with members", TeamCreate, permission="team.write", preview=True,
+    "team.create", "teams", "Create a team (org, virtual or ad hoc) with members", TeamCreate, token_scope="admin", permission="team.write", preview=True,
     example_args={"name": "payments", "kind": "virtual", "lead": "@me", "members": ["@sara", "@ali"]}, example_text="create virtual team payments with @sara @ali led by me",
 )  # fmt: skip
 async def team_create(ctx: Ctx, a: TeamCreate) -> Outcome:
@@ -632,7 +632,7 @@ class TeamMembers(BaseModel):
 
 
 @command(
-    "team.add_members", "teams", "Add people to a team", TeamMembers, permission="team.write", scope="workspace",
+    "team.add_members", "teams", "Add people to a team", TeamMembers, token_scope="admin", permission="team.write", scope="workspace",
     example_args={"team": "payments", "members": ["@sara"]}, example_text="add @sara to team payments",
 )  # fmt: skip
 async def team_add_members(ctx: Ctx, a: TeamMembers) -> Outcome:
@@ -654,7 +654,7 @@ async def team_add_members(ctx: Ctx, a: TeamMembers) -> Outcome:
 
 
 @command(
-    "team.remove_members", "teams", "Remove people from a team", TeamMembers, permission="team.write", destructive=True, preview=True,
+    "team.remove_members", "teams", "Remove people from a team", TeamMembers, token_scope="admin", permission="team.write", destructive=True, preview=True,
     example_args={"team": "payments", "members": ["@ali"]}, example_text="remove @ali from team payments",
 )  # fmt: skip
 async def team_remove_members(ctx: Ctx, a: TeamMembers) -> Outcome:
@@ -682,7 +682,7 @@ class ReportingLineSet(BaseModel):
 
 
 @command(
-    "reporting_line.set", "teams", "Set who a person reports to", ReportingLineSet, permission="reporting_line.write", modes=("admin", "manager"),
+    "reporting_line.set", "teams", "Set who a person reports to", ReportingLineSet, token_scope="admin", permission="reporting_line.write", modes=("admin", "manager"),
     example_args={"person": "@sara", "manager": "@mia", "is_primary": True}, example_text="@sara reports to @mia",
 )  # fmt: skip
 async def reporting_line_set(ctx: Ctx, a: ReportingLineSet) -> Outcome:
@@ -704,7 +704,7 @@ class TagMerge(BaseModel):
 
 
 @command(
-    "tag.merge", "tags", "Merge one tag into another", TagMerge, permission="classification.write", destructive=True,
+    "tag.merge", "tags", "Merge one tag into another", TagMerge, token_scope="admin", permission="classification.write", destructive=True,
     example_args={"tag": "q-4", "into": "q4"}, example_text="merge tag q-4 into q4",
 )  # fmt: skip
 async def tag_merge(ctx: Ctx, a: TagMerge) -> Outcome:
@@ -741,7 +741,7 @@ class DimensionValueAdd(BaseModel):
 
 
 @command(
-    "dimension.value.add", "tags", "Add a value to a dimension (customer, theme, ...)", DimensionValueAdd, permission="dimension.admin",
+    "dimension.value.add", "tags", "Add a value to a dimension (customer, theme, ...)", DimensionValueAdd, token_scope="admin", permission="dimension.admin",
     example_args={"dimension": "theme", "name": "Checkout"}, example_text="add Checkout to theme",
 )  # fmt: skip
 async def dimension_value_add(ctx: Ctx, a: DimensionValueAdd) -> Outcome:
@@ -1010,7 +1010,7 @@ async def _policy_id(ctx: Ctx, key: str) -> str:
 
 
 @command(
-    "policy.activate", "governance", "Activate a tested policy", PolicyRef, permission="policy.write", modes=("admin", "manager"),
+    "policy.activate", "governance", "Activate a tested policy", PolicyRef, token_scope="admin", permission="policy.write", modes=("admin", "manager"),
     example_args={"policy": "stale-in-progress"}, example_text="activate policy stale-in-progress",
 )  # fmt: skip
 async def policy_activate(ctx: Ctx, a: PolicyRef) -> Outcome:
@@ -1020,7 +1020,7 @@ async def policy_activate(ctx: Ctx, a: PolicyRef) -> Outcome:
 
 
 @command(
-    "policy.deactivate", "governance", "Deactivate a policy", PolicyRef, permission="policy.write", modes=("admin", "manager"),
+    "policy.deactivate", "governance", "Deactivate a policy", PolicyRef, token_scope="admin", permission="policy.write", modes=("admin", "manager"),
     example_args={"policy": "stale-in-progress"}, example_text="deactivate policy stale-in-progress",
 )  # fmt: skip
 async def policy_deactivate(ctx: Ctx, a: PolicyRef) -> Outcome:

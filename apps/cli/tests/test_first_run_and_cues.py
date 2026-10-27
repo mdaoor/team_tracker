@@ -147,8 +147,8 @@ def test_the_nudge_action_works_and_the_server_is_not_asked_twice(backend: Backe
     backend.log = draft_log()
     assert "Confirm today's log?" in tt("note", "WEB-114 slow", "--yes")
     shown = tt("today")
-    assert "draft" in shown and "4.5h" in shown and backend.confirmed == []
-    assert "confirmed ✓" in tt("today", "--confirm")
+    assert "draft" in shown and "4 h 30 min" in shown and backend.confirmed == []
+    assert "Confirmed your day: 4 h 30 min." in tt("today", "--confirm")
     assert backend.confirmed == ["dl-1"] and backend.log["status"] == "confirmed"
 
 
@@ -198,3 +198,82 @@ def test_today_with_no_log_does_not_promise_a_draft_that_is_not_there(backend: B
 def test_yes_in_a_pipe_says_that_nothing_was_asked(backend: Backend) -> None:
     out = tt("note", "WEB-114 still slow")  # CliRunner stdin is not a terminal
     assert "not a terminal, so nothing was asked" in out
+
+
+# ---------------------------------------------------------------- PR #11 review: the day the server drafts, `tt today`, `tt eod --confirm`
+RECORDED_LOG = json.loads(
+    (
+        Path(__file__).parents[3]
+        / "packages"
+        / "client_core"
+        / "tests"
+        / "fixtures"
+        / "server"
+        / "daily-logs.json"
+    ).read_text()
+)["data"][0]
+
+
+@pytest.fixture
+def personal_api(backend: Backend, monkeypatch: pytest.MonkeyPatch) -> Backend:
+    """`tt eod` builds its own TTApi (the personal tracker has no Runtime): point it at the same fake backend."""
+
+    def make_api(cfg: ClientConfig, **kw: Any) -> TTApi:
+        return TTApi(
+            cfg, client=httpx.Client(transport=httpx.MockTransport(backend.handle), base_url="http://tt")
+        )
+
+    monkeypatch.setattr("tt_client.api.TTApi", make_api)
+    monkeypatch.setenv("TT_SECRETS", "file")
+    return backend
+
+
+def _sent_a_work_item_today() -> None:
+    ref = tt("add", "work: fix the login redirect loop 45m p:WEB").split()[-1]
+    tt("item", "done", ref)
+    tt("eod", "--send-all")
+
+
+def test_today_shows_the_draft_the_server_made_as_soon_as_time_was_logged(backend: Backend) -> None:
+    backend.log = RECORDED_LOG  # a real DailyLog row, recorded from the in-process server
+    out = tt("today")
+    assert "2026-10-23" in out and "draft" in out and "45 min" in out and "WEB-136" in out
+    assert "nothing logged today yet" not in out and "{" not in out
+
+
+def test_today_confirm_prints_one_sentence_not_json(backend: Backend) -> None:
+    backend.log = RECORDED_LOG
+    out = tt("today", "--confirm")
+    assert "Confirmed your day: 45 min on WEB-136." in out and "{" not in out
+    assert backend.confirmed == [RECORDED_LOG["id"]]
+
+
+def test_eod_confirm_confirms_the_server_draft_and_says_so_in_one_sentence(personal_api: Backend) -> None:
+    personal_api.log = RECORDED_LOG
+    _sent_a_work_item_today()
+    out = tt("eod", "--confirm")
+    assert "Confirmed your day: 45 min on WEB-136." in out
+    assert "{" not in out and 'confirmed":' not in out  # never raw JSON
+    assert personal_api.confirmed == [RECORDED_LOG["id"]]
+
+
+def test_eod_confirm_without_a_draft_explains_in_words(personal_api: Backend) -> None:
+    personal_api.log = None
+    _sent_a_work_item_today()
+    out = tt("eod", "--confirm")
+    assert "{" not in out and "no draft" in out.lower() and personal_api.confirmed == []
+
+
+def test_eod_confirm_confirms_work_logged_through_capture_even_if_nothing_was_sent_from_the_planner(
+    personal_api: Backend,
+) -> None:
+    """The draft exists because time was reported (`tt say ... took 45m`); the planner's own 'sent' list is empty."""
+    personal_api.log = RECORDED_LOG
+    out = tt("eod", "--confirm")
+    assert "Confirmed your day: 45 min on WEB-136." in out and "nothing was sent" not in out
+    assert personal_api.confirmed == [RECORDED_LOG["id"]]
+
+
+def test_eod_confirm_with_nothing_sent_today_says_why(personal_api: Backend) -> None:
+    out = tt("eod", "--confirm")
+    assert "{" not in out and "nothing was sent today" in out

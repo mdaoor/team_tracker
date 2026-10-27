@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "blockers": null,
+      "date": "2026-10-23",
+      "id": "01a17f01-ccc4-7483-8655-18234303e471",
+      "item_ids": [
+        "01a17f01-9774-73a2-b395-554c2db2fb1e",
+        "01a17f01-cc37-757a-a03d-a38fee131d24"
+      ],
+      "minutes_total": 45,
+      "person_id": "01a17f01-8d86-76fc-a271-4fbdb09c9532",
+      "reviewed_by": null,
+      "status": "draft",
+      "summary": "- DATA-101 retry logic rework\n- WEB-136 fix the login redirect loop \u2014 0.8h"
+    }
+  ],
+  "next_cursor": null
+}

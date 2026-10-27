@@ -22,7 +22,18 @@ must be able to take back a send for ten minutes.
    idempotent by its own `client_id`. ACL: only the person who logged it; anything else behaves as "not found" (ADR-0008) with warning
    `unlog_target_not_found` and a `time.unlog_ignored` event so the message stays idempotent. The ten-minute window is enforced by the client
    (an undelivered batch is simply discarded from the outbox); the server does not impose one.
-4. Titles, attendees and locations of a calendar entry are **not** part of the message; only the person's `note` is.
+4. Attendee emails and locations of a calendar entry are **never** part of the message, and the calendar subject is not sent by itself. What
+   is sent depends on who sent it (amended after the PR #11 review, which found auto-sends carrying titles and `@handles`):
+   * **Manual send from the tray** (`tt tray send`, `tt send`): the note is exactly what the person saw and may have edited, by default
+     the template "Sprint planning with @sara, @ali" (handles derived from attendee emails); the item title is the item's own title.
+   * **Automatic send** (`share.meeting = auto`, or a recurring item with `send_each_instance`): until the person has confirmed the note
+     template once for that series, the message carries a **neutral title and note, "Meeting · 1 h"**, no attendee handles, and no raw
+     calendar subject anywhere (`raw_input` included). The confirmation is `note_consent_at`, stored in the series memory
+     (`series.note_consent`, keyed like the learned series rule) and set when the person sends an instance of the series by hand with the
+     unedited template (an edited note confirms nothing). From then on automatic sends use the template. The tray shows the exact
+     text an automatic send would carry (`auto_sends`) before the first one.
+   Tests: `packages/client_core/tests/test_personal_tracker.py::test_auto_sent_meetings_carry_a_neutral_title_and_no_handles_until_the_note_is_confirmed`,
+   `::test_after_the_person_confirmed_the_template_auto_sends_use_it`, `::test_an_edited_manual_note_does_not_confirm_the_template`.
 
 ## Consequences
 * Two devices, a retry after a lost response and the tray plus end-of-day card all converge on one time entry.

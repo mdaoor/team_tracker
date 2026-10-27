@@ -1,11 +1,12 @@
 {
- "etag": "\"476e070f9d1cf283\"",
+ "etag": "\"3d2561af9fd9f3f6\"",
  "ops": [
   {
    "op": "approval.decide",
    "group": "process",
    "description": "Approve or reject a pending approval",
    "permission": null,
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -69,6 +70,7 @@
    "group": "tags",
    "description": "Classify an item or project on a dimension",
    "permission": "classification.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -124,6 +126,7 @@
    "group": "personal",
    "description": "Add a context note for a project, team or the workspace",
    "permission": "context_note.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -203,6 +206,7 @@
    "group": "personal",
    "description": "Confirm your daily log",
    "permission": null,
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -242,6 +246,7 @@
    "group": "tags",
    "description": "Add a value to a dimension (customer, theme, ...)",
    "permission": "dimension.admin",
+   "token_scope": "admin",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -292,6 +297,7 @@
    "group": "governance",
    "description": "Write a coaching note on a habit (visible to managers and coaches only)",
    "permission": "habit.coach",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -331,6 +337,7 @@
    "group": "governance",
    "description": "Set a habit's coaching status",
    "permission": "habit.coach",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -376,6 +383,7 @@
    "group": "items",
    "description": "Assign an item to a person",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -414,6 +422,7 @@
    "group": "items",
    "description": "Set priority, impact, stage or weight on many items with a propagation preview",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": true,
    "destructive": true,
    "modes": [
@@ -463,6 +472,7 @@
    "group": "items",
    "description": "Create an item (epic, deliverable, task ...)",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -571,6 +581,7 @@
    "group": "items",
    "description": "Link two items (blocks, depends on, relates to ...)",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -631,6 +642,7 @@
    "group": "items",
    "description": "Merge items: their time, evidence, links, tags and assignments move to the target",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": true,
    "destructive": true,
    "modes": [
@@ -703,6 +715,7 @@
    "group": "iterations",
    "description": "Put items into an iteration",
    "permission": "iteration.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -749,6 +762,7 @@
    "group": "items",
    "description": "Move items under another parent",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": true,
    "destructive": true,
    "modes": [
@@ -802,6 +816,7 @@
    "group": "items",
    "description": "Set planned start/end and due date",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -874,6 +889,7 @@
    "group": "items",
    "description": "Record an estimate (the first is the original, later ones revisions)",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -949,6 +965,7 @@
    "group": "items",
    "description": "Set the impact (1-5) of items",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": true,
    "destructive": false,
    "modes": [
@@ -995,6 +1012,7 @@
    "group": "items",
    "description": "Set the priority of items (propagates to children that did not override it)",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": true,
    "destructive": false,
    "modes": [
@@ -1052,6 +1070,7 @@
    "group": "items",
    "description": "Move one item to a process stage",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1102,6 +1121,7 @@
    "group": "items",
    "description": "Change an item's workflow state",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1142,6 +1162,7 @@
    "group": "items",
    "description": "Override an item's weight in a scheme",
    "permission": "weight.set",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1193,6 +1214,7 @@
    "group": "items",
    "description": "Split an item into several siblings (the original stays, linked)",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": true,
    "destructive": false,
    "modes": [
@@ -1239,6 +1261,7 @@
    "group": "items",
    "description": "Add or remove tags on items",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": true,
    "destructive": false,
    "modes": [
@@ -1295,6 +1318,7 @@
    "group": "items",
    "description": "Change overlay fields of an item (priority, impact, dates, assignee, team)",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1456,6 +1480,7 @@
    "group": "iterations",
    "description": "Close the active iteration",
    "permission": "iteration.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": true,
    "modes": [
@@ -1496,6 +1521,7 @@
    "group": "iterations",
    "description": "Create an iteration",
    "permission": "iteration.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1561,6 +1587,7 @@
    "group": "iterations",
    "description": "Start a planned iteration",
    "permission": "iteration.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1601,6 +1628,7 @@
    "group": "iterations",
    "description": "Complete a milestone",
    "permission": "milestone.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1640,6 +1668,7 @@
    "group": "iterations",
    "description": "Create a milestone",
    "permission": "milestone.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1702,6 +1731,7 @@
    "group": "governance",
    "description": "Activate a tested policy",
    "permission": "policy.write",
+   "token_scope": "admin",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1739,6 +1769,7 @@
    "group": "governance",
    "description": "Deactivate a policy",
    "permission": "policy.write",
+   "token_scope": "admin",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1776,6 +1807,7 @@
    "group": "projects",
    "description": "Add a person to a project",
    "permission": "project_member.write",
+   "token_scope": "admin",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1832,6 +1864,7 @@
    "group": "projects",
    "description": "Freeze the current plan as a named baseline",
    "permission": "project.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1870,6 +1903,7 @@
    "group": "projects",
    "description": "Create a project",
    "permission": "project.create",
+   "token_scope": "manage",
    "preview": true,
    "destructive": false,
    "modes": [
@@ -1947,6 +1981,7 @@
    "group": "projects",
    "description": "Create a top-down plan (phases, deliverables, milestones)",
    "permission": "project.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -1989,6 +2024,7 @@
    "group": "projects",
    "description": "Rename or change a project's status",
    "permission": "project.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2058,6 +2094,7 @@
    "group": "teams",
    "description": "Set who a person reports to",
    "permission": "reporting_line.write",
+   "token_scope": "admin",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2119,6 +2156,7 @@
    "group": "governance",
    "description": "Apply one action to many review rows",
    "permission": null,
+   "token_scope": "manage",
    "preview": true,
    "destructive": true,
    "modes": [
@@ -2164,6 +2202,7 @@
    "group": "governance",
    "description": "Resolve a review-queue row",
    "permission": null,
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2204,6 +2243,7 @@
    "group": "process",
    "description": "Add a mitigation action to a risk",
    "permission": "risk.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2255,6 +2295,7 @@
    "group": "process",
    "description": "Register a risk",
    "permission": "risk.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2334,6 +2375,7 @@
    "group": "process",
    "description": "Link a risk to an item",
    "permission": "risk.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2372,6 +2414,7 @@
    "group": "process",
    "description": "Move items to a process stage",
    "permission": "item.write_overlay",
+   "token_scope": "manage",
    "preview": true,
    "destructive": false,
    "modes": [
@@ -2443,6 +2486,7 @@
    "group": "tags",
    "description": "Create a tag",
    "permission": "classification.write",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2476,6 +2520,7 @@
    "group": "tags",
    "description": "Merge one tag into another",
    "permission": "classification.write",
+   "token_scope": "admin",
    "preview": false,
    "destructive": true,
    "modes": [
@@ -2514,6 +2559,7 @@
    "group": "teams",
    "description": "Add people to a team",
    "permission": "team.write",
+   "token_scope": "admin",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2560,6 +2606,7 @@
    "group": "teams",
    "description": "Create a team (org, virtual or ad hoc) with members",
    "permission": "team.write",
+   "token_scope": "admin",
    "preview": true,
    "destructive": false,
    "modes": [
@@ -2634,6 +2681,7 @@
    "group": "teams",
    "description": "Remove people from a team",
    "permission": "team.write",
+   "token_scope": "admin",
    "preview": true,
    "destructive": true,
    "modes": [
@@ -2680,6 +2728,7 @@
    "group": "governance",
    "description": "Acknowledge a policy violation",
    "permission": null,
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2714,6 +2763,7 @@
    "group": "governance",
    "description": "Mark a violation resolved",
    "permission": "violation.resolve",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [
@@ -2759,6 +2809,7 @@
    "group": "governance",
    "description": "Waive a violation with a reason",
    "permission": "violation.waive",
+   "token_scope": "manage",
    "preview": false,
    "destructive": false,
    "modes": [

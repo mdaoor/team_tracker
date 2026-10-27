@@ -35,6 +35,7 @@ from tt_client.personal.recurrence import describe, materialise, split_instance_
 from tt_client.personal.settings import Settings
 from tt_client.personal.store import PersonalStore, db_files
 from tt_client.personal.timer import TimerEngine
+from tt_client.rows import DayDraft
 from tt_client.secrets import SecretStore
 
 DB_NAME = "personal.db"
@@ -95,9 +96,17 @@ class Tracker:
     def add(
         self, line: str, assist: Callable[[str], list[dict[str, Any]] | None] | None = None
     ) -> list[PersonalItem]:
-        """Parse one line into items. `assist(line)` may return the gateway's classification; it only refines undecided kinds."""
+        """Parse one line into items. `assist(line)` may return the gateway's classification; it only refines undecided kinds.
+
+        The line leaves the device only when the person turned `privacy.assist` on AND the deterministic parser left a
+        kind undecided (`kind_source == "default"`); otherwise `assist` is never called."""
         drafts = parse_personal(line, self.parse_ctx())
-        if drafts and assist is not None:
+        if (
+            drafts
+            and assist is not None
+            and self.settings.get("privacy.assist") == "on"
+            and any(d.kind_source == "default" for d in drafts)
+        ):
             from tt_client.parser.personal_llm import apply_assist
 
             drafts = apply_assist(drafts, assist(line))
@@ -336,7 +345,9 @@ class Tracker:
         note: str | None = None,
         minutes: int | None = None,
         learn: bool = True,
+        auto: bool = False,
     ) -> dict[str, Any]:
+        """`auto=True` is a standing rule sending without a tap: neutral title and note until the series' note template was confirmed."""
         item = self._require(item_id)
         if item.category == Category.PERSONAL:  # checked first: no send path exists, whatever else is missing
             raise send_mod.NotSendable("personal items are never sent")
@@ -350,8 +361,17 @@ class Tracker:
         item, msg = send_mod.send_item(
             item, outbox=self.outbox, workspace=self.env.workspace, actor=self.env.actor, project=chosen,
             dev_project=hints.development_project, now=self.now, minutes=minutes, note=note,
+            neutral=auto and send_mod.neutralised_when_auto(item) and send_mod.note_consent_at(self.store, item) is None,
         )  # fmt: skip
         self.store.put_item(item)
+        if (
+            not auto
+            and send_mod.neutralised_when_auto(item)
+            and (note is None or note == send_mod.note_template(item))
+        ):
+            send_mod.confirm_note_template(
+                self.store, item, self.now
+            )  # the person saw this exact note and sent it
         self._remember_on_series(item, chosen)
         if learn and chosen and item.category in (Category.MEETING, Category.WORK):
             rules_mod.learn_mapping(self.store, item, chosen)
@@ -378,7 +398,7 @@ class Tracker:
         for e in self.tray():
             if e.auto:
                 try:
-                    sent.append(self.send(e.item.id, project=e.suggestion.project))
+                    sent.append(self.send(e.item.id, project=e.suggestion.project, auto=True))
                 except send_mod.NotSendable:
                     continue
         return sent
@@ -445,20 +465,45 @@ class Tracker:
         return {"sent": sent, "needs_project": needs_project}
 
     def confirm_daily_log(self, api: Any, day: date | None = None) -> dict[str, Any]:
-        """Confirm the server DailyLog for `day` — only when something was actually sent that day."""
+        """Confirm the server DailyLog for `day`.
+
+        The planner's own "sent" list gates it only when the server has no time for the day: work reported through
+        `tt say` makes a draft with minutes by itself, and that is as confirmable as anything sent from the planner."""
         day = day or self.today
         start, end = views.day_bounds(day, self.env.tz)
-        if not any(
+        sent_today = any(
             r.unsent_at is None and start <= r.at < end + timedelta(days=1)
             for i in self.store.items() for r in i.sent_refs
-        ):  # fmt: skip
-            return {"confirmed": False, "reason": "nothing was sent today"}
+        )  # fmt: skip
+        if not sent_today:
+            existing = api.daily_logs(day.isoformat())
+            if not existing or not (existing[0].get("minutes_total") or 0):
+                return {
+                    "confirmed": False,
+                    "reason": "nothing was sent today",
+                    "sentence": "Nothing to confirm yet: nothing was sent today.",
+                }
         self.deliver(api)
         logs = api.daily_logs(day.isoformat())
         if not logs:
-            return {"confirmed": False, "reason": "no daily log yet"}
+            return {
+                "confirmed": False,
+                "reason": "no daily log yet",
+                "sentence": "Your day has no draft on the server yet: run `tt sync` and try again.",
+            }
+        draft = DayDraft.from_api(logs[0])
+        if draft.status == "confirmed":
+            return {
+                "confirmed": True,
+                "minutes_total": draft.minutes_total,
+                "sentence": draft.already_sentence(),
+            }
         api.confirm_daily_log(logs[0]["id"])
-        return {"confirmed": True, "minutes_total": logs[0].get("minutes_total")}
+        return {
+            "confirmed": True,
+            "minutes_total": logs[0].get("minutes_total"),
+            "sentence": draft.confirmed_sentence(),
+        }
 
     def weekly_review(self, day: date | None = None) -> dict[str, Any]:
         return views.weekly_review_card(self._review_inputs(), day or self.today)
@@ -501,17 +546,25 @@ class Tracker:
                 "development": "on" if s.get("share.development") else "off",
                 "personal": "never",
             },
+            "assist": str(s.get("privacy.assist")),
+            "assist_note": "off: quick-add lines never leave this device. on: a line the parser cannot place may be sent to your "
+            "[llm] gateway (never to the Team Tracker server).",
             "first_run_done": bool(s.get("privacy.first_run_done")),
             "calendars": [n.split(":", 1)[1] for n in self.env.secrets.names() if n.startswith("oauth:")],
         }
 
     def first_run(
-        self, *, work: str = "ask", meeting: str = "ask", development: bool = False
+        self, *, work: str = "ask", meeting: str = "ask", development: bool = False, assist: bool = False
     ) -> dict[str, Any]:
+        self.settings.set("privacy.assist", "on" if assist else "off")
         self.settings.set("share.work", work)
         self.settings.set("share.meeting", meeting)
         self.settings.set("share.development", development)
         self.settings.set("privacy.first_run_done", True)
+        return self.privacy()
+
+    def set_assist(self, on: bool) -> dict[str, Any]:
+        self.settings.set("privacy.assist", "on" if on else "off")
         return self.privacy()
 
     def sent_audit(self) -> list[dict[str, Any]]:

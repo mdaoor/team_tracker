@@ -17,7 +17,7 @@ from typing import Any
 
 from tt_client.personal.model import Category, Kind, PersonalItem, SharePolicy, Status
 from tt_client.personal.rules import Hints, Suggestion, suggest
-from tt_client.personal.send import note_template
+from tt_client.personal.send import auto_note, note_template
 from tt_client.personal.settings import Settings
 from tt_client.personal.store import PersonalStore
 from tt_client.personal.views import items_between
@@ -33,6 +33,7 @@ class TrayEntry:
     note: str
     due_at: datetime
     auto: bool  # a standing rule says send without a tap
+    auto_note: str = ""  # the exact note such an automatic send carries now (neutral until the series' template is confirmed)
 
     def as_dict(self, tz: Any = UTC) -> dict[str, Any]:
         it = self.item
@@ -47,6 +48,7 @@ class TrayEntry:
             "note": self.note,
             "due_at": self.due_at.isoformat(),
             "auto": self.auto,
+            "auto_sends": self.auto_note,
             "online_meeting_url": it.online_meeting_url,
             "suggestion": self.suggestion.as_dict(),
             "needs_project": self.suggestion.project is None and it.category != Category.DEVELOPMENT,
@@ -117,6 +119,7 @@ def ready_to_send(
                 note=note_template(item),
                 due_at=(end or now) + delay,
                 auto=mode == "auto" and (sug.project is not None or category == Category.DEVELOPMENT),
+                auto_note=auto_note(store, item, minutes),
             )
         )
     out.sort(key=lambda e: e.due_at, reverse=True)

@@ -23,6 +23,7 @@ from tt_server.api.commands.registry import REGISTRY, Command, Ctx
 from tt_server.api.deps import Actor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.db import models as m
+from tt_server.domain.common import emit_admin
 from tt_server.domain.errors import DomainError
 
 log = structlog.get_logger()
@@ -102,6 +103,7 @@ async def _reset(uow: Uow, actor: Actor) -> None:
         await uow.session.refresh(row)
     uow.events._buffer.clear()  # noqa: SLF001 - the writer has no public reset; this is the one caller
     uow._touched_projection = False  # noqa: SLF001
+    uow._touched_tables = set()  # noqa: SLF001
 
 
 async def run(
@@ -120,6 +122,20 @@ async def run(
             cmd,
             "rejected",
             errors=[_err("/", "insufficient_scope", "this token may only send capture messages", status=403)],
+        )
+    if scope_level(actor) < TOKEN_SCOPES.index(spec.token_scope):
+        return _result(
+            cmd,
+            "rejected",
+            errors=[
+                _err(
+                    "/",
+                    "insufficient_scope",
+                    f"{cmd.op} needs a token with the {spec.token_scope!r} scope",
+                    status=403,
+                    required_scope=spec.token_scope,
+                )
+            ],
         )
     if cmd.actor.lstrip("@") != actor.handle.lstrip("@"):
         return _result(
@@ -156,9 +172,14 @@ async def run(
             return _result(cmd, "previewed", preview=out.preview if out.preview is not None else out.result)
         result = _result(cmd, "applied", result=out.result)
         uow.session.add(m.CommandLog(id=new_id(), workspace_id=actor.ws.id, client_id=cmd.client_id, actor_id=actor.person.id, op=cmd.op, status="applied", result=result))  # fmt: skip
-        await uow.commit(
-            allow_unlogged=True
-        )  # the log row is bookkeeping; the command's own events were committed by its handler
+        emit_admin(
+            uow,
+            workspace_id=actor.ws.id,
+            actor_id=actor.person.id,
+            event_type="command.applied",
+            payload={"after": {"op": cmd.op, "client_id": cmd.client_id, "status": "applied"}},
+        )  # the CommandLog row rides on a real event, so the commit guard needs no allow-list entry
+        await uow.commit()
         return result
     except (ValidationError, ApiError, DomainError, IntegrityError, StatementError) as exc:
         await _reset(uow, actor)

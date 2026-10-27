@@ -1,14 +1,16 @@
 import type { QueueRow, TeamActivity } from "./types";
 
-/** "My queue": review rows with the server's suggested default one click away (Phase 13 R6.1). */
+/** "My queue": review rows with the server's suggestion one click (or Enter) away (Phase 13 R6.1). */
 export function QueuePanel({
   rows,
   onResolve,
 }: {
   rows: QueueRow[];
-  onResolve: (picks: { id: string; choice: string }[]) => void;
+  onResolve: (
+    picks: { ref: string; choice: Record<string, unknown> }[],
+  ) => void;
 }) {
-  const withDefault = rows.filter((r) => r.default_choice);
+  const withChoice = rows.filter((r) => r.choice);
   return (
     <section aria-label="My queue">
       <h2>My queue</h2>
@@ -18,35 +20,30 @@ export function QueuePanel({
         <>
           <ul className="plain">
             {rows.map((r) => (
-              <li key={r.id}>
-                {r.id} · {r.summary ?? r.title ?? ""}{" "}
-                {r.default_choice ? (
+              <li key={r.ref}>
+                {r.line}{" "}
+                {r.choice ? (
                   <button
-                    aria-label={`Accept ${r.default_choice} for ${r.id}`}
+                    aria-label={`Accept ${r.choice_label} for ${r.item_key}`}
                     onClick={() =>
-                      onResolve([{ id: r.id, choice: r.default_choice! }])
+                      onResolve([{ ref: r.ref, choice: r.choice! }])
                     }
                   >
-                    Accept {r.default_choice}
+                    Accept {r.choice_label}
                   </button>
-                ) : (
-                  <small>no default: use the web console</small>
-                )}
+                ) : null}
               </li>
             ))}
           </ul>
-          {withDefault.length > 1 ? (
+          {withChoice.length > 1 ? (
             <button
               onClick={() =>
                 onResolve(
-                  withDefault.map((r) => ({
-                    id: r.id,
-                    choice: r.default_choice!,
-                  })),
+                  withChoice.map((r) => ({ ref: r.ref, choice: r.choice! })),
                 )
               }
             >
-              Accept all {withDefault.length} defaults
+              Accept all {withChoice.length} defaults
             </button>
           ) : null}
         </>
@@ -57,10 +54,6 @@ export function QueuePanel({
 
 /** "Team now": what my reports are working on right now. */
 export function TeamNowPanel({ activities }: { activities: TeamActivity[] }) {
-  const who = (a: TeamActivity) =>
-    typeof a.person === "object"
-      ? (a.person?.handle ?? "?")
-      : (a.person ?? "?");
   return (
     <section aria-label="Team now">
       <h2>Team now</h2>
@@ -69,10 +62,7 @@ export function TeamNowPanel({ activities }: { activities: TeamActivity[] }) {
       ) : (
         <ul className="plain">
           {activities.map((a, i) => (
-            <li key={i}>
-              {who(a)} · {a.item?.key ?? a.key ?? ""}{" "}
-              {a.item?.title ?? a.title ?? ""}
-            </li>
+            <li key={i}>{a.line}</li>
           ))}
         </ul>
       )}

@@ -119,8 +119,8 @@ class ClientBatch(_Client):
         "0.1"  # spec default (parity); clients that know commands send CLIENT_SCHEMA_VERSION
     )
     commands: list[ClientCommand] = Field(
-        default_factory=list
-    )  # ADR-0051: schema addition, backwards compatible
+        default_factory=list, max_length=50
+    )  # ADR-0051; more than 50 go through POST /commands in chunks: schema addition, backwards compatible
     mode: Optional[Literal["assisted", "manual"]] = None  # ADR-0004: schema addition, backwards compatible
 
 

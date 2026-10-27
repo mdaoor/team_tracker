@@ -54,6 +54,7 @@ Variables are read from the environment (prefix `TT_`) or a `.env` file. Rows ma
 | `TT_METRICS_TOKEN` | `str \| None` | unset | Bearer token for GET /metrics. Unset = /metrics is dev-only. **secret** |
 | `TT_RATE_CAPTURE_PER_MIN` | `int` | `600` | POST /capture/batches per credential. |
 | `TT_RATE_AUTH_PER_MIN` | `int` | `60` | POST /auth/* per client address. |
+| `TT_RATE_COMMANDS_PER_MIN` | `int` | `120` | Management commands (POST /commands, POST /items:merge, commands[] of /capture/batches) per credential; each command counts once. |
 | `TT_CERT_RELOAD_INTERVAL_S` | `float` | `30.0` |  |
 | `TT_CERT_EXPIRY_WARN_DAYS` | `int` | `14` |  |
 | `TT_TLS_CERTFILE` | `str \| None` | unset |  |

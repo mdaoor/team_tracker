@@ -215,7 +215,7 @@ def register(app: typer.Typer) -> None:
                 pk = t.env.pack() or {}
                 assist = lambda ln: fetch(  # noqa: E731
                     cfg.gateway_url or "", ln, actor=cfg.handle or "@me", now=t.now.isoformat(), time_zone=cfg.time_zone,
-                    projects=[{"key": p["key"], "name": p.get("name", "")} for p in pk.get("projects", [])], token=cfg.token or None,
+                    projects=[{"key": p["key"], "name": p.get("name", "")} for p in pk.get("projects", [])],
                 )  # fmt: skip
             items = t.add(text, assist=assist)
         except (TrackerError, ValueError) as exc:
@@ -585,7 +585,7 @@ def register(app: typer.Typer) -> None:
             from tt_client.api import TTApi, Unreachable
 
             try:
-                typer.echo(json.dumps(t.confirm_daily_log(TTApi(cfg))))
+                typer.echo(t.confirm_daily_log(TTApi(cfg))["sentence"])
             except Unreachable:
                 typer.echo("offline: the daily log will be confirmed when you are back", err=True)
                 raise typer.Exit(1) from None
@@ -629,12 +629,24 @@ def register(app: typer.Typer) -> None:
             bool,
             typer.Option("--development/--no-development", help="send development items as #development"),
         ] = False,
+        assist: Annotated[
+            bool | None,
+            typer.Option(
+                "--assist/--no-assist",
+                help="let the [llm] gateway classify quick-add lines the parser cannot place (default: off)",
+            ),
+        ] = None,
         as_json: AsJson = False,
     ) -> None:
         """What stays on this device, what can be sent, and the three category toggles."""
         t = tracker()
         try:
-            p = t.first_run(work=work, meeting=meeting, development=development) if first_run else t.privacy()
+            if first_run:
+                p = t.first_run(work=work, meeting=meeting, development=development, assist=bool(assist))
+            elif assist is not None:
+                p = t.set_assist(assist)
+            else:
+                p = t.privacy()
         except ValueError as exc:
             raise _fail(exc) from exc
         if as_json:
@@ -646,9 +658,12 @@ def register(app: typer.Typer) -> None:
         typer.echo(
             f"work: {c['work']} · meetings: {c['meeting']} · development: {c['development']} · personal: never (no way to send it)"
         )
+        typer.echo(f"assist: {p['assist']}  ({p['assist_note']})")
         typer.echo("calendars: " + (", ".join(p["calendars"]) or "none"))
         if not p["first_run_done"]:
-            typer.echo("\nchoose once: `tt privacy --first-run --work ask --meeting ask --no-development`")
+            typer.echo(
+                "\nchoose once: `tt privacy --first-run --work ask --meeting ask --no-development --no-assist`"
+            )
 
     @app.command("sent")
     def sent_cmd(

@@ -48,6 +48,7 @@ class Command:
     modes: tuple[str, ...] = ("manager", "pm", "admin")  # role modes that surface it first
     example_args: dict[str, Any] = field(default_factory=dict)
     example_text: str = ""
+    token_scope: str = "manage"  # the lowest API-token scope that may send it (manage | admin)
 
     def entry(self) -> dict[str, Any]:
         return {
@@ -55,6 +56,7 @@ class Command:
             "group": self.group,
             "description": self.description,
             "permission": self.permission,
+            "token_scope": self.token_scope,
             "preview": self.preview,
             "destructive": self.destructive,
             "modes": list(self.modes),
@@ -80,13 +82,16 @@ def command(
     modes: tuple[str, ...] = ("manager", "pm", "admin"),
     example_args: dict[str, Any] | None = None,
     example_text: str = "",
+    token_scope: str = "manage",
 ) -> Callable[[Handler], Handler]:
     def deco(fn: Handler) -> Handler:
         if op in REGISTRY:
             raise RuntimeError(f"duplicate command {op!r}")
+        if token_scope not in ("manage", "admin"):
+            raise RuntimeError(f"{op!r}: token_scope must be manage or admin, not {token_scope!r}")
         REGISTRY[op] = Command(
             op, group, description, args, fn, permission, scope, scope_arg, preview, destructive, modes,
-            example_args or {}, example_text,
+            example_args or {}, example_text, token_scope,
         )  # fmt: skip
         return fn
 

@@ -29,6 +29,9 @@ class Entry:
     attempts: int
     last_error: str | None
     created_at: str
+    confirmed_at: str | None = (
+        None  # set by `Outbox.confirm` once a person said yes (plan_confirmation passed)
+    )
 
 
 class Outbox:
@@ -49,6 +52,9 @@ class Outbox:
             "batch_json TEXT NOT NULL, created_at TEXT NOT NULL, "
             "attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT)"
         )
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(pending)")}
+        if "confirmed_at" not in cols:  # queues written before the confirmation rule are unconfirmed
+            self.db.execute("ALTER TABLE pending ADD COLUMN confirmed_at TEXT")
         self.db.commit()
 
     # -- writing
@@ -70,10 +76,10 @@ class Outbox:
     # -- reading
     def pending(self) -> list[Entry]:
         rows = self.db.execute(
-            "SELECT client_id, path, attempts, last_error, created_at "
+            "SELECT client_id, path, attempts, last_error, created_at, confirmed_at "
             "FROM pending ORDER BY created_at, client_id"
         ).fetchall()
-        return [Entry(r[0], Path(r[1]), r[2], r[3], r[4]) for r in rows]
+        return [Entry(r[0], Path(r[1]), r[2], r[3], r[4], r[5]) for r in rows]
 
     def find(self, ref: str) -> Entry:
         """Resolve a file path or a (prefix of a) batch id."""
@@ -111,6 +117,17 @@ class Outbox:
             raise ValueError(f"{'/'.join(str(p) for p in first['loc'])}: {first['msg']}") from exc
 
     # -- state changes
+    def confirm(self, entry: Entry) -> None:
+        """Record that a person confirmed this entry (the CLI, the sidecar and Slack call it after `plan_confirmation`).
+
+        Only a confirmed entry is ever delivered by `sync` when it carries commands, and only then is `_meta.confirmed`
+        stamped on them, so `tt sync` can never turn a `--no-send` draft into a sent destructive command."""
+        entry.confirmed_at = datetime.now(UTC).isoformat()
+        self.db.execute(
+            "UPDATE pending SET confirmed_at = ? WHERE client_id = ?", (entry.confirmed_at, entry.batch_id)
+        )
+        self.db.commit()
+
     def mark_sent(self, entry: Entry) -> Path:
         self.db.execute("DELETE FROM pending WHERE client_id = ?", (entry.batch_id,))
         self.db.commit()
@@ -155,10 +172,11 @@ class SyncReport:
     offline: bool = False
     kept: int = 0
     results: list[dict[str, Any]] | None = None
+    unconfirmed: list[Entry] | None = None  # entries with commands nobody confirmed: kept, never sent
 
 
 def _stamp_confirmed(batch: dict[str, Any]) -> None:
-    """A batch is only synced after the person confirmed it (or forced it); the server's destructive-op guard reads this."""
+    """Only called for an entry whose `confirmed_at` is set; the server's destructive-op guard reads `_meta.confirmed`."""
     for c in batch.get("commands", []):
         args = c.setdefault("args", {})
         args.setdefault("_meta", {})["confirmed"] = True
@@ -168,7 +186,7 @@ def sync(api: Any, outbox: Outbox, only: list[Entry] | None = None) -> SyncRepor
     """Send pending batches oldest-first. Stops at the first network failure; nothing is ever dropped."""
     from tt_client.api import Unreachable
 
-    report = SyncReport(results=[])
+    report = SyncReport(results=[], unconfirmed=[])
     ids = {e.batch_id for e in only} if only is not None else None
     for entry in outbox.pending():
         if ids is not None and entry.batch_id not in ids:
@@ -179,7 +197,11 @@ def sync(api: Any, outbox: Outbox, only: list[Entry] | None = None) -> SyncRepor
             outbox.quarantine(entry, f"unreadable outbox file: {exc}")
             report.quarantined += 1
             continue
-        _stamp_confirmed(batch)
+        if batch.get("commands"):
+            if entry.confirmed_at is None:
+                report.unconfirmed.append(entry)  # type: ignore[union-attr]
+                continue
+            _stamp_confirmed(batch)
         try:
             status, body = api.post_batch(batch)
         except Unreachable as exc:

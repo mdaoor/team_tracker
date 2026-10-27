@@ -22,15 +22,17 @@ class SlidingWindow:
         self._hits: dict[str, deque[float]] = {}
         self._swept = clock()
 
-    def hit(self, key: str) -> float | None:
-        """Record a request. Returns None when allowed, else the seconds until the oldest hit leaves the window."""
+    def hit(self, key: str, n: int = 1) -> float | None:
+        """Record `n` requests. Returns None when allowed, else the seconds until enough hits leave the window."""
         now = self.clock()
         q = self._hits.setdefault(key, deque())
         while q and now - q[0] >= self.window:
             q.popleft()
-        if len(q) >= self.limit:
-            return max(0.0, self.window - (now - q[0]))
-        q.append(now)
+        if len(q) + n > self.limit:
+            # the hit that must expire for `n` more to fit; a single call larger than the limit waits a full window
+            idx = len(q) + n - self.limit - 1
+            return max(0.0, self.window - (now - q[idx])) if idx < len(q) else self.window
+        q.extend([now] * n)
         if now - self._swept > self.window * 5:  # forget idle keys so the table cannot grow without bound
             self._swept = now
             for k in [k for k, v in self._hits.items() if not v or now - v[-1] >= self.window]:

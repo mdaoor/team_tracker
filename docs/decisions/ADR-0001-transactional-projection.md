@@ -24,3 +24,9 @@ seed path opts out with `allow_unlogged=True`.
 - Writes that bypass the ORM (Core `INSERT/UPDATE` through `session.execute`) are not seen by the guard; code review
   and the "single event writer" test cover that gap.
 - `Event.event_type` must be listed in `docs/api/event-catalogue.md`; `EventWriter.append` rejects unknown types.
+
+## Amendment (PR #11 review): the allow-list is pinned
+`UnitOfWork.commit_bookkeeping()` raises `MissingEventError` when the unit of work touched any table outside `BOOKKEEPING_TABLES`
+(API-token usage, sign-in backoff, the governance bot person, shipped reference data, Jira sync state), whether the rows are pending or
+already flushed, so it cannot carry a domain change past the guard. `tests/unit/test_commit_allowlist.py` freezes the exact call sites
+of `commit_bookkeeping`, `commit_derived` and `allow_unlogged=True`; adding one means editing that test.

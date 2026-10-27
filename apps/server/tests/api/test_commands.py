@@ -185,7 +185,58 @@ async def test_forged_capture_scope_token_cannot_send_commands(api: Api) -> None
     assert ok.status_code == 200 and ok.json()["results"][0]["status"] == "applied"
 
 
+async def test_a_manage_token_cannot_run_admin_scope_ops_but_an_admin_token_can(api: Api) -> None:
+    async def token(*scopes: str) -> dict[str, str]:
+        r = await api.c.post("/auth/tokens", headers={"X-Debug-Actor": "@mahmoud"}, json={"workspace": api.slug, "name": "t", "scopes": list(scopes)})  # fmt: skip
+        assert r.status_code == 201, r.text
+        return {"Authorization": f"Bearer {r.json()['token']}"}
+
+    mg, adm = await token("capture", "read", "manage"), await token("capture", "read", "manage", "admin")
+    team = {"name": "Sq", "kind": "virtual", "lead": "@mahmoud", "members": ["@sara"]}
+    line = {"person": "@ali", "manager": "@sara"}
+
+    async def via_commands(h: dict[str, str], *cs: dict[str, Any]) -> list[dict[str, Any]]:
+        r = await api.c.post(api.url("/commands"), headers=h, json={"commands": list(cs)})
+        assert r.status_code in (200, 207), r.text
+        return list(r.json()["results"])
+
+    async def via_batch(h: dict[str, str], *cs: dict[str, Any]) -> list[dict[str, Any]]:
+        r = await api.c.post(api.url("/capture/batches"), headers=h, json={"workspace": "acme", "messages": [], "commands": list(cs)})  # fmt: skip
+        assert r.status_code in (200, 207), r.text
+        return list(r.json()["results"])
+
+    for via in (via_commands, via_batch):
+        ok, t, rl = await via(mg, cmd("item.create", {"title": "x", "project": "WEB"}), cmd("team.create", team), cmd("reporting_line.set", line))  # fmt: skip
+        assert ok["status"] == "applied", ok
+        for denied in (t, rl):
+            assert denied["status"] == "rejected" and denied["errors"][0]["code"] == "insufficient_scope", (
+                denied
+            )
+    created = await via_commands(adm, cmd("team.create", team), cmd("reporting_line.set", line))
+    assert [r["status"] for r in created] == ["applied", "applied"], created
+    # an interactive session (no token) is unaffected
+    assert (await one(api, "team.create", {**team, "name": "Sq2"}))["status"] == "applied"
+
+
+def test_every_op_declares_a_token_scope() -> None:
+    assert {s.token_scope for s in REGISTRY.values()} == {"manage", "admin"}
+    assert {e["token_scope"] for e in catalogue()["ops"]} == {"manage", "admin"}
+    admin_ops = {k for k, s in REGISTRY.items() if s.token_scope == "admin"}
+    assert admin_ops == {"team.create", "team.add_members", "team.remove_members", "reporting_line.set", "project.add_member", "dimension.value.add", "policy.activate", "policy.deactivate", "tag.merge"}  # fmt: skip
+
+
 # ----------------------------------------------------------------------------------------------- idempotency, destructive, batches
+
+
+async def test_an_applied_command_is_logged_by_a_command_applied_event(api: Api, session_factory: async_sessionmaker[AsyncSession]) -> None:  # fmt: skip
+    c = cmd("tag.create", {"name": "evented"})
+    assert (await send(api, c))[0]["status"] == "applied"
+    assert (await send(api, c))[0]["deduplicated"] is True  # a replay writes nothing new
+    async with session_factory() as s:
+        evs = (await s.scalars(select(m.Event).where(m.Event.event_type == "command.applied"))).all()
+        logs = (await s.scalars(select(m.CommandLog).where(m.CommandLog.client_id == c["client_id"]))).all()
+    assert len(evs) == 1 and len(logs) == 1
+    assert evs[0].payload["after"] == {"op": "tag.create", "client_id": c["client_id"], "status": "applied"}
 
 
 async def test_a_command_is_applied_once_per_client_id(api: Api) -> None:
@@ -367,6 +418,28 @@ async def test_context_pack_carries_role_context_and_team_now(api: Api) -> None:
     r = await api.call("GET", "/activities?team=mine&status=active")
     assert r.status_code == 200 and [a["person"] for a in r.json()["data"]] == ["@sara"]
     assert (await api.call("GET", "/activities?team=mine", as_="@ali")).json()["data"] == []
+
+
+async def test_context_pack_lists_pending_approvals_with_ids(api: Api) -> None:
+    ms = await api.call(
+        "POST", "/projects/WEB/milestones", json={"name": "Go-live", "due_date": "2026-12-01"}
+    )
+    assert ms.status_code == 201, ms.text
+    appr = await api.call("POST", f"/milestones/{ms.json()['id']}/approval")
+    assert appr.status_code == 201, appr.text
+    pack = (await api.call("GET", "/context-pack")).json()
+    assert pack["pending_approvals_count"] == 1
+    assert len(pack["pending_approvals"]) == 1
+    row = pack["pending_approvals"][0]
+    assert set(row) == {"id", "title", "project_key", "requested_by", "requested_at"}
+    assert row["id"] == appr.json()["id"] and row["title"] == "Milestone Go-live"
+    assert row["project_key"] == "WEB" and row["requested_by"] == "@mahmoud" and row["requested_at"]
+    res = await one(api, "approval.decide", {"approval": row["id"], "decision": "approved"})
+    assert res["status"] == "applied", res
+    after = (await api.call("GET", "/context-pack")).json()
+    assert after["pending_approvals"] == [] and after["pending_approvals_count"] == 0
+    other = (await api.call("GET", "/context-pack", as_="@ali")).json()
+    assert other["pending_approvals"] == [] and other["pending_approvals_count"] == 0
 
 
 def test_every_op_is_documented() -> None:

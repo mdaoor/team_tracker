@@ -1,0 +1,97 @@
+{
+  "data": [
+    {
+      "client_meta": {
+        "client": "seed"
+      },
+      "created_at": "2026-10-27T20:16:21.219517Z",
+      "created_by": null,
+      "deleted_at": null,
+      "ended_at": null,
+      "id": "01a17f01-b6f6-750b-862c-3019f60db1ad",
+      "item_key": "DATA-114",
+      "item_title": "backfill CLI skeleton",
+      "kind": "working",
+      "mood": null,
+      "note": null,
+      "person": "@nour",
+      "person_id": "01a17f01-8e27-7179-a274-c42df49c9e28",
+      "project_id": "01a17f01-8f17-734b-9681-00036df5d388",
+      "project_key": "DATA",
+      "started_at": "2026-10-23T13:50:00Z",
+      "status": "active",
+      "updated_at": "2026-10-27T20:16:21.219517Z",
+      "work_item_id": "01a17f01-98a2-7507-809a-ce71cfe9254b"
+    },
+    {
+      "client_meta": {
+        "client": "0.1"
+      },
+      "created_at": "2026-10-27T20:16:26.154551Z",
+      "created_by": null,
+      "deleted_at": null,
+      "ended_at": null,
+      "id": "01a17f01-ca3c-7138-a995-740d214a7d53",
+      "item_key": "WEB-101",
+      "item_title": "fix the login redirect loop",
+      "kind": "working",
+      "mood": null,
+      "note": null,
+      "person": "@sara",
+      "person_id": "01a17f01-8df5-7324-94e2-0b50af7a7e51",
+      "project_id": "01a17f01-8eda-7391-8b5f-c5829dd23dfb",
+      "project_key": "WEB",
+      "started_at": "2026-10-23T07:00:00Z",
+      "status": "active",
+      "updated_at": "2026-10-27T20:16:26.154551Z",
+      "work_item_id": "01a17f01-90f4-726d-8f20-dfb1ebb8633a"
+    },
+    {
+      "client_meta": {
+        "client": "0.1"
+      },
+      "created_at": "2026-10-27T20:16:26.263376Z",
+      "created_by": null,
+      "deleted_at": null,
+      "ended_at": null,
+      "id": "01a17f01-cb11-75a4-a1d1-0b762d94610c",
+      "item_key": "WEB-134",
+      "item_title": "fix the login redirect loop",
+      "kind": "working",
+      "mood": null,
+      "note": null,
+      "person": "@lina",
+      "person_id": "01a17f01-8e5e-725d-82d9-3137f6d797db",
+      "project_id": "01a17f01-8eda-7391-8b5f-c5829dd23dfb",
+      "project_key": "WEB",
+      "started_at": "2026-10-23T07:00:00Z",
+      "status": "active",
+      "updated_at": "2026-10-27T20:16:26.263376Z",
+      "work_item_id": "01a17f01-caa7-72b7-b40e-fcf213e3eb72"
+    },
+    {
+      "client_meta": {
+        "client": "0.1"
+      },
+      "created_at": "2026-10-27T20:16:26.478890Z",
+      "created_by": null,
+      "deleted_at": null,
+      "ended_at": null,
+      "id": "01a17f01-cbd5-74b2-a474-15822e6ed108",
+      "item_key": "WEB-135",
+      "item_title": "fix the login redirect loop",
+      "kind": "working",
+      "mood": null,
+      "note": null,
+      "person": "@youssef",
+      "person_id": "01a17f01-8e77-713f-85d2-8558c3a5a9d7",
+      "project_id": "01a17f01-8eda-7391-8b5f-c5829dd23dfb",
+      "project_key": "WEB",
+      "started_at": "2026-10-23T07:00:00Z",
+      "status": "active",
+      "updated_at": "2026-10-27T20:16:26.478890Z",
+      "work_item_id": "01a17f01-cb7e-721a-a10a-7b0e52055b35"
+    }
+  ],
+  "next_cursor": null
+}

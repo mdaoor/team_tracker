@@ -39,10 +39,13 @@ async def post_batch(request: Request, actor: CurrentActor, uow: Uow) -> JSONRes
     except ValidationError as exc:
         first = exc.errors()[0]
         loc = [str(p) for p in first["loc"]]
+        too_many = first["loc"][:1] == ("commands",) and first["type"] == "too_long"
         return JSONResponse(
             error_body(
                 "schema_violation",
-                first["msg"],
+                "a batch carries at most 50 commands; send management commands with POST /commands in chunks of 50"
+                if too_many
+                else first["msg"],
                 "/" + "/".join(loc),
                 {
                     "message_index": first["loc"][1]
@@ -58,6 +61,8 @@ async def post_batch(request: Request, actor: CurrentActor, uow: Uow) -> JSONRes
         )
     if batch.commands and not can_send_commands(actor):
         raise ApiError(403, "insufficient_scope", "this token may only send capture messages, not commands")
+    if batch.commands and (limited := request.app.state.throttle_commands(request, len(batch.commands))):
+        return limited  # type: ignore[no-any-return]
     corr = new_id()
     results = await ingest_batch(
         get_session_factory(request),

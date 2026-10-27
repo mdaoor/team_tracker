@@ -21,7 +21,15 @@ def main() -> None:
     rows = []
     for e in cat["ops"]:
         flags = (
-            ", ".join(f for f, v in (("preview", e["preview"]), ("destructive", e["destructive"])) if v)
+            ", ".join(
+                f
+                for f, v in (
+                    ("preview", e["preview"]),
+                    ("destructive", e["destructive"]),
+                    ("admin token", e["token_scope"] == "admin"),
+                )
+                if v
+            )
             or "–"
         )
         rows.append(

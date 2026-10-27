@@ -116,6 +116,12 @@ or use `tt say …` for capture lines that start with one of them.
   skips it, and `--force` is recorded: `args._meta.forced = true`. Without a terminal and without the flags the entry stays in the outbox
   (exit code 3). The desktop sidecar and Slack enforce the same rule in code, not only in the UI (two confirmations; Slack uses its native
   confirmation dialog and refuses a click that did not come through it).
+* **`tt sync` delivers only what a person confirmed.** Every outbox entry that carries commands has a `confirmed_at`, set when the
+  confirmation step passed (`tt do` / `tt cmd` / `tt approve` / `tt send` with an answer or `--yes`/`--force`, the sidecar's `_send`, a Slack
+  button). `tt sync` sends such entries and stamps `_meta.confirmed` on exactly those commands. An entry saved with `--no-send`, adopted
+  from a file, or left behind by a destructive command that only had `--yes` has no `confirmed_at`: `tt sync` prints
+  `kept in the outbox: needs confirmation (tt send <id> --yes)` and never posts it, ordinary or destructive. `tt sync` prints one line per
+  command (`✓ op` / `✗ op rejected: <reason>`) and exits 1 if the server rejected any.
 * **Audit.** Every command carries `args._meta = {client_version, mode, role_mode, forced}`; the server records it in the event payload
   next to `payload.command`. `on_behalf_of` is recorded too.
 * **The gateway cannot be talked into new powers.** It offers the model only catalogue ops, drops any op or argument that is not in the
@@ -172,7 +178,7 @@ answers `207`, and nothing is written for the rejected command or changed for it
 * Result: `{client_id, op, status: applied|rejected|previewed, result, preview, errors[{pointer, code, message}]}`.
 * `POST /items:merge` is the direct form of `item.merge`.
 * `GET /me` lists `roles[]`, `role_modes[]`, `can{}`; the ContextPack carries `my_role_modes`, `my_teams_with_members`,
-  `my_projects_as_manager`, `review_queue_count`, `pending_approvals`; `GET /activities?team=mine` is "team now".
+  `my_projects_as_manager`, `review_queue_count`, `pending_approvals` (a list of `{id, title, project_key, requested_by, requested_at}`, the id is what `approval.decide` takes) and `pending_approvals_count`; `GET /activities?team=mine` is "team now".
 
 ### Role modes
 `reporter`, `manager`, `scrum_master`, `coach`, `pm`, `admin`. A mode is a **lens**: it changes which verbs and forms the client
@@ -191,7 +197,8 @@ person may select are derived from their roles (`GET /me`).
   confirmed the preview) or `_meta.forced` (`--force`, logged). `--yes` alone confirms ordinary ops only.
 * **Authorisation** is declared per op and enforced before it runs; an invisible object is `not_found`, a missing right `forbidden`
   with `details.permission`.
-* **Scope.** Tokens need scope `manage` or above; a `capture` token gets `403 insufficient_scope`.
+* **Scope.** Tokens need scope `manage` or above; a `capture` token gets `403 insufficient_scope`. People-admin ops (flag "admin token" below, catalogue field `token_scope`: teams, reporting lines, project members, dimension values, policy activation, tag merge) need the `admin` scope: a `manage` token gets a per-command `rejected` result `insufficient_scope`. Interactive sessions are not narrowed.
+* **Limits.** At most 50 commands per request or batch (`422`, pointer `/commands`; send more with `POST /commands` in chunks). Commands are rate limited per credential (`TT_RATE_COMMANDS_PER_MIN`, default 120): over it the whole request is `429` with `Retry-After`; wait and resend (client ids make that safe).
 * **Audit.** Events carry `source=client` and `payload.command = {op, client_id, client_version, mode, role_mode, forced?, on_behalf_of?}`.
 * See ADR-0050 (merge semantics) and ADR-0056 (execution semantics).
 
@@ -202,7 +209,7 @@ person may select are derived from their roles (`GET /me`).
 | `classify` | tags | classification.write | – | Classify an item or project on a dimension |
 | `context_note.add` | personal | context_note.write | – | Add a context note for a project, team or the workspace |
 | `dailylog.confirm` | personal | any member | – | Confirm your daily log |
-| `dimension.value.add` | tags | dimension.admin | – | Add a value to a dimension (customer, theme, ...) |
+| `dimension.value.add` | tags | dimension.admin | admin token | Add a value to a dimension (customer, theme, ...) |
 | `habit.coach_note` | governance | habit.coach | – | Write a coaching note on a habit (visible to managers and coaches only) |
 | `habit.set_status` | governance | habit.coach | – | Set a habit's coaching status |
 | `item.assign` | items | item.write_overlay | – | Assign an item to a person |
@@ -227,14 +234,14 @@ person may select are derived from their roles (`GET /me`).
 | `iteration.start` | iterations | iteration.write | – | Start a planned iteration |
 | `milestone.complete` | iterations | milestone.write | – | Complete a milestone |
 | `milestone.create` | iterations | milestone.write | – | Create a milestone |
-| `policy.activate` | governance | policy.write | – | Activate a tested policy |
-| `policy.deactivate` | governance | policy.write | – | Deactivate a policy |
-| `project.add_member` | projects | project_member.write | – | Add a person to a project |
+| `policy.activate` | governance | policy.write | admin token | Activate a tested policy |
+| `policy.deactivate` | governance | policy.write | admin token | Deactivate a policy |
+| `project.add_member` | projects | project_member.write | admin token | Add a person to a project |
 | `project.baseline.capture` | projects | project.write | – | Freeze the current plan as a named baseline |
 | `project.create` | projects | project.create | preview | Create a project |
 | `project.plan.create` | projects | project.write | – | Create a top-down plan (phases, deliverables, milestones) |
 | `project.update` | projects | project.write | – | Rename or change a project's status |
-| `reporting_line.set` | teams | reporting_line.write | – | Set who a person reports to |
+| `reporting_line.set` | teams | reporting_line.write | admin token | Set who a person reports to |
 | `review.bulk` | governance | any member | preview, destructive | Apply one action to many review rows |
 | `review.resolve` | governance | any member | – | Resolve a review-queue row |
 | `risk.action.add` | process | risk.write | – | Add a mitigation action to a risk |
@@ -242,10 +249,10 @@ person may select are derived from their roles (`GET /me`).
 | `risk.link` | process | risk.write | – | Link a risk to an item |
 | `stage.move` | process | item.write_overlay | preview | Move items to a process stage |
 | `tag.create` | tags | classification.write | – | Create a tag |
-| `tag.merge` | tags | classification.write | destructive | Merge one tag into another |
-| `team.add_members` | teams | team.write | – | Add people to a team |
-| `team.create` | teams | team.write | preview | Create a team (org, virtual or ad hoc) with members |
-| `team.remove_members` | teams | team.write | preview, destructive | Remove people from a team |
+| `tag.merge` | tags | classification.write | destructive, admin token | Merge one tag into another |
+| `team.add_members` | teams | team.write | admin token | Add people to a team |
+| `team.create` | teams | team.write | preview, admin token | Create a team (org, virtual or ad hoc) with members |
+| `team.remove_members` | teams | team.write | preview, destructive, admin token | Remove people from a team |
 | `violation.ack` | governance | any member | – | Acknowledge a policy violation |
 | `violation.resolve` | governance | violation.resolve | – | Mark a violation resolved |
 | `violation.waive` | governance | violation.waive | – | Waive a violation with a reason |

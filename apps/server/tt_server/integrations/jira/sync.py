@@ -281,7 +281,7 @@ async def push_item(
             link.last_state_key = want.state_key
             link.last_pushed_at = utcnow()
             link.status, link.attempts, link.last_error = "synced", 0, None
-            await uow.commit_bookkeeping()
+            await finish(uow)  # the item.jira_linked event (if any) commits with the link, not after it
             if cfg.get("sync_time_logs"):
                 n = await _push_worklogs(uow, client, ws, item, link)
                 if n:

@@ -32,6 +32,7 @@ export function PrivacyDialog({
   const [development, setDevelopment] = useState(
     info.categories.development === "on",
   );
+  const [assist, setAssist] = useState(info.assist === "on");
   const [sent, setSent] = useState<SentRow[] | null>(null);
   const [confirmErase, setConfirmErase] = useState(false);
   const gid = useId();
@@ -41,7 +42,7 @@ export function PrivacyDialog({
   }, [bridge, firstRun]);
 
   const save = async () => {
-    const p = await bridge.firstRun({ work, meeting, development });
+    const p = await bridge.firstRun({ work, meeting, development, assist });
     onSaved(p);
     announce("Privacy choices saved");
     onClose();
@@ -116,6 +117,18 @@ export function PrivacyDialog({
           />
           Send development time to my development project, tagged #development
           (visible to me and my line manager)
+        </label>
+      </fieldset>
+      <fieldset>
+        <legend>Quick add</legend>
+        <label className="choice">
+          <input
+            type="checkbox"
+            checked={assist}
+            onChange={(e) => setAssist(e.target.checked)}
+          />
+          Let my language-model gateway classify lines the app cannot place (the
+          line is sent to it; off by default, never sent to Team Tracker)
         </label>
       </fieldset>
       <p>

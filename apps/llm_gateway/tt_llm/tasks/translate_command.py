@@ -248,7 +248,7 @@ def _prompt(deps: Deps, req: TaskRequest, cat: Catalogue) -> str:
         {
             k: req.pack[k]
             for k in ("teams", "pending_approvals", "my_projects_as_manager")
-            if k in (req.pack or {})
+            if isinstance((req.pack or {}).get(k), list)
         }
     )
     return system_prompt(

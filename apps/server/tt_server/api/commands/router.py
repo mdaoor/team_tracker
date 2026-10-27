@@ -43,10 +43,13 @@ async def run_all(
 
 
 @router.post("/commands")
-async def post_commands(body: CommandsIn, actor: CurrentActor, uow: Uow) -> JSONResponse:
-    """Apply or preview commands in order; a rejected command never fails the others. 207 when any was rejected."""
+async def post_commands(request: Request, body: CommandsIn, actor: CurrentActor, uow: Uow) -> JSONResponse:
+    """Apply or preview commands in order; a rejected command never fails the others. 207 when any was rejected.
+    429 + Retry-After past `TT_RATE_COMMANDS_PER_MIN` commands per credential."""
     if not can_send_commands(actor):
         raise ApiError(403, "insufficient_scope", "this token may only send capture messages")
+    if limited := request.app.state.throttle_commands(request, len(body.commands)):
+        return limited  # type: ignore[no-any-return]
     results = await run_all(uow, actor, body.commands, new_id())
     status = 207 if any(r["status"] == "rejected" for r in results) else 200
     return JSONResponse({"results": results}, status)
@@ -61,10 +64,12 @@ class MergeIn(BaseModel):
 
 
 @router.post("/items:merge")
-async def merge_items(body: MergeIn, actor: CurrentActor, uow: Uow) -> JSONResponse:
-    """Direct form of `item.merge` (same service, same permission, same events)."""
+async def merge_items(request: Request, body: MergeIn, actor: CurrentActor, uow: Uow) -> JSONResponse:
+    """Direct form of `item.merge` (same service, same permission, same events); counts as one command for the rate limit."""
     if not can_send_commands(actor):
         raise ApiError(403, "insufficient_scope", "this token may not merge items")
+    if limited := request.app.state.throttle_commands(request, 1):
+        return limited  # type: ignore[no-any-return]
     cmd = ClientCommand(
         client_id=new_id(), actor=actor.handle, at=utcnow(), op="item.merge", preview_only=body.preview,
         args={**body.model_dump(exclude={"preview"}), "_meta": {"confirmed": True, "mode": "direct"}},

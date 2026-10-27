@@ -6848,7 +6848,7 @@
     },
     "/api/v1/w/{ws}/commands": {
       "post": {
-        "description": "Apply or preview commands in order; a rejected command never fails the others. 207 when any was rejected.",
+        "description": "Apply or preview commands in order; a rejected command never fails the others. 207 when any was rejected.\n429 + Retry-After past `TT_RATE_COMMANDS_PER_MIN` commands per credential.",
         "operationId": "post_commands_api_v1_w__ws__commands_post",
         "parameters": [
           {
@@ -13799,7 +13799,7 @@
     },
     "/api/v1/w/{ws}/items:merge": {
       "post": {
-        "description": "Direct form of `item.merge` (same service, same permission, same events).",
+        "description": "Direct form of `item.merge` (same service, same permission, same events); counts as one command for the rate limit.",
         "operationId": "merge_items_api_v1_w__ws__items_merge_post",
         "parameters": [
           {
