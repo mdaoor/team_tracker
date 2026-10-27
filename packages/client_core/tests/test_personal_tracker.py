@@ -435,7 +435,8 @@ def test_end_of_day_sends_every_unsent_work_item_in_two_taps_and_confirms_the_da
     ]  # the third needs a 3-choice chip, nothing is guessed
     api.logs[0]["minutes_total"] = 180
     tap2 = tracker.confirm_daily_log(api)  # tap 2: confirm the DailyLog
-    assert tap2 == {"confirmed": True, "minutes_total": 180} and api.confirmed == ["dl-1"]
+    assert tap2 == {"confirmed": True, "minutes_total": 180, "sentence": "Confirmed your day: 3 h."}
+    assert api.confirmed == ["dl-1"]
     assert [m["project"] for b_ in api.batches for m in b_["messages"]] == ["WEB", "DATA"]
     assert tracker.end_of_day()["sent_count"] == 2
 
@@ -443,7 +444,11 @@ def test_end_of_day_sends_every_unsent_work_item_in_two_taps_and_confirms_the_da
 def test_the_daily_log_is_only_confirmed_for_what_was_sent(tracker: Tracker) -> None:
     api = StubApi()
     tracker.complete(tracker.add("run 30m at 6pm")[0].id)
-    assert tracker.confirm_daily_log(api) == {"confirmed": False, "reason": "nothing was sent today"}
+    assert tracker.confirm_daily_log(api) == {
+        "confirmed": False,
+        "reason": "nothing was sent today",
+        "sentence": "Nothing to confirm yet: nothing was sent today.",
+    }
     assert api.confirmed == [] and api.batches == []
 
 

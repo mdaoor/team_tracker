@@ -585,7 +585,7 @@ def register(app: typer.Typer) -> None:
             from tt_client.api import TTApi, Unreachable
 
             try:
-                typer.echo(json.dumps(t.confirm_daily_log(TTApi(cfg))))
+                typer.echo(t.confirm_daily_log(TTApi(cfg))["sentence"])
             except Unreachable:
                 typer.echo("offline: the daily log will be confirmed when you are back", err=True)
                 raise typer.Exit(1) from None

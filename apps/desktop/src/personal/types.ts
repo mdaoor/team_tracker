@@ -251,9 +251,13 @@ export interface PersonalBridge {
   eodSendAll(
     date?: string,
   ): Promise<{ sent: SendResult[]; needs_project: string[] }>;
-  eodConfirm(
-    date?: string,
-  ): Promise<{ confirmed: boolean; reason?: string; minutes_total?: number }>;
+  eodConfirm(date?: string): Promise<{
+    confirmed: boolean;
+    reason?: string;
+    minutes_total?: number;
+    /** One plain sentence, e.g. "Confirmed your day: 45 min on WEB-114." */
+    sentence?: string;
+  }>;
   weeklyReview(date?: string): Promise<WeeklyReview>;
   developmentSummary(
     date?: string,

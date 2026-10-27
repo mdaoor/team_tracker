@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,11 @@ PACK: dict[str, Any] = {
     ],
     "pending_approvals_count": 2,
 }  # fmt: skip
+
+
+SERVER_FIXTURES = HERE.parents[2] / "packages" / "client_core" / "tests" / "fixtures" / "server"
+RECORDED_QUEUE = json.loads((SERVER_FIXTURES / "review-queue.json").read_text())["data"]
+RECORDED_TEAM = json.loads((SERVER_FIXTURES / "activities-team-mine.json").read_text())["data"]
 
 
 @pytest.fixture
@@ -266,18 +272,53 @@ def test_approve_waive_queue_and_team_now(home: Path, server: FakeServer) -> Non
     }
     assert "reason is required" in tt("waive", "V-9", code=2)
     assert "✓ violation.waive" in tt("waive", "V-9", "--reason", "holiday week", "--yes")
-    server.review_rows = [
-        {"id": "RV-3", "summary": "Tag auth?", "default_choice": "accept", "choices": ["accept", "reject"]},
-        {"id": "RV-4", "summary": "Merge dupes?", "default_choice": "accept"},
-    ]
+    server.review_rows = RECORDED_QUEUE
     out = tt("queue", "--accept-defaults")
-    assert out.count("✓ review.resolve") == 2
-    assert [c["args"]["row"] for c in server.state["commands"] if c["op"] == "review.resolve"] == [
-        "RV-3",
-        "RV-4",
+    assert out.count("✓ review.resolve") == 1
+    assert [c["args"] for c in server.state["commands"] if c["op"] == "review.resolve"] == [
+        {"row": RECORDED_QUEUE[0]["ref"], "choice": {"project": "WEB"}}
     ]
-    server.team_activities = [{"person": {"handle": "@sara"}, "item": {"key": "WEB-1", "title": "Login"}}]
-    assert "@sara" in tt("team", "now")
+    server.team_activities = RECORDED_TEAM[:1]
+    assert RECORDED_TEAM[0]["person"] in tt("team", "now")
+
+
+def test_queue_renders_the_real_server_rows_and_never_prints_none(
+    home: Path, server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tt("role", "manager")
+    server.review_rows = RECORDED_QUEUE
+    created = datetime.fromisoformat(RECORDED_QUEUE[0]["created_at"])
+    monkeypatch.setenv("TT_NOW", (created + timedelta(minutes=3)).isoformat())
+    out = tt("queue")  # no terminal: list, do not resolve
+    assert "INBOX-sara-1 · tidy the ingest retry · @sara · 3 min → WEB [Enter]" in out
+    assert "None" not in out and not server.state["commands"]
+
+
+def test_queue_enter_accepts_the_suggestion_row_by_row(
+    home: Path, server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tt("role", "manager")
+    server.review_rows = RECORDED_QUEUE
+    monkeypatch.setattr("tt_cli.commands_cli.is_interactive", lambda: True)
+    out = tt("queue", input="\n")  # Enter = take the suggested project
+    assert "✓ review.resolve" in out
+    assert server.state["commands"][-1]["args"] == {
+        "row": RECORDED_QUEUE[0]["ref"],
+        "choice": {"project": "WEB"},
+    }
+
+
+def test_team_now_shows_person_item_and_minutes_from_the_real_rows(
+    home: Path, server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tt("role", "manager")
+    server.team_activities = RECORDED_TEAM
+    first = RECORDED_TEAM[0]
+    started = datetime.fromisoformat(first["started_at"].replace("Z", "+00:00"))
+    monkeypatch.setenv("TT_NOW", (started + timedelta(minutes=12)).isoformat())
+    out = tt("team", "now")
+    assert f"{first['person']} · {first['item_key']} {first['item_title']} · 12 min" in out
+    assert "?" not in out.split("\n")[0]
 
 
 def test_approve_lists_numbered_rows_and_a_number_decides_that_row(home: Path, server: FakeServer) -> None:

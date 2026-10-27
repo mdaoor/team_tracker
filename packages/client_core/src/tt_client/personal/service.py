@@ -35,6 +35,7 @@ from tt_client.personal.recurrence import describe, materialise, split_instance_
 from tt_client.personal.settings import Settings
 from tt_client.personal.store import PersonalStore, db_files
 from tt_client.personal.timer import TimerEngine
+from tt_client.rows import DayDraft
 from tt_client.secrets import SecretStore
 
 DB_NAME = "personal.db"
@@ -471,13 +472,32 @@ class Tracker:
             r.unsent_at is None and start <= r.at < end + timedelta(days=1)
             for i in self.store.items() for r in i.sent_refs
         ):  # fmt: skip
-            return {"confirmed": False, "reason": "nothing was sent today"}
+            return {
+                "confirmed": False,
+                "reason": "nothing was sent today",
+                "sentence": "Nothing to confirm yet: nothing was sent today.",
+            }
         self.deliver(api)
         logs = api.daily_logs(day.isoformat())
         if not logs:
-            return {"confirmed": False, "reason": "no daily log yet"}
+            return {
+                "confirmed": False,
+                "reason": "no daily log yet",
+                "sentence": "Your day has no draft on the server yet: run `tt sync` and try again.",
+            }
+        draft = DayDraft.from_api(logs[0])
+        if draft.status == "confirmed":
+            return {
+                "confirmed": True,
+                "minutes_total": draft.minutes_total,
+                "sentence": draft.already_sentence(),
+            }
         api.confirm_daily_log(logs[0]["id"])
-        return {"confirmed": True, "minutes_total": logs[0].get("minutes_total")}
+        return {
+            "confirmed": True,
+            "minutes_total": logs[0].get("minutes_total"),
+            "sentence": draft.confirmed_sentence(),
+        }
 
     def weekly_review(self, day: date | None = None) -> dict[str, Any]:
         return views.weekly_review_card(self._review_inputs(), day or self.today)

@@ -118,18 +118,30 @@ export interface SendOutcome {
   }[];
   error?: string;
 }
+/** One review-queue row as the sidecar maps it once (`tt_client.rows.ReviewRow.to_doc`): never the raw API field names. */
 export interface QueueRow {
-  id: string;
-  summary?: string;
-  title?: string;
-  default_choice?: string;
-  choices?: string[];
+  ref: string;
+  item_key: string;
+  item_title: string;
+  reporter?: string | null;
+  age?: string;
+  kind?: string;
+  /** The server's suggested resolution (`suggested.choice`), passed back verbatim to resolve the row. */
+  choice: Record<string, unknown> | null;
+  choice_label: string | null;
+  reason?: string | null;
+  /** `INBOX-sara-1 · tidy the ingest retry · @sara · 3 min → WEB [Enter]` */
+  line: string;
 }
+/** One "team now" row (`tt_client.rows.TeamNowRow.to_doc`). */
 export interface TeamActivity {
-  person?: string | { handle?: string };
-  item?: { key?: string; title?: string };
-  key?: string;
-  title?: string;
+  person: string;
+  item_key: string;
+  item_title: string;
+  project_key?: string | null;
+  age?: string;
+  /** `@sara · WEB-114 fix the login redirect loop · 12 min` */
+  line: string;
 }
 
 export interface CommandBridge {
@@ -151,6 +163,8 @@ export interface CommandBridge {
     opts: { confirmed: boolean; second_confirmed?: boolean; force?: boolean },
   ): Promise<SendOutcome>;
   queue(): Promise<{ rows: QueueRow[]; error?: string }>;
-  resolve(rows: { id: string; choice: string }[]): Promise<SendOutcome>;
+  resolve(
+    rows: { ref: string; choice: Record<string, unknown> }[],
+  ): Promise<SendOutcome>;
   teamNow(): Promise<{ activities: TeamActivity[]; error?: string }>;
 }

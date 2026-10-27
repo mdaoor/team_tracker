@@ -19,6 +19,7 @@ from tt_client.login import LoginError, browser_login, check_server, ldap_token
 from tt_client.outbox import Entry, sync
 from tt_client.parser.llm import GatewayTranslator, batch_review, translate_line
 from tt_client.preview import preview_dict
+from tt_client.rows import DayDraft, minutes_text
 from tt_schema.client import ClientBatch, ClientMessage
 from typer.core import TyperGroup
 
@@ -437,13 +438,16 @@ def today_cmd(confirm: Annotated[bool, typer.Option("--confirm")] = False) -> No
     if not logs:
         typer.echo("nothing logged today yet — log some work and your day drafts itself")
         return
-    log = logs[0]
-    typer.echo(f"{log['date']}  {log['status']}  {log['minutes_total'] / 60:.1f}h\n{log['summary']}")
-    if log["blockers"]:
-        typer.echo(f"blockers: {log['blockers']}")
+    log = DayDraft.from_api(logs[0])
+    typer.echo(f"{log.date} · {log.status} · {minutes_text(log.minutes_total)}\n{log.summary}")
+    if log.blockers:
+        typer.echo(f"blockers: {log.blockers}")
     if confirm:
-        rt.api.confirm_daily_log(log["id"])
-        typer.echo("confirmed ✓")
+        if log.status == "confirmed":
+            typer.echo(log.already_sentence())
+            return
+        rt.api.confirm_daily_log(log.id)
+        typer.echo(log.confirmed_sentence())
 
 
 @app.command("pack")

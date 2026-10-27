@@ -54,9 +54,10 @@ export function EndOfDayCard({
   const confirm = async () => {
     const r = await bridge.eodConfirm(data.date);
     setConfirmed(
-      r.confirmed
-        ? `Daily log confirmed (${hm(r.minutes_total)})`
-        : (r.reason ?? "Nothing to confirm"),
+      r.sentence ??
+        (r.confirmed
+          ? `Daily log confirmed (${hm(r.minutes_total)})`
+          : (r.reason ?? "Nothing to confirm")),
     );
   };
 

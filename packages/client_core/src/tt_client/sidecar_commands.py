@@ -28,6 +28,7 @@ from tt_client.command_flow import (
 from tt_client.commands import strip_meta
 from tt_client.outbox import Outbox, sync
 from tt_client.pack import ContextPack
+from tt_client.rows import ReviewRow, TeamNowRow
 
 
 @dataclass
@@ -165,7 +166,7 @@ def dispatch(verb: str, args: dict[str, Any], ctx: CommandContext) -> dict[str, 
         return _send(ctx, cat, args)
     if verb == "cmd-queue":
         try:
-            return {"rows": ctx.api.review_queue()}
+            return {"rows": [ReviewRow.from_api(r).to_doc(ctx.now()) for r in ctx.api.review_queue()]}
         except (Unreachable, ApiError) as exc:
             return {"error": str(exc)}
     if verb == "cmd-resolve":
@@ -175,7 +176,7 @@ def dispatch(verb: str, args: dict[str, Any], ctx: CommandContext) -> dict[str, 
         cmds = [
             forms.build_command(
                 meta,
-                {"row": r["id"], "choice": r["choice"]},
+                {"row": r["ref"], "choice": r["choice"]},
                 catalogue=cat,
                 pack=pack,
                 actor=ctx.actor,
@@ -188,7 +189,7 @@ def dispatch(verb: str, args: dict[str, Any], ctx: CommandContext) -> dict[str, 
         return _send(ctx, cat, {"commands": [_cmd_doc(c) for c in cmds], "confirmed": True})
     if verb == "cmd-team-now":
         try:
-            return {"activities": ctx.api.team_now()}
+            return {"activities": [TeamNowRow.from_api(a).to_doc(ctx.now()) for a in ctx.api.team_now()]}
         except (Unreachable, ApiError) as exc:
             return {"error": str(exc)}
     return {"error": f"unknown verb {verb!r}"}

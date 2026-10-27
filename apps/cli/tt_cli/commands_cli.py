@@ -31,6 +31,7 @@ from tt_client.command_flow import (
 from tt_client.commands import META, new_command, strip_meta
 from tt_client.config import config_dir
 from tt_client.outbox import Entry, SyncReport, sync
+from tt_client.rows import ReviewRow, TeamNowRow
 from tt_client.tls import verify_context
 from tt_schema.client import ClientCommand, ClientMessage
 
@@ -538,27 +539,26 @@ def register_commands(app: typer.Typer) -> None:
             typer.echo("review queue is empty")
             return
         cat = _catalogue(rt)
-        picks: list[tuple[str, str]] = []
-        for r in rows:
-            rid = str(r.get("id"))
-            raw_default = r.get("default_choice") or (r.get("choices") or [""])[0]
-            default = json.dumps(raw_default) if isinstance(raw_default, dict) else str(raw_default)
-            typer.echo(
-                f"{rid}  {r.get('summary') or r.get('title') or ''}  → default: {default or 'suggested'}"
-            )
+        picks: list[tuple[str, dict[str, Any]]] = []
+        for row in (ReviewRow.from_api(r) for r in rows):
+            typer.echo(row.line(now()))
+            if row.choice is None:
+                continue  # nothing suggested: the web console is the place to decide
             if accept_defaults or yes:
-                picks.append((rid, default))  # an empty choice means "the server's suggested resolution"
+                picks.append((row.ref, row.choice))
             elif is_interactive():
-                answer = typer.prompt(
-                    "  accept default, type another choice, or [s]kip", default=default or "s"
-                )
-                if answer.lower() not in ("s", "skip"):
-                    picks.append((rid, default if answer == default else answer))
+                answer = typer.prompt("  Enter = accept, s = skip", default="", show_default=False)
+                if answer.strip().lower() not in ("s", "skip"):
+                    picks.append((row.ref, row.choice))
         if not picks:
+            if not (accept_defaults or yes or is_interactive()):
+                typer.echo(
+                    "resolve with: tt queue --accept-defaults (or run it in a terminal and press Enter per row)"
+                )
             return
         meta = cat.require("review.resolve")
         mode = "manual"
-        cmds = [_build(rt, cat, meta, {"row": rid, "choice": ch}, mode=mode) for rid, ch in picks]
+        cmds = [_build(rt, cat, meta, {"row": ref, "choice": ch}, mode=mode) for ref, ch in picks]
         run_commands(rt, cat, cmds, mode=mode, yes=True)
 
     team_app = typer.Typer(help="Your teams", no_args_is_help=True)
@@ -575,16 +575,8 @@ def register_commands(app: typer.Typer) -> None:
         if not acts:
             typer.echo("nobody on your teams has an active task")
             return
-        for a in acts:
-            who = (
-                (a.get("person") or {}).get("handle")
-                if isinstance(a.get("person"), dict)
-                else a.get("person")
-            )
-            item = a.get("item") or {}
-            typer.echo(
-                f"{who or '?':<12} {item.get('key', a.get('key', '')):<10} {item.get('title', a.get('title', ''))}"
-            )
+        for line in (TeamNowRow.from_api(a).line(now()) for a in acts):
+            typer.echo(line)
 
     app.add_typer(team_app, name="team")
 
