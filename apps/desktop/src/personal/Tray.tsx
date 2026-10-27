@@ -71,6 +71,12 @@ export function Tray({
                 {e.suggestion.reasons[0] ? ` · ${e.suggestion.reasons[0]}` : ""}
               </span>
               <span className="muted">“{e.note}”</span>
+              {e.auto ? (
+                <span className="muted">
+                  Sent automatically as “{e.auto_sends}” until you send this
+                  series once yourself.
+                </span>
+              ) : null}
               {e.needs_project ? (
                 <fieldset className="pt-chips">
                   <legend>Which project?</legend>

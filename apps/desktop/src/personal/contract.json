@@ -156,6 +156,7 @@
       "unsent": [
         {
           "auto": "boolean",
+          "auto_sends": "string",
           "category": "string",
           "due_at": "string",
           "end": "string",
@@ -373,6 +374,7 @@
       "entries": [
         {
           "auto": "boolean",
+          "auto_sends": "string",
           "category": "string",
           "due_at": "string",
           "end": "string",

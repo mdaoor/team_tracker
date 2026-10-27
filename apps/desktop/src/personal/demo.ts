@@ -388,6 +388,7 @@ export function demoBridge(opts: DemoOptions = {}): PersonalBridge & {
             : r.title,
           due_at: r.end ?? iso(TODAY, "15:00"),
           auto: false,
+          auto_sends: `Meeting · ${minutes >= 60 ? `${minutes / 60} h` : `${minutes} min`}`,
           online_meeting_url: r.online_meeting_url,
           suggestion: sug,
           needs_project: sug.project === null && r.category !== "development",

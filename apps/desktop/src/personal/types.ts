@@ -103,6 +103,8 @@ export interface TrayEntry {
   note: string;
   due_at: string;
   auto: boolean;
+  /** The exact note an automatic send of this entry carries now (neutral until the series note template is confirmed). */
+  auto_sends: string;
   online_meeting_url: string | null;
   suggestion: Suggestion;
   needs_project: boolean;

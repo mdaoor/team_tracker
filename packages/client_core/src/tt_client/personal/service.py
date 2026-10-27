@@ -344,7 +344,9 @@ class Tracker:
         note: str | None = None,
         minutes: int | None = None,
         learn: bool = True,
+        auto: bool = False,
     ) -> dict[str, Any]:
+        """`auto=True` is a standing rule sending without a tap: neutral title and note until the series' note template was confirmed."""
         item = self._require(item_id)
         if item.category == Category.PERSONAL:  # checked first: no send path exists, whatever else is missing
             raise send_mod.NotSendable("personal items are never sent")
@@ -358,8 +360,17 @@ class Tracker:
         item, msg = send_mod.send_item(
             item, outbox=self.outbox, workspace=self.env.workspace, actor=self.env.actor, project=chosen,
             dev_project=hints.development_project, now=self.now, minutes=minutes, note=note,
+            neutral=auto and send_mod.neutralised_when_auto(item) and send_mod.note_consent_at(self.store, item) is None,
         )  # fmt: skip
         self.store.put_item(item)
+        if (
+            not auto
+            and send_mod.neutralised_when_auto(item)
+            and (note is None or note == send_mod.note_template(item))
+        ):
+            send_mod.confirm_note_template(
+                self.store, item, self.now
+            )  # the person saw this exact note and sent it
         self._remember_on_series(item, chosen)
         if learn and chosen and item.category in (Category.MEETING, Category.WORK):
             rules_mod.learn_mapping(self.store, item, chosen)
@@ -386,7 +397,7 @@ class Tracker:
         for e in self.tray():
             if e.auto:
                 try:
-                    sent.append(self.send(e.item.id, project=e.suggestion.project))
+                    sent.append(self.send(e.item.id, project=e.suggestion.project, auto=True))
                 except send_mod.NotSendable:
                     continue
         return sent
