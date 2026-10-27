@@ -1,0 +1,395 @@
+[
+ {
+  "name": "login",
+  "path": "/login",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "review",
+  "path": "/w/acme/review",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "setup-projects",
+  "path": "/w/acme/setup/projects",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-process",
+  "path": "/w/acme/setup/process",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-dimensions",
+  "path": "/w/acme/setup/dimensions",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-people",
+  "path": "/w/acme/setup/people",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-identity",
+  "path": "/w/acme/setup/identity",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 1
+  },
+  "rules": {
+   "empty-table-header": 1,
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-jira",
+  "path": "/w/acme/setup/jira",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-planning",
+  "path": "/w/acme/setup/planning",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-risks",
+  "path": "/w/acme/setup/risks",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-glossary",
+  "path": "/w/acme/setup/glossary",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 1
+  },
+  "rules": {
+   "empty-table-header": 1,
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-rules",
+  "path": "/w/acme/setup/rules",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "setup-manual",
+  "path": "/w/acme/setup/manual",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "views-list",
+  "path": "/w/acme/views?layout=list",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "views-board",
+  "path": "/w/acme/views?layout=board",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "views-pipeline",
+  "path": "/w/acme/views?layout=pipeline",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "views-matrix",
+  "path": "/w/acme/views?layout=matrix",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "views-gantt",
+  "path": "/w/acme/views?layout=gantt",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "views-calendar",
+  "path": "/w/acme/views?layout=calendar",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "views-now",
+  "path": "/w/acme/views?layout=now",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "present",
+  "path": "/w/acme/present",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "present-builder",
+  "path": "/w/acme/present/01a17514-228f-736e-8fb9-dcde34016a05",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "page-has-heading-one": 1
+  }
+ },
+ {
+  "name": "plan",
+  "path": "/w/acme/plan",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "policies",
+  "path": "/w/acme/policies",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 1
+  },
+  "rules": {
+   "empty-table-header": 1
+  }
+ },
+ {
+  "name": "violations",
+  "path": "/w/acme/violations",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "habits",
+  "path": "/w/acme/habits",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "performance",
+  "path": "/w/acme/performance",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "digest",
+  "path": "/w/acme/digest",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "insights",
+  "path": "/w/acme/insights",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 0,
+   "minor": 0
+  },
+  "rules": {}
+ },
+ {
+  "name": "weights",
+  "path": "/w/acme/weights",
+  "by": {
+   "critical": 0,
+   "serious": 0,
+   "moderate": 1,
+   "minor": 1
+  },
+  "rules": {
+   "empty-table-header": 1,
+   "heading-order": 1
+  }
+ },
+ {
+  "name": "deck-slide1",
+  "by": {
+   "critical": 0,
+   "serious": 1,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "color-contrast": 1,
+   "region": 1
+  }
+ },
+ {
+  "name": "deck-slide2",
+  "by": {
+   "critical": 0,
+   "serious": 1,
+   "moderate": 1,
+   "minor": 0
+  },
+  "rules": {
+   "color-contrast": 1,
+   "region": 1
+  }
+ }
+]

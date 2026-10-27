@@ -1,0 +1,45 @@
+$ tt role
+* reporter      Capture your own work. No management verbs.
+
+$ tt role manager
+role mode 'manager' is not available to you (available: reporter)
+
+$ tt ops
+                             Reporter — 2 of 51 ops                             
+ op                  group     description                                      
+ ★ dailylog.confirm  personal  Confirm your daily log                           
+ ★ context_note.add  personal  Add a context note for a project, team or the    
+                               workspace                                        
+★ first for this role · ! destructive (needs --force with --yes) · p has an 
+effect preview
+
+$ tt cmd project.create --arg name=Rogue --arg key=RGE --arg process=sw-delivery --yes
+╭────────────────── project.create ───────────────────╮
+│ ↳ name          Rogue                               │
+│ ↳ key           RGE                                 │
+│ ↳ process       sw-delivery                         │
+│                                                     │
+│ Effect preview                                      │
+│   rejected      missing permission 'project.create' │
+╰─────── role: Reporter · needs project.create ───────╯
+nothing was sent: the server would reject 1 command(s) (see above).
+
+$ tt do merge WEB-101 and WEB-105 into one --yes --force
+(parser)
+╭──────────────── item.merge destructive ─────────────────╮
+│ ↳ sources       WEB-101, WEB-105                        │
+│ ↳ target        WEB-101                                 │
+│                                                         │
+│ Effect preview                                          │
+│   rejected      missing permission 'item.write_overlay' │
+╰─────── role: Reporter · needs item.write_overlay ───────╯
+nothing was sent: the server would reject 1 command(s) (see above).
+
+$ tt queue
+cannot read the queue: HTTP 403: {'error': {'code': 'forbidden', 'message': "missing permission 'review_queue.resolve'", 'pointer': None, 'details': {'permission': 'review_queue.resolve'}}}
+
+$ tt team now
+nobody on your teams has an active task
+
+{"error":{"code":"insufficient_scope","message":"token scopes ['capture'] do not allow this request","pointer":null,"details":{}}}
+HTTP 403
