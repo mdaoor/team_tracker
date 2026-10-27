@@ -283,7 +283,9 @@ def test_approve_waive_queue_and_team_now(home: Path, server: FakeServer) -> Non
 def test_approve_lists_numbered_rows_and_a_number_decides_that_row(home: Path, server: FakeServer) -> None:
     tt("role", "manager")
     out = tt("approve")
-    assert "1  scope change" in out and "2  extra budget" in out and "AP-12" not in out  # ids are not for people
+    assert (
+        "1  scope change" in out and "2  extra budget" in out and "AP-12" not in out
+    )  # ids are not for people
     assert "tt approve <number>" in out
     assert "✓ approval.decide" in tt("approve", "1", "--yes")
     assert server.state["commands"][-1]["args"] == {"approval": "AP-12", "decision": "approved"}

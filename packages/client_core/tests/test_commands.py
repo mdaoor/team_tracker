@@ -375,7 +375,9 @@ def test_commands_only_batch_and_idempotent_retry(tmp_path: Path, cat: Catalogue
     assert [r["status"] for r in rep.results or []] == ["deduplicated"]
 
 
-def test_sync_skips_unconfirmed_commands_and_stamps_only_confirmed_ones(tmp_path: Path, cat: Catalogue) -> None:
+def test_sync_skips_unconfirmed_commands_and_stamps_only_confirmed_ones(
+    tmp_path: Path, cat: Catalogue
+) -> None:
     server = FakeServer(cat)
     ob = Outbox(tmp_path)
     cmd = new_command("tag.create", {"name": "q4"}, actor="@m", now=NOW, client_id="draft1")

@@ -29,7 +29,9 @@ class Entry:
     attempts: int
     last_error: str | None
     created_at: str
-    confirmed_at: str | None = None  # set by `Outbox.confirm` once a person said yes (plan_confirmation passed)
+    confirmed_at: str | None = (
+        None  # set by `Outbox.confirm` once a person said yes (plan_confirmation passed)
+    )
 
 
 class Outbox:

@@ -25,10 +25,11 @@ from sqlalchemy import select, text  # noqa: E402
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 from tests.api.conftest import Api  # noqa: E402
 from tests.conftest import _admin_engine, _migrate_into, _seed_demo, _with_db  # noqa: E402
-from tools.seed.demo import load_snapshot  # noqa: E402
 from tt_server.db import models as m  # noqa: E402
 from tt_server.main import create_app  # noqa: E402
 from tt_server.settings import Settings  # noqa: E402
+
+from tools.seed.demo import load_snapshot  # noqa: E402
 
 DB = "tt_fixture_rec"
 
@@ -71,7 +72,9 @@ async def main(url: str) -> None:
             staging = await s.scalar(select(m.Stage).where(m.Stage.key == "staging"))
             staging.requires_approval = True
             await s.commit()
-        key = next(i["key"] for i in load_snapshot()["items"] if i["project"] == "GOV" and i["stage"] == "build")
+        key = next(
+            i["key"] for i in load_snapshot()["items"] if i["project"] == "GOV" and i["stage"] == "build"
+        )
         r = await api.call("PUT", f"/items/{key}/stage", json={"stage": "staging"})
         assert r.status_code == 200, r.text
         # an inbox line from @sara (review queue) and work in progress now
@@ -93,7 +96,10 @@ async def main(url: str) -> None:
         )
         _write("context-pack.json", (await api.call("GET", "/context-pack")).json())
         _write("review-queue.json", (await api.call("GET", "/review-queue")).json())
-        _write("activities-team-mine.json", (await api.call("GET", "/activities", params={"team": "mine", "status": "active"})).json())
+        _write(
+            "activities-team-mine.json",
+            (await api.call("GET", "/activities", params={"team": "mine", "status": "active"})).json(),
+        )
         _write("daily-logs.json", (await api.call("GET", "/daily-logs", params={"day": "2026-10-23"})).json())
     await eng.dispose()
 
