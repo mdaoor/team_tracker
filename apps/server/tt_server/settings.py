@@ -122,6 +122,10 @@ class Settings(BaseSettings):
     # --- rate limits (requests per minute; 0 = off). In-process, per replica.
     rate_capture_per_min: int = Field(default=600, description="POST /capture/batches per credential.")
     rate_auth_per_min: int = Field(default=60, description="POST /auth/* per client address.")
+    rate_commands_per_min: int = Field(
+        default=120,
+        description="Management commands (POST /commands, POST /items:merge, commands[] of /capture/batches) per credential; each command counts once.",
+    )
 
     # --- certificate hot-reload (ADR-0036)
     cert_reload_interval_s: float = 30.0
