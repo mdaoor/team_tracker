@@ -2,13 +2,13 @@
   "data": [
     {
       "confidence": null,
-      "created_at": "2026-10-27T19:31:08.994803+00:00",
+      "created_at": "2026-10-27T20:16:25.958222+00:00",
       "item_key": "INBOX-sara-1",
       "item_title": "tidy the ingest retry",
       "kind": "unclassified_project",
       "project_key": "INBOX-sara",
       "raw_kind": "unclassified_project",
-      "ref": "review_item:01a17ed8-5491-7635-96c7-ae5e6714a554",
+      "ref": "review_item:01a17f01-c9d1-76b3-9afd-fe53531ebe00",
       "reporter": "@sara",
       "suggested": {
         "choice": {
@@ -18,7 +18,7 @@
         "reason": "their most-used project this month"
       },
       "suggestion": {
-        "phrase": ""
+        "phrase": "tidy ingest retry"
       }
     }
   ],

@@ -36,7 +36,7 @@
     "key": "DEV",
     "tag": "development"
   },
-  "generated_at": "2026-10-27T19:31:09.640347+00:00",
+  "generated_at": "2026-10-27T20:16:26.859110+00:00",
   "glossary": {},
   "iterations": [],
   "manager_rules": [],
@@ -229,7 +229,16 @@
       "slug": "squad-b"
     }
   ],
-  "pending_approvals": 1,
+  "pending_approvals": [
+    {
+      "id": "01a17f01-c90c-7111-84ee-7e2ffa9a9dca",
+      "project_key": "GOV",
+      "requested_at": "2026-10-27T20:16:25.821351+00:00",
+      "requested_by": "@mahmoud",
+      "title": "GOV-101 \u2192 Staging"
+    }
+  ],
+  "pending_approvals_count": 1,
   "people": [
     {
       "handle": "@ali",
