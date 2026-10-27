@@ -28,7 +28,6 @@ COMMIT_BOOKKEEPING = {
     ("integrations/jira/sync.py", "_push_worklogs"): 1,  # sync links and logs
     ("integrations/jira/sync.py", "_record_failure"): 1,
     ("integrations/jira/sync.py", "finish"): 1,
-    ("integrations/jira/sync.py", "push_item"): 1,
 }
 COMMIT_DERIVED = {
     ("admin.py", "run"): 1,
