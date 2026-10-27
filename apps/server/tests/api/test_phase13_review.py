@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tt_server.db import models as m
+
 from tests.api.conftest import Api
 
 
@@ -167,3 +171,42 @@ async def test_ladder_prefers_glossary_phrase_over_habit(api: Api, session_facto
         assert hit and hit["choice"] == {"project": "WEB"} and hit["confidence"] == 0.9
         habit = await suggest_project(s, ws.id, item, "unknown phrase")
         assert habit and habit["choice"] == {"project": "DATA"}
+
+
+async def test_resolving_an_inbox_row_without_a_project_phrase_still_learns_from_the_title(
+    api: Api, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    res = await api.send(as_="@ali", action="create", item={"title": "Refactor the ingestion retry loop"})
+    row = next(r for r in await queue(api) if r["item_key"] == res["item"]["key"])
+    assert row["suggestion"]["phrase"] == "refactor ingestion retry loop"
+    done = (
+        await api.call(
+            "POST", "/review-queue/resolve", json={"ref": row["ref"], "choice": {"project": "DATA"}}
+        )
+    ).json()
+    assert done["learned"] is True and done["undoable"] is True
+
+    async def learned() -> list[m.GlossaryEntry]:
+        async with session_factory() as s:
+            return list(
+                (
+                    await s.scalars(
+                        select(m.GlossaryEntry).where(
+                            m.GlossaryEntry.source == "learned", m.GlossaryEntry.deleted_at.is_(None)
+                        )
+                    )
+                ).all()
+            )
+
+    rows = await learned()
+    assert [(e.phrase, e.resolves_to_type) for e in rows] == [("refactor ingestion retry loop", "project")]
+    data = next(p for p in (await api.call("GET", "/projects")).json()["data"] if p["key"] == "DATA")
+    assert rows[0].resolves_to_id == data["id"]
+    # "Don't learn" removes the learned row and keeps the move
+    assert (await api.call("POST", "/review-queue/unlearn", json={"ref": row["ref"]})).json()[
+        "unlearned"
+    ] is True
+    assert await learned() == []
+    async with session_factory() as s:
+        item = await s.scalar(select(m.WorkItem).where(m.WorkItem.title == "Refactor the ingestion retry loop"))
+    assert item is not None and item.project_id == data["id"]

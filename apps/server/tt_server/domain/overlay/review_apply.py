@@ -17,6 +17,7 @@ from tt_schema.enums import (
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
+from tt_server.domain.capture.ingest_resolve import title_phrase
 from tt_server.domain.common import emit
 from tt_server.domain.errors import Invalid, NotFound
 from tt_server.domain.items import service as items
@@ -74,7 +75,9 @@ async def apply_choice(
         old = await s.get(m.Project, item.project_id)
         undo: dict[str, Any] = {"kind": "project", "project_id": old.id if old else None, "glossary_id": None}
         await items.change_project(uow, ws, item, project, actor_id=actor_id)
-        phrase = str(sug.get("phrase") or "").strip()
+        phrase = str(sug.get("phrase") or "").strip() or title_phrase(
+            item.title
+        )  # rows born before phrases were derived
         if (
             phrase
             and choice.get("learn", True)

@@ -21,6 +21,7 @@ from tt_schema.enums import (
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
+from tt_server.domain.capture import dailylog
 from tt_server.domain.capture.ingest_actions import apply_action, apply_fields, current_activity
 from tt_server.domain.capture.ingest_context import (
     CONFIDENCE_FLOOR,
@@ -44,8 +45,8 @@ from tt_server.domain.capture.ingest_resolve import (
     member_by_handle,
     resolve_item,
     resolve_project,
+    title_phrase,
 )
-from tt_server.domain.capture import dailylog
 from tt_server.domain.common import aware, zone
 from tt_server.domain.items import service as items
 from tt_server.domain.overlay import weights
@@ -268,7 +269,7 @@ async def _process(
             ctx,
             "unclassified_project",
             item.id,
-            {"phrase": ctx.resolution["project"].get("unresolved") or ""},
+            {"phrase": ctx.resolution["project"].get("unresolved") or title_phrase(item.title)},
         )
     await apply_hints(ctx, item, project)
     if created and project.kind.value != "inbox":

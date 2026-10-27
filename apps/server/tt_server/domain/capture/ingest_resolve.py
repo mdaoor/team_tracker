@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -103,6 +104,17 @@ async def ensure_dev_project(ctx: Ctx, key: str) -> m.Project:
     )
     await items.get_or_create_tag(ctx.uow, ctx.ws, DEV_TAG, provisional=False)
     return project
+
+
+_STOP = frozenset("a an and the of to for in on at with from by is it this that my our be as or".split())
+
+
+def title_phrase(title: str, *, limit: int = 6) -> str:
+    """The glossary phrase a title stands for when the reporter named no project: its first significant words, lowercased.
+
+    Resolving the review row to a project teaches this phrase, so the next line that says the same thing lands there."""
+    words = [w for w in re.findall(r"[\w'-]+", title.lower()) if w not in _STOP]
+    return " ".join(words[:limit])
 
 
 def calendar_key(msg: ClientMessage) -> tuple[str, str, str] | None:

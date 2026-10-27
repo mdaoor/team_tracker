@@ -52,8 +52,30 @@ test("resolving a review row teaches the glossary", async ({ page, request }) =>
   await expect(row).toBeVisible();
   await row.getByLabel("other project").selectOption({ index: 1 });
   await expect(row).toHaveCount(0);
+  // the toast says what was learned and offers Undo and "Don't learn"
+  await expect(page.getByText(new RegExp(`Next time "${phrase}"`))).toBeVisible();
+  await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Don't learn" })).toBeVisible();
   await page.goto("/w/acme/setup/glossary");
   await expect(page.getByRole("cell", { name: phrase, exact: true })).toBeVisible();
+});
+
+test("a row with no project phrase learns from the title and 'Don't learn' forgets it", async ({
+  page,
+  request,
+}) => {
+  const word = "zork" + unique().toLowerCase();
+  await capture(request, { action: "create", item: { title: `polish ${word} flow` } });
+  await page.goto("/w/acme/review");
+  const row = page.getByRole("group", { name: new RegExp(word) });
+  await expect(row).toBeVisible();
+  await row.getByLabel("other project").selectOption({ index: 1 });
+  await expect(row).toHaveCount(0);
+  const dont = page.getByRole("button", { name: "Don't learn" });
+  await expect(dont).toBeVisible();
+  await dont.click();
+  await page.goto("/w/acme/setup/glossary");
+  await expect(page.getByRole("cell", { name: new RegExp(word) })).toHaveCount(0);
 });
 
 test("review queue works by keyboard alone", async ({ page, request }) => {
