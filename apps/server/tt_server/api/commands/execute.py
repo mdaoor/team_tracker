@@ -121,6 +121,20 @@ async def run(
             "rejected",
             errors=[_err("/", "insufficient_scope", "this token may only send capture messages", status=403)],
         )
+    if scope_level(actor) < TOKEN_SCOPES.index(spec.token_scope):
+        return _result(
+            cmd,
+            "rejected",
+            errors=[
+                _err(
+                    "/",
+                    "insufficient_scope",
+                    f"{cmd.op} needs a token with the {spec.token_scope!r} scope",
+                    status=403,
+                    required_scope=spec.token_scope,
+                )
+            ],
+        )
     if cmd.actor.lstrip("@") != actor.handle.lstrip("@"):
         return _result(
             cmd,

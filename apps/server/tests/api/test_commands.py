@@ -185,6 +185,44 @@ async def test_forged_capture_scope_token_cannot_send_commands(api: Api) -> None
     assert ok.status_code == 200 and ok.json()["results"][0]["status"] == "applied"
 
 
+async def test_a_manage_token_cannot_run_admin_scope_ops_but_an_admin_token_can(api: Api) -> None:
+    async def token(*scopes: str) -> dict[str, str]:
+        r = await api.c.post("/auth/tokens", headers={"X-Debug-Actor": "@mahmoud"}, json={"workspace": api.slug, "name": "t", "scopes": list(scopes)})  # fmt: skip
+        assert r.status_code == 201, r.text
+        return {"Authorization": f"Bearer {r.json()['token']}"}
+
+    mg, adm = await token("capture", "read", "manage"), await token("capture", "read", "manage", "admin")
+    team = {"name": "Sq", "kind": "virtual", "lead": "@mahmoud", "members": ["@sara"]}
+    line = {"person": "@ali", "manager": "@sara"}
+
+    async def via_commands(h: dict[str, str], *cs: dict[str, Any]) -> list[dict[str, Any]]:
+        r = await api.c.post(api.url("/commands"), headers=h, json={"commands": list(cs)})
+        assert r.status_code in (200, 207), r.text
+        return list(r.json()["results"])
+
+    async def via_batch(h: dict[str, str], *cs: dict[str, Any]) -> list[dict[str, Any]]:
+        r = await api.c.post(api.url("/capture/batches"), headers=h, json={"workspace": "acme", "messages": [], "commands": list(cs)})  # fmt: skip
+        assert r.status_code in (200, 207), r.text
+        return list(r.json()["results"])
+
+    for via in (via_commands, via_batch):
+        ok, t, rl = await via(mg, cmd("item.create", {"title": "x", "project": "WEB"}), cmd("team.create", team), cmd("reporting_line.set", line))  # fmt: skip
+        assert ok["status"] == "applied", ok
+        for denied in (t, rl):
+            assert denied["status"] == "rejected" and denied["errors"][0]["code"] == "insufficient_scope", denied
+    created = (await via_commands(adm, cmd("team.create", team), cmd("reporting_line.set", line)))
+    assert [r["status"] for r in created] == ["applied", "applied"], created
+    # an interactive session (no token) is unaffected
+    assert (await one(api, "team.create", {**team, "name": "Sq2"}))["status"] == "applied"
+
+
+def test_every_op_declares_a_token_scope() -> None:
+    assert {s.token_scope for s in REGISTRY.values()} == {"manage", "admin"}
+    assert {e["token_scope"] for e in catalogue()["ops"]} == {"manage", "admin"}
+    admin_ops = {k for k, s in REGISTRY.items() if s.token_scope == "admin"}
+    assert admin_ops == {"team.create", "team.add_members", "team.remove_members", "reporting_line.set", "project.add_member", "dimension.value.add", "policy.activate", "policy.deactivate", "tag.merge"}  # fmt: skip
+
+
 # ----------------------------------------------------------------------------------------------- idempotency, destructive, batches
 
 

@@ -191,7 +191,7 @@ person may select are derived from their roles (`GET /me`).
   confirmed the preview) or `_meta.forced` (`--force`, logged). `--yes` alone confirms ordinary ops only.
 * **Authorisation** is declared per op and enforced before it runs; an invisible object is `not_found`, a missing right `forbidden`
   with `details.permission`.
-* **Scope.** Tokens need scope `manage` or above; a `capture` token gets `403 insufficient_scope`.
+* **Scope.** Tokens need scope `manage` or above; a `capture` token gets `403 insufficient_scope`. People-admin ops (flag "admin token" below, catalogue field `token_scope`: teams, reporting lines, project members, dimension values, policy activation, tag merge) need the `admin` scope: a `manage` token gets a per-command `rejected` result `insufficient_scope`. Interactive sessions are not narrowed.
 * **Audit.** Events carry `source=client` and `payload.command = {op, client_id, client_version, mode, role_mode, forced?, on_behalf_of?}`.
 * See ADR-0050 (merge semantics) and ADR-0056 (execution semantics).
 
@@ -202,7 +202,7 @@ person may select are derived from their roles (`GET /me`).
 | `classify` | tags | classification.write | – | Classify an item or project on a dimension |
 | `context_note.add` | personal | context_note.write | – | Add a context note for a project, team or the workspace |
 | `dailylog.confirm` | personal | any member | – | Confirm your daily log |
-| `dimension.value.add` | tags | dimension.admin | – | Add a value to a dimension (customer, theme, ...) |
+| `dimension.value.add` | tags | dimension.admin | admin token | Add a value to a dimension (customer, theme, ...) |
 | `habit.coach_note` | governance | habit.coach | – | Write a coaching note on a habit (visible to managers and coaches only) |
 | `habit.set_status` | governance | habit.coach | – | Set a habit's coaching status |
 | `item.assign` | items | item.write_overlay | – | Assign an item to a person |
@@ -227,14 +227,14 @@ person may select are derived from their roles (`GET /me`).
 | `iteration.start` | iterations | iteration.write | – | Start a planned iteration |
 | `milestone.complete` | iterations | milestone.write | – | Complete a milestone |
 | `milestone.create` | iterations | milestone.write | – | Create a milestone |
-| `policy.activate` | governance | policy.write | – | Activate a tested policy |
-| `policy.deactivate` | governance | policy.write | – | Deactivate a policy |
-| `project.add_member` | projects | project_member.write | – | Add a person to a project |
+| `policy.activate` | governance | policy.write | admin token | Activate a tested policy |
+| `policy.deactivate` | governance | policy.write | admin token | Deactivate a policy |
+| `project.add_member` | projects | project_member.write | admin token | Add a person to a project |
 | `project.baseline.capture` | projects | project.write | – | Freeze the current plan as a named baseline |
 | `project.create` | projects | project.create | preview | Create a project |
 | `project.plan.create` | projects | project.write | – | Create a top-down plan (phases, deliverables, milestones) |
 | `project.update` | projects | project.write | – | Rename or change a project's status |
-| `reporting_line.set` | teams | reporting_line.write | – | Set who a person reports to |
+| `reporting_line.set` | teams | reporting_line.write | admin token | Set who a person reports to |
 | `review.bulk` | governance | any member | preview, destructive | Apply one action to many review rows |
 | `review.resolve` | governance | any member | – | Resolve a review-queue row |
 | `risk.action.add` | process | risk.write | – | Add a mitigation action to a risk |
@@ -242,10 +242,10 @@ person may select are derived from their roles (`GET /me`).
 | `risk.link` | process | risk.write | – | Link a risk to an item |
 | `stage.move` | process | item.write_overlay | preview | Move items to a process stage |
 | `tag.create` | tags | classification.write | – | Create a tag |
-| `tag.merge` | tags | classification.write | destructive | Merge one tag into another |
-| `team.add_members` | teams | team.write | – | Add people to a team |
-| `team.create` | teams | team.write | preview | Create a team (org, virtual or ad hoc) with members |
-| `team.remove_members` | teams | team.write | preview, destructive | Remove people from a team |
+| `tag.merge` | tags | classification.write | destructive, admin token | Merge one tag into another |
+| `team.add_members` | teams | team.write | admin token | Add people to a team |
+| `team.create` | teams | team.write | preview, admin token | Create a team (org, virtual or ad hoc) with members |
+| `team.remove_members` | teams | team.write | preview, destructive, admin token | Remove people from a team |
 | `violation.ack` | governance | any member | – | Acknowledge a policy violation |
 | `violation.resolve` | governance | violation.resolve | – | Mark a violation resolved |
 | `violation.waive` | governance | violation.waive | – | Waive a violation with a reason |
