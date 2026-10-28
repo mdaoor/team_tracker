@@ -151,6 +151,41 @@ def test_erase_through_the_bridge_removes_everything(
     assert "personal.db" in out["files"] and not list(tmp_path.glob("personal.db*"))
 
 
+def test_calendar_preferences_through_the_bridge(tracker: Tracker) -> None:
+    empty = ok(tracker, "personal_cal_settings")
+    assert empty["calendars"] == [] and empty["suppress"] == {"attendees": [], "domains": []}
+    tracker.store.set_calendar_state(
+        "google",
+        {
+            "calendars": [
+                {"id": "me@acme.com", "name": "Me", "primary": True, "selected": True},
+                {"id": "web@x", "name": "Web team", "primary": False, "selected": True},
+            ],
+            "calendars_at": "2026-10-23T09:00:00+00:00",
+        },
+    )
+    ov = ok(tracker, "personal_cal_settings")
+    assert [(c["id"], c["excluded"]) for c in ov["calendars"]] == [("me@acme.com", False), ("web@x", False)]
+    off = ok(tracker, "personal_cal_exclude", {"calendar": "web team"})
+    assert [c["excluded"] for c in off["calendars"]] == [False, True] and off["changed"][
+        "calendar"
+    ] == "web@x"
+    on = ok(tracker, "personal_cal_exclude", {"calendar": "web@x", "excluded": False})
+    assert [c["excluded"] for c in on["calendars"]] == [False, False]
+    sup = ok(tracker, "personal_cal_suppress", {"kind": "domain", "value": "Globex.com"})
+    assert sup["suppress"]["domains"] == ["globex.com"]
+    assert (
+        ok(tracker, "personal_cal_suppress", {"kind": "domain", "value": "globex.com", "remove": True})[
+            "suppress"
+        ]["domains"]
+        == []
+    )
+    bad = handle(tracker, "personal_cal_suppress", {"kind": "attendee", "value": "nope"})
+    assert bad["error"]["code"] == "bad_request"
+    assert handle(tracker, "personal_cal_exclude", {"calendar": "zzz"})["error"]["code"] == "bad_request"
+    assert handle(tracker, "personal_cal_refresh", {})["error"]["message"] == "no calendar configured"
+
+
 def test_the_shape_contract_for_the_react_views_is_current(tracker: Tracker, clock: FakeClock) -> None:
     ids = populate(tracker, clock)
     ok(tracker, "personal_send", {"id": ids["work"]})
@@ -169,6 +204,14 @@ def test_the_shape_contract_for_the_react_views_is_current(tracker: Tracker, clo
         else {"item": "", "client_id": "", "project": "", "minutes": 0, "tags": [""]},
         "personal_timer_status": ok(tracker, "personal_timer_status"),
         "personal_settings": ok(tracker, "personal_settings"),
+        "personal_cal_settings": {
+            "calendars": [
+                {"provider": "", "id": "", "name": "", "primary": False, "selected": True, "excluded": False}
+            ],
+            "refreshed_at": {"google": ""},
+            "refresh_hours": 24,
+            "suppress": {"attendees": [""], "domains": [""]},
+        },
     }
     # `timer` is null when nothing runs and an object when one does: the contract records the object form
     samples["personal_timer_status"] = {"timer": {"item": "", "title": "", "elapsed_min": 0, "state": ""}}

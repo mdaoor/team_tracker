@@ -219,6 +219,60 @@ def test_calendar_commands_need_a_client_id_and_sync_through_providers(
     assert "oauth:google" not in FileStore(home / "data" / "secrets.json").names()
 
 
+def test_calendar_exclude_include_suppress_and_refresh_commands(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tt_client.integrations import google as g
+    from tt_client.integrations.oauth import Token
+
+    state: dict[str, Any] = {}
+
+    def fake_build(cfg: dict[str, Any], secrets: Any, **kw: Any) -> dict[str, Any]:
+        gp = g.GoogleCalendar(client(google_handler(state)), secrets, g.oauth_config("cid"))
+        gp.vault.save(Token("ya29.GOOGLE-ACCESS-TOKEN-1", "r", time.time() + 3000))
+        return {"google": gp}
+
+    monkeypatch.setattr("tt_client.integrations.factory.build_providers", fake_build)
+    assert "run `tt cal sync`" in tt("cal", "list")
+    tt("cal", "sync")
+    listing = tt("cal", "list")
+    assert "Web team" in listing and "mahmoud@acme.com" in listing and "excluded" not in listing
+    assert "Sprint planning" in tt("week", "2026-10-26")
+    out = tt("cal", "exclude", "mahmoud@acme.com")
+    assert "excluded mahmoud@acme.com" in out and "meeting(s) removed from the plan" in out
+    assert "Sprint planning" not in tt("week", "2026-10-26")
+    assert "[primary, excluded]" in tt("cal", "list")
+    assert "no calendar matches" in tt("cal", "exclude", "nope", code=2)
+    tt("cal", "include", "mahmoud@acme.com")
+    tt("cal", "sync")
+    assert "Sprint planning" in tt("week", "2026-10-26")
+
+    assert "suppressed: sara@acme.com" in tt("cal", "suppress", "Sara@Acme.com")
+    assert "suppressed: globex.com" in tt("cal", "suppress", "@globex.com")
+    shown = tt("cal", "suppress", "--list")
+    assert "sara@acme.com" in shown and "globex.com" in shown
+    assert "no longer suppressed" in tt("cal", "suppress", "globex.com", "--remove")
+    assert "not an e-mail" in tt("cal", "suppress", "a b@c", code=2)
+
+    listing_json = json.loads(tt("sidecar", "personal_cal_settings", "{}"))
+    assert listing_json["suppress"]["attendees"] == ["sara@acme.com"]
+
+    listing = _calfx.load("google/calendar_list.json")
+    listing["items"].append(
+        {
+            "id": "new@group.calendar.google.com",
+            "summary": "Platform",
+            "selected": True,
+            "accessRole": "reader",
+        }
+    )
+    state["calendar_list"] = listing
+    out = tt("cal", "refresh")
+    assert "google: 1 added (Platform), 0 removed" in out
+    assert "Platform" in tt("cal", "list")
+    assert "google: 0 added, 0 removed" in tt("cal", "refresh", "--provider", "google")
+
+
 def test_the_sidecar_command_speaks_json(home: Path) -> None:
     tt("add", "run 30m at 6pm")
     day = json.loads(tt("sidecar", "personal_day", "{}"))

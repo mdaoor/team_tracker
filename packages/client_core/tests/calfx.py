@@ -57,7 +57,7 @@ def google_handler(state: dict[str, Any]) -> Callable[[httpx.Request], httpx.Res
         ):
             return json_response({"error": {"code": 401, "message": "Invalid Credentials"}}, 401)
         if url.path.endswith("/users/me/calendarList"):
-            return json_response(load("google/calendar_list.json"))
+            return json_response(state.get("calendar_list") or load("google/calendar_list.json"))
         if "/calendars/" in url.path and url.path.endswith("/events"):
             cal = unquote(url.path.split("/calendars/")[1].rsplit("/events", 1)[0])
             if state.get("rate_limit"):

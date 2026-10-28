@@ -108,6 +108,40 @@ def _fingerprint(s: Settings) -> str:
     ).hexdigest()[:16]
 
 
+PROVIDER_NAMES = ("google", "microsoft")
+
+
+def calendar_overview(store: PersonalStore) -> dict[str, Any]:
+    """What the settings view shows, from the store only (no network): the cached calendars of each connected provider with
+    `excluded`, when each list was read, and the two suppress lists."""
+    s = Settings(store)
+    excluded = set(s.get("calendar.excluded"))
+    cals: list[dict[str, Any]] = []
+    refreshed: dict[str, str | None] = {}
+    for provider in PROVIDER_NAMES:
+        st = store.get_calendar_state(provider)
+        if not st.get("calendars"):
+            continue
+        refreshed[provider] = st.get("calendars_at")
+        cals += [
+            {
+                "provider": provider,
+                "id": c["id"],
+                "name": c["name"],
+                "primary": bool(c.get("primary")),
+                "selected": bool(c.get("selected", True)),
+                "excluded": c["id"] in excluded,
+            }
+            for c in st["calendars"]
+        ]
+    return {
+        "calendars": cals,
+        "refreshed_at": refreshed,
+        "refresh_hours": s.get("calendar.refresh_hours"),
+        "suppress": {"attendees": s.get("suppress.attendees"), "domains": s.get("suppress.domains")},
+    }
+
+
 class CalendarSync:
     def __init__(
         self,
@@ -139,8 +173,9 @@ class CalendarSync:
         if full or state.get("fingerprint") != _fingerprint(self.settings):
             state["cursors"] = {}
         try:
-            calendars = state.get("calendars") or [c.__dict__ for c in prov.list_calendars()]
-            state["calendars"] = calendars
+            if self._calendars_stale(state, now):
+                self._relist(prov, provider, state, now)
+            calendars = state["calendars"]
             excluded = set(self.settings.get("calendar.excluded"))
             window = (now - timedelta(days=WINDOW_BACK_DAYS), now + timedelta(days=WINDOW_AHEAD_DAYS))
             index = self._index()
@@ -229,6 +264,89 @@ class CalendarSync:
                     existing.attended_min = ev.attended_min
                 self.store.put_item(existing)
                 report.updated += 1
+
+    # -- the calendar list (M8) and per-calendar preferences (M7)
+    def _calendars_stale(self, state: dict[str, Any], now: datetime) -> bool:
+        """The cached list is re-read when it is missing or older than `calendar.refresh_hours` (0 = only when missing)."""
+        if not state.get("calendars"):
+            return True
+        hours = int(self.settings.get("calendar.refresh_hours"))
+        at = state.get("calendars_at")
+        return hours > 0 and (not at or now - datetime.fromisoformat(at) >= timedelta(hours=hours))
+
+    def _relist(
+        self, prov: CalendarProvider, provider: str, state: dict[str, Any], now: datetime
+    ) -> tuple[list[str], list[str]]:
+        """Ask the provider for its calendars and keep the answer in `state`. Returns (added names, removed names); the unsent
+        meetings of a calendar that is gone (unsubscribed, deleted) are dropped as the sync."""
+        old = {c["id"]: c for c in state.get("calendars") or []}
+        new = [c.__dict__.copy() for c in prov.list_calendars()]
+        fresh = {c["id"] for c in new}
+        state["calendars"], state["calendars_at"] = new, now.isoformat()
+        removed = [c for cid, c in old.items() if cid not in fresh]
+        for gone in removed:
+            self._drop_calendar(provider, gone["id"])
+            state.get("cursors", {}).pop(gone["id"], None)
+        return [c["name"] for c in new if c["id"] not in old] if old else [], [c["name"] for c in removed]
+
+    def _drop_calendar(self, provider: str, calendar_id: str) -> int:
+        n = 0
+        for i in self.store.items():
+            ref = i.calendar_ref
+            if ref and (ref.provider, ref.calendar_id) == (provider, calendar_id) and not i.is_sent:
+                self.store.delete_item(i.id, by="sync")
+                n += 1
+        return n
+
+    def refresh_calendars(self, provider: str) -> dict[str, Any]:
+        """Re-list the calendars now (`tt cal refresh`, the desktop button). Never raises: a failure keeps the old list."""
+        prov = self.providers.get(provider)
+        if prov is None:
+            return {
+                "provider": provider,
+                "added": [],
+                "removed": [],
+                "error": f"{provider} is not configured",
+            }
+        state = self.store.get_calendar_state(provider)
+        try:
+            added, removed = self._relist(prov, provider, state, self.clock())
+        except ProviderError as exc:
+            return {"provider": provider, "added": [], "removed": [], "error": str(exc)}
+        self.store.set_calendar_state(provider, state)
+        return {"provider": provider, "added": added, "removed": removed, "error": None}
+
+    def resolve_calendar(self, ref: str) -> tuple[str, str]:
+        """(provider, calendar id) for an id, a name or a fragment of either, from the cached lists. KeyError when none/several."""
+        cals = calendar_overview(self.store)["calendars"]
+        want = ref.strip().lower()
+        for hit in (
+            [c for c in cals if c["id"].lower() == want],
+            [c for c in cals if c["name"].lower() == want],
+            [c for c in cals if want in c["id"].lower() or want in c["name"].lower()],
+        ):
+            if len(hit) == 1:
+                return hit[0]["provider"], hit[0]["id"]
+            if len(hit) > 1:
+                names = ", ".join(sorted(f"{c['name']} ({c['provider']})" for c in hit))
+                raise KeyError(f"several calendars match {ref!r}: {names}")
+        raise KeyError(f"no calendar matches {ref!r}: run `tt cal sync` first or `tt cal refresh`")
+
+    def exclude(self, ref: str) -> dict[str, Any]:
+        """Stop reading a calendar. Its unsent meetings leave the plan (sent ones stay); `include` brings them back on the next sync."""
+        provider, cid = self.resolve_calendar(ref)
+        excluded = list(self.settings.get("calendar.excluded"))
+        if cid not in excluded:
+            excluded.append(cid)
+            self.settings.set("calendar.excluded", excluded)
+        return {"provider": provider, "calendar": cid, "dropped": self._drop_calendar(provider, cid)}
+
+    def include(self, ref: str) -> dict[str, Any]:
+        provider, cid = self.resolve_calendar(ref)
+        self.settings.set(
+            "calendar.excluded", [c for c in self.settings.get("calendar.excluded") if c != cid]
+        )
+        return {"provider": provider, "calendar": cid}
 
     def _reconcile(
         self,
