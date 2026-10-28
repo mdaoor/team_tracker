@@ -35,6 +35,7 @@ DEFAULTS: dict[str, Any] = {
     "calendar.excluded": [],  # calendar ids the person switched off
     "calendar.refresh_hours": 24,  # re-list the calendars this often (0: only when no list is cached)
     "calendar.write_back": False,
+    "notify.eod_time": "17:30",  # the end-of-day OS nudge (HH:MM local, workdays); empty switches it off
 }
 
 
@@ -54,6 +55,11 @@ class Settings:
             raise ValueError("share mode must be ask, auto or never")
         if key == "privacy.assist" and value not in ("off", "on"):
             raise ValueError("privacy.assist must be off or on")
+        if key == "notify.eod_time":
+            from tt_client.personal.notify import valid_clock
+
+            if not isinstance(value, str) or not valid_clock(value):
+                raise ValueError("notify.eod_time must be HH:MM (24 h) or empty to switch it off")
         if key == "calendar.refresh_hours" and (
             not isinstance(value, int) or isinstance(value, bool) or value < 0
         ):

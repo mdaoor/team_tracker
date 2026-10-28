@@ -104,6 +104,8 @@ COMMANDS: dict[str, Handler] = {
     "personal_cal_exclude": lambda t, p, _a: _cal_prefs(t, p),
     "personal_cal_suppress": lambda t, p, _a: _cal_suppress(t, p),
     "personal_cal_refresh": lambda t, p, _a: _cal_refresh(t, p),
+    "personal_cal_tick": lambda t, p, _a: _cal_tick(t),
+    "personal_notify": lambda t, p, _a: _notify(t),
 }
 
 
@@ -163,6 +165,30 @@ def _cal_refresh(t: Tracker, p: dict[str, Any]) -> dict[str, Any]:
     sync = t.calendar(_cal_providers(t))
     names = [p["provider"]] if p.get("provider") else list(sync.providers)
     return {"refreshed": [sync.refresh_calendars(n) for n in names], **calendar_overview(t.store)}
+
+
+def _cal_tick(t: Tracker) -> dict[str, Any]:
+    """What the shell's background loop calls about once a minute: sync every connected calendar that is *due* (first sync, poll
+    interval, wake, rate-limit wait-out). Quiet when no calendar is configured; the answer lists only the syncs that ran."""
+    try:
+        provs = _cal_providers(t)
+    except TrackerError:
+        return {"configured": False, "reports": []}
+    from tt_client.integrations.sync import Scheduler
+
+    sched = Scheduler(t.calendar(provs), t.env.clock)
+    return {
+        "configured": True,
+        "reports": [{**r.as_dict(), "why": why} for _name, why, r in sched.tick()],
+    }
+
+
+def _notify(t: Tracker) -> dict[str, Any]:
+    from tt_client.personal.notify import CollectingNotifier, notify_due
+
+    port = CollectingNotifier()
+    notify_due(t, port)
+    return {"notifications": port.as_dicts()}
 
 
 def _cal_sync(t: Tracker, p: dict[str, Any]) -> dict[str, Any]:
