@@ -66,7 +66,7 @@ class RiskLink(BaseModel):
 
 
 @command(
-    "risk.link", "process", "Link a risk to an item", RiskLink, permission="risk.write", scope="item", scope_arg="item",
+    "risk.link", "process", "Link a risk to an item", RiskLink, permission="risk.write", scope="risk", scope_arg="risk",
     example_args={"risk": "RSK-1", "item": "WEB-101"}, example_text="link risk RSK-1 to WEB-101",
 )  # fmt: skip
 async def risk_link(ctx: Ctx, a: RiskLink) -> Outcome:
@@ -80,7 +80,7 @@ class RiskActionAdd(BaseModel):
 
 
 @command(
-    "risk.action.add", "process", "Add a mitigation action to a risk", RiskActionAdd, permission="risk.write",
+    "risk.action.add", "process", "Add a mitigation action to a risk", RiskActionAdd, permission="risk.write", scope="risk", scope_arg="risk",
     example_args={"risk": "RSK-1", "description": "Ask vendor for a firm date"}, example_text="add action to RSK-1: ask vendor for a firm date",
 )  # fmt: skip
 async def risk_action_add(ctx: Ctx, a: RiskActionAdd) -> Outcome:

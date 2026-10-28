@@ -89,7 +89,7 @@ class Classify(BaseModel):
 
 
 @command(
-    "classify", "tags", "Classify an item or project on a dimension", Classify, permission="classification.write", scope="item", scope_arg="target",
+    "classify", "tags", "Classify an item or project on a dimension", Classify, permission="classification.write", scope="target", scope_arg="target",
     example_args={"target": "WEB-101", "dimension": "theme", "value": "checkout"}, example_text="classify WEB-101 as theme checkout",
 )  # fmt: skip
 async def classify(ctx: Ctx, a: Classify) -> Outcome:
