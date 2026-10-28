@@ -12,7 +12,6 @@ from typing import Any
 from pydantic import ValidationError
 from tt_schema.client import ClientBatch
 
-
 MAX_COMMANDS_PER_BATCH = 50  # the server rejects a ClientBatch with more `commands[]` (tt_schema.client)
 
 

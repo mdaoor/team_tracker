@@ -26,11 +26,17 @@ async def own(session_factory: async_sessionmaker[AsyncSession], handle: str = "
         return str(ws.id), str(pid)
 
 
-async def logs_of(session_factory: async_sessionmaker[AsyncSession], handle: str = "@mahmoud") -> list[m.DailyLog]:
+async def logs_of(
+    session_factory: async_sessionmaker[AsyncSession], handle: str = "@mahmoud"
+) -> list[m.DailyLog]:
     ws_id, pid = await own(session_factory, handle)
     async with session_factory() as s:
         return list(
-            (await s.scalars(select(m.DailyLog).where(m.DailyLog.workspace_id == ws_id, m.DailyLog.person_id == pid))).all()
+            (
+                await s.scalars(
+                    select(m.DailyLog).where(m.DailyLog.workspace_id == ws_id, m.DailyLog.person_id == pid)
+                )
+            ).all()
         )
 
 
@@ -93,7 +99,9 @@ async def test_ending_an_activity_drafts_the_day_in_the_persons_zone(api: Api, s
     ws_id, pid = await own(session_factory)
     async with session_factory() as s:
         for row in (
-            await s.scalars(select(m.DailyLog).where(m.DailyLog.workspace_id == ws_id, m.DailyLog.person_id == pid))
+            await s.scalars(
+                select(m.DailyLog).where(m.DailyLog.workspace_id == ws_id, m.DailyLog.person_id == pid)
+            )
         ).all():
             await s.delete(row)
         await s.commit()

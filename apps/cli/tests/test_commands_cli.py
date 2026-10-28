@@ -219,7 +219,9 @@ def test_sync_with_only_unconfirmed_entries_exits_zero_and_prints_how_many_were_
     assert out.count("kept in the outbox: needs confirmation") == 2 and "(tt send " in out
     assert len(_queued(home)) == 2 and not [c for c in server.commands_seen if not c.get("preview_only")]
     refs = [line.split("tt send ")[1].split(" ")[0] for line in out.splitlines() if "tt send " in line]
-    assert len(set(refs)) == 2  # ids are time-ordered: the hint prints enough characters to name exactly one entry
+    assert (
+        len(set(refs)) == 2
+    )  # ids are time-ordered: the hint prints enough characters to name exactly one entry
 
 
 def test_sync_keeps_an_unconfirmed_ordinary_command_too(home: Path, server: FakeServer) -> None:

@@ -15,7 +15,8 @@ Date: 2026-10-25   Status: accepted (Phase 14)
 5. **Token scope.** Commands need scope `manage` or above; a `capture` token gets `403 insufficient_scope` on `/commands` and on a
    `/capture/batches` body that carries commands.
 6. **Idempotency.** `command_log(workspace_id, client_id)` stores the result of an applied command; a repeat returns it with
-   `deduplicated: true`. Rejected and previewed commands are not logged (a corrected retry must re-evaluate, a preview never writes).
+   `deduplicated: true`. Only an `applied` row dedupes. A rejected command is audited (13) but never answers a retry; a preview is
+   never logged (it never writes).
    The log row is committed after the command's own commit; a crash in between can re-apply once (documented trade-off, the events
    remain the audit).
 7. **Destructive ops.** An op flagged `destructive` is applied only when `_meta.confirmed` or `_meta.forced` is set; otherwise
@@ -37,3 +38,24 @@ Date: 2026-10-25   Status: accepted (Phase 14)
     `ClientBatch` carries at most 50 commands (`422`, pointer `/commands`, message names `POST /commands`).
 12. **The idempotency row rides on an event.** An applied command emits `command.applied` (`op`, `client_id`, `status`), so the
     `CommandLog` row commits through the normal guard; the executor no longer uses `allow_unlogged`.
+13. **Rejected commands are audited.** A refused command that was meant to be applied (not a preview) writes a `command_log` row with
+    `status = rejected` (result = the per-command errors) and a `command.rejected` event (`op`, `client_id`, `codes`; never the
+    arguments, which may hold free text) in one transaction, so "who tried to do what, and why was it refused" is answerable from the
+    log. The row belongs to the *authenticated* person, whatever `actor` the command claimed. It is excluded from idempotency: the
+    lookup dedupes only `applied` rows, a corrected retry with the same `client_id` is evaluated afresh and, if it succeeds, turns the
+    rejected row into the applied one (still one row per `client_id`); a second refusal updates the row instead of adding one. This
+    covers every refusal after the batch was authenticated: unknown op, scope, actor mismatch, invalid args, forbidden, not found,
+    confirmation required, conflicts. Alternatives: no audit (the status quo; denied attempts invisible), or audit in the event log
+    only (no queryable per-client_id state, no replacement semantics). Rate limiting bounds the volume.
+14. **One commit per command.** While a handler runs the unit of work is *held*: the router functions it calls still `commit()`, but
+    that only flushes. The executor makes the single real commit afterwards, together with the `CommandLog` row and the
+    `command.applied` event, so a multi-step op (`team.create` with members, `item.reparent`, `stage.move`, `team.add_members`, ...)
+    either happens completely or leaves nothing, and the Event guard runs once over the whole command. A failure anywhere rolls the
+    lot back (`_reset`). `commit_bookkeeping()` is held the same way.
+15. **Correlation.** Every event a command causes carries the batch's `correlation_id` (`/commands` generates one per request,
+    `/capture/batches` shares the messages' one): `emit()` falls back to the unit of work's ambient `correlation_id`.
+16. **`client_id` belongs to its sender.** A `client_id` already used by another person is refused (`client_id_in_use`) rather than
+    answered with that person's stored result (review M2).
+17. **Executor scopes.** Besides `workspace`, `project`, `item(s)`: `target` (a classification target of any type is authorised at
+    the item's, project's or product's own scope) and `risk` (`risk.write` on the risk's project). `classify` and `risk.action.add` /
+    `risk.link` use them; a project-scoped manager can act on their own project's objects and on nothing else's (review M4/M5).

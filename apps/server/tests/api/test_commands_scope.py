@@ -18,7 +18,9 @@ async def _scoped_manager(api: Api) -> None:
 async def _theme(api: Api) -> None:
     r = await api.call("POST", "/dimensions", json={"key": "theme", "name": "Theme", "applies_to": ["work_item", "project"]})  # fmt: skip
     assert r.status_code == 201, r.text
-    assert (await one(api, "dimension.value.add", {"dimension": "theme", "name": "Checkout"}))["status"] == "applied"
+    assert (await one(api, "dimension.value.add", {"dimension": "theme", "name": "Checkout"}))[
+        "status"
+    ] == "applied"
 
 
 async def test_classify_a_project_target_is_authorised_on_that_project(api: Api) -> None:
@@ -30,7 +32,9 @@ async def test_classify_a_project_target_is_authorised_on_that_project(api: Api)
     assert code(await one(api, "classify", {**args, "target": "DATA"}, as_="@sara")) == "forbidden"
 
 
-async def test_classify_an_item_in_another_project_is_forbidden_for_a_project_scoped_manager(api: Api) -> None:
+async def test_classify_an_item_in_another_project_is_forbidden_for_a_project_scoped_manager(
+    api: Api,
+) -> None:
     await _scoped_manager(api)
     await _theme(api)
     web = (await one(api, "item.create", {"title": "w", "project": "WEB"}))["result"]["key"]
@@ -50,7 +54,9 @@ async def test_risk_action_add_follows_the_risks_project(api: Api) -> None:
     await _scoped_manager(api)
     web = (await one(api, "risk.create", {"project": "WEB", "title": "web risk"}))["result"]
     data = (await one(api, "risk.create", {"project": "DATA", "title": "data risk"}))["result"]
-    ok = await one(api, "risk.action.add", {"risk": web["key"], "description": "call the vendor"}, as_="@sara")
+    ok = await one(
+        api, "risk.action.add", {"risk": web["key"], "description": "call the vendor"}, as_="@sara"
+    )
     assert ok["status"] == "applied", ok  # was: forbidden (the executor demanded workspace-wide risk.write)
     denied = await one(api, "risk.action.add", {"risk": data["key"], "description": "x"}, as_="@sara")
     assert code(denied) == "forbidden"

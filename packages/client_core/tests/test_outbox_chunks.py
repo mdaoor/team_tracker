@@ -21,7 +21,9 @@ class EchoApi:
         if self.offline_after is not None and len(self.calls) >= self.offline_after:
             raise Unreachable("down")
         self.calls.append(json.loads(json.dumps(b)))
-        ids = [m["client_id"] for m in b.get("messages", [])] + [c["client_id"] for c in b.get("commands", [])]
+        ids = [m["client_id"] for m in b.get("messages", [])] + [
+            c["client_id"] for c in b.get("commands", [])
+        ]
         return 200, {"results": [{"client_id": i, "status": "applied"} for i in ids]}
 
 
@@ -69,7 +71,9 @@ def test_unsent_chunks_stay_queued_and_confirmed_when_the_network_drops_midway(t
     report = sync(first, box)
     assert report.offline and len(first.calls) == 1 and len(first.calls[0]["commands"]) == 50
     rest = box.pending()
-    assert len(rest) == 2 and all(p.confirmed_at for p in rest)  # the unsent chunks are durable and still confirmed
+    assert len(rest) == 2 and all(
+        p.confirmed_at for p in rest
+    )  # the unsent chunks are durable and still confirmed
     later = EchoApi()
     sync(later, box)
     resumed = [c["client_id"] for call in later.calls for c in call["commands"]]

@@ -73,6 +73,18 @@ The spec is silent or ambiguous in the places below. Each row records the defaul
 | 15.7 | Who sees the DEV project | the person, their line manager, and admins by the platform rule for private items | ADR-0055 |
 | 15.8 | Client domains for suggestions | workspace setting `calendar.client_domains` {domain: project key} | `contextpack.py` |
 
+## Phase 14 leftovers defaults (2026-10-28)
+| # | question | default adopted | where |
+|---|---|---|---|
+| 14.L1 | Should a rejected command leave a trace? | yes: a `command_log` row `rejected` + a `command.rejected` event (no arguments), excluded from idempotency so a corrected retry with the same `client_id` is evaluated | ADR-0056 §13 |
+| 14.L2 | Multi-step ops that commit per step | the unit of work is held during a command; one commit at the end | ADR-0056 §14 |
+| 14.L3 | What does Jira get when items merge? | a `Duplicate` issue link from the source to the target's issue plus a comment on the source; no transition, no delete | ADR-0050 amendment |
+| 14.L4 | Does `tt sync` fail when it only kept unconfirmed entries? | no: exit 0 and a count line; rejected commands still exit 1 | `docs/client/management-commands.md` |
+| 14.L5 | Batches over 50 commands | `sync` splits a confirmed entry into chunks of 50 on disk; the message rides with the first | `docs/client/management-commands.md` |
+| 14.L6 | Is a table-level allow-list enough for `commit_bookkeeping`? | no: row-level column guard for `api_tokens`, `people`, `jira_links`, `jira_worklogs` | ADR-0001 amendment |
+| 14.L7 | `/daily-logs` `day` vs `date` | both accepted; both given and different is `400 day_and_date_differ` | `api/routers/capture.py` |
+| 14.L8 | Gateway command golden | the scripted model replays recorded answers (12 deliberately wrong or partial), so scores are 0.917 / 0.932 and pinned | `gateway_tests/golden/command_model_outputs.yaml` |
+
 ## ADR template (`docs/decisions/ADR-NNNN-title.md`)
 ```
 # ADR-NNNN: <title>
