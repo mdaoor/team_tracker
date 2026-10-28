@@ -97,8 +97,14 @@ describe("the bridge contract written by the Python sidecar tests", () => {
       }),
       b.sent(),
       b.eraseLocal(),
+      b.calSettings(),
+      b.calExclude("c", true),
+      b.calSuppress("domain", "x.com"),
+      b.calRefresh(),
+      b.calSync(),
+      b.notifications(),
     ]);
-    expect(called.length).toBe(30);
+    expect(called.length).toBe(36);
     for (const c of called) expect(contract.commands, c).toContain(c);
   });
 
@@ -137,6 +143,7 @@ describe("the bridge contract written by the Python sidecar tests", () => {
       personal_preview: await b.preview("every weekday 7:00 run 30m"),
       personal_send: await b.send({ id: "m-client" }),
       personal_timer_status: await b.timerStatus(),
+      personal_cal_settings: await b.calSettings(),
     };
     for (const [cmd, value] of Object.entries(samples)) {
       expect(conforms(value, shapes[cmd], cmd), cmd).toEqual([]);

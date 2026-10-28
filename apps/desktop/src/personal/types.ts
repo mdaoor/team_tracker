@@ -277,4 +277,58 @@ export interface PersonalBridge {
   }): Promise<PrivacyInfo>;
   sent(): Promise<{ sent: SentRow[] }>;
   eraseLocal(): Promise<{ files: string[]; secrets: string[] }>;
+  /** Calendar preferences (no network): the cached calendar lists with their switches, and the never-offer lists. */
+  calSettings(): Promise<CalendarSettings>;
+  /** `excluded: true` stops reading that calendar (id, name or part of either); false reads it again. */
+  calExclude(calendar: string, excluded: boolean): Promise<CalendarSettings>;
+  calSuppress(
+    kind: "attendee" | "domain",
+    value: string,
+    remove?: boolean,
+  ): Promise<CalendarSettings>;
+  /** Re-list the calendars at each connected provider. */
+  calRefresh(provider?: string): Promise<
+    CalendarSettings & {
+      refreshed: {
+        provider: string;
+        added: string[];
+        removed: string[];
+        error: string | null;
+      }[];
+    }
+  >;
+  /** One calendar sync now (the shell also calls it on a timer). */
+  calSync(full?: boolean): Promise<{ reports: CalendarSyncReport[] }>;
+  /** Ready-to-send entries the shell has not yet told the person about; each is returned once. */
+  notifications(): Promise<{ entries: TrayNotification[] }>;
 }
+export interface CalendarRow {
+  provider: string;
+  id: string;
+  name: string;
+  primary: boolean;
+  /** false: the provider itself hides this calendar (for example Google "Holidays" unticked in the calendar list). */
+  selected: boolean;
+  excluded: boolean;
+}
+export interface CalendarSettings {
+  calendars: CalendarRow[];
+  refreshed_at: Record<string, string | null>;
+  refresh_hours: number;
+  suppress: { attendees: string[]; domains: string[] };
+}
+export interface CalendarSyncReport {
+  provider: string;
+  added: number;
+  updated: number;
+  removed: number;
+  skipped: Record<string, number>;
+  calendars: number;
+  error: string | null;
+  retry_after: number | null;
+}
+/** What a system notification needs of a tray entry ("Sprint planning ended: send 1 h to WEB?"). */
+export type TrayNotification = Pick<
+  TrayEntry,
+  "id" | "title" | "minutes" | "label" | "suggestion"
+>;

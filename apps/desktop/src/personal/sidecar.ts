@@ -69,6 +69,14 @@ export function makeBridge(
     firstRun: (arg) => c("personal_first_run", arg),
     sent: () => c("personal_sent"),
     eraseLocal: () => c("personal_erase_local"),
+    calSettings: () => c("personal_cal_settings"),
+    calExclude: (calendar, excluded) =>
+      c("personal_cal_exclude", { calendar, excluded }),
+    calSuppress: (kind, value, remove) =>
+      c("personal_cal_suppress", { kind, value, remove: !!remove }),
+    calRefresh: (provider) => c("personal_cal_refresh", { provider }),
+    calSync: (full) => c("personal_cal_sync", { full: !!full }),
+    notifications: () => c("personal_tray_notifications"),
   };
 }
 

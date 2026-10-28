@@ -56,7 +56,8 @@
       ],
       "refresh_hours": "number",
       "refreshed_at": {
-        "google": "string"
+        "google": "string",
+        "microsoft": "string"
       },
       "suppress": {
         "attendees": [

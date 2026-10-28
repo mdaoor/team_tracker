@@ -208,7 +208,7 @@ def test_the_shape_contract_for_the_react_views_is_current(tracker: Tracker, clo
             "calendars": [
                 {"provider": "", "id": "", "name": "", "primary": False, "selected": True, "excluded": False}
             ],
-            "refreshed_at": {"google": ""},
+            "refreshed_at": {"google": "", "microsoft": ""},
             "refresh_hours": 24,
             "suppress": {"attendees": [""], "domains": [""]},
         },
