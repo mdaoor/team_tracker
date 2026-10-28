@@ -106,6 +106,7 @@ COMMANDS: dict[str, Handler] = {
     "personal_cal_refresh": lambda t, p, _a: _cal_refresh(t, p),
     "personal_cal_tick": lambda t, p, _a: _cal_tick(t),
     "personal_notify": lambda t, p, _a: _notify(t),
+    "personal_shell_tick": lambda t, p, _a: _shell_tick(t),
 }
 
 
@@ -189,6 +190,16 @@ def _notify(t: Tracker) -> dict[str, Any]:
     port = CollectingNotifier()
     notify_due(t, port)
     return {"notifications": port.as_dicts()}
+
+
+def _shell_tick(t: Tracker) -> dict[str, Any]:
+    """The desktop shell's whole background step in ONE sidecar call (the frozen binary pays its start-up cost per process):
+    due calendar syncs, OS notifications not yet shown, and the running timer for the tray line."""
+    return {
+        "calendar": _cal_tick(t),
+        "notifications": _notify(t)["notifications"],
+        "timer": t.timer_status(),
+    }
 
 
 def _cal_sync(t: Tracker, p: dict[str, Any]) -> dict[str, Any]:

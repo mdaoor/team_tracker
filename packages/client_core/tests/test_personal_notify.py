@@ -113,6 +113,18 @@ def test_the_bridge_verb_returns_port_shaped_notifications(tracker: Tracker, clo
     assert ok(tracker, "personal_notify")["notifications"] == []
 
 
+def test_one_shell_tick_answers_calendar_notifications_and_timer_in_a_single_call(
+    tracker: Tracker, clock: FakeClock
+) -> None:
+    populate(tracker, clock)
+    out = ok(tracker, "personal_shell_tick")
+    assert set(out) == {"calendar", "notifications", "timer"}
+    assert out["calendar"] == {"configured": False, "reports": []}
+    assert {n["key"].split(":")[0] for n in out["notifications"]} == {"ready"}
+    assert out["timer"]["title"] == "write docs" and out["timer"]["elapsed_min"] == 3
+    assert ok(tracker, "personal_shell_tick")["notifications"] == []  # once each
+
+
 def test_the_calendar_tick_is_quiet_without_a_calendar_and_runs_when_due(
     tracker: Tracker, clock: FakeClock, monkeypatch: Any
 ) -> None:
