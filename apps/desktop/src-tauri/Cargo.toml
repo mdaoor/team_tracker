@@ -1,4 +1,4 @@
-# SCAFFOLD - not built or verified in CI yet (needs the Rust toolchain and the platform webview libs). See docs/client/desktop.md.
+# Compiles with `cargo check` (see docs/client/desktop.md for the system libraries and the sidecar binary it needs); not run end to end, not in CI.
 [package]
 name = "team-tracker-desktop"
 version = "0.1.0"
@@ -14,3 +14,4 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1", features = ["time"] }

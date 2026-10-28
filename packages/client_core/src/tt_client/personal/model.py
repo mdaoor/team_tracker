@@ -142,6 +142,9 @@ class PersonalItem(_M):
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: datetime | None = None
+    deleted_by: Literal["user", "sync"] | None = (
+        None  # who deleted it: a calendar sync may bring back only what it dropped itself
+    )
 
     @model_validator(mode="after")
     def _invariants(self) -> PersonalItem:

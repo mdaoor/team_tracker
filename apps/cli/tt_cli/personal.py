@@ -357,6 +357,97 @@ def register(app: typer.Typer) -> None:
                 + (f"  ERROR: {st['error']}" if st["error"] else "")
             )
 
+    @cal_app.command("list")
+    def cal_list() -> None:
+        """The calendars last seen (no network): which are read, which are switched off."""
+        from tt_client.integrations.sync import calendar_overview
+
+        ov = calendar_overview(tracker().store)
+        if not ov["calendars"]:
+            typer.echo("no calendars known yet: run `tt cal sync`")
+            return
+        for c in ov["calendars"]:
+            flags = [f for f, on in (("primary", c["primary"]), ("excluded", c["excluded"])) if on]
+            if not c["selected"] and not c["excluded"]:
+                flags.append("hidden by the provider")
+            typer.echo(
+                f"{c['provider']:9} {c['name']}  ({c['id']})" + (f"  [{', '.join(flags)}]" if flags else "")
+            )
+        for p, at in ov["refreshed_at"].items():
+            typer.echo(f"{p}: list read {at or 'never'}; re-read every {ov['refresh_hours']} h")
+
+    def _manage(action: str, ref: str) -> None:
+        t = tracker()
+        sync = t.calendar({})
+        try:
+            out = sync.exclude(ref) if action == "exclude" else sync.include(ref)
+        except KeyError as exc:
+            typer.echo(str(exc.args[0]), err=True)
+            raise typer.Exit(2) from exc
+        if action == "exclude":
+            typer.echo(
+                f"excluded {out['calendar']} ({out['provider']}); {out['dropped']} meeting(s) removed from the plan"
+            )
+        else:
+            typer.echo(
+                f"included {out['calendar']} ({out['provider']}); `tt cal sync` brings its meetings back"
+            )
+
+    @cal_app.command("exclude")
+    def cal_exclude(calendar: Annotated[str, typer.Argument(help="id, name or part of either")]) -> None:
+        """Stop reading one calendar; its unsent meetings leave the plan."""
+        _manage("exclude", calendar)
+
+    @cal_app.command("include")
+    def cal_include(calendar: Annotated[str, typer.Argument(help="id, name or part of either")]) -> None:
+        """Read a calendar you switched off again."""
+        _manage("include", calendar)
+
+    @cal_app.command("suppress")
+    def cal_suppress(
+        value: Annotated[
+            str | None, typer.Argument(help="an attendee e-mail (a@b.com) or a domain (b.com / @b.com)")
+        ] = None,
+        remove: Annotated[bool, typer.Option("--remove", help="take it off the list")] = False,
+        list_: Annotated[bool, typer.Option("--list", help="show the lists")] = False,
+    ) -> None:
+        """Never offer meetings with this attendee or domain in the tray (they stay in your plan)."""
+        s = tracker().settings
+        if list_ or value is None:
+            typer.echo("attendees: " + (", ".join(s.get("suppress.attendees")) or "none"))
+            typer.echo("domains:   " + (", ".join(s.get("suppress.domains")) or "none"))
+            return
+        kind = "attendee" if "@" in value.strip().removeprefix("@") else "domain"
+        try:
+            s.suppress(kind, value, remove=remove)  # type: ignore[arg-type]
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(2) from exc
+        shown = value.strip().lower().removeprefix("@")
+        typer.echo(f"{shown} is no longer suppressed" if remove else f"suppressed: {shown}")
+
+    @cal_app.command("refresh")
+    def cal_refresh(provider: Annotated[str | None, typer.Option("--provider", "-p")] = None) -> None:
+        """Re-read the list of calendars now (new shared calendars appear, removed ones leave the plan)."""
+        t = tracker()
+        provs = providers(t)
+        if not provs:
+            typer.echo("no calendar configured: `tt cal connect google|microsoft`", err=True)
+            raise typer.Exit(2)
+        sync = t.calendar(provs)
+        failed = False
+        for name in [provider] if provider else list(provs):
+            r = sync.refresh_calendars(name)
+            if r["error"]:
+                failed = True
+                typer.echo(f"{name}: refresh failed: {r['error']}", err=True)
+            else:
+                added = f" ({', '.join(r['added'])})" if r["added"] else ""
+                gone = f" ({', '.join(r['removed'])})" if r["removed"] else ""
+                typer.echo(f"{name}: {len(r['added'])} added{added}, {len(r['removed'])} removed{gone}")
+        if failed:
+            raise typer.Exit(1)
+
     @cal_app.command("disconnect")
     def cal_disconnect(
         provider: str, keep_meetings: Annotated[bool, typer.Option("--keep-meetings")] = False

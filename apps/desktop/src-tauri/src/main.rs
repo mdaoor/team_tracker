@@ -1,13 +1,23 @@
-// SCAFFOLD (unbuilt): a global hotkey toggles the palette window; every `tt_*` command forwards one JSON request to the `tt-sidecar`
-// binary (tt_client built with PyInstaller, ADR-0038) and returns its JSON answer. No business logic lives in Rust.
+// The desktop shell. Compiles with `cargo check` (Tauri 2) once `binaries/tt-sidecar-<triple>` exists (apps/desktop/sidecar/build.sh) and the
+// webkit2gtk system libraries are installed; it has NOT been launched or exercised end to end (no display here). See docs/client/desktop.md.
+// A global hotkey toggles the palette window; every `tt_*` command forwards one JSON request to the `tt-sidecar` binary (tt_client built
+// with PyInstaller, ADR-0038) and returns its JSON answer. Tray, notifications and the background sync are in `shell.rs`; no business
+// logic lives in Rust.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod notice;
+mod shell;
 
 use tauri::{Manager, State};
 use tauri_plugin_shell::ShellExt;
 
 struct Hotkey(String);
 
-async fn sidecar(app: &tauri::AppHandle, cmd: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
+pub(crate) async fn sidecar(
+    app: &tauri::AppHandle,
+    cmd: &str,
+    args: serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let out = app
         .shell()
         .sidecar("tt-sidecar")
@@ -25,7 +35,10 @@ async fn sidecar(app: &tauri::AppHandle, cmd: &str, args: serde_json::Value) -> 
 macro_rules! bridge {
     ($name:ident, $cmd:expr) => {
         #[tauri::command]
-        async fn $name(app: tauri::AppHandle, args: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+        async fn $name(
+            app: tauri::AppHandle,
+            args: Option<serde_json::Value>,
+        ) -> Result<serde_json::Value, String> {
             sidecar(&app, $cmd, args.unwrap_or(serde_json::json!({}))).await
         }
     };
@@ -51,9 +64,13 @@ bridge!(tt_cmd_queue, "cmd-queue");
 bridge!(tt_cmd_resolve, "cmd-resolve");
 bridge!(tt_cmd_team_now, "cmd-team-now");
 
-// Phase 15 (scaffold, uncompiled): the personal tracker sends every command through one entry, `tt_personal {command, args}`.
+// Phase 15: the personal tracker sends every command through one entry, `tt_personal {command, args}`.
 #[tauri::command]
-async fn tt_personal(app: tauri::AppHandle, command: String, args: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+async fn tt_personal(
+    app: tauri::AppHandle,
+    command: String,
+    args: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
     sidecar(&app, &command, args.unwrap_or(serde_json::json!({}))).await
 }
 
@@ -66,17 +83,39 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .manage(Hotkey("CommandOrControl+Shift+Space".into()))
+        .plugin(shell::hotkey_plugin())
+        .manage(Hotkey(shell::HOTKEY.into()))
         .invoke_handler(tauri::generate_handler![
-            tt_parse, tt_pack, tt_send, tt_build_manual, tt_outbox, tt_resend, tt_discard, tt_open_editor, tt_active, tt_personal, hotkey,
-            tt_cmd_state, tt_cmd_role, tt_cmd_propose, tt_cmd_fields, tt_cmd_build, tt_cmd_preview, tt_cmd_send, tt_cmd_queue,
-            tt_cmd_resolve, tt_cmd_team_now
+            tt_parse,
+            tt_pack,
+            tt_send,
+            tt_build_manual,
+            tt_outbox,
+            tt_resend,
+            tt_discard,
+            tt_open_editor,
+            tt_active,
+            tt_personal,
+            hotkey,
+            tt_cmd_state,
+            tt_cmd_role,
+            tt_cmd_propose,
+            tt_cmd_fields,
+            tt_cmd_build,
+            tt_cmd_preview,
+            tt_cmd_send,
+            tt_cmd_queue,
+            tt_cmd_resolve,
+            tt_cmd_team_now
         ])
+        .on_window_event(shell::keep_running_in_tray)
         .setup(|app| {
             if let Some(w) = app.get_webview_window("palette") {
                 let _ = w.hide();
             }
+            shell::install_tray(app)?;
+            shell::request_notification_permission(app.handle());
+            shell::spawn_background(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

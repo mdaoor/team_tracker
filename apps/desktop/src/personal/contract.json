@@ -1,7 +1,12 @@
 {
   "commands": [
     "personal_add",
+    "personal_cal_exclude",
+    "personal_cal_refresh",
+    "personal_cal_settings",
+    "personal_cal_suppress",
     "personal_cal_sync",
+    "personal_cal_tick",
     "personal_complete",
     "personal_day",
     "personal_delete",
@@ -14,6 +19,7 @@
     "personal_first_run",
     "personal_month",
     "personal_not_work",
+    "personal_notify",
     "personal_preview",
     "personal_privacy",
     "personal_recur_add",
@@ -28,6 +34,7 @@
     "personal_set_category",
     "personal_setting_set",
     "personal_settings",
+    "personal_shell_tick",
     "personal_skip",
     "personal_timer_start",
     "personal_timer_status",
@@ -39,6 +46,31 @@
     "personal_weekly_review"
   ],
   "shapes": {
+    "personal_cal_settings": {
+      "calendars": [
+        {
+          "excluded": "boolean",
+          "id": "string",
+          "name": "string",
+          "primary": "boolean",
+          "provider": "string",
+          "selected": "boolean"
+        }
+      ],
+      "refresh_hours": "number",
+      "refreshed_at": {
+        "google": "string",
+        "microsoft": "string"
+      },
+      "suppress": {
+        "attendees": [
+          "string"
+        ],
+        "domains": [
+          "string"
+        ]
+      }
+    },
     "personal_day": {
       "anytime": [
         {
@@ -339,6 +371,7 @@
     "personal_settings": {
       "calendar.excluded": [],
       "calendar.poll_minutes": "number",
+      "calendar.refresh_hours": "number",
       "calendar.skip_all_day": "boolean",
       "calendar.skip_cancelled": "boolean",
       "calendar.skip_declined": "boolean",
@@ -347,6 +380,7 @@
       "calendar.skip_private": "boolean",
       "calendar.write_back": "boolean",
       "capacity_hours_per_week": "number",
+      "notify.eod_time": "string",
       "privacy.assist": "string",
       "privacy.first_run_done": "boolean",
       "share.development": "boolean",

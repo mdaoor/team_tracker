@@ -47,13 +47,48 @@ Weekly: planned vs done, development hours, meeting load, habit streaks, optiona
 
 ## Where it lives
 * CLI: `tt day|week|month|add|timer|cal|tray|recur|item|eod|review|privacy|sent|erase-local|export|import`.
-* Desktop/mobile React views: `apps/desktop/src/personal` (Today/Week/Month, tray, end-of-day and weekly cards, recurring editor, first-run privacy,
-  keyboard map **N** new, **Space** timer, **C** done, **X** skip, **S** send, **D/W/M** views, **E**/**R** reviews, **?** help), driven through the
-  sidecar (`tt sidecar <command> '<json>'`, Tauri command `tt_personal`). Mobile uses the same views at 390 px. **The Tauri shells (desktop tray,
-  notifications, mobile share sheet) are scaffolds and have not been built or run here.**
+* Desktop React views: `apps/desktop/src/personal` (Today/Week/Month, tray, end-of-day and weekly cards, recurring editor, first-run privacy,
+  Calendars dialog, keyboard map **N** new, **Space** timer, **C** done, **X** skip, **S** send, **D/W/M** views, **E**/**R** reviews, **?** help),
+  driven through the sidecar (`tt sidecar <command> '<json>'`, Tauri command `tt_personal`). The Tauri shell (tray, OS notifications, background
+  sync) compiles and starts but is not verified on a real desktop: `docs/client/desktop.md`.
+* Phone: **Mobile Lite**, an installable web app (PWA), see [Mobile](#mobile). There is no native iOS/Android app.
 * Privacy: `tt privacy`, `tt sent` (audit with server keys), `tt erase-local`.
 
 ## Encryption and keys
 Fernet (AES-128-CBC + HMAC) per row; key in the OS keyring (`keyring`), or `~/.local/share/tt/secrets.json` mode 0600 with a warning on
 headless machines (`TT_SECRETS=file|keyring` forces). Readable on disk: ids, the UTC date an item starts, series id. Losing the key means losing
 the store: keep an export.
+
+## Calendars: what you can switch off
+`tt cal list` shows the calendars last seen (no network), `tt cal exclude <id|name>` stops reading one (its unsent meetings leave your plan; sent ones
+stay), `tt cal include` reads it again and the next sync brings its meetings back, `tt cal refresh` re-lists the calendars at the provider (a new shared
+calendar appears; one that disappeared takes its unsent meetings with it). The list is also re-read by itself every `calendar.refresh_hours` (24; 0 =
+only on demand). `tt cal suppress sara@acme.com` / `tt cal suppress globex.com` (`--remove`, `--list`) keeps meetings with that person or company
+in your plan but never offers them in Ready to send. The desktop **Calendars** dialog does the same with switches, a *Refresh the list* button and the two lists.
+
+A meeting you **delete** stays deleted: a later sync, even a full one, never brings it back (only meetings the sync itself dropped, for example a
+declined invitation you accepted later, return). If the provider's sync cursor expires (Google or Graph answer HTTP 410) the next sync does a full
+pull of the window; meetings are matched by `calendar_ref`, so nothing is duplicated and your local choices survive. ADR-0054 section 5.
+
+## Notifications (desktop shell)
+Policy in Python (`tt_client.personal.notify`, through the `NotificationPort`), display in the shell: once per finished meeting or done item
+("Sprint planning ended: send 1 h to WEB?"), and once per workday after `notify.eod_time` ("How did today go?", only if something was done or waits).
+Change the evening time, or switch it off (empty), with
+`tt sidecar personal_setting_set '{"key":"notify.eod_time","value":"18:15"}'` (there is no settings screen for it yet).
+
+## Mobile
+**What exists: Mobile Lite**, the same React views (Today, Week, Month, Ready to send, reviews) as an installable web app, `apps/desktop/mobile.html`
+(+ `public/manifest.webmanifest`, `public/sw.js`, `src/mobile/`). ADR-0057.
+* **Works**: add a one-liner (`work: fix login 1h p:web`, `course: Rust 1h`, `run 30m at 6pm`, `tomorrow`), timer (real time, one at a time), done/skip/reopen/
+  reschedule/delete, Ready to send with project chips from a list you set, **Send queues a `log_time` batch offline** and delivers it to
+  `POST /api/v1/w/<workspace>/capture/batches` when the phone is online (status bar: Online/Offline, *n waiting to send*, *Send now*; *Unsend* until
+  it is delivered), end-of-day and weekly numbers, the personal-never-sent rule. The app shell is cached, so it **opens with no network**.
+* **Does not exist**: repeating items, calendar sync (Google/Outlook), suggestions and learned rules, the natural-language parser of the desktop (only the
+  small grammar above), confirming the day log, taking a *delivered* send back, OS push notifications, Tauri/native iOS or Android apps, share sheet,
+  voice. Each of these answers with a plain "not available on the phone yet: do it on the desktop" message, never silently.
+* **Privacy**: the plan lives in the browser's `localStorage`, **not encrypted**, and the API token is stored there in clear (the Phone settings dialog
+  says so). Anyone with the browser profile can read it. The desktop store is encrypted per row (ADR-0053); the phone's is not.
+* **Deploy**: build with `pnpm --filter @tt/desktop build` (`TT_BASE=/m/` to mount under a prefix) and serve `dist/` from the **same origin as the
+  API** (the server has no CORS), e.g. a reverse-proxy location. Open `/mobile.html` on the phone, then "Add to Home screen". Proven in Chromium
+  (`pnpm --filter @tt/desktop e2e:mobile`: manifest, service worker controls the page, reload offline, offline send delivered on reconnect);
+  **not tried on a real iOS or Android device** (iOS Safari needs the page over HTTPS and "Add to Home Screen" by hand; no install prompt).

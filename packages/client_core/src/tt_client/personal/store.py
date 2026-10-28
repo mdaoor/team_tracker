@@ -15,7 +15,7 @@ from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 from cryptography.fernet import Fernet, InvalidToken
 from pydantic import BaseModel
@@ -176,11 +176,13 @@ class PersonalStore:
         out = [PersonalItem.model_validate_json(self._dec(r[0])) for r in rows]
         return [i for i in out if i.series_id == series_id]
 
-    def delete_item(self, item_id: str) -> bool:
+    def delete_item(self, item_id: str, *, by: Literal["user", "sync"] = "user") -> bool:
+        """Soft delete. `by="sync"` marks a drop made by the calendar sync (it may come back); anything else is the person's choice."""
         item = self.get_item(item_id)
         if item is None:
             return False
         item.deleted_at = datetime.now(UTC)
+        item.deleted_by = by
         self.put_item(item)
         return True
 
