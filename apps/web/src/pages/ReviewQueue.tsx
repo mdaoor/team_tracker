@@ -4,12 +4,32 @@ import { w } from "../api/http";
 import * as reviewApi from "../api/review";
 import type { Person, Project, ReviewChoice, ReviewRow } from "../api/types";
 import { Button, ConfidenceCue, Empty, Pill } from "../components/ui";
+import { confidenceCue } from "../lib/confidence";
 import { useToasts } from "../components/Toasts";
 import { useList, useWs } from "../lib/hooks";
 import { ago } from "../lib/format";
 import { t } from "../lib/i18n";
 
 export const DEFAULT_THRESHOLD = 0.7;
+
+/** What the primary button does, in words: "Assign to WEB" rather than a bare key next to a confidence cue. */
+export function choiceVerb(choice: ReviewChoice): string {
+  const [key, value] = Object.entries(choice)[0] ?? ["", ""];
+  switch (key) {
+    case "project":
+      return `Assign to ${value}`;
+    case "stage":
+      return `Move to ${value}`;
+    case "product":
+      return `Link to ${value}`;
+    case "handle":
+      return `Assign to ${value}`;
+    case "action":
+      return value === "confirm" ? "Confirm" : String(value);
+    default:
+      return String(value);
+  }
+}
 
 /** The suggestion's primary choice for a row, if any (stored suggestion or the LLM gateway's best guess). */
 export function suggestedChoice(
@@ -42,9 +62,12 @@ export function ReviewQueue() {
   const projects = useList<Project>("/projects");
   const people = useList<Person>("/people");
   const [cursor, setCursor] = useState(0);
+  const cursorRef = useRef(0);
+  cursorRef.current = cursor;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   const data = useMemo(() => rows.data ?? [], [rows.data]);
+  const refocus = useRef<number | null>(null); // row index to focus once the list has re-rendered without the resolved row
 
   // Live updates (ADR-0009): SSE, with a 30 s poll as the fallback.
   useEffect(() => {
@@ -67,6 +90,7 @@ export function ReviewQueue() {
     async (row: ReviewRow, choice: ReviewChoice) => {
       try {
         const done = await reviewApi.resolveReview(ws, row.ref, choice);
+        refocus.current = cursorRef.current;
         await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
         const phrase = row.suggestion?.phrase;
         const text =
@@ -113,6 +137,15 @@ export function ReviewQueue() {
   const focusRow = useCallback((i: number) => {
     listRef.current?.querySelectorAll<HTMLElement>(".rq-row")[i]?.focus();
   }, []);
+  useEffect(() => {
+    if (refocus.current == null) return;
+    const i = Math.min(refocus.current, data.length - 1);
+    refocus.current = null;
+    if (i >= 0) {
+      setCursor(i);
+      focusRow(i);
+    }
+  }, [data, focusRow]);
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest?.("input,select,textarea,button,a")) return;
@@ -162,6 +195,7 @@ export function ReviewQueue() {
       toasts.error(e);
     }
   };
+  const suggestedCount = data.filter((r) => suggestedChoice(r)).length;
   const eligible = data.filter(
     (r) => (r.confidence ?? 0) >= threshold && suggestedChoice(r),
   ).length;
@@ -206,9 +240,21 @@ export function ReviewQueue() {
             aria-label="Confidence threshold"
           />
         </label>
-        <Button variant="primary" onClick={confirmAll} disabled={!eligible}>
+        <Button
+          variant="primary"
+          onClick={confirmAll}
+          disabled={!eligible}
+          aria-describedby={!eligible && suggestedCount ? "rq-why" : undefined}
+        >
           {t("review.confirmAll")} ({eligible})
         </Button>
+        {!eligible && suggestedCount > 0 && (
+          <small id="rq-why" className="hint">
+            {suggestedCount} suggestion{suggestedCount === 1 ? " is" : "s are"} below the minimum
+            confidence of {Math.round(threshold * 100)} %; lower the slider to include{" "}
+            {suggestedCount === 1 ? "it" : "them"}.
+          </small>
+        )}
       </div>
       {rows.isSuccess && data.length === 0 && <Empty>{t("review.empty")}</Empty>}
       <div className="rq" role="group" aria-label="Review rows" ref={listRef}>
@@ -279,7 +325,11 @@ function RowActions({
   return (
     <span className="row">
       {choice && (
-        <Button variant="primary" onClick={() => onResolve(row, choice)}>
+        <Button
+          variant="primary"
+          aria-label={`${choiceVerb(choice)}, confidence ${confidenceCue(row.confidence).label}`}
+          onClick={() => onResolve(row, choice)}
+        >
           {String(label)}{" "}
           <ConfidenceCue
             confidence={row.confidence}
