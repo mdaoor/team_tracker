@@ -179,9 +179,7 @@ async def test_html_shells_get_a_nonce_csp_without_remote_origins(api: Api, bund
     r = await api.c.get(f"/p/acme/{pid}", headers={"X-Debug-Actor": "@mahmoud"})
     assert r.status_code == 200, r.text
     csp = r.headers["content-security-policy"]
-    assert (
-        "default-src 'none'" in csp and "http://" not in csp and "https://" not in csp and "*" not in csp
-    )
+    assert "default-src 'none'" in csp and "http://" not in csp and "https://" not in csp and "*" not in csp
     # R3.7: scripts need the per-response nonce; no 'unsafe-inline' for script-src
     script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
     assert "'unsafe-inline'" not in script_src and "'nonce-" in script_src
@@ -320,7 +318,9 @@ async def test_sign_in_bucket_is_per_address_and_username(limited: httpx.AsyncCl
     """13 M4: one user's failed attempts do not lock a colleague behind the same address out."""
 
     async def go(user: str) -> int:
-        r = await limited.post("/auth/ldap/login", json={"workspace": "acme", "username": user, "password": "p"})
+        r = await limited.post(
+            "/auth/ldap/login", json={"workspace": "acme", "username": user, "password": "p"}
+        )
         return r.status_code
 
     assert [await go("alice") for _ in range(3)] == [404, 404, 429]

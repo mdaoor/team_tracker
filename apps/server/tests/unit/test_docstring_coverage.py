@@ -10,7 +10,9 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 def _tool():  # type: ignore[no-untyped-def]
-    spec = importlib.util.spec_from_file_location("docstring_coverage", ROOT / "tools" / "docstring_coverage.py")
+    spec = importlib.util.spec_from_file_location(
+        "docstring_coverage", ROOT / "tools" / "docstring_coverage.py"
+    )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules["docstring_coverage"] = mod  # dataclasses resolves annotations through sys.modules

@@ -497,7 +497,9 @@ async def test_roadmap_slide_config_keys_rows_and_zoom_are_validated(api: Api) -
     assert ok.status_code == 201  # both keys are optional
     for key, bad in (("rows", "item"), ("rows", "weeks"), ("zoom", "year"), ("zoom", 3), ("rows", None)):
         r = await api.call(
-            "POST", "/presentations", json={"title": "R", "slides": [{"kind": "roadmap", "config": {key: bad}}]}
+            "POST",
+            "/presentations",
+            json={"title": "R", "slides": [{"kind": "roadmap", "config": {key: bad}}]},
         )
         err = r.json()["error"]
         assert r.status_code == 422 or r.status_code == 400, (key, bad, r.text)

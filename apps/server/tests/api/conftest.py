@@ -114,5 +114,7 @@ def real_bundle() -> Path:
         done = subprocess.run(
             ["pnpm", "--filter", "@tt/presentation", "build"], cwd=root, capture_output=True, text=True
         )
-        assert done.returncode == 0 and BUNDLE.exists(), f"cannot build the deck bundle:\n{done.stdout}\n{done.stderr}"
+        assert done.returncode == 0 and BUNDLE.exists(), (
+            f"cannot build the deck bundle:\n{done.stdout}\n{done.stderr}"
+        )
     return BUNDLE
