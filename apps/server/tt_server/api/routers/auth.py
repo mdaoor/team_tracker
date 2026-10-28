@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
-from tt_schema.base import new_id, utcnow
-from tt_schema.enums import EventSource, TargetType
 
-from tt_server.acl.permissions import TOKEN_SCOPES
-from tt_server.api.deps import Uow, _authenticate, hash_token, new_token
+from tt_server.api.deps import Uow, _authenticate
 from tt_server.api.errors import ApiError
 from tt_server.db import models as m
-from tt_server.domain.common import emit
 from tt_server.domain.tenancy import service as tenancy
+from tt_server.domain.tokens import mint_member_token
 
 router = APIRouter()
 
@@ -74,43 +70,13 @@ async def create_token(
     )
     if member is None:
         raise ApiError(404, "not_found", "workspace not found")
-    bad = [x for x in body.scopes if x not in TOKEN_SCOPES]
-    if bad or not body.scopes:
-        raise ApiError(
-            400,
-            "invalid_scope",
-            f"scopes must be a non-empty subset of {list(TOKEN_SCOPES)}",
-            pointer="/scopes",
-        )
-    if presenting is not None:  # a token can only mint tokens no stronger than itself (scopes are ordered)
-        ceiling = max((TOKEN_SCOPES.index(x) for x in presenting.scopes if x in TOKEN_SCOPES), default=-1)
-        if any(TOKEN_SCOPES.index(x) > ceiling for x in body.scopes):
-            raise ApiError(
-                403,
-                "scope_ceiling",
-                "a token cannot create a token with a wider scope than its own",
-                pointer="/scopes",
-            )
-    secret = new_token()
-    row = m.ApiToken(
-        id=new_id(),
-        workspace_id=ws.id,
-        person_id=person.id,
-        name=body.name,
-        hash=hash_token(secret),
-        scopes=body.scopes,
-        expires_at=utcnow() + timedelta(days=body.expires_in_days) if body.expires_in_days else None,
-    )
-    uow.session.add(row)
-    emit(
+    result = mint_member_token(
         uow,
-        workspace_id=ws.id,
-        actor_id=person.id,
-        entity_type=TargetType.PERSON,
-        entity_id=person.id,
-        event_type="token.created",
-        payload={"after": {"token_id": row.id, "name": body.name}},
-        source=EventSource.OVERLAY,
+        member,
+        name=body.name,
+        scopes=body.scopes,
+        expires_in_days=body.expires_in_days,
+        presenting_scopes=presenting.scopes if presenting is not None else None,
     )
     await uow.commit()
-    return {"id": row.id, "token": secret, "expires_at": row.expires_at, "scopes": body.scopes}
+    return result

@@ -18,6 +18,7 @@ from tt_server.api.routers.core import _item
 from tt_server.db import models as m
 from tt_server.domain.common import row_dict
 from tt_server.domain.errors import DomainError
+from tt_server.domain.items import checklists, links
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["items"])
 
@@ -126,15 +127,7 @@ async def _checklist_dict(uow: Uow, cl: m.Checklist) -> dict[str, Any]:
 )
 async def add_checklist(ref: str, body: ChecklistIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     item = await _item(uow, actor.ws.id, ref)
-    n = len(
-        (await uow.session.scalars(select(m.Checklist.id).where(m.Checklist.work_item_id == item.id))).all()
-    )
-    cl = m.Checklist(id=new_id(), work_item_id=item.id, title=body.title, position=n)
-    uow.session.add(cl)
-    await uow.session.flush()
-    for pos, text in enumerate(body.items):
-        uow.session.add(m.ChecklistItem(id=new_id(), checklist_id=cl.id, text=text, position=pos))
-    await uow.session.flush()
+    cl = await checklists.create_checklist(uow, item, body.title, body.items)
     audit(
         uow,
         actor,
@@ -186,14 +179,7 @@ async def add_checklist_item(
         raise ApiError(404, "not_found", "checklist not found")
     item = await _item(uow, actor.ws.id, cl.work_item_id)
     check(actor, "item.write_overlay", await item_ref_for(uow, item))
-    n = len(
-        (
-            await uow.session.scalars(select(m.ChecklistItem.id).where(m.ChecklistItem.checklist_id == cl.id))
-        ).all()
-    )
-    ci = m.ChecklistItem(id=new_id(), checklist_id=cl.id, text=body.text, position=n)
-    uow.session.add(ci)
-    await uow.session.flush()
+    ci = await checklists.append_entry(uow, cl, body.text)
     audit(uow, actor, TargetType.WORK_ITEM, item.id, "checklist.item_changed", checklist=cl.id, added=ci.id)
     await uow.commit()
     return row_dict(ci)
@@ -238,74 +224,17 @@ async def delete_checklist_item(iid: str, actor: CurrentActor, uow: Uow) -> Resp
 
 
 # ------------------------------------------------------------------ links
-SUCCESSOR_OF_FROM = {
-    LinkType.BLOCKS,
-    LinkType.FINISH_TO_START,
-    LinkType.START_TO_START,
-    LinkType.FINISH_TO_FINISH,
-}
-SUCCESSOR_OF_TO = {LinkType.DEPENDS_ON, LinkType.IS_BLOCKED_BY}
-
-
-def _edge(link_type: LinkType, a: str, b: str) -> tuple[str, str] | None:
-    """(predecessor, successor) for ordering links; None for the informational ones (relates_to, duplicates, clones)."""
-    if link_type in SUCCESSOR_OF_FROM:
-        return a, b
-    if link_type in SUCCESSOR_OF_TO:
-        return b, a
-    return None
-
-
 class LinkIn(BaseModel):
     to: str
     link_type: LinkType = LinkType.RELATES_TO
     lag_days: int | None = Field(default=None, ge=-365, le=365)
 
 
-async def _would_cycle(uow: Uow, pred: str, succ: str) -> bool:
-    rows = (await uow.session.execute(
-        select(m.WorkItemLink.from_item_id, m.WorkItemLink.to_item_id, m.WorkItemLink.link_type).where(m.WorkItemLink.deleted_at.is_(None))
-    )).all()  # fmt: skip
-    nxt: dict[str, set[str]] = {}
-    for a, b, t in rows:
-        e = _edge(t, a, b)
-        if e:
-            nxt.setdefault(e[0], set()).add(e[1])
-    seen, stack = set(), [succ]
-    while stack:
-        n = stack.pop()
-        if n == pred:
-            return True
-        if n not in seen:
-            seen.add(n)
-            stack.extend(nxt.get(n, ()))
-    return False
-
-
 @router.post("/items/{ref}/links", status_code=201, dependencies=[needs("item.write_overlay", item="ref")])
 async def add_link(ref: str, body: LinkIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     a = await _item(uow, actor.ws.id, ref)
     b = await _item(uow, actor.ws.id, body.to)  # an invisible target is a 404, like any other lookup
-    if a.id == b.id:
-        raise ApiError(400, "invalid_link", "an item cannot link to itself", pointer="/to")
-    dup = await uow.session.scalar(
-        select(m.WorkItemLink.id).where(
-            m.WorkItemLink.from_item_id == a.id, m.WorkItemLink.to_item_id == b.id,
-            m.WorkItemLink.link_type == body.link_type, m.WorkItemLink.deleted_at.is_(None),
-        )
-    )  # fmt: skip
-    if dup:
-        raise ApiError(409, "duplicate_link", "that link already exists")
-    edge = _edge(body.link_type, a.id, b.id)
-    if edge and await _would_cycle(uow, *edge):
-        raise ApiError(
-            409, "dependency_cycle", "that link would make the dependencies circular", pointer="/to"
-        )
-    link = m.WorkItemLink(
-        id=new_id(), from_item_id=a.id, to_item_id=b.id, link_type=body.link_type, lag_days=body.lag_days
-    )
-    uow.session.add(link)
-    await uow.session.flush()
+    link = await links.create_link(uow, a, b, body.link_type, body.lag_days)
     audit(
         uow,
         actor,
