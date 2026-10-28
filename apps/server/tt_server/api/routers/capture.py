@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -86,8 +86,16 @@ async def post_batch(request: Request, actor: CurrentActor, uow: Uow) -> JSONRes
 
 @router.get("/daily-logs", tags=["daily-logs"])
 async def list_daily_logs(
-    actor: CurrentActor, uow: Uow, day: date | None = None, person: str | None = None
+    actor: CurrentActor,
+    uow: Uow,
+    day: date | None = None,
+    date_: Annotated[date | None, Query(alias="date", description="same as `day`")] = None,
+    person: str | None = None,
 ) -> dict[str, Any]:
+    """One person's daily logs, optionally for one day (`day`, or `date` as the other list endpoints name it)."""
+    if day and date_ and day != date_:
+        raise ApiError(400, "day_and_date_differ", "`day` and `date` name different days; send one of them")
+    day = day or date_
     stmt = visible(select(m.DailyLog).where(m.DailyLog.workspace_id == actor.ws.id), actor.acl, m.DailyLog)
     subject = actor.person.id
     if person not in (None, "me"):
