@@ -15,7 +15,7 @@ State at hand-over (2026-10-27): everything is on **`feat/phase-14-server`**, PR
 * **Jira projection of `item.merged`** (ADR-0050 "open"): nothing in `integrations/jira` reacts. When the project has Jira enabled, comment on the source issues and link them to the target.
 * **Acceptance "snapshot test of event types per op"**: `tests/api/test_commands.py` asserts the `payload.command` tagging but not the exact event types each op emits compared with the web console. Add a table-driven test (op → expected event types).
 * **Rejected commands are not logged** (only applied ones, ADR-0056). Decide whether an audit row for rejections is wanted.
-* **`api/commands/ops.py` is 1179 lines**: split by group (`ops_projects.py`, `ops_items.py`, `ops_teams.py`, `ops_governance.py`, …), keep `REGISTRY` registration via the package `__init__`.
+* **`api/commands/ops/` (was one 1179-line ops.py; now one module per group)**: split by group (`ops_projects.py`, `ops_items.py`, `ops_teams.py`, `ops_governance.py`, …), keep `REGISTRY` registration via the package `__init__`.
 * Client/server contract guesses to confirm with a manual run: `review.resolve` `choice` object semantics, `context_note.add` scope mapping, `x-picker`/`format` hints (the server schemas carry none; the client uses name hints).
 
 ### 3. Phase 13 residue

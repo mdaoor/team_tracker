@@ -6,7 +6,7 @@ The endpoints live next to their concern: `overlay_dimensions` (dimensions, valu
 (bulk edit, provenance, rollup, patch). Orchestration lives in `tt_server.domain.overlay` / `domain.items.patch`.
 
 This module keeps the old import surface (`overlay.patch_item`, `overlay.move_stage`, ...) for the command layer
-(`api/commands/ops.py`), which calls the endpoint functions directly.
+(`api/commands/ops/`), which calls the endpoint functions directly.
 """
 
 from __future__ import annotations
