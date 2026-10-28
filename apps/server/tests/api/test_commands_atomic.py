@@ -41,8 +41,19 @@ async def test_team_create_failing_on_the_second_membership_leaves_no_team(api: 
     res = (await send(api, c))[0]
     assert res["status"] == "rejected" and res["errors"][0]["code"] == "boom", res
     assert await _count(session_factory, m.Team, m.Team.slug == "atomic-team") == 0
-    assert await _count(session_factory, m.Event, m.Event.event_type.in_(["team.created", "command.applied"])) == 0
-    assert await _count(session_factory, m.CommandLog, m.CommandLog.client_id == c["client_id"]) == 0
+    assert (
+        await _count(session_factory, m.Event, m.Event.event_type.in_(["team.created", "command.applied"]))
+        == 0
+    )
+    assert (
+        await _count(
+            session_factory,
+            m.CommandLog,
+            m.CommandLog.client_id == c["client_id"],
+            m.CommandLog.status == "applied",
+        )
+        == 0
+    )  # only the rejection is audited
     monkeypatch.undo()
     retry = (await send(api, c))[0]  # the same client_id is not stuck behind a half-applied first attempt
     assert retry["status"] == "applied" and retry.get("deduplicated") is None, retry
@@ -68,7 +79,9 @@ async def test_item_reparent_failing_on_the_second_item_moves_none(api: Api, ses
 async def test_stage_move_failing_on_the_second_item_moves_none(api: Api, session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
     keys = [(await one(api, "item.create", {"title": f"s{i}", "project": "WEB"}))["result"]["key"] for i in range(2)]  # fmt: skip
     control = (await one(api, "item.create", {"title": "ctl", "project": "WEB"}))["result"]["key"]
-    assert (await one(api, "stage.move", {"keys": [control], "stage": "build"}))["status"] == "applied"  # the stage exists
+    assert (await one(api, "stage.move", {"keys": [control], "stage": "build"}))[
+        "status"
+    ] == "applied"  # the stage exists
     before = await _count(session_factory, m.Event, m.Event.event_type == "stage.moved")
     monkeypatch.setattr(overlay, "move_stage", _fail_on_nth(overlay.move_stage, 2))
     res = await one(api, "stage.move", {"keys": keys, "stage": "build"})
@@ -77,7 +90,10 @@ async def test_stage_move_failing_on_the_second_item_moves_none(api: Api, sessio
 
 
 async def test_command_events_carry_the_batch_correlation_id(api: Api, session_factory: async_sessionmaker[AsyncSession]) -> None:  # fmt: skip
-    cmds = [cmd("tag.create", {"name": "corr-a"}), cmd("team.create", {"name": "corr-team", "members": ["@sara"]})]
+    cmds = [
+        cmd("tag.create", {"name": "corr-a"}),
+        cmd("team.create", {"name": "corr-team", "members": ["@sara"]}),
+    ]
     r = await api.call("POST", "/commands", json={"workspace": api.slug, "commands": cmds})
     assert r.status_code == 200, r.text
     async with session_factory() as s:
