@@ -368,7 +368,11 @@ async def push_bounded(
 
 
 async def push_merge(
-    factory: async_sessionmaker[AsyncSession], source_id: str, target_key: str, *, client: JiraClient | None = None
+    factory: async_sessionmaker[AsyncSession],
+    source_id: str,
+    target_key: str,
+    *,
+    client: JiraClient | None = None,
 ) -> PushResult:
     """Project `item.merged` (ADR-0050 amendment): when the source item has a Jira issue, link it to the target's issue
     (a "Duplicate" link, configurable as `jira.merge_link_type`) and leave a comment saying where the work went. A target with
@@ -407,7 +411,9 @@ async def push_merge(
         tgt_id = tgt.id if tgt else None
     target_issue: str | None = None
     if tgt_id is not None:
-        await push_item(factory, tgt_id, client=client)  # a no-op when it is linked and unchanged or not opted in
+        await push_item(
+            factory, tgt_id, client=client
+        )  # a no-op when it is linked and unchanged or not opted in
         async with factory() as rs:
             target_issue = await rs.scalar(select(m.JiraLink.issue_key).where(m.JiraLink.item_id == tgt_id))
     own = client is None
@@ -425,7 +431,9 @@ async def push_merge(
                         target_issue, src_issue, str(cfg.get("merge_link_type") or "Duplicate")
                     )
                     linked = True
-                except JiraError as exc:  # e.g. the link type does not exist in this Jira: the comment still helps
+                except (
+                    JiraError
+                ) as exc:  # e.g. the link type does not exist in this Jira: the comment still helps
                     link_error = str(exc)
             where = f"{target_key} ({target_issue})" if target_issue else target_key
             await client.add_comment(

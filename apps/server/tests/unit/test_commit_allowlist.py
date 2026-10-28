@@ -7,10 +7,13 @@ domain row has been touched in the unit of work, so it can never carry a domain 
 from __future__ import annotations
 
 import ast
+from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tt_schema.base import utcnow
 from tt_server.db import models as m
 from tt_server.db.uow import MissingEventError, UnitOfWork
 
@@ -28,6 +31,7 @@ COMMIT_BOOKKEEPING = {
     ("integrations/jira/sync.py", "_push_worklogs"): 1,  # sync links and logs
     ("integrations/jira/sync.py", "_record_failure"): 1,
     ("integrations/jira/sync.py", "finish"): 1,
+    ("integrations/jira/sync.py", "push_merge"): 2,  # the merge announcement log row (ok or failed)
 }
 COMMIT_DERIVED = {
     ("admin.py", "run"): 1,
@@ -120,3 +124,62 @@ async def test_commit_bookkeeping_also_catches_a_pending_domain_row_and_still_co
     async with session_factory() as s:
         assert await s.get(m.LoginAttempt, "la-1") is not None
         assert await s.get(m.Workspace, "w-pending") is None
+
+
+# ------------------------------------------------------------------ row-level guard (ADR-0001 amendment)
+
+
+async def _seed_token(session_factory: async_sessionmaker[AsyncSession]) -> None:
+    async with UnitOfWork(session_factory) as uow:
+        uow.session.add(m.Workspace(id="w-rl", name="RL", slug="rl"))
+        uow.session.add(m.Person(id="p-rl", display_name="Pat", email="pat@rl.test", time_zone="UTC"))
+        await uow.session.flush()
+        uow.session.add(m.ApiToken(id="t-rl", workspace_id="w-rl", person_id="p-rl", name="cli", hash="h-rl"))
+        await uow.commit(allow_unlogged=True)
+
+
+async def test_commit_bookkeeping_allows_the_bookkeeping_columns_of_an_allowed_table(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    await _seed_token(session_factory)
+    async with UnitOfWork(session_factory) as uow:
+        tok = await uow.session.get(m.ApiToken, "t-rl")
+        assert tok is not None
+        tok.last_used_at = utcnow()
+        await uow.commit_bookkeeping()
+    async with session_factory() as s:
+        tok = await s.get(m.ApiToken, "t-rl")
+        assert tok is not None and tok.last_used_at is not None
+
+
+@pytest.mark.parametrize(
+    ("model", "pk", "column", "value"),
+    [
+        (
+            m.ApiToken,
+            "t-rl",
+            "scopes",
+            ["capture", "read", "manage", "admin"],
+        ),  # a privilege change, not a touch of last_used_at
+        (m.ApiToken, "t-rl", "expires_at", utcnow() + timedelta(days=3650)),
+        (
+            m.Person,
+            "p-rl",
+            "display_name",
+            "Renamed",
+        ),  # bookkeeping may create the bot person, never edit one
+    ],
+)
+async def test_commit_bookkeeping_refuses_other_columns_of_an_allowed_table(
+    session_factory: async_sessionmaker[AsyncSession], model: Any, pk: str, column: str, value: object
+) -> None:
+    await _seed_token(session_factory)
+    async with UnitOfWork(session_factory) as uow:
+        row = await uow.session.get(model, pk)
+        assert row is not None
+        setattr(row, column, value)
+        with pytest.raises(MissingEventError, match=column):
+            await uow.commit_bookkeeping()
+    async with session_factory() as s:
+        row = await s.get(model, pk)
+        assert row is not None and getattr(row, column) != value

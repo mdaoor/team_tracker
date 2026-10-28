@@ -10,12 +10,15 @@ from tt_server.db import models as m
 from tt_server.integrations.jira import sync
 from tt_server.jobs import jira_tasks
 
+from tests.api import test_acl_jira as _acl_jira
 from tests.api.conftest import Api
 from tests.api.fake_jira import FakeJira
-from tests.api.test_acl_jira import connect, jira, new_item  # noqa: F401  # `jira` is a fixture
+from tests.api.test_acl_jira import connect, new_item
 from tests.api.test_commands import one
 
 ROUTERS_COVERED = ("jira",)
+
+jira = _acl_jira.jira  # the in-memory Jira fixture, shared with the Phase 10 tests
 
 
 async def _merge(api: Api, a: str, b: str) -> list[str]:
