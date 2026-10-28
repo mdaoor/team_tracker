@@ -96,6 +96,16 @@ def microsoft_handler(state: dict[str, Any]) -> Callable[[httpx.Request], httpx.
                     }
                 )
             if "deltatoken" in p.query:
+                if state.pop("delta_gone", False):  # Graph: the delta token aged out
+                    return json_response(
+                        {
+                            "error": {
+                                "code": "syncStateNotFound",
+                                "message": "The sync state generation is not found.",
+                            }
+                        },
+                        410,
+                    )
                 return json_response(load("microsoft/delta_incremental.json"))
             if "skiptoken" in p.query:
                 return json_response(load("microsoft/delta_page2.json"))

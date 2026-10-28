@@ -24,6 +24,7 @@ from tt_client.integrations.base import (
     ProviderError,
     Response,
     SyncPage,
+    SyncTokenExpired,
 )
 from tt_client.integrations.http import ApiClient
 from tt_client.integrations.oauth import Authorizer, OAuthConfig, TokenVault
@@ -166,6 +167,16 @@ class MicrosoftCalendar:
         me: str | None = None,
     ) -> SyncPage:
         link = (cursor or {}).get("delta_link")
+        if link is not None:
+            try:
+                return self._pull(calendar_id, link, window, me)
+            except SyncTokenExpired:
+                pass  # Graph answers 410 (syncStateNotFound) when a delta token ages out: start again from the window
+        return self._pull(calendar_id, None, window, me)
+
+    def _pull(
+        self, calendar_id: str, link: str | None, window: tuple[datetime, datetime], me: str | None
+    ) -> SyncPage:
         headers = {"Prefer": 'outlook.timezone="UTC", odata.maxpagesize=100'}
         full = link is None
         if link is None:

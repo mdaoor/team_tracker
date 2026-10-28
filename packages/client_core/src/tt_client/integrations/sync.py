@@ -155,6 +155,8 @@ class CalendarSync:
                     me=self.me.get(provider),
                 )
                 self._apply(prov, page.events, index, report, self.me.get(provider))
+                if page.full:
+                    self._reconcile(provider, cal["id"], page.events, window, index, report)
                 state.setdefault("cursors", {})[cal["id"]] = page.cursor
             state["fingerprint"] = _fingerprint(self.settings)
             state["last_ok"] = now.isoformat()
@@ -190,7 +192,7 @@ class CalendarSync:
             if reason is not None:
                 if existing is not None and existing.deleted_at is None and not existing.is_sent:
                     self.store.delete_item(
-                        existing.id
+                        existing.id, by="sync"
                     )  # it became declined/cancelled/private: drop it from the plan
                     report.removed += 1
                 elif existing is None:
@@ -198,13 +200,18 @@ class CalendarSync:
                 continue
             if ev.online_url and ev.end <= self.clock():
                 ev.attended_min = prov.attended_minutes(ev, me)
+            if existing is not None and existing.deleted_at is not None and existing.deleted_by != "sync":
+                # the person deleted this occurrence: a sync must not bring it back (ADR-0054 §5). Legacy rows without
+                # `deleted_by` count as the person's choice.
+                report.skipped["deleted locally"] = report.skipped.get("deleted locally", 0) + 1
+                continue
             if existing is None:
                 item = self.store.put_item(to_item(ev, self.tz))
                 index[ev.key] = item
                 report.added += 1
             else:
                 fresh = to_item(ev, self.tz)
-                existing.deleted_at = None
+                existing.deleted_at = existing.deleted_by = None
                 for f in (
                     "title",
                     "start",
@@ -223,6 +230,30 @@ class CalendarSync:
                 self.store.put_item(existing)
                 report.updated += 1
 
+    def _reconcile(
+        self,
+        provider: str,
+        calendar_id: str,
+        events: list[CalendarEvent],
+        window: tuple[datetime, datetime],
+        index: dict[tuple[str, str, str], PersonalItem],
+        report: SyncReport,
+    ) -> None:
+        """A full pull lists every event of the window, so unsent meetings of this calendar inside the window that it no longer
+        lists were deleted at the provider while we had no valid cursor (e.g. after a 410): drop them as the sync."""
+        seen = {ev.key for ev in events}
+        for key, item in index.items():
+            if (
+                key[:2] != (provider, calendar_id)
+                or key in seen
+                or item.deleted_at is not None
+                or item.is_sent
+            ):
+                continue
+            if item.start is not None and window[0] <= item.start <= window[1]:
+                self.store.delete_item(item.id, by="sync")
+                report.removed += 1
+
     def status(self, provider: str) -> dict[str, Any]:
         st = self.store.get_calendar_state(provider)
         return {k: st.get(k) for k in ("last_ok", "last_try", "error", "retry_at")}
@@ -234,7 +265,7 @@ class CalendarSync:
         if delete_items:
             for i in self.store.items():
                 if i.calendar_ref and i.calendar_ref.provider == provider and not i.is_sent:
-                    self.store.delete_item(i.id)
+                    self.store.delete_item(i.id, by="sync")
                     n += 1
         return n
 
