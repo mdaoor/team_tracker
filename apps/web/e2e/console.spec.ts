@@ -1,10 +1,11 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { ORIGIN } from "./api";
 
 const W = "/api/v1/w/acme";
 const unique = () => Math.random().toString(36).slice(2, 6).toUpperCase();
 
 async function capture(request: APIRequestContext, line: object) {
-  const r = await request.post(`http://localhost:8010${W}/capture/batches`, {
+  const r = await request.post(`${ORIGIN}${W}/capture/batches`, {
     data: {
       workspace: "acme",
       messages: [
@@ -96,9 +97,7 @@ test("a conflicting edit opens the conflict dialog and 'keep mine' wins", async 
   page,
 }) => {
   const key = (
-    await (
-      await page.request.get(`http://localhost:8010${W}/items`, { params: { limit: 1 } })
-    ).json()
+    await (await page.request.get(`${ORIGIN}${W}/items`, { params: { limit: 1 } })).json()
   ).data[0].key;
   const other = await browser.newPage({ extraHTTPHeaders: { "X-Debug-Actor": "@mahmoud" } });
   await page.goto(`/w/acme/review?item=${key}`);
@@ -116,7 +115,7 @@ test("a conflicting edit opens the conflict dialog and 'keep mine' wins", async 
 });
 
 test("dragging a risk onto an item links it", async ({ page, request }) => {
-  const r = await request.post(`http://localhost:8010${W}/risks`, {
+  const r = await request.post(`${ORIGIN}${W}/risks`, {
     data: { project: "WEB", title: "e2e vendor risk", probability: 4, impact: 4 },
   });
   expect(r.ok()).toBeTruthy();

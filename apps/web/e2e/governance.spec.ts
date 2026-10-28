@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-const API = "http://localhost:8010/api/v1/w/acme";
+import { API } from "./api";
 
 test("a manager creates a template policy, dry-runs it, activates it and waives a hit", async ({
   page,

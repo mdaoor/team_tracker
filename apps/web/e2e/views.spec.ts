@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { API } from "./api";
 
 test("the Gantt draws a time axis, a today line and milestone diamonds (shared module)", async ({
   page,
@@ -6,7 +7,7 @@ test("the Gantt draws a time axis, a today line and milestone diamonds (shared m
 }) => {
   const name = `gantt-ms-${Math.random().toString(36).slice(2, 6)}`;
   const due = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
-  const r = await request.post("http://localhost:8010/api/v1/w/acme/projects/WEB/milestones", {
+  const r = await request.post(`${API}/projects/WEB/milestones`, {
     data: { name, due_date: due },
   });
   expect(r.ok()).toBeTruthy();

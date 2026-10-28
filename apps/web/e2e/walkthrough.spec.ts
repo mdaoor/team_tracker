@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { API } from "./api";
 
 /** Acceptance walkthrough of the three UX flows (docs/spec/team_tracker_ux.md §7.1-7.3), recorded as video with
  *  `TT_VIDEO=1 pnpm exec playwright test e2e/walkthrough.spec.ts` (test-results/**\/video.webm; CI uploads them). Each flow also asserts its outcome, so the video is evidence, not decoration. */
 test.use({ viewport: { width: 1280, height: 720 } });
 
-const API = "http://localhost:8010/api/v1/w/acme";
 const unique = () => Math.random().toString(36).slice(2, 6);
 
 test("7.1 reporter, morning: one line starts the work and it shows as 'now'", async ({

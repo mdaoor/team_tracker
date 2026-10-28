@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { API } from "./api";
 
 /** Phase 13 R6.3 (UX §3.3): the setup editors behave as designed, not as flat CRUD tables. */
-const API = "http://localhost:8010/api/v1/w/acme";
 const unique = () => Math.random().toString(36).slice(2, 7);
 
 test("a stage chip opens an editor with a live mini-pipeline and saves", async ({ page }) => {
