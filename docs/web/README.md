@@ -36,8 +36,11 @@ their own focusable `region`, never the page. Acceptance: at 390x844 no console 
 (`e2e/a11y.spec.ts`, "mobile 390x844", all 14 screens, the six Views layouts and six Setup sections, each also axe serious/critical clean).
 
 ## Setup editors
-Process: stage chip opens an editor (duration, WIP, approval, category) with a live mini-pipeline; Projects: product tree (products/projects) with
-drag-to-reparent and Alt+Left/Right; Planning: milestone and iteration month calendar; Risks: heat map with probability/impact axis labels,
+Process: the stage chip opens a **popover anchored under the chip** (name, expected days, WIP, approval, category) with a live mini-pipeline; focus moves to the
+first field, `Esc` or a click elsewhere closes it and returns focus to the chip, it is shifted to stay inside the viewport (390 px too) and is axe clean
+(`e2e/setup-editors.spec.ts`); Projects: the product → project → epic tree (`ProjectTree`). **Products** reparent by drag-and-drop and `Alt+←/→`
+(outdent / nest under the previous sibling), covered end to end; **projects and epics are shown but cannot be moved yet**: the API has no operation for
+it (no way to unlink a project from a product, no `project` field on the item patch), so a move there needs a server change first; Planning: milestone and iteration month calendar; Risks: heat map with probability/impact axis labels,
 a cell filters the register, drag a risk onto an item to link it; People: org tree with per-person and team capacity; Dimensions: paste a
 list (lines, commas, quotes; de-duplicated, with a live count). Covered by `e2e/setup-editors.spec.ts` and `e2e/console.spec.ts`.
 
