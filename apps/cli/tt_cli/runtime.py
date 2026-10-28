@@ -54,8 +54,13 @@ class Runtime:
         return NullTranslator()
 
     def parse_ctx(self) -> ParseContext:
+        pack = self.cache.load()[0]
         return ParseContext(
-            actor=self.cfg.handle, now=now(), tz=self.cfg.time_zone, hours_per_day=self.cfg.hours_per_day
+            actor=self.cfg.handle,
+            now=now(),
+            tz=self.cfg.time_zone,
+            hours_per_day=self.cfg.hours_per_day,
+            known_people=frozenset(pack.people_handles) if pack else None,
         )
 
 

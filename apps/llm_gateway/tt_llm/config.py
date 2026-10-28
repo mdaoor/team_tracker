@@ -37,6 +37,9 @@ class Limits(BaseModel):
 class BudgetCfg(BaseModel):
     default_usd_per_workspace_per_day: float = 5.0
     workspaces: dict[str, float] = Field(default_factory=dict)  # slug -> USD/day
+    # Held against the day's budget while a request is in flight, then settled to the real cost (ADR-0045): concurrent
+    # requests cannot all pass a check-then-charge race at the boundary. 0 disables the reservation (old behaviour).
+    reserve_usd_per_request: float = 0.01
 
 
 class ServerCfg(BaseModel):

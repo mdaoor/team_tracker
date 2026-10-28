@@ -1,6 +1,7 @@
 import { Card, Chip } from "../../components/ui";
 import { useList } from "../../lib/hooks";
 import { CreateForm, Table } from "./common";
+import { ProjectTree } from "./ProjectTree";
 
 export function Projects() {
   const products = useList("/products");
@@ -8,6 +9,9 @@ export function Projects() {
   const processes = useList("/processes");
   return (
     <>
+      <Card title="Products, projects and epics">
+        <ProjectTree />
+      </Card>
       <Card title="Add project">
         <p className="muted">
           Only a name, a key and a process are needed; everything else has a default.

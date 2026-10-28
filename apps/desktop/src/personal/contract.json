@@ -1,0 +1,490 @@
+{
+  "commands": [
+    "personal_add",
+    "personal_cal_sync",
+    "personal_complete",
+    "personal_day",
+    "personal_delete",
+    "personal_deliver",
+    "personal_development_summary",
+    "personal_eod",
+    "personal_eod_confirm",
+    "personal_eod_send_all",
+    "personal_erase_local",
+    "personal_first_run",
+    "personal_month",
+    "personal_not_work",
+    "personal_preview",
+    "personal_privacy",
+    "personal_recur_add",
+    "personal_recur_end",
+    "personal_recur_list",
+    "personal_remember_share",
+    "personal_reopen",
+    "personal_reschedule",
+    "personal_send",
+    "personal_sent",
+    "personal_set_assist",
+    "personal_set_category",
+    "personal_setting_set",
+    "personal_settings",
+    "personal_skip",
+    "personal_timer_start",
+    "personal_timer_status",
+    "personal_timer_stop",
+    "personal_tray",
+    "personal_tray_notifications",
+    "personal_unsend",
+    "personal_week",
+    "personal_weekly_review"
+  ],
+  "shapes": {
+    "personal_day": {
+      "anytime": [
+        {
+          "all_day": "boolean",
+          "attendees": [],
+          "category": "string",
+          "duration_min": "number",
+          "elapsed_min": "number",
+          "end": "string",
+          "from_calendar": "null",
+          "id": "string",
+          "kind": "string",
+          "location": "null",
+          "minutes_done": "number",
+          "minutes_planned": "number",
+          "online_meeting_url": "null",
+          "project_hint": "null",
+          "recurring": "boolean",
+          "sendable": "boolean",
+          "sent": "boolean",
+          "series_id": "null",
+          "share_policy": "string",
+          "start": "string",
+          "status": "string",
+          "tags": [
+            "string"
+          ],
+          "timer": "null",
+          "title": "string"
+        }
+      ],
+      "capacity_min": "number",
+      "date": "string",
+      "load_pct": "number",
+      "planned_min": "number",
+      "server_items": [
+        {
+          "key": "string",
+          "project": "string",
+          "server": "boolean",
+          "title": "string"
+        }
+      ],
+      "timeline": [
+        {
+          "all_day": "boolean",
+          "attendees": [
+            "string"
+          ],
+          "category": "string",
+          "duration_min": "number",
+          "elapsed_min": "number",
+          "end": "string",
+          "from_calendar": "string",
+          "id": "string",
+          "kind": "string",
+          "location": "null",
+          "minutes_done": "number",
+          "minutes_planned": "number",
+          "online_meeting_url": "string",
+          "project_hint": "null",
+          "recurring": "boolean",
+          "sendable": "boolean",
+          "sent": "boolean",
+          "series_id": "null",
+          "share_policy": "string",
+          "start": "string",
+          "status": "string",
+          "tags": [],
+          "timer": "null",
+          "title": "string"
+        }
+      ],
+      "timer": {
+        "elapsed_min": "number",
+        "item_id": "string"
+      },
+      "totals": {
+        "development": {
+          "done": "number",
+          "planned": "number"
+        },
+        "meeting": {
+          "done": "number",
+          "planned": "number"
+        },
+        "personal": {
+          "done": "number",
+          "planned": "number"
+        },
+        "work": {
+          "done": "number",
+          "planned": "number"
+        }
+      },
+      "tz": "string"
+    },
+    "personal_eod": {
+      "date": "string",
+      "done_count": "number",
+      "hours_by_category": {
+        "development": "number",
+        "meeting": "number",
+        "personal": "number",
+        "work": "number"
+      },
+      "open_count": "number",
+      "planned_by_category": {
+        "development": "number",
+        "meeting": "number",
+        "personal": "number",
+        "work": "number"
+      },
+      "sent_count": "number",
+      "unsent": [
+        {
+          "auto": "boolean",
+          "auto_sends": "string",
+          "category": "string",
+          "due_at": "string",
+          "end": "string",
+          "id": "string",
+          "kind": "string",
+          "label": "string",
+          "minutes": "number",
+          "needs_project": "boolean",
+          "note": "string",
+          "online_meeting_url": "string",
+          "start": "string",
+          "suggestion": {
+            "alternatives": [
+              "string"
+            ],
+            "category": "string",
+            "confidence": "number",
+            "cue": "string",
+            "project": "string",
+            "reasons": [
+              "string"
+            ],
+            "rule_id": "null",
+            "share_policy": "string",
+            "source": "string"
+          },
+          "title": "string"
+        }
+      ]
+    },
+    "personal_month": {
+      "days": {
+        "2026-10-23": {
+          "dots": [
+            "string"
+          ],
+          "minutes": {
+            "development": "number",
+            "meeting": "number",
+            "work": "number"
+          },
+          "private_min": "number",
+          "sent_min": "number"
+        },
+        "2026-10-26": {
+          "dots": [
+            "string"
+          ],
+          "minutes": {
+            "personal": "number"
+          },
+          "private_min": "number",
+          "sent_min": "number"
+        },
+        "2026-10-27": {
+          "dots": [
+            "string"
+          ],
+          "minutes": {
+            "personal": "number"
+          },
+          "private_min": "number",
+          "sent_min": "number"
+        },
+        "2026-10-28": {
+          "dots": [
+            "string"
+          ],
+          "minutes": {
+            "personal": "number"
+          },
+          "private_min": "number",
+          "sent_min": "number"
+        },
+        "2026-10-29": {
+          "dots": [
+            "string"
+          ],
+          "minutes": {
+            "personal": "number"
+          },
+          "private_min": "number",
+          "sent_min": "number"
+        },
+        "2026-10-30": {
+          "dots": [
+            "string"
+          ],
+          "minutes": {
+            "personal": "number"
+          },
+          "private_min": "number",
+          "sent_min": "number"
+        }
+      },
+      "month": "number",
+      "sparkline": [
+        {
+          "date": "string",
+          "private": "number",
+          "sent": "number"
+        }
+      ],
+      "totals_h": {
+        "development": "number",
+        "meeting": "number",
+        "personal": "number",
+        "work": "number"
+      },
+      "weeks": [
+        [
+          "string"
+        ]
+      ],
+      "year": "number"
+    },
+    "personal_preview": {
+      "drafts": [
+        {
+          "all_day": "boolean",
+          "category": "string",
+          "category_source": "string",
+          "duration_min": "number",
+          "end": "string",
+          "kind": "string",
+          "kind_source": "string",
+          "notes": "string",
+          "project_hint": "null",
+          "rrule": "string",
+          "rrule_text": "string",
+          "start": "string",
+          "suggested_category": "null",
+          "suggested_kind": "null",
+          "tags": [],
+          "title": "string",
+          "warnings": []
+        }
+      ]
+    },
+    "personal_privacy": {
+      "assist": "string",
+      "assist_note": "string",
+      "calendars": [],
+      "categories": {
+        "development": "string",
+        "meeting": "string",
+        "personal": "string",
+        "work": "string"
+      },
+      "encrypted": "boolean",
+      "first_run_done": "boolean",
+      "key_store": "string",
+      "stays_on_device": "string",
+      "store": "string"
+    },
+    "personal_send": {
+      "client_id": "string",
+      "item": "string",
+      "minutes": "number",
+      "project": "string",
+      "tags": [
+        "string"
+      ]
+    },
+    "personal_sent": {
+      "sent": [
+        {
+          "at": "string",
+          "can_unsend": "boolean",
+          "client_id": "string",
+          "item": "string",
+          "minutes": "number",
+          "project": "string",
+          "server_key": "null",
+          "title": "string",
+          "unsent": "boolean"
+        }
+      ]
+    },
+    "personal_settings": {
+      "calendar.excluded": [],
+      "calendar.poll_minutes": "number",
+      "calendar.skip_all_day": "boolean",
+      "calendar.skip_cancelled": "boolean",
+      "calendar.skip_declined": "boolean",
+      "calendar.skip_focus": "boolean",
+      "calendar.skip_ooo": "boolean",
+      "calendar.skip_private": "boolean",
+      "calendar.write_back": "boolean",
+      "capacity_hours_per_week": "number",
+      "privacy.assist": "string",
+      "privacy.first_run_done": "boolean",
+      "share.development": "boolean",
+      "share.meeting": "string",
+      "share.personal": "string",
+      "share.work": "string",
+      "suppress.attendees": [],
+      "suppress.domains": [],
+      "tray.delay_min": "number",
+      "tray.max_age_days": "number",
+      "unsend_minutes": "number",
+      "workweek": [
+        "number"
+      ]
+    },
+    "personal_timer_status": {
+      "timer": {
+        "elapsed_min": "number",
+        "item": "string",
+        "state": "string",
+        "title": "string"
+      }
+    },
+    "personal_tray": {
+      "entries": [
+        {
+          "auto": "boolean",
+          "auto_sends": "string",
+          "category": "string",
+          "due_at": "string",
+          "end": "string",
+          "id": "string",
+          "kind": "string",
+          "label": "string",
+          "minutes": "number",
+          "needs_project": "boolean",
+          "note": "string",
+          "online_meeting_url": "string",
+          "start": "string",
+          "suggestion": {
+            "alternatives": [
+              "string"
+            ],
+            "category": "string",
+            "confidence": "number",
+            "cue": "string",
+            "project": "string",
+            "reasons": [
+              "string"
+            ],
+            "rule_id": "null",
+            "share_policy": "string",
+            "source": "string"
+          },
+          "title": "string"
+        }
+      ]
+    },
+    "personal_week": {
+      "capacity_min": "number",
+      "days": [
+        {
+          "anytime": [],
+          "capacity_min": "number",
+          "date": "string",
+          "load_pct": "number",
+          "planned_min": "number",
+          "server_items": [],
+          "timeline": [],
+          "timer": {
+            "elapsed_min": "number",
+            "item_id": "string"
+          },
+          "totals": {
+            "development": {
+              "done": "number",
+              "planned": "number"
+            },
+            "meeting": {
+              "done": "number",
+              "planned": "number"
+            },
+            "personal": {
+              "done": "number",
+              "planned": "number"
+            },
+            "work": {
+              "done": "number",
+              "planned": "number"
+            }
+          },
+          "tz": "string"
+        }
+      ],
+      "planned_min": "number",
+      "totals": {
+        "development": {
+          "done": "number",
+          "planned": "number"
+        },
+        "meeting": {
+          "done": "number",
+          "planned": "number"
+        },
+        "personal": {
+          "done": "number",
+          "planned": "number"
+        },
+        "work": {
+          "done": "number",
+          "planned": "number"
+        }
+      },
+      "week_start": "string"
+    },
+    "personal_weekly_review": {
+      "completion_pct": "number",
+      "development_h": "number",
+      "development_items": [
+        {
+          "hours": "number",
+          "title": "string"
+        }
+      ],
+      "done_h": "number",
+      "meeting_load_pct": "number",
+      "meetings_h": "number",
+      "planned_h": "number",
+      "streaks": [
+        {
+          "done": "number",
+          "of": "number",
+          "series_id": "string",
+          "streak": "number",
+          "title": "string"
+        }
+      ],
+      "week_start": "string"
+    }
+  }
+}

@@ -10,9 +10,10 @@ from typing import Any
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import utcnow
-from tt_schema.enums import Priority, ProjectKind, StateCategory, TargetType
+from tt_schema.enums import ActivityStatus, Priority, ProjectKind, StateCategory, TargetType
 
 from tt_server.db import models as m
+from tt_server.domain.contextpack_roles import role_context
 
 SCHEMA_VERSION = 1
 MAX_ITEMS, MAX_TAGS, MAX_PEOPLE = 200, 300, 300
@@ -56,6 +57,7 @@ async def _my_projects(session: AsyncSession, ws_id: str, person_id: str, now: d
 async def build_pack(
     session: AsyncSession, ws: m.Workspace, member: m.WorkspaceMember, *, today: date | None = None
 ) -> dict[str, Any]:
+    """Assemble the per-person context pack (role, assignments, activity, plan) that clients and the LLM consume."""
     now = utcnow()
     today = today or now.date()
     person_id = member.person_id
@@ -153,6 +155,16 @@ async def build_pack(
             select(m.Project.key).where(m.Project.id == project_id)
         )
         my_open_items.append({"key": key, "title": title, "stage": None, "project": proj})
+    running = (
+        await session.execute(
+            select(m.WorkItem.key, m.WorkItem.title)
+            .join(m.Activity, m.Activity.work_item_id == m.WorkItem.id)
+            .where(m.Activity.person_id == person_id, m.Activity.status == ActivityStatus.ACTIVE)
+            .order_by(m.Activity.started_at.desc())
+            .limit(1)
+        )
+    ).first()
+    my_current = {"key": running[0], "title": running[1]} if running else None
 
     # people: team-mates, project members, and co-assignees on my projects
     my_teams = select(m.Membership.team_id).where(
@@ -276,14 +288,35 @@ async def build_pack(
         )
     ).all()
 
+    dev_key = str(((ws.settings or {}).get("development") or {}).get("project_key") or "DEV").upper()
+    dev_exists = (
+        await session.scalar(
+            select(m.Project.id).where(
+                m.Project.workspace_id == ws.id, m.Project.key == dev_key, m.Project.deleted_at.is_(None)
+            )
+        )
+        is not None
+    )
+    team_slugs = dict(
+        (await session.execute(select(m.Team.id, m.Team.slug).where(m.Team.workspace_id == ws.id))).all()
+    )
+    teams_to_projects: dict[str, list[str]] = {}
+    for p in projects:
+        if p.team_id and p.team_id in team_slugs:
+            teams_to_projects.setdefault(team_slugs[p.team_id], []).append(p.key)
+    domains = ((ws.settings or {}).get("calendar") or {}).get("client_domains") or {}
+    capacity = member.capacity_hours_per_week
+
     truncated = len(item_rows) > MAX_ITEMS or len(tag_rows) >= MAX_TAGS or len(people_rows) >= MAX_PEOPLE
     return {
+        **await role_context(session, ws, person_id),
         "context_schema_version": SCHEMA_VERSION,
         "actor": member.handle,
         "workspace": ws.slug,
         "generated_at": now.isoformat(),
         "projects": project_rows,
         "my_open_items": my_open_items,
+        "my_current_activity": my_current,
         "people": people,
         "tags": tags,
         "milestones": milestones,
@@ -330,6 +363,15 @@ async def build_pack(
         ],
         "manual_mode": {"required_fields": required_default, "per_project": per_project_required},
         "truncated": truncated,
+        # Phase 15 (ADR-0054/0043): everything a personal tracker needs to suggest a project without the server seeing a calendar
+        "development_project": {"key": dev_key, "tag": "development", "exists": dev_exists},
+        "calendar_mapping_hints": {
+            "teams": [{"team": t, "projects": sorted(ks)} for t, ks in sorted(teams_to_projects.items())],
+            "client_domains": [
+                {"domain": str(d).lower(), "project": str(k)} for d, k in sorted(domains.items())
+            ],
+        },
+        "my_capacity_hours_per_week": float(capacity) if capacity is not None else None,
     }
 
 
@@ -352,6 +394,7 @@ async def _glossary_target(session: AsyncSession, e: m.GlossaryEntry) -> str | N
 
 
 def etag_of(pack: dict[str, Any]) -> str:
+    """Compute a stable strong ETag of a pack, ignoring its volatile generated_at stamp."""
     stable = {k: v for k, v in pack.items() if k != "generated_at"}
     return (
         '"' + hashlib.sha256(json.dumps(stable, sort_keys=True, default=str).encode()).hexdigest()[:32] + '"'

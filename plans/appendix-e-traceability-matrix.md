@@ -81,3 +81,27 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | P12 §5 | Rate limits, CSP/headers, threat model | 12 | `tests/api/test_acl_hardening.py`, `docs/security/threat-model.md` |
 | P12 §6–7 | Deployment artefacts, config reference, docs | 12 | `tests/unit/test_config_reference.py`, `deploy/`, `docs/ops/`, `docs/runbooks/`, `docs/guides/` |
 
+| P14 | Role modes, command catalogue and endpoint, `POST /commands`, commands in `/capture/batches` | 14 | `apps/server/tests/api/test_commands.py`, `docs/client/management-commands.md`, ADR‑0050, ADR‑0056 |
+| P14 | `item.merge` / `item.split` services, direct `POST /items:merge`, merge property test | 14 | `tests/api/test_commands.py` (merge, split, property), `domain/items/merge.py`, ADR‑0050 |
+| P14 | ContextPack role context, `GET /activities?team=mine`, `GET /me` role modes | 14 | `tests/api/test_commands.py::test_context_pack_carries_role_context_and_team_now` |
+| P14 | Role presets (scrum master, coach, project manager) and the role × op authorisation matrix | 14 | `tests/api/test_commands.py` (matrix, scrum master, coach, forged capture token) |
+| Product req. (P14) | The client app serves employees and managers: role modes, assisted and manual management commands | P14 | `docs/client/management-commands.md`; `packages/client_core/tests/test_commands.py`, `test_sidecar_commands.py`; `apps/cli/tests/test_commands_cli.py` |
+| P14 §1 | `ClientCommand`, `ClientBatch.commands`, schema 0.2 | 14 | `packages/schema/tests/test_parity.py`; ADR‑0051 |
+| P14 §4 | Gateway `/v1/translate/command`, `/v1/agent/command`: catalogue-constrained, golden ≥ 80 lines | 14 | `apps/llm_gateway/gateway_tests/test_translate_command.py` (84 lines, op ≥ 0.85, args ≥ 0.90), `test_real_model_golden.py` (opt-in) |
+| P14 §5 | Catalogue cache, forms from schema, role lens, previews, confirmation policy, `on_behalf_of` | 14 | `packages/client_core/tests/test_commands.py` (every catalogue op → valid form → valid command; role matrix; `--yes`/`--force`) |
+| P14 §6 | CLI `tt role / do / cmd / preview / send / queue / team now / approve / waive / ops` | 14 | `apps/cli/tests/test_commands_cli.py` (e2e `tt do "merge WEB-101 and WEB-105"` → preview → confirm → sent) |
+| P14 §7 | Desktop role switch, chips, command card, forms, queue, team now; Slack `/tt do`, modals, approval and waive buttons | 14 | `apps/desktop/src/palette/commands/commands.test.tsx` (16, axe), `apps/slack_bot/slack_tests/test_slack_commands.py` (13) |
+| P14 §8 | Audit and safety (`_meta`, destructive confirmation, rejected ≠ capture) | 14 | ADR‑0052; `test_commands.py::test_destructive_needs_confirmation_even_with_yes`, `test_commands_cli.py` |
+| UX addendum | Role switch, command card, effect preview | P14 | `docs/spec/team_tracker_ux_addendum_roles.md` |
+
+## Phase 15 (2026-10-25)
+| spec / plan | topic | phase(s) | proof |
+|---|---|---|---|
+| Product req. | Personal time tracker, optional send, Google/Outlook/Teams meetings as ready-to-send tasks, simple send | 15 | `packages/client_core/tests/test_personal_*.py`, `test_calendar_*.py`, `apps/cli/tests/test_personal_cli.py`, `apps/server/tests/api/test_personal_send.py`, `apps/desktop/src/personal/*.test.tsx`, `apps/desktop/e2e/personal.spec.ts`; real accounts, OS keyrings and Tauri shells not covered |
+| P15 §15.1 | Local store, model, timer, export/erase, RRULE across DST | 15 | `test_personal_store.py`, `test_personal_recurrence.py` (Hypothesis), ADR-0053 |
+| P15 §15.2 | Day/week/month, tray, end-of-day and weekly cards, quick add (>= 60 golden lines) | 15 | `test_personal_tracker.py`, `test_personal_parser.py` + `golden/personal.yaml`, desktop tests, `docs/spec/team_tracker_ux_addendum_personal.md` |
+| P15 §15.3 | Calendar protocol, Google, Microsoft/Teams, sync scheduler, token storage | 15 | `test_calendar_providers.py`, `test_calendar_sync.py`, `docs/client/calendar-integrations.md` |
+| P15 §15.4 | `calendar_ref` dedup, `time.unlog`, DEV project ACL, ContextPack additions, `development_hours_below` | 15 | `test_personal_send.py`, `test_personal_governance.py`, migration 0014, ADR-0054/0043 |
+| P15 §15.5 | CLI commands, desktop views through the sidecar | 15 | `apps/cli/tests/test_personal_cli.py`, `test_personal_bridge.py` + `contract.json` |
+| P15 §15.6 | Privacy: first run, toggles, audit, unsend, erase, tokens never in outbox/logs | 15 | `test_personal_tracker.py::test_tokens_never_*`, desktop privacy tests |
+| P2 §2.2 / P15 | Gateway translate variant for personal lines (local only, sends nothing) | 15 | `apps/llm_gateway/gateway_tests/test_translate_personal.py` |

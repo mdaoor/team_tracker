@@ -43,6 +43,14 @@ class CoreClient:
         r = await self.http.get(self._path(path), params={k: v for k, v in params.items() if v is not None})
         return self._ok(r)
 
+    async def get_conditional(self, path: str, etag: str | None) -> tuple[int, str | None, Any]:
+        """GET with If-None-Match: (status, etag, body); 304 has no body."""
+        headers = {"If-None-Match": etag} if etag else {}
+        r = await self.http.get(self._path(path), headers=headers)
+        if r.status_code == 304:
+            return 304, etag, None
+        return r.status_code, r.headers.get("etag"), self._ok(r)
+
     async def post(self, path: str, body: Any) -> Any:
         return self._ok(await self.http.post(self._path(path), json=body))
 

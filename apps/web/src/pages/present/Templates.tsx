@@ -1,7 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, w, type Row } from "../../api/http";
+import { api, w, type Json } from "../../api/http";
+import * as presentApi from "../../api/present";
+import type {
+  Presentation,
+  PresentationTemplate,
+  Slide,
+  TemplateBody,
+  TemplateParam,
+} from "../../api/types";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty, Field } from "../../components/ui";
 import { useList, useWs } from "../../lib/hooks";
@@ -20,9 +28,9 @@ export function Templates() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const toasts = useToasts();
-  const list = useList("/presentation-templates");
+  const list = useList<PresentationTemplate>("/presentation-templates");
   const [editing, setEditing] = useState<{ id: string | null; text: string } | null>(null);
-  const [use, setUse] = useState<Row | null>(null);
+  const [use, setUse] = useState<PresentationTemplate | null>(null);
   const refresh = () => void qc.invalidateQueries({ queryKey: [ws, "/presentation-templates"] });
   const act = useMutation({
     mutationFn: ({
@@ -33,12 +41,12 @@ export function Templates() {
       path: string;
       method?: string;
       body?: unknown;
-    }) => (method === "delete" ? api.del(w(ws, path)) : api.post<Row>(w(ws, path), body)),
+    }) => (method === "delete" ? api.del(w(ws, path)) : api.post<Json>(w(ws, path), body)),
     onSuccess: refresh,
     onError: (e) => toasts.error(e),
   });
-  const download = async (t: Row) => {
-    const doc = await api.get<Row>(w(ws, `/presentation-templates/${t.key}:export`));
+  const download = async (t: PresentationTemplate) => {
+    const doc = await presentApi.exportTemplate(ws, t.key);
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" }),
     );
@@ -157,10 +165,10 @@ export function Templates() {
       )}
     </div>
   );
-  function startFrom(t: Row, params: Record<string, unknown>) {
-    api
-      .post<Row>(w(ws, "/presentations:from-template"), { template: t.key, params })
-      .then((p) => nav(`../${p.id}`, { relative: "path" }))
+  function startFrom(t: PresentationTemplate, params: Record<string, unknown>) {
+    presentApi
+      .fromTemplate(ws, { template: t.key, params })
+      .then((p: Presentation) => nav(`../${p.id}`, { relative: "path" }))
       .catch((e) => toasts.error(e));
   }
 }
@@ -170,7 +178,7 @@ function ParamDialog({
   onCancel,
   onStart,
 }: {
-  tpl: Row;
+  tpl: PresentationTemplate;
   onCancel: () => void;
   onStart: (p: Record<string, unknown>) => void;
 }) {
@@ -178,7 +186,7 @@ function ParamDialog({
   return (
     <div className="modal" role="dialog" aria-label={`Start from ${tpl.name}`}>
       <h2>{tpl.name}</h2>
-      {tpl.params.map((p: Row) => (
+      {(tpl.params ?? []).map((p: TemplateParam) => (
         <Field key={p.name} label={p.label ?? p.name}>
           <input
             type={p.type === "int" ? "number" : "text"}
@@ -221,27 +229,24 @@ function Editor({
   useEffect(() => {
     if (!parsed.body) return setErrors(parsed.errors);
     const t = setTimeout(() => {
-      api
-        .post<Row>(w(ws, "/presentation-templates:validate"), { body: parsed.body })
+      presentApi
+        .validateTemplate(ws, parsed.body)
         .then((r) => setErrors(r.errors ?? []))
         .catch((e) => setErrors([{ pointer: "/", message: String(e.message ?? e) }]));
     }, 400);
     return () => clearTimeout(t);
   }, [parsed, ws]);
   const body = parsed.body ?? {};
-  const set = (b: Row) => setText(JSON.stringify(b, null, 2));
+  const set = (b: TemplateBody) => setText(JSON.stringify(b, null, 2));
   const save = useMutation({
-    mutationFn: () =>
-      id
-        ? api.put<Row>(w(ws, `/presentation-templates/${id}`), { body })
-        : api.post<Row>(w(ws, "/presentation-templates"), { body }),
+    mutationFn: () => presentApi.saveTemplate(ws, id ?? undefined, body),
     onSuccess: () => {
       toasts.push("Template saved");
       onClose();
     },
     onError: (e) => toasts.error(e),
   });
-  const slides: Row[] = body.slides ?? [];
+  const slides: Slide[] = body.slides ?? [];
   const used = placeholdersIn(slides);
   return (
     <div className="present template-editor">
@@ -326,7 +331,7 @@ function Editor({
               </Button>
             }
           >
-            {(body.params ?? []).map((p: Row, i: number) => (
+            {(body.params ?? []).map((p: TemplateParam, i: number) => (
               <div key={i} className="row">
                 <input
                   aria-label="Parameter name"
@@ -334,7 +339,7 @@ function Editor({
                   onChange={(e) =>
                     set({
                       ...body,
-                      params: body.params.map((x: Row, j: number) =>
+                      params: body.params.map((x: TemplateParam, j: number) =>
                         j === i ? { ...x, name: e.target.value } : x,
                       ),
                     })
@@ -346,7 +351,7 @@ function Editor({
                   onChange={(e) =>
                     set({
                       ...body,
-                      params: body.params.map((x: Row, j: number) =>
+                      params: body.params.map((x: TemplateParam, j: number) =>
                         j === i ? { ...x, type: e.target.value } : x,
                       ),
                     })
@@ -372,7 +377,7 @@ function Editor({
                     onChange={(e) =>
                       set({
                         ...body,
-                        params: body.params.map((x: Row, j: number) =>
+                        params: body.params.map((x: TemplateParam, j: number) =>
                           j === i ? { ...x, required: e.target.checked } : x,
                         ),
                       })
@@ -385,7 +390,10 @@ function Editor({
                   variant="ghost"
                   aria-label="Remove parameter"
                   onClick={() =>
-                    set({ ...body, params: body.params.filter((_: Row, j: number) => j !== i) })
+                    set({
+                      ...body,
+                      params: body.params.filter((_: TemplateParam, j: number) => j !== i),
+                    })
                   }
                 >
                   ✕
@@ -491,7 +499,7 @@ function Editor({
   );
 }
 
-function ConfigBox({ value, onChange }: { value: Row; onChange: (v: Row) => void }) {
+function ConfigBox({ value, onChange }: { value: Json; onChange: (v: Json) => void }) {
   const [text, setText] = useState(JSON.stringify(value));
   const [bad, setBad] = useState(false);
   useEffect(() => {

@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import EstimationUnit, EventSource, ScopeType, TargetType, ValueSource
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, emit_admin
+from tt_server.domain.errors import Invalid, NotFound
 
 DEFAULT_FORMULA: dict[str, Any] = {
     "base": "constant",
@@ -24,6 +24,7 @@ Q = Decimal("0.0001")
 
 
 async def ensure_default_scheme(session: AsyncSession, ws_id: str) -> m.WeightScheme:
+    """The workspace's `default` weight scheme, created on first use."""
     scheme = await session.scalar(
         select(m.WeightScheme).where(
             m.WeightScheme.workspace_id == ws_id,
@@ -46,24 +47,23 @@ async def ensure_default_scheme(session: AsyncSession, ws_id: str) -> m.WeightSc
 
 
 def validate_formula(formula: dict[str, Any]) -> None:
+    """Reject a scheme formula the evaluator cannot run."""
     base = formula.get("base", "constant")
     if base not in ("estimate_hours", "points", "constant"):
-        raise ApiError(400, "invalid_formula", f"unknown base {base!r}", pointer="/formula/base")
+        raise Invalid("invalid_formula", f"unknown base {base!r}", pointer="/formula/base")
     for key, value in (formula.get("multipliers") or {}).items():
         head = key.split(".", 1)[0]
         if head not in ("priority", "stage", "tag", "type", "impact", "dimension") or "." not in key:
-            raise ApiError(
-                400, "invalid_formula", f"unknown multiplier {key!r}", pointer="/formula/multipliers"
-            )
+            raise Invalid("invalid_formula", f"unknown multiplier {key!r}", pointer="/formula/multipliers")
         try:
             Decimal(str(value))
         except Exception as exc:
-            raise ApiError(
-                400, "invalid_formula", f"multiplier {key!r} is not a number", pointer="/formula/multipliers"
+            raise Invalid(
+                "invalid_formula", f"multiplier {key!r} is not a number", pointer="/formula/multipliers"
             ) from exc
     clamp = formula.get("clamp")
     if clamp is not None and (len(clamp) != 2 or Decimal(str(clamp[0])) > Decimal(str(clamp[1]))):
-        raise ApiError(400, "invalid_formula", "clamp must be [min, max]", pointer="/formula/clamp")
+        raise Invalid("invalid_formula", "clamp must be [min, max]", pointer="/formula/clamp")
 
 
 def evaluate(formula: dict[str, Any], ctx: dict[str, Any]) -> Decimal:
@@ -93,6 +93,7 @@ def evaluate(formula: dict[str, Any], ctx: dict[str, Any]) -> Decimal:
 
 
 def estimate_hours(item: m.WorkItem) -> Decimal | None:
+    """The item's estimate in hours (days convert at 8 h); points are not converted."""
     if item.estimate_value is None:
         return None
     if item.estimate_unit == EstimationUnit.HOURS:
@@ -103,6 +104,7 @@ def estimate_hours(item: m.WorkItem) -> Decimal | None:
 
 
 async def item_context(session: AsyncSession, item: m.WorkItem) -> dict[str, Any]:
+    """The facts a weight formula may reference for an item."""
     itype = await session.get(m.WorkItemType, item.type_id)
     tags = (
         await session.scalars(
@@ -252,9 +254,10 @@ async def _mirror_default(item: m.WorkItem, weight: Decimal, ctx: dict[str, Any]
 async def set_override(
     uow: UnitOfWork, ws: m.Workspace, item: m.WorkItem, scheme: m.WeightScheme, value: Decimal, *, by: str
 ) -> m.Weight:
+    """Pin an item's weight under a scheme to a manual value and record the override."""
     s = uow.session
     if value < 0:
-        raise ApiError(400, "invalid_weight", "weight must not be negative", pointer="/value")
+        raise Invalid("invalid_weight", "weight must not be negative", pointer="/value")
     row = await s.scalar(
         select(m.Weight).where(
             m.Weight.work_item_id == item.id, m.Weight.scheme_id == scheme.id, m.Weight.deleted_at.is_(None)
@@ -280,3 +283,87 @@ async def set_override(
         correlation_id=uow.context.get("correlation_id"),
     )
     return row
+
+
+async def list_schemes(uow: UnitOfWork, ws_id: str) -> list[m.WeightScheme]:
+    """Live weight schemes of the workspace, seeding the default one first."""
+    await ensure_default_scheme(uow.session, ws_id)
+    return list(
+        (
+            await uow.session.scalars(
+                select(m.WeightScheme).where(
+                    m.WeightScheme.workspace_id == ws_id, m.WeightScheme.deleted_at.is_(None)
+                )
+            )
+        ).all()
+    )
+
+
+async def create_scheme(
+    uow: UnitOfWork, ws: m.Workspace, actor_id: str, data: dict[str, Any]
+) -> m.WeightScheme:
+    """Create a scheme after validating its formula."""
+    validate_formula(data["formula"])
+    row = m.WeightScheme(id=new_id(), workspace_id=ws.id, **data)
+    uow.session.add(row)
+    await uow.session.flush()
+    emit_admin(
+        uow,
+        workspace_id=ws.id,
+        actor_id=actor_id,
+        event_type="weight.recomputed",
+        payload={"after": {"scheme_created": row.name}},
+    )
+    return row
+
+
+async def recompute_scheme(uow: UnitOfWork, ws: m.Workspace, actor_id: str, sid: str) -> int:
+    """Recompute every live item of the workspace (the formula changed, or the scheme is new)."""
+    sc = await uow.session.scalar(
+        select(m.WeightScheme).where(m.WeightScheme.id == sid, m.WeightScheme.workspace_id == ws.id)
+    )
+    if sc is None:
+        raise NotFound("not_found", "scheme not found")
+    rows = (
+        await uow.session.scalars(
+            select(m.WorkItem)
+            .join(m.Project, m.Project.id == m.WorkItem.project_id)
+            .where(m.Project.workspace_id == ws.id, m.WorkItem.deleted_at.is_(None))
+        )
+    ).all()
+    for it in rows:
+        await recompute_item(uow, ws, it, actor_id=actor_id)
+    emit_admin(
+        uow,
+        workspace_id=ws.id,
+        actor_id=actor_id,
+        event_type="weight.recomputed",
+        payload={"after": {"scheme": sc.name, "items": len(rows)}},
+    )
+    return len(rows)
+
+
+async def find_scheme(uow: UnitOfWork, ws_id: str, ref: str) -> m.WeightScheme:
+    """A live scheme by id or name; 404 when absent."""
+    sc = await uow.session.scalar(
+        select(m.WeightScheme).where(
+            m.WeightScheme.workspace_id == ws_id,
+            m.WeightScheme.deleted_at.is_(None),
+            (m.WeightScheme.id == ref) | (m.WeightScheme.name == ref),
+        )
+    )
+    if sc is None:
+        raise NotFound("not_found", "scheme not found")
+    return sc
+
+
+async def item_weight_rows(uow: UnitOfWork, item: m.WorkItem) -> list[tuple[m.Weight, str]]:
+    """The item's per-scheme weights as (row, scheme name)."""
+    rows = (
+        await uow.session.execute(
+            select(m.Weight, m.WeightScheme.name)
+            .join(m.WeightScheme, m.WeightScheme.id == m.Weight.scheme_id)
+            .where(m.Weight.work_item_id == item.id, m.Weight.deleted_at.is_(None))
+        )
+    ).all()
+    return [(w, n) for w, n in rows]

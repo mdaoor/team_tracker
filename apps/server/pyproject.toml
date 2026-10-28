@@ -30,6 +30,8 @@ dependencies = [
   "python-dateutil>=2.9",
   "types-croniter>=6.2.4.20261006",
   "prometheus-client>=0.26.0",
+  "opentelemetry-instrumentation-fastapi>=0.46b0",
+  "opentelemetry-instrumentation-sqlalchemy>=0.46b0",
 ]
 
 [project.scripts]

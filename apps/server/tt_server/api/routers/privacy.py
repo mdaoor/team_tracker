@@ -80,5 +80,5 @@ class PurgeIn(BaseModel):
 @router.post("/retention:purge-raw-input", dependencies=[needs("workspace.admin")])
 async def purge(body: PurgeIn, actor: CurrentActor, uow: Uow) -> dict[str, int]:
     n = await privacy.purge_raw_input(uow.session, days=body.days, workspace_id=actor.ws.id)
-    await uow.session.commit()
+    await uow.commit_bookkeeping()  # a retention sweep rewrites events in place; it has no event of its own
     return {"purged": n}

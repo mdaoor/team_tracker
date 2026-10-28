@@ -1,12 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { w } from "../../api/http";
+import { createView } from "../../api/views";
+import type { SavedView } from "../../api/types";
 import { AddToPresentation } from "../../components/AddToPresentation";
+import { useToasts } from "../../components/Toasts";
 import { Button } from "../../components/ui";
+import { downloadPost } from "../../lib/download";
 import { useList, useWs } from "../../lib/hooks";
 import { slideFromView } from "../../lib/slides";
 import {
   LAYOUTS,
+  PRESETS,
   sortParam,
   toFilter,
   useDrillPath,
@@ -14,14 +19,8 @@ import {
   type Layout,
 } from "../../lib/viewState";
 import { FilterBar } from "./Filters";
-import {
-  CalendarLayout,
-  Columns,
-  GanttLayout,
-  ListLayout,
-  MatrixLayout,
-  NowLayout,
-} from "./Layouts";
+import { GanttLayout } from "./Gantt";
+import { CalendarLayout, Columns, ListLayout, MatrixLayout, NowLayout } from "./Layouts";
 
 const SORTS = [
   "priority:desc",
@@ -42,7 +41,7 @@ export function ViewsPage() {
   const schemes = useList("/weight-schemes");
   const projects = useList("/projects");
   const processes = useList("/processes");
-  const views = useList("/views");
+  const views = useList<SavedView>("/views");
   const [target, setTarget] = useState("");
   const [name, setName] = useState("");
 
@@ -60,9 +59,16 @@ export function ViewsPage() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const toasts = useToasts();
+  useEffect(() => {
+    if (st.ignored)
+      toasts.push("The filter in this link could not be read, so it was ignored.", {
+        key: "filter-ignored",
+      });
+  }, [st.ignored, toasts]);
   const save = useMutation({
     mutationFn: (shared: boolean) =>
-      api.post(w(ws, "/views"), {
+      createView(ws, {
         name,
         filter: toFilter(st.chips),
         group_by: st.groupBy ? [st.groupBy] : [],
@@ -78,19 +84,15 @@ export function ViewsPage() {
       void qc.invalidateQueries({ queryKey: [ws, "/views"] });
     },
   });
-  const exportCsv = async () => {
-    const blob = await api.postBlob(w(ws, "/query/items:csv"), {
-      filter: toFilter(st.chips),
-      sort: sortParam(st.sort),
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "items.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  const open = (v: Row) =>
+  const exportCsv = () =>
+    downloadPost(
+      toasts,
+      w(ws, "/query/items:csv"),
+      { filter: toFilter(st.chips), sort: sortParam(st.sort) },
+      "items.csv",
+      "CSV",
+    );
+  const open = (v: SavedView) =>
     set({
       chips: [{ id: `v${v.id}`, label: `view: ${v.name}`, clause: v.filter }],
       layout: (v.layout as Layout) ?? "list",
@@ -103,6 +105,7 @@ export function ViewsPage() {
   const ref = target || targetList?.[0]?.key || "";
   return (
     <div className="views">
+      <h1 className="sr-only">Views</h1>
       <div className="vtoolbar" role="toolbar" aria-label="View options">
         <div className="vtabs" role="tablist">
           {LAYOUTS.map((l) => (
@@ -141,11 +144,13 @@ export function ViewsPage() {
           Weights{" "}
           <select value={st.scheme ?? ""} onChange={(e) => set({ scheme: e.target.value || null })}>
             <option value="">default</option>
-            {(schemes.data ?? []).map((s) => (
-              <option key={s.id} value={s.name}>
-                {s.name}
-              </option>
-            ))}
+            {(schemes.data ?? [])
+              .filter((s) => s.name !== "default") // the empty option above *is* the default scheme (UX review, "also")
+              .map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
           </select>
         </label>
         {needsTarget && (
@@ -198,6 +203,15 @@ export function ViewsPage() {
         <Button onClick={() => void exportCsv()}>Export CSV</Button>
         <AddToPresentation build={() => slideFromView(st)} />
       </div>
+      {st.chips.length === 0 && (
+        <div className="row presets" role="group" aria-label="Quick views">
+          {PRESETS.map((p) => (
+            <Button key={p.id} onClick={() => set({ chips: [p.chip()], layout: p.layout })}>
+              {p.label}
+            </Button>
+          ))}
+        </div>
+      )}
       <FilterBar
         chips={st.chips}
         onChange={(chips) =>
@@ -250,7 +264,7 @@ export function ViewsPage() {
       </div>
       {st.layout === "list" && <ListLayout st={st} />}
       {(st.layout === "board" || st.layout === "pipeline") && (
-        <Columns kind={st.layout} ref_={ref} st={st} />
+        <Columns kind={st.layout} ref_={ref} st={st} drill={push} />
       )}
       {st.layout === "matrix" && <MatrixLayout st={st} drill={push} />}
       {st.layout === "gantt" && <GanttLayout st={st} />}

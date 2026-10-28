@@ -10,6 +10,8 @@ Variables are read from the environment (prefix `TT_`) or a `.env` file. Rows ma
 | `TT_DEV_AUTH` | `bool` | `False` | Accept the X-Debug-Actor header (dev only). |
 | `TT_LOG_LEVEL` | `str` | `INFO` |  |
 | `TT_LOG_JSON` | `bool` | `True` |  |
+| `TT_SEED_REFERENCE_ON_START` | `bool` | `True` | Load shipped templates/habit definitions at start (idempotent). |
+| `TT_WORKER_CONCURRENCY` | `int` | `4` | Jobs a worker runs at once. |
 | `TT_OTLP_ENDPOINT` | `str \| None` | unset | OTLP endpoint; no exporter when unset. |
 | `TT_SESSION_SECRET` | `str` | `dev-insecure-session-secret` | Signs session cookies. **secret** |
 | `TT_SESSION_TTL_HOURS` | `int` | `12` |  |
@@ -52,6 +54,7 @@ Variables are read from the environment (prefix `TT_`) or a `.env` file. Rows ma
 | `TT_METRICS_TOKEN` | `str \| None` | unset | Bearer token for GET /metrics. Unset = /metrics is dev-only. **secret** |
 | `TT_RATE_CAPTURE_PER_MIN` | `int` | `600` | POST /capture/batches per credential. |
 | `TT_RATE_AUTH_PER_MIN` | `int` | `60` | POST /auth/* per client address. |
+| `TT_RATE_COMMANDS_PER_MIN` | `int` | `120` | Management commands (POST /commands, POST /items:merge, commands[] of /capture/batches) per credential; each command counts once. |
 | `TT_CERT_RELOAD_INTERVAL_S` | `float` | `30.0` |  |
 | `TT_CERT_EXPIRY_WARN_DAYS` | `int` | `14` |  |
 | `TT_TLS_CERTFILE` | `str \| None` | unset |  |

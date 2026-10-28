@@ -40,7 +40,9 @@ async def test_deck_shell_encodes_the_source_as_a_json_literal(api: Api, bundle:
     assert 'window.__DECK_SRC__="/api/v1/public/p/pt_abc-123_XYZ/data";' in r.text
     r2 = await api.c.get("/p/acme/0192-abc")
     assert 'window.__DECK_SRC__="/api/v1/w/acme/presentations/0192-abc/data";' in r2.text
-    assert "<script>window" in r2.text and r2.text.count("</script>") == 1
+    assert (
+        '<script nonce="' in r2.text and ">window.__DECK_SRC__" in r2.text and r2.text.count("</script>") == 1
+    )
 
 
 # ---------------------------------------------------------------- A2

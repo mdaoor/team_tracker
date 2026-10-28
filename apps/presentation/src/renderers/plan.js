@@ -1,3 +1,4 @@
+import { ganttSvg, ganttTable, layoutGantt, snapshotRows } from "../gantt.js";
 import { esc } from "../util.js";
 
 /** Plan kinds render from manager-entered data alone (`D.phases`, `D.deliverables`, `D.milestones`, `D.projects[*]` plan fields);
@@ -137,96 +138,43 @@ export function renderPlanVsActual(ctx, cfg, slide) {
     .join("")}</tbody></table>`;
 }
 
-const DAY = 86400000;
-const t = (s) => Date.parse(s.slice(0, 10));
+const ROW_KINDS = [["phase", "Phases & deliverables"], ["epic", "Epics"], ["milestone", "Milestones"]]; // prettier-ignore
+const ZOOM_LABELS = [["fit", "Fit"], ["month", "Month"], ["week", "Week"], ["day", "Day"]]; // prettier-ignore
 
-/** Phases and deliverables on a time axis: baseline ghost, milestone diamonds, dependency arrows, today line. */
-export function renderRoadmap(ctx, cfg) {
+/** The roadmap: `snapshotRows` + `layoutGantt` + `ganttSvg` from ../gantt.js, the single Gantt implementation (R6.4).
+ *  `cfg.rows` = phase (default) | epic | milestone, `cfg.zoom` = fit (default) | month | week | day; page mode shows both as selects. */
+export function renderRoadmap(ctx, cfg, slide) {
   const { D } = ctx;
-  const phases = D.phases.filter(
-    (p) => !cfg.project_key || p.project === cfg.project_key,
+  const kind = ROW_KINDS.some(([k]) => k === cfg.rows) ? cfg.rows : "phase";
+  const zoom = ZOOM_LABELS.some(([k]) => k === cfg.zoom) ? cfg.zoom : "fit";
+  const { rows, deps } = snapshotRows(D, ctx.items ?? [], {
+    rows: kind,
+    project_key: cfg.project_key,
+  });
+  if (!rows.length)
+    return planEmpty(kind === "phase" ? "roadmap" : `${kind} schedule`);
+  const milestones = D.milestones.filter(
+    (m) => !cfg.project_key || m.project === cfg.project_key,
   );
-  if (!phases.length) return planEmpty("roadmap");
-  const delivs = D.deliverables.filter((d) =>
-    phases.some((p) => p.key === d.phase),
-  );
-  const rows = phases.flatMap((p) => [
-    { kind: "phase", ...p },
-    ...delivs
-      .filter((d) => d.phase === p.key)
-      .map((d) => ({ kind: "deliverable", ...d })),
-  ]);
-  const stamps = rows
-    .flatMap((r) =>
-      [r.planned_start, r.planned_end, r.baseline_end].filter(Boolean),
-    )
-    .concat(
-      D.milestones
-        .filter((m) => !cfg.project_key || m.project === cfg.project_key)
-        .map((m) => m.due),
-    );
-  const lo = Math.min(...stamps.map(t));
-  const hi = Math.max(...stamps.map(t), lo + 7 * DAY);
-  const W = 1000,
-    L = 230,
-    ROW = 26,
-    TOP = 28;
-  const x = (s) => L + ((t(s) - lo) / (hi - lo)) * (W - L - 10);
-  const H = TOP + rows.length * ROW + 20;
-  const idx = new Map(rows.map((r, i) => [r.key, i]));
-  const bars = rows
-    .map((r, i) => {
-      const y = TOP + i * ROW;
-      const label = `<text x="${r.kind === "phase" ? 4 : 18}" y="${y + 15}" class="rm-label ${r.kind}">${esc(r.title.slice(0, 32))}</text>`;
-      if (!r.planned_start || !r.planned_end) return label;
-      const w = Math.max(3, x(r.planned_end) - x(r.planned_start));
-      const ghost = r.baseline_end
-        ? `<line x1="${x(r.baseline_end)}" x2="${x(r.baseline_end)}" y1="${y + 3}" y2="${y + 21}" class="rm-ghost"><title>Baseline end ${esc(r.baseline_end)}</title></line>`
-        : "";
-      const done =
-        r.progress_pct != null
-          ? `<rect x="${x(r.planned_start)}" y="${y + 7}" width="${(w * r.progress_pct) / 100}" height="10" class="rm-done"/>`
-          : "";
-      return `${label}<rect x="${x(r.planned_start)}" y="${y + 5}" width="${w}" height="14" rx="3" class="rm-bar ${r.kind} st-${esc(r.status)}"><title>${esc(r.title)} · ${esc(r.planned_start)} → ${esc(r.planned_end)} · ${esc(STATUS_LABEL[r.status] ?? r.status)}</title></rect>${done}${ghost}`;
-    })
-    .join("");
-  const arrows = delivs
-    .flatMap((d) => (d.depends_on ?? []).map((k) => [k, d.key]))
-    .filter(([a, b]) => idx.has(a) && idx.has(b))
-    .map(([a, b]) => {
-      const A = rows[idx.get(a)],
-        B = rows[idx.get(b)];
-      if (!A.planned_end || !B.planned_start) return "";
-      const x1 = x(A.planned_end),
-        y1 = TOP + idx.get(a) * ROW + 12,
-        x2 = x(B.planned_start),
-        y2 = TOP + idx.get(b) * ROW + 12;
-      return `<path d="M${x1},${y1} C${x1 + 14},${y1} ${x2 - 14},${y2} ${x2},${y2}" class="rm-dep" marker-end="url(#rm-arrow)"/>`;
-    })
-    .join("");
-  const ms = D.milestones
-    .filter((m) => !cfg.project_key || m.project === cfg.project_key)
-    .map(
-      (m) =>
-        `<g class="rm-ms st-${esc(m.status)}"><path d="M${x(m.due)},${TOP - 14} l6,6 l-6,6 l-6,-6 z"/><title>${esc(m.name)} · ${esc(m.due)} · ${esc(STATUS_LABEL[m.status] ?? m.status)}</title></g>`,
-    )
-    .join("");
-  const today = D.as_of.slice(0, 10);
-  const todayX =
-    t(today) >= lo && t(today) <= hi
-      ? `<line x1="${x(today)}" x2="${x(today)}" y1="${TOP - 6}" y2="${H - 10}" class="rm-today"><title>Today</title></line>`
-      : "";
-  const months = [];
-  for (
-    let d = new Date(lo);
-    d.getTime() <= hi;
-    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))
-  ) {
-    const s = d.toISOString().slice(0, 10);
-    months.push(
-      `<text x="${x(s)}" y="12" class="rm-month">${esc(s.slice(0, 7))}</text>`,
-    );
-  }
-  const table = `<details class="rm-table"><summary>Table view</summary><table class="tbl roadmap-table"><thead><tr><th>Item</th><th>Start</th><th>End</th><th>Status</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.title)}</td><td>${day(r.planned_start)}</td><td>${day(r.planned_end)}</td><td>${chip(r.status)}</td></tr>`).join("")}</tbody></table></details>`;
-  return `<figure class="roadmap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Roadmap: ${phases.length} phases, ${delivs.length} deliverables, ${ms.length ? "milestones shown" : "no milestones"}"><defs><marker id="rm-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="rm-dep-head"/></marker></defs>${months.join("")}${todayX}${arrows}${bars}${ms}</svg>${table}</figure>`;
+  const model = layoutGantt({
+    rows,
+    deps,
+    milestones,
+    today: D.as_of.slice(0, 10),
+    zoom,
+  });
+  const nMs = milestones.length;
+  const label = `Roadmap: ${rows.length} rows, ${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}, ${nMs ? `${nMs} milestone${nMs === 1 ? "" : "s"} shown` : "no milestones"}`;
+  const opt = (list, cur) =>
+    list
+      .map(
+        ([v, l]) =>
+          `<option value="${v}" ${v === cur ? "selected" : ""}>${l}</option>`,
+      )
+      .join("");
+  const controls = ctx.interactive
+    ? `<div class="toolbar"><label>Rows</label><select data-ctl="rows">${opt(ROW_KINDS, kind)}</select><label>Zoom</label><select data-ctl="zoom">${opt(ZOOM_LABELS, zoom)}</select></div>`
+    : "";
+  const svg = ganttSvg(model, { label });
+  return `<figure class="roadmap" data-rows="${kind}" data-zoom="${zoom}">${controls}${model.scroll ? `<div class="rm-scroll" role="region" aria-label="Roadmap, scrollable" tabindex="0">${svg}</div>` : svg}<details class="rm-table"><summary>Table view</summary>${ganttTable(model, rows)}</details></figure>`;
 }

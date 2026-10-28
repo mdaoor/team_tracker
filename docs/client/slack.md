@@ -24,3 +24,10 @@ Create the Slack app with Socket Mode, the `chat:write`, `im:history`, `commands
 **Tests.** `apps/slack_bot/slack_tests` (13): card and modal snapshots, mandatory fields, Jira chip, exactly-once send, offline queue,
 end-of-day, linking (signature, expiry, 0600). The Bolt transport (`bolt_app.py`) is thin and **has not been run against a real Slack
 workspace**; the Block Kit payloads are the contract and are covered.
+
+## Management commands (phase 14)
+
+`/tt do <text>` (command card + Effect preview + Confirm), `/tt cmd <op>` (modal generated from the catalogue), `/tt approvals` (Approve /
+Reject buttons), `/tt waive V-9 [because …]` (reason modal), `/tt role [mode]`, `/tt ops`. A destructive Confirm opens Slack's native
+confirmation dialog and the handler refuses a click that did not come through it. Code: `tt_slack/commands.py`, `tt_slack/command_blocks.py`;
+tests: `slack_tests/test_slack_commands.py`. See `docs/client/management-commands.md`.

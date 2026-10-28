@@ -16,7 +16,7 @@ import pytest as _pytest
 
 from tools.seed.load import load_items  # noqa: E402
 
-pytestmark = _pytest.mark.timeout(900)  # 50 k-item perf scenarios
+pytestmark = [_pytest.mark.timeout(900), _pytest.mark.perf]  # 50 k-item perf scenarios
 
 ROUTERS_COVERED = ("presentations",)
 N = 50_000

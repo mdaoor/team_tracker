@@ -19,12 +19,14 @@ from tt_llm.storage import MemoryStorage, Storage
 from tt_llm.tasks import batch_review as t_batch
 from tt_llm.tasks import capture as t_capture
 from tt_llm.tasks import embed as t_embed
+from tt_llm.tasks import personal as t_personal
 from tt_llm.tasks import policy as t_policy
 from tt_llm.tasks import presentation as t_pres
 from tt_llm.tasks import rules as t_rules
 from tt_llm.tasks import suggest as t_suggest
 from tt_llm.tasks import summarise as t_sum
 from tt_llm.tasks import translate as t_translate
+from tt_llm.tasks import translate_command as t_command
 from tt_llm.tasks.base import CoreFactory, Deps
 from tt_llm.telemetry import COST, LATENCY, REQUESTS
 
@@ -93,6 +95,21 @@ def create_app(
     @app.post("/v1/translate", dependencies=[Caller], tags=["tasks"])
     async def translate(req: TaskRequest) -> TaskResponse:
         return await timed("translate", req, lambda: t_translate.translate(deps, req))
+
+    @app.post("/v1/translate/command", dependencies=[Caller], tags=["tasks"])
+    async def translate_command(req: TaskRequest, core_token: CoreToken = None) -> TaskResponse:
+        return await timed(
+            "translate_command", req, lambda: t_command.translate_command(deps, req, core_token)
+        )
+
+    @app.post("/v1/agent/command", dependencies=[Caller], tags=["tasks"])
+    async def agent_command(req: TaskRequest, core_token: CoreToken = None) -> TaskResponse:
+        return await timed("agent_command", req, lambda: t_command.agent_command(deps, req, core_token))
+
+    @app.post("/v1/translate/personal", dependencies=[Caller], tags=["tasks"])
+    async def translate_personal(req: TaskRequest) -> TaskResponse:
+        """Classify a personal-planner line (local models only; sends nothing)."""
+        return await timed("translate_personal", req, lambda: t_personal.translate_personal(deps, req))
 
     @app.post("/v1/agent/capture", dependencies=[Caller], tags=["tasks"])
     async def agent_capture(req: TaskRequest, core_token: CoreToken = None) -> TaskResponse:

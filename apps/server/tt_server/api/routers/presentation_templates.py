@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from tt_schema.base import new_id
 from tt_schema.enums import TargetType
 
@@ -16,25 +15,23 @@ from tt_server.api.authz import needs
 from tt_server.api.deps import Actor, CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.db import models as m
-from tt_server.domain import deckdata
 from tt_server.domain import presentation_templates as tpl
 from tt_server.domain import presentations as pres
-from tt_server.domain.common import emit
-from tt_server.domain.snapshot import assembler
+from tt_server.domain.common import emit_after
+from tt_server.domain.deck_variables import template_variables
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["presentation-templates"])
 
 
 def _ev(uow: Uow, actor: Actor, row: m.PresentationTemplate, event: str, **after: Any) -> None:
-    emit(
+    emit_after(
         uow, workspace_id=actor.ws.id, actor_id=actor.person.id, entity_type=TargetType.SAVED_VIEW, entity_id=row.id,
-        event_type=event, payload={"after": {"key": row.key, "version": row.version, **after}},
+        event_type=event, key=row.key, version=row.version, **after,
     )  # fmt: skip
 
 
 async def _prime(uow: Uow) -> None:
-    if await tpl.ensure_builtins(uow.session):
-        await uow.session.commit()  # shipped templates are reference data, not a domain fact
+    """Built-ins are loaded at migrate/start (`bootstrap.seed_reference_data`); nothing to do per request."""
 
 
 async def _get(uow: Uow, actor: Actor, ref: str, *, write: bool = False) -> m.PresentationTemplate:
@@ -172,6 +169,26 @@ async def delete_template(ref: str, actor: CurrentActor, uow: Uow) -> Response:
     return Response(status_code=204)
 
 
+@router.post("/presentation-templates/{ref}:restore", dependencies=[needs("view.save")])
+async def restore_template(ref: str, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
+    """Undo a template delete (UX 6)."""
+    row = await uow.session.scalar(
+        select(m.PresentationTemplate)
+        .where(
+            m.PresentationTemplate.workspace_id == actor.ws.id,
+            (m.PresentationTemplate.key == ref) | (m.PresentationTemplate.id == ref),
+            m.PresentationTemplate.deleted_at.is_not(None),
+        )
+        .order_by(m.PresentationTemplate.deleted_at.desc())
+    )
+    if row is None or not (row.owner_id == actor.person.id or actor.acl.is_admin):
+        raise ApiError(404, "not_found", "template not found")
+    row.deleted_at = None
+    _ev(uow, actor, row, "presentation.template_restored")
+    await uow.commit()
+    return tpl.view(row)
+
+
 @router.post("/presentation-templates/{ref}:duplicate", status_code=201, dependencies=[needs("view.save")])
 async def duplicate(ref: str, actor: CurrentActor, uow: Uow, key: str | None = None) -> dict[str, Any]:
     src = await _get(uow, actor, ref)
@@ -228,49 +245,7 @@ class StatsScope(BaseModel):
 async def _variables(
     uow: Uow, actor: Actor, scope: str, range_days: int
 ) -> tuple[dict[str, Any], dict[str, int]]:
-    kind, ref = assembler.parse_scope(scope)
-    qc = deckdata.qctx(uow.session, actor.ws, actor.person, actor.member, actor.acl)
-    flt, label = await assembler._scope_filter(qc, kind, ref)  # noqa: SLF001
-    from tt_server.query import service
-
-    stmt = await service.filtered_items(
-        qc, {"and": [flt, {"not": {"type": {"in": ["epic", "phase", "deliverable"]}}}]}, m.WorkItem.id
-    )
-    items = int(await uow.session.scalar(select(func.count()).select_from(stmt.subquery())) or 0)
-    plan_stmt = await service.filtered_items(
-        qc, {"and": [flt, {"type": {"in": ["phase", "deliverable"]}}]}, m.WorkItem.id
-    )
-    plan_items = int(await uow.session.scalar(select(func.count()).select_from(plan_stmt.subquery())) or 0)
-    projects = (
-        (
-            await uow.session.scalar(
-                select(func.count())
-                .select_from(m.Project)
-                .where(m.Project.workspace_id == actor.ws.id, m.Project.deleted_at.is_(None))
-            )
-            or 0
-        )
-        if kind == "workspace"
-        else 1
-    )
-    pname = ""
-    if kind == "project":
-        pname = (
-            await uow.session.scalar(
-                select(m.Project.name).where(
-                    m.Project.workspace_id == actor.ws.id, m.Project.key == ref.upper()
-                )
-            )
-            or ""
-        )
-    today = date.today()
-    variables = {
-        "scope.label": label, "scope.kind": kind, "scope.ref": ref, "scope.items": items, "scope.projects": projects,
-        "project.key": ref.upper() if kind == "project" else "", "project.name": pname, "range.days": range_days,
-        "range.from": (today.fromordinal(today.toordinal() - range_days)).isoformat(), "range.to": today.isoformat(),
-        "viewer.handle": actor.handle, "workspace.name": actor.ws.name, "today": today.isoformat(),
-    }  # fmt: skip
-    return variables, {"scope.items": items, "scope.projects": projects, "scope.plan_items": plan_items}
+    return await template_variables(uow, actor.ws, actor.person, actor.member, actor.acl, scope, range_days)
 
 
 class InstantiateIn(BaseModel):

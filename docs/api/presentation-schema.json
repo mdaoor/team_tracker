@@ -7,6 +7,15 @@
           "title": "Config",
           "type": "object"
         },
+        "fit": {
+          "default": "paginate",
+          "enum": [
+            "paginate",
+            "shrink"
+          ],
+          "title": "Fit",
+          "type": "string"
+        },
         "id": {
           "anyOf": [
             {

@@ -16,10 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import utcnow
 from tt_schema.enums import EventSource, TargetType
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Invalid
+from tt_server.domain.items import service as items
 
 MAX_CATCH_UP = (
     10  # occurrences created per rule per run after downtime; older ones are skipped, not back-filled in bulk
@@ -27,24 +28,26 @@ MAX_CATCH_UP = (
 
 
 def parse(rule: str, tz: str, start: datetime) -> rrule:
+    """Parse an RRULE in the given time zone, raising Invalid for unknown zones or rules."""
     try:
         zone = ZoneInfo(tz)
     except (ZoneInfoNotFoundError, ValueError) as exc:
-        raise ApiError(400, "invalid_rule", f"unknown time zone {tz!r}", pointer="/time_zone") from exc
+        raise Invalid("invalid_rule", f"unknown time zone {tz!r}", pointer="/time_zone") from exc
     try:
         r = rrulestr(rule, dtstart=start.astimezone(zone))
     except (ValueError, TypeError) as exc:
-        raise ApiError(400, "invalid_rule", f"not a valid RRULE: {exc}", pointer="/rrule") from exc
+        raise Invalid("invalid_rule", f"not a valid RRULE: {exc}", pointer="/rrule") from exc
     if not isinstance(r, rrule):
-        raise ApiError(400, "invalid_rule", "use a single RRULE (no RDATE / EXDATE sets)", pointer="/rrule")
+        raise Invalid("invalid_rule", "use a single RRULE (no RDATE / EXDATE sets)", pointer="/rrule")
     if not re.search(
         r"FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)\b", rule.upper()
     ):  # hourly or finer would flood a project
-        raise ApiError(400, "invalid_rule", "the finest supported frequency is DAILY", pointer="/rrule")
+        raise Invalid("invalid_rule", "the finest supported frequency is DAILY", pointer="/rrule")
     return r
 
 
 def occurrences_after(rule: str, tz: str, start: datetime, after: datetime, n: int) -> list[datetime]:
+    """Next n occurrences of a rule strictly after the given moment."""
     r = parse(rule, tz, start)
     out: list[datetime] = []
     cur = after.astimezone(ZoneInfo(tz))
@@ -58,13 +61,13 @@ def occurrences_after(rule: str, tz: str, start: datetime, after: datetime, n: i
 
 
 def first_run(rule: str, tz: str, start: datetime) -> datetime | None:
+    """The first occurrence of a rule at or after its start, or None if it never fires."""
     got = occurrences_after(rule, tz, start, start - timedelta(seconds=1), 1)
     return got[0] if got else None
 
 
 async def materialise_rule(uow: UnitOfWork, ws_id: str, rule: m.RecurrenceRule, now: datetime) -> int:
     """Create due occurrences for one rule. Returns how many items were created."""
-    from tt_server.domain.items import service as items
 
     s = uow.session
     tpl = await s.get(m.WorkItem, rule.template_item_id)
@@ -125,6 +128,7 @@ async def _assignee(s: AsyncSession, ws_id: str, rule: m.RecurrenceRule, tpl: m.
 
 
 async def run_due(factory: Any, now: datetime | None = None) -> int:
+    """Materialise every recurrence rule whose next run is due; returns the number of items created."""
     now = now or utcnow()
     async with factory() as s:
         ids = (
@@ -151,4 +155,5 @@ async def run_due(factory: Any, now: datetime | None = None) -> int:
 
 
 def due_date(d: date) -> str:
+    """Format a due date as an ISO string."""
     return d.isoformat()

@@ -180,6 +180,7 @@ Heavy lookups are implemented once in server code and read facts the engine prel
 | `<item>.missing_required_dimensions()` | `list<string>` | Keys of dimensions required for the item's stage that have no confirmed value. |
 | `<stage>.wip_count()` | `int` | Open items in this stage within the policy's scope (the project for project-grouped policies). |
 | `metrics.minutes_logged(string, string)` | `int` | Minutes a person logged in a window (`today`, `7d`). |
+| `metrics.development_minutes(string, string)` | `int` | Minutes a person logged on `#development` work (training, courses, reading) in a window (`7d`, `30d`). |
 | `metrics.active_items(string)` | `int` | Items a person currently has an active session on. |
 | `metrics.distinct_items(string, string)` | `int` | Distinct items a person worked on in a window. |
 | `metrics.wip(string, string?)` | `int` | Open items of a project, optionally in one stage. |

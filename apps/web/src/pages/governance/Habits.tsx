@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { patchHabit } from "../../api/governance";
+import type { Habit, HabitDefinition, Json } from "../../api/types";
 import { Drawer } from "../../components/Drawer";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
@@ -26,10 +27,10 @@ export function Habits() {
   const { can, me } = useMe();
   const [windowSel, setWindow] = useState("30d");
   const [subject, setSubject] = useState("");
-  const habits = useList("/habits", { window: windowSel, ...(subject ? { subject } : {}) });
-  const defs = useList("/habit-definitions");
+  const habits = useList<Habit>("/habits", { window: windowSel, ...(subject ? { subject } : {}) });
+  const defs = useList<HabitDefinition>("/habit-definitions");
   const viol = useList("/violations", { status: "open,acknowledged,resolved,waived", limit: 500 });
-  const [open, setOpen] = useState<Row | null>(null);
+  const [open, setOpen] = useState<Habit | null>(null);
   const [note, setNote] = useState("");
   const wellbeing = useMemo(
     () => new Set((defs.data ?? []).filter((d) => d.category === "wellbeing").map((d) => d.key)),
@@ -37,7 +38,7 @@ export function Habits() {
   );
   const rows = useMemo(() => habits.data ?? [], [habits.data]);
   const bySubject = useMemo(() => {
-    const m = new Map<string, Row[]>();
+    const m = new Map<string, Habit[]>();
     for (const h of rows) m.set(h.subject, [...(m.get(h.subject) ?? []), h]);
     return [...m.entries()].map(([s, hs]) => ({
       subject: s,
@@ -51,8 +52,7 @@ export function Habits() {
 
   useEffect(() => setNote(open?.coaching_note ?? ""), [open]);
   const patch = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Row }) =>
-      api.patch<Row>(w(ws, `/habits/${id}`), body),
+    mutationFn: ({ id, body }: { id: string; body: Json }) => patchHabit(ws, id, body),
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: [ws, "/habits"] });
       setOpen((o) => (o ? { ...o, ...r, subject: o.subject } : o));

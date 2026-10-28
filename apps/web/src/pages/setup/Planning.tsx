@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { MonthGrid, spanDays, type DayEvent } from "../../components/MonthGrid";
 import { Card } from "../../components/ui";
 import { useList } from "../../lib/hooks";
 import { CreateForm, Table } from "./common";
@@ -8,8 +9,21 @@ export function Planning() {
   const ms = useList("/milestones");
   const its = useList("/iterations");
   const keys = (projects.data ?? []).map((p) => p.key);
+  const events: Record<string, DayEvent[]> = {};
+  for (const m of ms.data ?? [])
+    (events[m.due_date] ??= []).push({ kind: "milestone", label: `◆ ${m.project_key} ${m.name}` });
+  for (const it of its.data ?? [])
+    for (const d of spanDays(it.start_date, it.end_date))
+      (events[d] ??= []).push({
+        kind: "iteration",
+        label: d === it.start_date ? `▸ ${it.project_key} ${it.name}` : "",
+        title: `${it.project_key} ${it.name} (${it.start_date} – ${it.end_date})`,
+      });
   return (
     <>
+      <Card title="Calendar">
+        <MonthGrid events={events} label="Milestones and iterations" />
+      </Card>
       <Card title="Milestones">
         <ProjectForm
           kind="milestones"

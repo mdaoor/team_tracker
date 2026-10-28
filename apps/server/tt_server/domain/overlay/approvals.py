@@ -6,10 +6,13 @@ from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import ApprovalPolicy, ApprovalStatus, Decision, EventSource, ProjectRole, TargetType
 
-from tt_server.api.errors import ApiError
+from tt_server.acl.context import AclContext
+from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Conflict, Forbidden, Invalid, NotFound
+from tt_server.domain.overlay import process as proc
 
 
 async def _approver_ids(uow: UnitOfWork, project: m.Project) -> list[str]:
@@ -47,6 +50,7 @@ async def request(
     title: str,
     requested_by: str,
 ) -> m.Approval:
+    """Open an approval on a target with one pending decision per eligible approver."""
     project = await uow.session.get(m.Project, project_id)
     assert project is not None  # noqa: S101
     cfg = project.settings or {}
@@ -81,6 +85,7 @@ async def request(
 
 
 def evaluate(policy: ApprovalPolicy, quorum_n: int | None, decisions: list[Decision]) -> ApprovalStatus:
+    """The approval status that the recorded decisions imply under the policy."""
     approved = sum(d == Decision.APPROVED for d in decisions)
     rejected = sum(d == Decision.REJECTED for d in decisions)
     pending = sum(d == Decision.PENDING for d in decisions)
@@ -108,12 +113,13 @@ async def decide(
     decision: Decision,
     comment: str | None = None,
 ) -> m.Approval:
+    """Record one approver's decision and resolve the approval once the policy is met; a rejection rolls back the gated stage move."""
     s = uow.session
     if approval.status != ApprovalStatus.PENDING:
-        raise ApiError(409, "approval_resolved", f"approval already {approval.status.value}")
+        raise Conflict("approval_resolved", f"approval already {approval.status.value}")
     if decision == Decision.PENDING:
-        raise ApiError(
-            400, "invalid_decision", "decision must be approved, rejected or abstained", pointer="/decision"
+        raise Invalid(
+            "invalid_decision", "decision must be approved, rejected or abstained", pointer="/decision"
         )
     rows = list(
         (
@@ -122,7 +128,7 @@ async def decide(
     )
     mine = next((r for r in rows if r.approver_id == approver_id), None)
     if mine is None:
-        raise ApiError(403, "not_an_approver", "you are not an approver of this request")
+        raise Forbidden("not_an_approver", "you are not an approver of this request")
     mine.decision, mine.comment, mine.decided_at = decision, comment, utcnow()
     emit(
         uow,
@@ -158,7 +164,6 @@ async def decide(
 async def _roll_back_placement(
     uow: UnitOfWork, ws: m.Workspace, approval: m.Approval, by: str, trigger_event_id: str
 ) -> None:
-    from tt_server.domain.overlay import process as proc
 
     s = uow.session
     placement = await s.get(m.StagePlacement, approval.target_id)
@@ -197,6 +202,7 @@ async def _roll_back_placement(
 
 
 async def is_approved(session: object, approval_id: str | None) -> bool:
+    """True when there is no approval to wait for, or it has been approved."""
     if approval_id is None:
         return True
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -204,3 +210,42 @@ async def is_approved(session: object, approval_id: str | None) -> bool:
     assert isinstance(session, AsyncSession)  # noqa: S101
     a = await session.get(m.Approval, approval_id)
     return a is not None and a.status == ApprovalStatus.APPROVED
+
+
+async def list_approvals(
+    uow: UnitOfWork, ws_id: str, acl: AclContext, person_id: str, *, status: ApprovalStatus | None, mine: bool
+) -> list[m.Approval]:
+    """Approvals on visible projects, newest first; `mine` keeps those awaiting the person's decision."""
+    stmt = (
+        select(m.Approval)
+        .join(m.Project, m.Project.id == m.Approval.project_id)
+        .where(m.Project.workspace_id == ws_id, m.Approval.deleted_at.is_(None))
+    )
+    stmt = visible(stmt, acl, m.Project)
+    if status:
+        stmt = stmt.where(m.Approval.status == status)
+    if mine:
+        stmt = stmt.join(m.ApprovalDecision, m.ApprovalDecision.approval_id == m.Approval.id).where(
+            m.ApprovalDecision.approver_id == person_id, m.ApprovalDecision.decision == Decision.PENDING
+        )
+    return list((await uow.session.scalars(stmt.order_by(m.Approval.requested_at.desc()))).all())
+
+
+async def get_approval(uow: UnitOfWork, ws_id: str, aid: str) -> m.Approval:
+    """An approval of the workspace by id; 404 when absent."""
+    a = await uow.session.scalar(
+        select(m.Approval)
+        .join(m.Project, m.Project.id == m.Approval.project_id)
+        .where(m.Approval.id == aid, m.Project.workspace_id == ws_id)
+    )
+    if a is None:
+        raise NotFound("not_found", "approval not found")
+    return a
+
+
+async def project_of(uow: UnitOfWork, approval: m.Approval) -> m.Project:
+    """The project an approval belongs to."""
+    p = await uow.session.get(m.Project, approval.project_id)
+    if p is None:
+        raise NotFound("not_found", "project not found")
+    return p

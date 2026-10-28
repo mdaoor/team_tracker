@@ -15,7 +15,7 @@ Docker users can skip the database step: `make dev` starts Postgres, API (:8000)
 ## 1. Get the code and dependencies
 ```bash
 git clone https://github.com/mdaoor/team_tracker && cd team_tracker
-git checkout feat/i-remaining-plan        # top of the stacked PRs #4-#9: contains everything; after they are merged use claude/listed-plan-implementation-hygguz
+git checkout feat/phase-14-server         # the implementation line through Phases 13-15 (remediation, client management commands, personal tracker); after it is merged use claude/listed-plan-implementation-hygguz
 uv sync --all-packages                                        # Python workspace (server, worker, CLI, gateway, Slack bot)
 pnpm install                                                  # web console, presentation bundle, desktop palette
 make presentation                                             # builds the single-file deck viewer used by Present / PDF / PNG

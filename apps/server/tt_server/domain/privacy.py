@@ -17,8 +17,8 @@ from tt_schema.base import utcnow
 from tt_schema.enums import MemberStatus, PolicyCategory, ProjectKind, TargetType
 
 from tt_server.db import models as m
-from tt_server.db.uow import UnitOfWork
-from tt_server.domain.common import emit
+from tt_server.db.uow import UnitOfWork, commit_derived
+from tt_server.domain.common import emit, rowcount
 
 ERASED = "[erased]"
 
@@ -34,7 +34,7 @@ async def purge_raw_input(session: AsyncSession, *, days: int, workspace_id: str
     if workspace_id:
         stmt = stmt.where(m.Event.workspace_id == workspace_id)
     res = await session.execute(stmt)
-    return int(res.rowcount or 0)  # type: ignore[attr-defined]
+    return rowcount(res)
 
 
 async def purge_all(factory: Any) -> int:
@@ -45,13 +45,14 @@ async def purge_all(factory: Any) -> int:
             days = (ws.settings or {}).get("raw_input_retention_days")
             if isinstance(days, int) and days > 0:
                 total += await purge_raw_input(s, days=days, workspace_id=ws.id)
-        await s.commit()
+        await commit_derived(s)
     return total
 
 
 async def export_person(
     session: AsyncSession, ws: m.Workspace, person_id: str, *, include_private: bool
 ) -> dict[str, Any]:
+    """Build the data-subject export of a person; private data only when explicitly included."""
     person = await session.get(m.Person, person_id)
     member = await session.scalar(
         select(m.WorkspaceMember).where(
@@ -174,6 +175,7 @@ async def export_person(
 
 
 async def erase_person(uow: UnitOfWork, ws: m.Workspace, person_id: str, *, actor_id: str) -> dict[str, int]:
+    """Erase or anonymise a person's personal data, returning counts per table, and audit it."""
     s = uow.session
     person = await s.get(m.Person, person_id)
     member = await s.scalar(
@@ -207,7 +209,7 @@ async def erase_person(uow: UnitOfWork, ws: m.Workspace, person_id: str, *, acto
         .where(m.Event.actor_id == person_id, m.Event.raw_input.is_not(None))
         .values(raw_input=None)
     )
-    counts["events"] = int(res.rowcount or 0)  # type: ignore[attr-defined]
+    counts["events"] = rowcount(res)
     emit(
         uow, workspace_id=ws.id, actor_id=actor_id, entity_type=TargetType.PERSON, entity_id=person_id,
         event_type="person.erased", payload={"after": counts},

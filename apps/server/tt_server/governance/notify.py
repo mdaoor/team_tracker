@@ -61,6 +61,7 @@ async def recipients(uow: UnitOfWork, ws: m.Workspace, policy: m.Policy, v: m.Vi
 
 
 async def notify(uow: UnitOfWork, ws: m.Workspace, policy: m.Policy, v: m.Violation, *, now: datetime) -> int:
+    """Send in-app notifications for a violation to its recipients, once each; returns how many were created."""
     s = uow.session
     n = 0
     detail = (v.evidence or {}).get("detail") or ""

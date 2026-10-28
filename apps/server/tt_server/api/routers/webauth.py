@@ -3,18 +3,14 @@
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import quote, urlencode, urlparse
 
 from fastapi import APIRouter, Header, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select
-from tt_schema.base import new_id, utcnow
-from tt_schema.enums import EventSource, MemberStatus, TargetType
 
-from tt_server.api.deps import Uow, _authenticate, hash_token, new_token
+from tt_server.api.deps import Uow, _authenticate
 from tt_server.api.errors import ApiError
 from tt_server.api.session import (
     SESSION_COOKIE,
@@ -25,51 +21,28 @@ from tt_server.api.session import (
     signed_state,
 )
 from tt_server.db import models as m
-from tt_server.domain.common import emit
+from tt_server.domain import signin
+from tt_server.domain.signin import MAX_FAILURES, WINDOW
+from tt_server.domain.tokens import mint_api_token
 from tt_server.integrations import idp
+from tt_server.integrations.oidc import pkce_pair
+from tt_server.ratelimit import client_ip
+from tt_server.sso import principal_from
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 api_router = APIRouter()
 
-MAX_FAILURES, WINDOW = 5, 900.0  # failures per (client address, username) within WINDOW before backoff starts
-
 
 def _attempt_key(request: Request, username: str) -> str:
-    host = request.client.host if request.client else "?"
-    return f"{host}|{username.strip().lower()}"
-
-
-async def _throttle(uow: Uow, key: str) -> None:
-    """Exponential backoff after MAX_FAILURES: 30 s, 1 min, 2 min ... capped at 15 min, per address+username (so one address
-    cannot lock a user out for everybody, and the counters live in the database, shared by every worker)."""
-    cutoff = datetime.now(UTC) - timedelta(seconds=WINDOW)
-    rows = (
-        await uow.session.scalars(
-            select(m.LoginAttempt.created_at)
-            .where(m.LoginAttempt.key == key, m.LoginAttempt.created_at >= cutoff)
-            .order_by(m.LoginAttempt.created_at)
+    host = (
+        client_ip(
+            request.app.state.settings,
+            request.client.host if request.client else None,
+            request.headers.get("x-forwarded-for"),
         )
-    ).all()
-    if len(rows) >= MAX_FAILURES:
-        wait = min(30 * 2 ** (len(rows) - MAX_FAILURES), WINDOW)
-        remaining = wait - (datetime.now(UTC) - rows[-1]).total_seconds()
-        if remaining > 0:
-            raise ApiError(
-                429,
-                "too_many_attempts",
-                "too many failed sign-ins; try again later",
-                details={"retry_after": int(remaining) + 1},
-            )
-
-
-async def _failed(uow: Uow, key: str) -> None:
-    uow.session.add(m.LoginAttempt(id=new_id(), key=key))
-    await uow.commit_bookkeeping()
-
-
-async def _succeeded(uow: Uow, key: str) -> None:
-    await uow.session.execute(delete(m.LoginAttempt).where(m.LoginAttempt.key == key))
-    await uow.commit_bookkeeping()
+        or "?"
+    )
+    return f"{host}|{username.strip().lower()}"
 
 
 def _secure(request: Request) -> bool:
@@ -79,28 +52,11 @@ def _secure(request: Request) -> bool:
 
 
 def _safe_next(request: Request, nxt: str | None) -> str:
-    """Only same-site paths or the configured web origin; anything else falls back to `/`."""
-    if not nxt:
-        return "/"
-    if nxt.startswith("/") and not nxt.startswith("//") and "\\" not in nxt:
-        return nxt
-    origin = request.app.state.settings.web_origin
-    if (
-        origin
-        and urlparse(nxt).netloc == urlparse(origin).netloc
-        and urlparse(nxt).scheme in {"http", "https"}
-    ):
-        return nxt
-    return "/"
+    return signin.safe_next(nxt, request.app.state.settings.web_origin)
 
 
 async def _workspace(uow: Uow, slug: str) -> m.Workspace:
-    ws = await uow.session.scalar(
-        select(m.Workspace).where(m.Workspace.slug == slug, m.Workspace.deleted_at.is_(None))
-    )
-    if ws is None:
-        raise ApiError(404, "not_found", "workspace not found")
-    return ws
+    return await signin.workspace_by_slug(uow, slug)
 
 
 @router.get("/providers")
@@ -120,7 +76,6 @@ async def login(request: Request, workspace: str, uow: Uow, next: str | None = N
     if oidc is None:
         raise ApiError(404, "not_found", "OIDC sign-in is not configured")
     await _workspace(uow, workspace)
-    from tt_server.integrations.oidc import pkce_pair
 
     verifier, challenge = pkce_pair()
     nonce, state = secrets.token_urlsafe(16), secrets.token_urlsafe(16)
@@ -178,17 +133,7 @@ async def dev_login(body: DevLogin, request: Request, response: Response, uow: U
     settings = request.app.state.settings
     if not settings.dev_auth:
         raise ApiError(404, "not_found", "dev sign-in is not enabled")
-    ws = await _workspace(uow, body.workspace)
-    handle = body.handle if body.handle.startswith("@") else "@" + body.handle
-    member = await uow.session.scalar(
-        select(m.WorkspaceMember).where(
-            m.WorkspaceMember.workspace_id == ws.id,
-            m.WorkspaceMember.handle == handle,
-            m.WorkspaceMember.deleted_at.is_(None),
-        )
-    )
-    if member is None:
-        raise ApiError(401, "unauthorized", "unknown member")
+    member = await signin.dev_member(uow, body.workspace, body.handle)
     set_session(response, settings, member.person_id, secure=_secure(request))
     return {"handle": member.handle, "person_id": member.person_id}
 
@@ -198,7 +143,6 @@ async def dev_login(body: DevLogin, request: Request, response: Response, uow: U
 async def sso_login(request: Request, workspace: str, uow: Uow, next: str | None = None) -> Response:  # noqa: A002
     """The proxy has already authenticated the user (Negotiate). Turn the trusted principal into a session, exactly as the other sign-in
     methods do (same provisioning policy: existing member, mapped group, or allowed e-mail domain)."""
-    from tt_server.sso import principal_from
 
     settings = request.app.state.settings
     if not settings.trusted_principal_header:
@@ -234,24 +178,13 @@ async def _ldap_member(request: Request, uow: Uow, body: LdapLogin) -> m.Workspa
     ldap = request.app.state.ldap
     if ldap is None:
         raise ApiError(404, "not_found", "LDAP sign-in is not configured")
-    key = _attempt_key(request, body.username)
-    await _throttle(uow, key)
-    user = await ldap.authenticate(body.username, body.password)
-    if user is None:
-        await _failed(uow, key)
-        raise ApiError(401, "invalid_credentials", "invalid username or password")
-    await _succeeded(uow, key)
-    ws = await _workspace(uow, body.workspace)
-    if not user.email:
-        raise ApiError(401, "invalid_credentials", "the directory account has no e-mail address")
-    return await idp.provision_login(
+    return await signin.ldap_member(
         uow,
-        ws,
-        provider="ldap",
-        email=user.email,
-        display_name=user.display_name,
-        handle_hint=user.sam,
-        groups=user.groups,
+        ldap,
+        _attempt_key(request, body.username),
+        workspace=body.workspace,
+        username=body.username,
+        password=body.password,
     )
 
 
@@ -266,7 +199,9 @@ async def ldap_login(body: LdapLogin, request: Request, response: Response, uow:
 async def ldap_token(body: LdapLogin, request: Request, uow: Uow) -> dict[str, Any]:
     """Password sign-in for the CLI: returns a capture+read API token (no cookie)."""
     member = await _ldap_member(request, uow, body)
-    return {**await _mint(uow, member, "cli (ldap)", ["capture", "read"], 90), "handle": member.handle}
+    tok = mint_api_token(uow, member, "cli (ldap)", ["capture", "read"], 90)
+    await uow.commit()
+    return {**tok, "handle": member.handle}
 
 
 # ---------------------------------------------------------------- session + CLI token
@@ -283,17 +218,11 @@ async def me(request: Request, uow: Uow) -> dict[str, Any]:
     person = await uow.session.get(m.Person, sess[0])
     if person is None:
         raise ApiError(401, "unauthorized", "not signed in")
-    rows = (
-        await uow.session.execute(
-            select(m.Workspace.slug, m.WorkspaceMember.handle)
-            .join(m.WorkspaceMember, m.WorkspaceMember.workspace_id == m.Workspace.id)
-            .where(m.WorkspaceMember.person_id == person.id, m.WorkspaceMember.status == MemberStatus.ACTIVE)
-        )
-    ).all()
+    rows = await signin.active_workspaces(uow, person.id)
     return {
         "person_id": person.id,
         "display_name": person.display_name,
-        "workspaces": [{"slug": s, "handle": h} for s, h in rows],
+        "workspaces": [{"slug": s, "handle": h} for s, _, h in rows],
     }
 
 
@@ -310,42 +239,8 @@ async def my_workspaces(
         person = await uow.session.get(m.Person, sess[0]) if sess else None
     if person is None:
         raise ApiError(401, "unauthorized", "not signed in")
-    rows = (
-        await uow.session.execute(
-            select(m.Workspace.slug, m.Workspace.name, m.WorkspaceMember.handle)
-            .join(m.WorkspaceMember, m.WorkspaceMember.workspace_id == m.Workspace.id)
-            .where(m.WorkspaceMember.person_id == person.id, m.WorkspaceMember.status == MemberStatus.ACTIVE)
-        )
-    ).all()
+    rows = await signin.active_workspaces(uow, person.id)
     return {"data": [{"slug": s, "name": n, "handle": h} for s, n, h in rows], "next_cursor": None}
-
-
-async def _mint(
-    uow: Uow, member: m.WorkspaceMember, name: str, scopes: list[str], days: int
-) -> dict[str, Any]:
-    secret = new_token()
-    row = m.ApiToken(
-        id=new_id(),
-        workspace_id=member.workspace_id,
-        person_id=member.person_id,
-        name=name,
-        hash=hash_token(secret),
-        scopes=scopes,
-        expires_at=utcnow() + timedelta(days=days),
-    )
-    uow.session.add(row)
-    emit(
-        uow,
-        workspace_id=member.workspace_id,
-        actor_id=member.person_id,
-        entity_type=TargetType.PERSON,
-        entity_id=member.person_id,
-        event_type="token.created",
-        payload={"after": {"token_id": row.id, "name": name}},
-        source=EventSource.OVERLAY,
-    )
-    await uow.commit()
-    return {"id": row.id, "token": secret, "expires_at": row.expires_at, "scopes": scopes}
 
 
 def _loopback(url: str) -> bool:
@@ -369,17 +264,9 @@ async def cli_login(request: Request, workspace: str, callback: str, state: str,
         return RedirectResponse(
             f"/auth/login?workspace={quote(workspace)}&next={quote(here)}", status_code=302
         )
-    ws = await _workspace(uow, workspace)
-    member = await uow.session.scalar(
-        select(m.WorkspaceMember).where(
-            m.WorkspaceMember.workspace_id == ws.id,
-            m.WorkspaceMember.person_id == sess[0],
-            m.WorkspaceMember.status == MemberStatus.ACTIVE,
-        )
-    )
-    if member is None:
-        raise ApiError(404, "not_found", "workspace not found")
-    tok = await _mint(uow, member, "cli (browser)", ["capture", "read"], 90)
+    member = await signin.active_member(uow, workspace, sess[0])
+    tok = mint_api_token(uow, member, "cli (browser)", ["capture", "read"], 90)
+    await uow.commit()
     sep = "&" if "?" in callback else "?"
     return RedirectResponse(
         f"{callback}{sep}{urlencode({'token': tok['token'], 'state': state, 'handle': member.handle})}",
@@ -387,4 +274,4 @@ async def cli_login(request: Request, workspace: str, callback: str, state: str,
     )
 
 
-__all__ = ["SESSION_COOKIE", "router"]
+__all__ = ["MAX_FAILURES", "SESSION_COOKIE", "WINDOW", "router"]

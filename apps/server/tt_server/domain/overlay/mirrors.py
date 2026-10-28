@@ -24,12 +24,16 @@ from tt_schema.enums import (
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
+from tt_server.domain.errors import NotFound
+from tt_server.domain.overlay.classify import classify, remove_rule_classification
 
 W, P, PR, PE = TargetType.WORK_ITEM, TargetType.PROJECT, TargetType.PRODUCT, TargetType.PERSON
 
 
 @dataclass(frozen=True)
 class BuiltinDim:
+    """Definition of a built-in dimension that mirrors a native field into the overlay."""
+
     key: str
     name: str
     shape: ValueTypeShape
@@ -98,6 +102,7 @@ async def ensure_builtin_dimensions(session: AsyncSession, ws_id: str) -> dict[s
 
 
 async def get_dimension(session: AsyncSession, ws_id: str, key: str) -> m.Dimension:
+    """A live dimension of the workspace by key; 404 when absent."""
     dim = await session.scalar(
         select(m.Dimension).where(
             m.Dimension.workspace_id == ws_id, m.Dimension.key == key, m.Dimension.deleted_at.is_(None)
@@ -107,9 +112,8 @@ async def get_dimension(session: AsyncSession, ws_id: str, key: str) -> m.Dimens
         dims = await ensure_builtin_dimensions(session, ws_id)
         if key in dims:
             return dims[key]
-        from tt_server.api.errors import ApiError
 
-        raise ApiError(404, "not_found", f"dimension {key!r} not found")
+        raise NotFound("not_found", f"dimension {key!r} not found")
     return dim
 
 
@@ -166,7 +170,6 @@ async def sync_item_mirrors(
     uow: UnitOfWork, ws: m.Workspace, item: m.WorkItem, *, set_by: str | None = None
 ) -> None:
     """Upsert the rule-sourced classifications for the item's real columns (no events)."""
-    from tt_server.domain.overlay.classify import classify, remove_rule_classification
 
     s = uow.session
     set_by = set_by or uow.context.get("actor_id")

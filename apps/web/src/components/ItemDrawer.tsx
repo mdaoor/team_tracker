@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../api/http";
+import * as itemsApi from "../api/items";
+import { w } from "../api/http";
+import type { Json } from "../api/types";
 import { patchWithEtag, type Conflict } from "../lib/conflict";
 import { Drawer } from "./Drawer";
 import { ConflictDialog } from "./ConflictDialog";
@@ -27,26 +29,26 @@ export function ItemDrawer({
   );
   const item = useQuery({
     queryKey: [ws, "item", itemKey],
-    queryFn: () => api.getWithEtag<Row>(w(ws, `/items/${itemKey}`)),
+    queryFn: () => itemsApi.getItem(ws, itemKey),
   });
   const prov = useQuery({
     queryKey: [ws, "prov", itemKey],
-    queryFn: () => api.get<Row>(w(ws, `/items/${itemKey}/provenance`)),
+    queryFn: () => itemsApi.itemProvenance(ws, itemKey),
   });
   const placements = useQuery({
     queryKey: [ws, "placements", itemKey],
-    queryFn: () => api.get<Row>(w(ws, `/items/${itemKey}/placements`)),
+    queryFn: () => itemsApi.itemPlacements(ws, itemKey),
     enabled: tab === "placements",
   });
   const events = useQuery({
     queryKey: [ws, "events", itemKey],
-    queryFn: () => api.get<Row>(w(ws, `/items/${itemKey}/events`)),
+    queryFn: () => itemsApi.itemEvents(ws, itemKey),
     enabled: tab === "events",
   });
   const it = item.data?.data;
   const violations = useQuery({
     queryKey: [ws, "item-violations", it?.id],
-    queryFn: () => api.get<Row>(w(ws, "/violations"), { target_id: it?.id, limit: 100 }),
+    queryFn: () => itemsApi.itemViolations(ws, it?.id),
     enabled: tab === "violations" && !!it?.id,
   });
 
@@ -64,7 +66,10 @@ export function ItemDrawer({
     }
     await qc.invalidateQueries({ queryKey: [ws, "item", itemKey] });
     await qc.invalidateQueries({ queryKey: [ws, "prov", itemKey] });
-    toasts.push(`${field} → ${String(value)}`, { undo: () => void save(field, before) });
+    toasts.push(`${field} → ${String(value)}`, {
+      key: `edit:${field}`,
+      undo: () => void save(field, before),
+    });
   };
 
   return (
@@ -73,8 +78,8 @@ export function ItemDrawer({
       {it && (
         <>
           <p className="muted">
-            reported by {String(it.reporter_id).slice(0, 8)} · {it.state} · stage {it.stage ?? "—"}{" "}
-            · {it.hours_logged} h logged
+            reported by {it.reporter ?? "a former member"} · {it.state} · stage {it.stage ?? "—"} ·{" "}
+            {it.hours_logged} h logged
           </p>
           <div role="tablist" className="tabs">
             {(
@@ -90,6 +95,8 @@ export function ItemDrawer({
               field={conflict.field}
               mine={conflict.mine}
               theirs={conflict.current[conflict.field]}
+              changedBy={conflict.changedBy}
+              changedAt={conflict.changedAt}
               onKeepMine={async () => {
                 const f = conflict.field;
                 const v = conflict.mine;
@@ -122,7 +129,7 @@ export function ItemDrawer({
                 </select>
                 <ProvenanceChip
                   source={String(it.priority_source ?? "manual")}
-                  setBy={prov.data?.priority?.[0]?.set_by}
+                  setBy={prov.data?.priority?.[0]?.set_by_name}
                   setAt={prov.data?.priority?.[0]?.set_at}
                 />
               </dd>
@@ -153,14 +160,18 @@ export function ItemDrawer({
                   <div key={dim} className="dimrow">
                     <dt>{dim}</dt>
                     <dd>
-                      {(vals as Row[]).map((v) => (
+                      {(vals as Json[]).map((v) => (
                         <span key={v.value}>
                           {v.value}{" "}
                           <ProvenanceChip
                             source={v.source}
-                            setBy={v.set_by}
+                            setBy={v.set_by_name}
                             setAt={v.set_at}
-                            inheritedFrom={v.inherited_from ? `${v.inherited_from.type}` : null}
+                            inheritedFrom={
+                              v.inherited_from
+                                ? (v.inherited_from.name ?? v.inherited_from.type)
+                                : null
+                            }
                           />{" "}
                         </span>
                       ))}
@@ -179,7 +190,7 @@ export function ItemDrawer({
           {tab === "placements" && (
             <table>
               <tbody>
-                {((placements.data?.data as Row[]) ?? []).map((p) => (
+                {(placements.data?.data ?? []).map((p) => (
                   <tr key={p.id}>
                     <td>{p.stage}</td>
                     <td>{p.entered_at}</td>
@@ -190,11 +201,11 @@ export function ItemDrawer({
             </table>
           )}
           {tab === "violations" &&
-            (((violations.data?.data as Row[]) ?? []).length === 0 ? (
+            ((violations.data?.data ?? []).length === 0 ? (
               <Empty>No violations on this item.</Empty>
             ) : (
               <ul>
-                {((violations.data?.data as Row[]) ?? []).map((v) => (
+                {(violations.data?.data ?? []).map((v) => (
                   <li key={v.id}>
                     {v.severity} · {v.policy} · {v.status}
                     {v.waive_reason ? ` (waived: ${v.waive_reason})` : ""}
@@ -204,7 +215,7 @@ export function ItemDrawer({
             ))}
           {tab === "events" && (
             <ul>
-              {((events.data?.data as Row[]) ?? []).map((e) => (
+              {(events.data?.data ?? []).map((e) => (
                 <li key={e.id}>
                   {e.occurred_at?.slice(0, 16)} · {e.event_type}
                 </li>

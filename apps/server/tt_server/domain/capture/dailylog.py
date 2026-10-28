@@ -10,13 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import DailyLogStatus, EventSource, TargetType
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit, system_person, zone
+from tt_server.domain.errors import NotFound
 
 
 def to_dict(row: m.DailyLog) -> dict[str, Any]:
+    """Serialise a daily log row to its API dict (ISO date, status, summary and totals)."""
     return {
         "id": row.id,
         "person_id": row.person_id,
@@ -31,11 +32,12 @@ def to_dict(row: m.DailyLog) -> dict[str, Any]:
 
 
 async def get_for(uow: UnitOfWork, ws_id: str, log_id: str) -> m.DailyLog:
+    """Load a daily log of the workspace or raise NotFound, so other workspaces' logs stay invisible."""
     row = await uow.session.scalar(
         select(m.DailyLog).where(m.DailyLog.id == log_id, m.DailyLog.workspace_id == ws_id)
     )
     if row is None:
-        raise ApiError(404, "not_found", "daily log not found")
+        raise NotFound("not_found", "daily log not found")
     return row
 
 
@@ -46,9 +48,17 @@ def _day_bounds(day: date, tz_name: str) -> tuple[datetime, datetime]:
 
 
 async def build_for_person(
-    uow: UnitOfWork, ws: m.Workspace, member: m.WorkspaceMember, day: date, actor_id: str
+    uow: UnitOfWork,
+    ws: m.Workspace,
+    member: m.WorkspaceMember,
+    day: date,
+    actor_id: str,
+    *,
+    quiet: bool = False,
 ) -> m.DailyLog | None:
-    """Upsert the draft for `member` on a local `day`; None if no activity. Never edits confirmed logs."""
+    """Upsert the draft for `member` on a local `day`; None if no activity. Never edits confirmed logs.
+
+    `quiet=True` (the per-message ingest path) emits no event when the draft is already up to date."""
     session = uow.session
     person = await session.get(m.Person, member.person_id)
     assert person is not None  # noqa: S101
@@ -106,8 +116,21 @@ async def build_for_person(
         session.add(log)
     elif log.status != DailyLogStatus.DRAFT:
         return log
-    log.summary, log.item_ids = "\n".join(lines), sorted(minutes)
-    log.minutes_total, log.blockers = sum(minutes.values()), "; ".join(blockers) or None
+    summary, item_ids = "\n".join(lines), sorted(minutes)
+    total, blocked = sum(minutes.values()), "; ".join(blockers) or None
+    if (
+        quiet
+        and not created
+        and (log.summary, log.item_ids, log.minutes_total, log.blockers)
+        == (
+            summary,
+            item_ids,
+            total,
+            blocked,
+        )
+    ):
+        return log  # nothing changed: no new event
+    log.summary, log.item_ids, log.minutes_total, log.blockers = summary, item_ids, total, blocked
     await session.flush()
     emit(
         uow,
@@ -146,6 +169,7 @@ async def build_for_workspace(
 
 
 async def confirm(uow: UnitOfWork, ws: m.Workspace, log: m.DailyLog, actor_id: str) -> None:
+    """Mark a draft daily log confirmed by its owner (idempotent) and emit the confirmation event."""
     if log.status == DailyLogStatus.DRAFT:
         log.status = DailyLogStatus.CONFIRMED
     emit(
@@ -160,6 +184,7 @@ async def confirm(uow: UnitOfWork, ws: m.Workspace, log: m.DailyLog, actor_id: s
 
 
 async def review(uow: UnitOfWork, ws: m.Workspace, log: m.DailyLog, reviewer_id: str) -> None:
+    """Record a manager's review of a daily log (reviewer and timestamp) and emit the review event."""
     log.status, log.reviewed_by, log.reviewed_at = DailyLogStatus.REVIEWED, reviewer_id, utcnow()
     emit(
         uow,

@@ -1,6 +1,6 @@
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useMemo, useState } from "react";
-import type { Row } from "../../api/http";
+import type { Project, Team, WeightScheme } from "../../api/types";
 import { Empty } from "../../components/ui";
 import { METRICS, seriesOf } from "../../lib/governance";
 import { useList, useWs } from "../../lib/hooks";
@@ -58,9 +58,9 @@ function LineChart({
 
 export function Performance() {
   const ws = useWs();
-  const projects = useList("/projects");
-  const teams = useList("/teams");
-  const schemes = useList("/weight-schemes");
+  const projects = useList<Project>("/projects");
+  const teams = useList<Team>("/teams");
+  const schemes = useList<WeightScheme>("/weight-schemes");
   const [scope, setScope] = useState("workspace:" + ws);
   const [days, setDays] = useState(30);
   const [scheme, setScheme] = useState("");
@@ -111,12 +111,12 @@ export function Performance() {
         <span className="grow" />
         <select aria-label="Scope" value={scope} onChange={(e) => setScope(e.target.value)}>
           <option value={"workspace:" + ws}>Workspace</option>
-          {(teams.data ?? []).map((t: Row) => (
+          {(teams.data ?? []).map((t: Team) => (
             <option key={t.id} value={`team:${t.slug}`}>
               Team · {t.name}
             </option>
           ))}
-          {(projects.data ?? []).map((p: Row) => (
+          {(projects.data ?? []).map((p: Project) => (
             <option key={p.id} value={`project:${p.key}`}>
               Project · {p.key}
             </option>
@@ -128,7 +128,7 @@ export function Performance() {
           onChange={(e) => setScheme(e.target.value)}
         >
           <option value="">Default scheme</option>
-          {(schemes.data ?? []).map((s: Row) => (
+          {(schemes.data ?? []).map((s: WeightScheme) => (
             <option key={s.id} value={s.name}>
               {s.name}
             </option>

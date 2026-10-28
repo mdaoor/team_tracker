@@ -18,110 +18,26 @@ from tt_schema.enums import (
     ValueSource,
 )
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Conflict, Forbidden, Invalid
 from tt_server.domain.items import service as items
 from tt_server.domain.overlay.classify import classify
 from tt_server.domain.overlay.mirrors import ensure_builtin_dimensions, ensure_value
+from tt_server.domain.overlay.process_defs import (
+    SW_DELIVERY,
+    board,
+    current_placement,
+    ensure_default_process,
+    get_process,
+    get_stage,
+    stages_of,
+    wip_count,
+)
 from tt_server.domain.projects.service import pick_state, workflow_states
 
 log = structlog.get_logger()
-
-# key, name, category, maps_to_state_category, expected_duration_days (gen_snapshot.py), ADR-0005
-SW_DELIVERY: list[tuple[str, str, StageCategory, StateCategory, int | None]] = [
-    ("idea", "Idea", StageCategory.IDEATION, StateCategory.OPEN, 14),
-    ("discovery", "Discovery", StageCategory.PLANNING, StateCategory.OPEN, 10),
-    ("design", "Design", StageCategory.PLANNING, StateCategory.OPEN, 7),
-    ("build", "Build", StageCategory.EXECUTION, StateCategory.ACTIVE, 10),
-    ("test", "Test", StageCategory.VALIDATION, StateCategory.ACTIVE, 5),
-    ("staging", "Staging", StageCategory.RELEASE, StateCategory.ACTIVE, 3),
-    ("production", "Production", StageCategory.OPERATE, StateCategory.DONE, None),
-    ("retired", "Retired", StageCategory.CLOSED, StateCategory.DONE, None),
-]
-
-
-async def ensure_default_process(session: AsyncSession, ws_id: str, owner_id: str | None = None) -> m.Process:
-    proc = await session.scalar(
-        select(m.Process).where(
-            m.Process.workspace_id == ws_id, m.Process.is_default, m.Process.deleted_at.is_(None)
-        )
-    )
-    if proc is not None:
-        return proc
-    proc = m.Process(
-        id=new_id(),
-        workspace_id=ws_id,
-        key="sw-delivery",
-        name="Software delivery",
-        is_default=True,
-        owner_id=owner_id,
-        applies_to=["work_item", "project", "product"],
-    )
-    session.add(proc)
-    await session.flush()
-    for pos, (key, name, cat, maps, days) in enumerate(SW_DELIVERY):
-        session.add(
-            m.Stage(
-                id=new_id(),
-                process_id=proc.id,
-                key=key,
-                name=name,
-                position=pos,
-                category=cat,
-                maps_to_state_category=maps,
-                expected_duration_days=days,
-            )
-        )
-    await session.flush()
-    return proc
-
-
-async def get_process(session: AsyncSession, ws_id: str, ref: str | None = None) -> m.Process:
-    stmt = select(m.Process).where(m.Process.workspace_id == ws_id, m.Process.deleted_at.is_(None))
-    stmt = (
-        stmt.where((m.Process.id == ref) | (m.Process.key == ref))
-        if ref
-        else stmt.where(m.Process.is_default)
-    )
-    proc = await session.scalar(stmt)
-    if proc is None:
-        raise ApiError(404, "not_found", "process not found")
-    return proc
-
-
-async def stages_of(session: AsyncSession, process_id: str) -> list[m.Stage]:
-    return list(
-        (
-            await session.scalars(
-                select(m.Stage)
-                .where(m.Stage.process_id == process_id, m.Stage.deleted_at.is_(None))
-                .order_by(m.Stage.position)
-            )
-        ).all()
-    )
-
-
-async def get_stage(session: AsyncSession, process: m.Process, ref: str) -> m.Stage:
-    for s in await stages_of(session, process.id):
-        if s.key == ref or s.id == ref:
-            return s
-    raise ApiError(404, "not_found", f"stage {ref!r} not found in process {process.key!r}", pointer="/stage")
-
-
-async def current_placement(
-    session: AsyncSession, target_type: TargetType, target_id: str, process_id: str | None = None
-) -> m.StagePlacement | None:
-    stmt = select(m.StagePlacement).where(
-        m.StagePlacement.target_type == target_type,
-        m.StagePlacement.target_id == target_id,
-        m.StagePlacement.exited_at.is_(None),
-        m.StagePlacement.deleted_at.is_(None),
-    )
-    if process_id:
-        stmt = stmt.where(m.StagePlacement.process_id == process_id)
-    return await session.scalar(stmt.order_by(m.StagePlacement.entered_at.desc()).limit(1))
 
 
 async def _lock_target(session: AsyncSession, target_type: TargetType, target_id: str) -> None:
@@ -131,7 +47,7 @@ async def _lock_target(session: AsyncSession, target_type: TargetType, target_id
         TargetType.PRODUCT: m.Product,
     }.get(target_type)
     if model is None:
-        raise ApiError(400, "not_applicable", f"cannot place a {target_type.value}")
+        raise Invalid("not_applicable", f"cannot place a {target_type.value}")
     await session.execute(select(model.id).where(model.id == target_id).with_for_update())
 
 
@@ -189,8 +105,7 @@ async def place(
             allowed = {str(r) for r in rule.allowed_roles}
             if held is not None and not (held & allowed) and not getattr(acl, "is_admin", False):
                 if strict:
-                    raise ApiError(
-                        403,
+                    raise Forbidden(
                         "role_not_allowed",
                         "your role may not make this transition",
                         details={"allowed_roles": sorted(allowed)},
@@ -204,8 +119,7 @@ async def place(
         if rule.required_evidence_kinds and target_type == TargetType.WORK_ITEM:
             missing = await _missing_evidence(s, target_id, [str(k) for k in rule.required_evidence_kinds])
             if missing and strict:
-                raise ApiError(
-                    409,
+                raise Conflict(
                     "missing_evidence",
                     "required evidence is missing for this transition",
                     details={"missing": missing},
@@ -426,78 +340,16 @@ async def state_to_stage(uow: UnitOfWork, item: m.WorkItem, old: StateCategory, 
 items.on_state_category_changed.append(state_to_stage)
 
 
-async def wip_count(session: AsyncSession, stage_id: str) -> int:
-    return int(
-        await session.scalar(
-            select(func.count())
-            .select_from(m.StagePlacement)
-            .join(
-                m.WorkItem,
-                (m.StagePlacement.target_type == TargetType.WORK_ITEM)
-                & (m.WorkItem.id == m.StagePlacement.target_id),
-            )
-            .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
-            .where(
-                m.StagePlacement.stage_id == stage_id,
-                m.StagePlacement.exited_at.is_(None),
-                m.WorkflowState.category != StateCategory.DONE,
-            )
-        )
-        or 0
-    )
-
-
-async def board(
-    session: AsyncSession, ws_id: str, process: m.Process, now: datetime | None = None, acl: Any = None
-) -> dict[str, Any]:
-    now = now or utcnow()
-    cols = []
-    for st in await stages_of(session, process.id):
-        stmt = (
-            select(m.StagePlacement, m.WorkItem, m.Project.key)
-            .join(
-                m.WorkItem,
-                (m.StagePlacement.target_type == TargetType.WORK_ITEM)
-                & (m.WorkItem.id == m.StagePlacement.target_id),
-            )
-            .join(m.Project, m.Project.id == m.WorkItem.project_id)
-            .where(
-                m.StagePlacement.stage_id == st.id,
-                m.StagePlacement.exited_at.is_(None),
-                m.Project.workspace_id == ws_id,
-                m.WorkItem.deleted_at.is_(None),
-            )
-            .order_by(m.StagePlacement.entered_at)
-        )
-        if acl is not None:  # a board only shows cards the viewer may see (Inbox items never appear)
-            from tt_server.acl.visibility import visible
-
-            stmt = visible(stmt, acl, m.WorkItem)
-        rows = (await session.execute(stmt)).all()
-        cards = []
-        for pl, it, pkey in rows:
-            approval = await session.get(m.Approval, pl.approval_id) if pl.approval_id else None
-            cards.append(
-                {
-                    "key": it.key,
-                    "title": it.title,
-                    "project_key": pkey,
-                    "priority": it.priority.value,
-                    "stage_age_days": (now - pl.entered_at).days,
-                    "entered_at": pl.entered_at.isoformat(),
-                    "approval": approval.status.value if approval else None,
-                }
-            )
-        cols.append(
-            {
-                "stage": st.key,
-                "name": st.name,
-                "category": st.category.value,
-                "wip_limit": st.wip_limit,
-                "expected_duration_days": st.expected_duration_days,
-                "wip": await wip_count(session, st.id),
-                "requires_approval": st.requires_approval,
-                "items": cards,
-            }
-        )
-    return {"process": process.key, "columns": cols}
+# The definitions and read side moved to `process_defs`; the old import path keeps working.
+__all__ = [
+    "SW_DELIVERY",
+    "board",
+    "current_placement",
+    "ensure_default_process",
+    "get_process",
+    "get_stage",
+    "place",
+    "stages_of",
+    "state_to_stage",
+    "wip_count",
+]

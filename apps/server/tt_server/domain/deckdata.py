@@ -8,16 +8,18 @@ from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_filter import FilterError
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import InsightStatus, ScopeType
 
-from tt_server.acl.context import AclContext
+from tt_server.acl.context import AclContext, load_context
 from tt_server.acl.visibility import visible
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
+from tt_server.db.uow import commit_derived
 from tt_server.domain import snapshot as snap
+from tt_server.domain.errors import DomainError, Invalid
 from tt_server.domain.presentations import QUERY_KINDS
 from tt_server.query import service
 from tt_server.query.compile import QueryCtx
@@ -33,6 +35,7 @@ def qctx(
     acl: AclContext,
     scheme_id: str | None = None,
 ) -> QueryCtx:
+    """Build the query context a deck is rendered under for the given viewer and ACL."""
     return QueryCtx(
         session=session, ws_id=ws.id, acl=acl, person_id=person.id, handle=member.handle,
         tz=person.time_zone or "UTC", scheme_id=scheme_id,
@@ -40,6 +43,7 @@ def qctx(
 
 
 async def scheme_by_ref(session: AsyncSession, ws_id: str, ref: str | None) -> m.WeightScheme | None:
+    """Resolve a weight scheme of the workspace by id or name; None when no ref is given or it is unknown."""
     if not ref:
         return None
     row = await session.scalar(
@@ -48,7 +52,7 @@ async def scheme_by_ref(session: AsyncSession, ws_id: str, ref: str | None) -> m
         )
     )
     if row is None:
-        raise ApiError(400, "unknown_scheme", f"unknown weight scheme {ref!r}", pointer="/weight_scheme")
+        raise Invalid("unknown_scheme", f"unknown weight scheme {ref!r}", pointer="/weight_scheme")
     return row
 
 
@@ -77,23 +81,21 @@ async def get_snapshot(
     if body.get("processes") is None:
         body.pop("processes", None)
     if cache:
-        if row is None:
-            s.add(
-                m.SnapshotCache(
-                    id=new_id(),
-                    workspace_id=ws.id,
-                    cache_key=key,
-                    person_id=qc.person_id,
-                    scope=scope,
-                    days=days,
-                    scheme_id=scheme.id if scheme else None,
-                    as_of=utcnow(),
-                    body=body,
-                )
+        # one statement, so two requests assembling the same snapshot at once (builder preview + export) cannot collide
+        now = utcnow()
+        values = dict(
+            workspace_id=ws.id, cache_key=key, person_id=qc.person_id, scope=scope, days=days,
+            scheme_id=scheme.id if scheme else None, as_of=now, body=body,
+        )  # fmt: skip
+        await s.execute(
+            pg_insert(m.SnapshotCache)
+            .values(id=new_id(), **values)
+            .on_conflict_do_update(
+                index_elements=["workspace_id", "cache_key"],
+                set_={"body": body, "as_of": now, "deleted_at": None},
             )
-        else:
-            row.body, row.as_of = body, utcnow()
-        await s.commit()
+        )
+        await commit_derived(s)
     return body
 
 
@@ -123,6 +125,7 @@ async def _restricted(qc: QueryCtx, kind: str) -> bool:
 async def slide_payload(
     qc: QueryCtx, slide: dict[str, Any], snapshot: dict[str, Any]
 ) -> dict[str, Any] | None:
+    """Compute the data behind one slide from the snapshot; None when the slide has nothing to show."""
     kind, cfg = slide["kind"], slide["config"]
     s = qc.session
     try:
@@ -166,8 +169,8 @@ async def slide_payload(
                 page={"size": min(int(cfg.get("limit", 50)), service.MAX_PAGE)},
             )
     except FilterError as exc:
-        raise ApiError(
-            400, "invalid_filter", exc.message, pointer=f"/slides/{slide['position']}/config/filter"
+        raise Invalid(
+            "invalid_filter", exc.message, pointer=f"/slides/{slide['position']}/config/filter"
         ) from exc
     if kind in {"violations", "habits"}:
         return {"restricted": await _restricted(qc, kind)}
@@ -225,6 +228,7 @@ async def slide_payload(
 async def deck_data(
     qc: QueryCtx, ws: m.Workspace, p: m.Presentation, *, viewer: str, fresh: bool = False
 ) -> dict[str, Any]:
+    """Resolve every slide of a presentation into renderable data for the viewer (snapshot cached unless fresh)."""
     scheme = await qc.session.get(m.WeightScheme, p.weight_scheme_id) if p.weight_scheme_id else None
     qc.scheme_id = scheme.id if scheme else None
     snapshot = await get_snapshot(
@@ -240,6 +244,7 @@ async def deck_data(
 
 
 def presentation_dict(p: m.Presentation) -> dict[str, Any]:
+    """Serialise a presentation row to its API dict."""
     return {
         "id": p.id, "workspace_id": p.workspace_id, "owner_id": p.owner_id, "title": p.title, "scope": p.scope,
         "range_days": p.range_days, "weight_scheme_id": p.weight_scheme_id, "theme": p.theme, "slides": p.slides,
@@ -256,7 +261,6 @@ async def refresh_cache(
 
     A row nobody has touched for `keep_days` is deleted rather than refreshed forever.
     """
-    from tt_server.acl.context import load_context
 
     n = 0
     async with factory() as s:
@@ -290,7 +294,7 @@ async def refresh_cache(
         for r in rows:
             if utcnow() - r.updated_at > timedelta(days=keep_days):
                 await s.delete(r)
-        await s.commit()
+        await commit_derived(s)
     for person_id, scope, days, scheme_id, _ in todo:
         async with factory() as s:
             ws = await s.get(m.Workspace, ws_id)
@@ -309,7 +313,7 @@ async def refresh_cache(
                     qc, ws, scope=scope, days=days, scheme=scheme, viewer=member.handle, fresh=True
                 )
                 n += 1
-            except ApiError:
+            except DomainError:
                 continue  # the scope vanished (project deleted): the row ages out
     return n
 

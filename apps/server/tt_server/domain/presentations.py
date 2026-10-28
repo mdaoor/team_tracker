@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 from tt_schema.base import new_id
 
-from tt_server.api.errors import ApiError
+from tt_server.domain.errors import Invalid
 
 SLIDE_KINDS = (
     "title", "kpis", "projects", "project_detail", "pipeline", "explorer", "radar", "gantt", "now", "people",
@@ -74,6 +74,8 @@ EXPLORER_MEASURES = {"count", "hours", "wt", "viol"}
 
 
 class SlideIn(BaseModel):
+    # Input shape of one slide in a presentation (kind, titles, config).
+
     id: str | None = None
     kind: str
     title: str | None = None
@@ -82,6 +84,9 @@ class SlideIn(BaseModel):
     notes: str | None = None
     layout: Literal["full", "split", "grid"] = "full"
     live: bool = False  # query slides re-run when presented
+    fit: Literal["paginate", "shrink"] = (
+        "paginate"  # long content: continuation slides "(cont.)", or scale to fit one slide
+    )
 
     @field_validator("kind")
     @classmethod
@@ -102,41 +107,34 @@ def normalise_slides(slides: list[SlideIn]) -> list[dict[str, Any]]:
         cfg = {**defaults, **s.config}
         for k in required:
             if cfg.get(k) in (None, ""):
-                raise ApiError(
-                    400,
+                raise Invalid(
                     "invalid_slide",
                     f"{s.kind} slides need config.{k}",
                     pointer=f"/slides/{pos}/config/{k}",
                 )
         if s.kind == "explorer":
             if cfg["dimA"] not in EXPLORER_DIMS or (cfg["dimB"] and cfg["dimB"] not in EXPLORER_DIMS):
-                raise ApiError(
-                    400,
+                raise Invalid(
                     "invalid_slide",
                     f"dimensions must be among {sorted(EXPLORER_DIMS)}",
                     pointer=f"/slides/{pos}/config",
                 )
             if cfg["measure"] not in EXPLORER_MEASURES:
-                raise ApiError(
-                    400,
+                raise Invalid(
                     "invalid_slide",
                     f"measure must be one of {sorted(EXPLORER_MEASURES)}",
                     pointer=f"/slides/{pos}/config/measure",
                 )
         if s.kind == "image" and cfg.get("url") and not IMAGE_URL.match(str(cfg["url"])):
-            raise ApiError(
-                400,
+            raise Invalid(
                 "invalid_slide",
                 "image.url must be a data:image/... URL or a same-origin path (no external hosts)",
                 pointer=f"/slides/{pos}/config/url",
             )
         if s.kind == "radar" and not (1 <= int(cfg["days"]) <= 120):
-            raise ApiError(
-                400, "invalid_slide", "radar days must be 1..120", pointer=f"/slides/{pos}/config/days"
-            )
+            raise Invalid("invalid_slide", "radar days must be 1..120", pointer=f"/slides/{pos}/config/days")
         if s.kind == "gantt" and cfg["rows"] not in {"epic", "item", "milestone"}:
-            raise ApiError(
-                400,
+            raise Invalid(
                 "invalid_slide",
                 "gantt rows must be epic, item or milestone",
                 pointer=f"/slides/{pos}/config/rows",
@@ -144,7 +142,7 @@ def normalise_slides(slides: list[SlideIn]) -> list[dict[str, Any]]:
         out.append(
             {
                 "id": s.id or new_id(), "kind": s.kind, "title": s.title, "subtitle": s.subtitle, "config": cfg,
-                "notes": s.notes, "layout": s.layout, "live": s.live, "position": pos,
+                "notes": s.notes, "layout": s.layout, "live": s.live, "fit": s.fit, "position": pos,
             }
         )  # fmt: skip
     return out
@@ -154,5 +152,5 @@ def parse_scope_ref(scope: str) -> str:
     """Validate the `kind:ref` shape; the assembler resolves the reference and answers 404 for unknown ones."""
     kind = scope.partition(":")[0]
     if kind not in {"workspace", "product", "project", "team", "person"}:
-        raise ApiError(400, "invalid_scope", f"unknown scope {scope!r}", pointer="/scope")
+        raise Invalid("invalid_scope", f"unknown scope {scope!r}", pointer="/scope")
     return scope

@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 from tt_schema.enums import ApprovalPolicy, ApprovalStatus, Decision
-from tt_server.api.errors import ApiError
+from tt_server.domain.errors import DomainError
 from tt_server.domain.overlay.approvals import evaluate as eval_approval
 from tt_server.domain.overlay.weights import evaluate, validate_formula
 
@@ -67,7 +67,7 @@ def test_multipliers_compose_and_clamp() -> None:
     ],
 )
 def test_invalid_formulas_are_rejected(formula: dict) -> None:  # type: ignore[type-arg]
-    with pytest.raises(ApiError) as exc:
+    with pytest.raises(DomainError) as exc:
         validate_formula(formula)
     assert exc.value.code == "invalid_formula"
 

@@ -9,6 +9,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from tt_server.domain.errors import DomainError
+
 _CODES = {
     400: "bad_request",
     401: "unauthorized",
@@ -20,7 +22,9 @@ _CODES = {
 }
 
 
-class ApiError(Exception):
+class ApiError(DomainError):
+    """An error raised by the HTTP layer with an explicit status. Domain code raises the typed errors of `domain.errors`."""
+
     def __init__(
         self,
         status: int,
@@ -30,9 +34,8 @@ class ApiError(Exception):
         pointer: str | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(message)
-        self.status, self.code, self.message = status, code, message
-        self.pointer, self.details = pointer, details or {}
+        super().__init__(code, message, pointer=pointer, details=details)
+        self.status = status
 
 
 def error_body(
@@ -47,8 +50,8 @@ def _pointer(loc: tuple[Any, ...]) -> str:
 
 
 def install_error_handlers(app: FastAPI) -> None:
-    @app.exception_handler(ApiError)
-    async def _api_error(_: Request, exc: ApiError) -> JSONResponse:
+    @app.exception_handler(DomainError)
+    async def _domain_error(_: Request, exc: DomainError) -> JSONResponse:
         return JSONResponse(error_body(exc.code, exc.message, exc.pointer, exc.details), exc.status)
 
     @app.exception_handler(StarletteHTTPException)

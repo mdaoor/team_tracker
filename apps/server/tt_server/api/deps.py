@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import secrets
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
@@ -20,17 +18,9 @@ from tt_server.api.errors import ApiError
 from tt_server.api.session import SLIDE_AFTER_SECONDS, check_csrf, read_session
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
+from tt_server.domain.tokens import hash_token as hash_token
+from tt_server.domain.tokens import new_token as new_token  # re-exported for the routers that mint tokens
 from tt_server.sso import principal_from
-
-TOKEN_PREFIX = "tt_"  # noqa: S105
-
-
-def hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-def new_token() -> str:
-    return TOKEN_PREFIX + secrets.token_urlsafe(32)
 
 
 def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -149,7 +139,7 @@ async def current_actor(
         scopes, request.method, request.url.path, request.query_params.get("person")
     ):
         raise ApiError(403, "insufficient_scope", f"token scopes {list(scopes)} do not allow this request")
-    await uow.session.commit()  # end the read transaction: release the connection / savepoint early
+    await uow.commit_bookkeeping()  # end the read transaction: release the connection / savepoint early
     uow.context["actor_id"] = person.id
     uow.context["acl"] = acl
     return Actor(workspace, member, person, acl)

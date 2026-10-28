@@ -8,10 +8,11 @@ from sqlalchemy import select
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import EventSource, GrantLevel, SubjectType, TargetType
 
-from tt_server.api.errors import ApiError
+from tt_server.acl.roles import get_role
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Invalid, NotFound
 
 SYSTEM = "system"  # `granted_by` marker: system grants are the only ones membership changes may delete
 
@@ -34,10 +35,8 @@ async def _resolve_subject(uow: UnitOfWork, ws_id: str, subject_type: SubjectTyp
         if tid:
             return str(tid)
     else:
-        from tt_server.acl.roles import get_role
-
         return (await get_role(s, ref, ws_id)).id
-    raise ApiError(404, "not_found", f"unknown {subject_type.value} {ref!r}", pointer="/subject")
+    raise NotFound("not_found", f"unknown {subject_type.value} {ref!r}", pointer="/subject")
 
 
 async def _resolve_object(uow: UnitOfWork, ws_id: str, object_type: TargetType, ref: str) -> str:
@@ -49,7 +48,7 @@ async def _resolve_object(uow: UnitOfWork, ws_id: str, object_type: TargetType, 
         TargetType.TEAM: m.Team,
     }.get(object_type)
     if model is None:
-        raise ApiError(400, "not_grantable", f"cannot grant on a {object_type.value}", pointer="/object_type")
+        raise Invalid("not_grantable", f"cannot grant on a {object_type.value}", pointer="/object_type")
     if object_type == TargetType.TEAM:
         by_name = model.slug == ref
     else:
@@ -63,7 +62,7 @@ async def _resolve_object(uow: UnitOfWork, ws_id: str, object_type: TargetType, 
         stmt = stmt.where(model.workspace_id == ws_id)
     oid = await s.scalar(stmt)
     if oid is None:
-        raise ApiError(404, "not_found", f"unknown {object_type.value} {ref!r}", pointer="/object_id")
+        raise NotFound("not_found", f"unknown {object_type.value} {ref!r}", pointer="/object_id")
     return str(oid)
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import statistics
 import time
 
+import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_server.acl.context import load_context
@@ -14,6 +15,7 @@ from tt_server.db import models as m
 from tests.api.conftest import Api
 
 ROUTERS_COVERED = ("core",)
+pytestmark = pytest.mark.perf
 N = 10_000
 BUDGET_MS = 150.0
 

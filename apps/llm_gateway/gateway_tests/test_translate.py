@@ -152,6 +152,7 @@ async def test_translate_errors_map_to_clean_http_errors(make: Callable[..., Har
     assert (await local.post("/v1/translate", request_body(line="x"))).status_code == 503
 
 
+@pytest.mark.perf
 async def test_translate_uses_the_short_timeout_and_gateway_overhead_is_small(
     make: Callable[..., Harness],
 ) -> None:

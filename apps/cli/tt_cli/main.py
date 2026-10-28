@@ -19,9 +19,11 @@ from tt_client.login import LoginError, browser_login, check_server, ldap_token
 from tt_client.outbox import Entry, sync
 from tt_client.parser.llm import GatewayTranslator, batch_review, translate_line
 from tt_client.preview import preview_dict
+from tt_client.rows import DayDraft, minutes_text
 from tt_schema.client import ClientBatch, ClientMessage
 from typer.core import TyperGroup
 
+from tt_cli import personal as personal_cli
 from tt_cli import render
 from tt_cli.runtime import Runtime, load_runtime, now
 
@@ -64,7 +66,17 @@ def _set_jira(batch: ClientBatch, pack_data: dict[str, Any] | None, force: bool)
 
 
 def _deliver(rt: Runtime, entries: list[Entry]) -> None:
+    from tt_cli.commands_cli import print_command_result
+
+    commands: dict[str, dict[str, Any]] = {}
+    for e in entries:
+        try:
+            commands.update({c["client_id"]: c for c in rt.outbox.load(e).get("commands", [])})
+        except (OSError, ValueError):
+            continue
     report = sync(rt.api, rt.outbox, only=entries)
+    for e in report.unconfirmed or []:
+        typer.echo(f"kept in the outbox: needs confirmation (tt send {e.batch_id[:8]} --yes)")
     if report.offline:
         typer.echo(f"offline — queued {report.kept} batch(es); `tt sync` will deliver them (exactly once).")
         return
@@ -74,6 +86,9 @@ def _deliver(rt: Runtime, entries: list[Entry]) -> None:
             err=True,
         )
     for r in report.results or []:
+        if r.get("client_id") in commands:
+            print_command_result(r, commands[r["client_id"]])
+            continue
         flag = {
             "applied": "✓",
             "deduplicated": "✓ (already had it)",
@@ -92,10 +107,19 @@ def _deliver(rt: Runtime, entries: list[Entry]) -> None:
             typer.echo(f"   → sent to your manager's review queue ({rid[:8]})")
         if r["status"] == "failed":
             typer.echo(f"   error: {r.get('error_code')}", err=True)
-    if report.failed_messages:
+    if report.failed_messages or report.rejected_commands:
         raise typer.Exit(1)
     if rt.cfg.feedback:
         _flush_feedback(rt)
+
+
+def _nudge(rt: Runtime) -> None:
+    """After a command, remind once per day (after the daily-log time) that today's draft awaits confirmation."""
+    from tt_client.notify import ConsoleNotifier, NudgeLog, end_of_day_nudge
+
+    end_of_day_nudge(
+        ConsoleNotifier(typer.echo), NudgeLog(rt.data / "nudges.json"), rt.api, now(), rt.cfg.time_zone
+    )
 
 
 def _flush_feedback(rt: Runtime) -> None:
@@ -130,6 +154,18 @@ def _edit_entry(rt: Runtime, entry: Entry) -> None:
     rt.outbox.db.commit()
 
 
+def _empty_state(pack: Any) -> None:
+    """First-run / empty input: ask the one question and show what a line can look like (UX §2.6)."""
+    from tt_cli.runtime import GHOST_EXAMPLES
+
+    typer.echo("What are you working on?  One line is enough:\n")
+    cur = pack.current_activity if pack else None
+    if cur:
+        typer.echo(f"  now running: {cur['key']} {cur['title']}   (`tt done` when it is finished)\n")
+    for ex in GHOST_EXAMPLES:
+        typer.echo(f'  tt "{ex}"')
+
+
 def _capture(
     rt: Runtime,
     line: str,
@@ -145,8 +181,8 @@ def _capture(
     pack = rt.pack()
     t = translate_line(line, rt.parse_ctx(), pack=pack, translator=rt.translator(), mode=mode)
     if not t.batch.messages:
-        typer.echo("nothing to send", err=True)
-        raise typer.Exit(2)
+        _empty_state(pack)
+        raise typer.Exit(0)
     batch = t.batch.model_copy(update={"workspace": rt.cfg.workspace})
     _set_jira(batch, pack.data if pack else None, jira)
     if as_json or dry_run:
@@ -172,7 +208,10 @@ def _finish(rt: Runtime, batch: ClientBatch, pack: Any, *, yes: bool, no_send: b
     if not yes and sys.stdin.isatty() and not typer.confirm("Send?", default=True):
         typer.echo(f"kept in the outbox: {entry.path}")
         return
+    if not yes and not sys.stdin.isatty():
+        typer.echo("not a terminal, so nothing was asked: sending now (use --no-send to review first)")
     _deliver(rt, [entry])
+    _nudge(rt)
 
 
 # ------------------------------------------------------------------ commands
@@ -397,15 +436,18 @@ def today_cmd(confirm: Annotated[bool, typer.Option("--confirm")] = False) -> No
     day = now().astimezone(__import__("zoneinfo").ZoneInfo(rt.cfg.time_zone)).date().isoformat()
     logs = rt.api.daily_logs(day)
     if not logs:
-        typer.echo("no daily log yet (it is drafted at 17:30 or when you log work)")
+        typer.echo("nothing logged today yet — log some work and your day drafts itself")
         return
-    log = logs[0]
-    typer.echo(f"{log['date']}  {log['status']}  {log['minutes_total'] / 60:.1f}h\n{log['summary']}")
-    if log["blockers"]:
-        typer.echo(f"blockers: {log['blockers']}")
+    log = DayDraft.from_api(logs[0])
+    typer.echo(f"{log.date} · {log.status} · {minutes_text(log.minutes_total)}\n{log.summary}")
+    if log.blockers:
+        typer.echo(f"blockers: {log.blockers}")
     if confirm:
-        rt.api.confirm_daily_log(log["id"])
-        typer.echo("confirmed ✓")
+        if log.status == "confirmed":
+            typer.echo(log.already_sentence())
+            return
+        rt.api.confirm_daily_log(log.id)
+        typer.echo(log.confirmed_sentence())
 
 
 @app.command("pack")
@@ -514,6 +556,12 @@ def gateway_serve(
     typer.echo(f"gateway on http://127.0.0.1:{port} (privacy_mode={cfg.privacy_mode})")
     uvicorn.run(build_app(cfg), host="127.0.0.1", port=port)
 
+
+personal_cli.register(app)  # Phase 15: day/week/month/add/timer/cal/tray/recur/privacy/sent/erase-local/...
+
+from tt_cli.commands_cli import register_commands  # noqa: E402  (Phase 14: role, do, cmd, ops, queue, ... one additive call)
+
+register_commands(app)
 
 if __name__ == "__main__":
     app()

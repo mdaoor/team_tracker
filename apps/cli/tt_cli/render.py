@@ -19,7 +19,7 @@ def card(
     for row in build_preview(msg, pack):
         table.add_row(f"↳ {row.label}", row.value, f"[dim]{row.cue}[/dim]")
     title = f"{msg.action.value}" + ("  [yellow]queued[/yellow]" if queued else "")
-    subtitle = "will be sorted by your manager" if fallback else None
+    subtitle = "LLM offline — parsed locally" if fallback else None
     return Panel(table, title=title, subtitle=subtitle, expand=False)
 
 

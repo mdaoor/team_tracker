@@ -1,12 +1,16 @@
 {{- $c := dict "root" . "component" "server" }}
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: {{ include "tt.name" $c }}, labels: {{ include "tt.labels" $c | nindent 4 }}}
+metadata:
+  name: {{ include "tt.name" $c }}
+  labels:{{ include "tt.labels" $c | nindent 4 }}
 spec:
   replicas: {{ .Values.replicas.server }}
-  selector: {matchLabels: {{ include "tt.labels" $c | nindent 6 }}}
+  selector:
+    matchLabels:{{ include "tt.labels" $c | nindent 6 }}
   template:
-    metadata: {labels: {{ include "tt.labels" $c | nindent 8 }}}
+    metadata:
+      labels:{{ include "tt.labels" $c | nindent 8 }}
     spec:
       securityContext: {runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001}
       containers:
@@ -37,7 +41,9 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: {{ include "tt.name" $c }}, labels: {{ include "tt.labels" $c | nindent 4 }}}
+metadata:
+  name: {{ include "tt.name" $c }}
+  labels:{{ include "tt.labels" $c | nindent 4 }}
 spec:
   selector: {{ include "tt.labels" $c | nindent 4 }}
   ports: [{name: http, port: 8000, targetPort: http}]

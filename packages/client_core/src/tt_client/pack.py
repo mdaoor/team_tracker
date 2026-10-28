@@ -47,6 +47,49 @@ class ContextPack:
         return list(self.data.get("my_open_items", []))
 
     @property
+    def current_activity(self) -> dict[str, Any] | None:
+        """The task the person has running now (key, title), if the server said so."""
+        cur = self.data.get("my_current_activity")
+        return dict(cur) if cur else None
+
+    # -- Phase 14 additions (manager/role context; absent for plain reporters)
+    @property
+    def my_role_modes(self) -> list[str]:
+        return [str(m) for m in self.data.get("my_role_modes", [])]
+
+    @property
+    def my_teams_with_members(self) -> list[dict[str, Any]]:
+        return list(self.data.get("my_teams_with_members", []))
+
+    @property
+    def team_names(self) -> list[str]:
+        return [str(t["name"]) for t in self.my_teams_with_members if t.get("name")]
+
+    @property
+    def my_projects_as_manager(self) -> list[str]:
+        out: list[str] = []
+        for p in self.data.get("my_projects_as_manager", []):
+            out.append(str(p["key"] if isinstance(p, dict) else p))
+        return out
+
+    @property
+    def review_queue_count(self) -> int:
+        return int(self.data.get("review_queue_count") or 0)
+
+    @property
+    def pending_approvals(self) -> list[dict[str, Any]]:
+        """`[{id, title, project_key, requested_by, requested_at}]`. A server that still sends a bare count gives no rows."""
+        raw = self.data.get("pending_approvals")
+        return [dict(a) for a in raw if isinstance(a, dict)] if isinstance(raw, list) else []
+
+    def item_project(self, *, key: str | None = None, title: str | None = None) -> str | None:
+        """The project of one of my open items, found by key or exact title."""
+        for i in self.open_items:
+            if (key and i["key"] == key) or (title and i["title"].lower() == title.lower()):
+                return str(i["project"]) if i.get("project") else None
+        return None
+
+    @property
     def required_fields(self) -> list[str]:
         return list(self.data.get("manual_mode", {}).get("required_fields") or DEFAULT_REQUIRED)
 
@@ -78,6 +121,18 @@ class ContextPack:
             "milestones": [{"name": m["name"], "project": m.get("project")} for m in d.get("milestones", [])],
             "iterations": [{"name": i["name"], "project": i.get("project")} for i in d.get("iterations", [])],
             "risks": [{"key": r["key"]} for r in d.get("risks", [])],
+            "teams": [
+                {
+                    "name": t.get("name"),
+                    "members": [m if isinstance(m, str) else m.get("handle") for m in t.get("members", [])],
+                }
+                for t in d.get("my_teams_with_members", [])
+            ],
+            "my_projects_as_manager": self.my_projects_as_manager,
+            "pending_approvals": [
+                {"id": a.get("id"), "title": a.get("title"), "project_key": a.get("project_key")}
+                for a in self.pending_approvals
+            ],
             "manager_rules": d.get("manager_rules", []),
             "glossary": d.get("glossary", {}),
         }

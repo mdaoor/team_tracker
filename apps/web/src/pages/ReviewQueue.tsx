@@ -1,15 +1,22 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, w, type Row } from "../api/http";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { w } from "../api/http";
+import * as reviewApi from "../api/review";
+import type { Person, Project, ReviewChoice, ReviewRow } from "../api/types";
 import { Button, ConfidenceCue, Empty, Pill } from "../components/ui";
 import { useToasts } from "../components/Toasts";
 import { useList, useWs } from "../lib/hooks";
+import { ago } from "../lib/format";
 import { t } from "../lib/i18n";
 
 export const DEFAULT_THRESHOLD = 0.7;
 
 /** The suggestion's primary choice for a row, if any (stored suggestion or the LLM gateway's best guess). */
-export function suggestedChoice(row: Row): Row | null {
+export function suggestedChoice(
+  row: Pick<ReviewRow, "kind" | "suggestion" | "suggested">,
+): ReviewChoice | null {
+  const det = row.suggested?.choice;
+  if (!row.suggestion?.llm?.suggestions?.[0]?.choice && det) return det;
   const llm = row.suggestion?.llm?.suggestions?.[0]?.choice;
   if (llm) return llm;
   const s = row.suggestion ?? {};
@@ -31,9 +38,9 @@ export function ReviewQueue() {
   const ws = useWs();
   const qc = useQueryClient();
   const toasts = useToasts();
-  const rows = useList("/review-queue");
-  const projects = useList("/projects");
-  const people = useList("/people");
+  const rows = useList<ReviewRow>("/review-queue");
+  const projects = useList<Project>("/projects");
+  const people = useList<Person>("/people");
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
@@ -57,12 +64,43 @@ export function ReviewQueue() {
   }, [ws, qc]);
 
   const resolve = useCallback(
-    async (row: Row, choice: Row) => {
+    async (row: ReviewRow, choice: ReviewChoice) => {
       try {
-        await api.post(w(ws, "/review-queue/resolve"), { ref: row.ref, choice });
-        if (row.kind === "unclassified_project" && row.suggestion?.phrase && choice.project)
-          toasts.push(`Next time "${row.suggestion.phrase}" → ${choice.project}`);
+        const done = await reviewApi.resolveReview(ws, row.ref, choice);
         await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
+        const phrase = row.suggestion?.phrase;
+        const text =
+          row.kind === "unclassified_project" && phrase && choice.project && done.learned
+            ? `Next time "${phrase}" → ${choice.project}`
+            : `${row.item_key}: ${String(done.resolved)}`;
+        toasts.push(text, {
+          key: `resolved:${row.ref}`,
+          ms: 6000,
+          undo: done.undoable
+            ? async () => {
+                try {
+                  await reviewApi.undoReview(ws, row.ref);
+                  await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
+                } catch (e) {
+                  toasts.error(e);
+                }
+              }
+            : undefined,
+          actions: done.learned
+            ? [
+                {
+                  label: "Don't learn",
+                  run: async () => {
+                    try {
+                      await reviewApi.unlearnReview(ws, row.ref);
+                    } catch (e) {
+                      toasts.error(e);
+                    }
+                  },
+                },
+              ]
+            : undefined,
+        });
       } catch (e) {
         toasts.error(e);
       }
@@ -70,29 +108,42 @@ export function ReviewQueue() {
     [ws, qc, toasts],
   );
 
-  // keyboard: j/k move, Enter takes the suggestion, x selects
+  // keyboard: j/k move focus (so screen readers announce the row), Enter takes the suggestion or opens the picker, x selects
+  const listRef = useRef<HTMLDivElement>(null);
+  const focusRow = useCallback((i: number) => {
+    listRef.current?.querySelectorAll<HTMLElement>(".rq-row")[i]?.focus();
+  }, []);
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.closest?.("input,select,textarea")) return;
+      if ((e.target as HTMLElement | null)?.closest?.("input,select,textarea,button,a")) return;
       const row = data[cursor];
-      if (e.key === "j") setCursor((c) => Math.min(c + 1, data.length - 1));
-      else if (e.key === "k") setCursor((c) => Math.max(c - 1, 0));
-      else if (e.key === "x" && row)
+      if (e.key === "j" || e.key === "k") {
+        const next =
+          e.key === "j" ? Math.min(cursor + 1, data.length - 1) : Math.max(cursor - 1, 0);
+        setCursor(next);
+        focusRow(next);
+      } else if (e.key === "x" && row)
         setSelected((s) =>
           s.has(row.ref) ? new Set([...s].filter((r) => r !== row.ref)) : new Set(s).add(row.ref),
         );
       else if (e.key === "Enter" && row) {
         const choice = suggestedChoice(row);
         if (choice) void resolve(row, choice);
+        else
+          listRef.current
+            ?.querySelectorAll<HTMLElement>(".rq-row")
+            .item(cursor)
+            ?.querySelector<HTMLElement>("select")
+            ?.focus();
       }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [data, cursor, resolve]);
+  }, [data, cursor, resolve, focusRow]);
 
   const confirmAll = async () => {
     try {
-      const done = await api.post<Row>(w(ws, "/review-queue/confirm-all-suggested"), {});
+      const done = await reviewApi.confirmAllSuggested(ws);
       toasts.push(`Confirmed ${done.confirmed} suggested`);
       await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
     } catch (e) {
@@ -104,7 +155,7 @@ export function ReviewQueue() {
       for (const row of data.filter(
         (r) => selected.has(r.ref) && r.kind === "unclassified_project",
       ))
-        await api.post(w(ws, "/review-queue/resolve"), { ref: row.ref, choice: { project } });
+        await reviewApi.resolveReview(ws, row.ref, { project });
       setSelected(new Set());
       await qc.invalidateQueries({ queryKey: [ws, "/review-queue"] });
     } catch (e) {
@@ -117,7 +168,14 @@ export function ReviewQueue() {
 
   return (
     <section aria-labelledby="rq-h">
-      <h1 id="rq-h">{t("nav.review")}</h1>
+      <h1 id="rq-h">
+        {t("nav.review")}
+        {rows.isSuccess && data.length > 0 ? ` (${data.length})` : ""}
+      </h1>
+      <p className="rq-hint">
+        <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>Enter</kbd> accept the suggestion or pick ·{" "}
+        <kbd>x</kbd> select
+      </p>
       <div className="bulk row">
         <label>
           Bulk: assign project{" "}
@@ -153,17 +211,20 @@ export function ReviewQueue() {
         </Button>
       </div>
       {rows.isSuccess && data.length === 0 && <Empty>{t("review.empty")}</Empty>}
-      <ul className="rq" role="listbox" aria-label="Review rows">
+      <div className="rq" role="group" aria-label="Review rows" ref={listRef}>
         {data.map((r, i) => {
           const choice = suggestedChoice(r);
           return (
-            <li
+            <div
               key={r.ref}
-              role="option"
-              aria-selected={i === cursor}
+              role="group"
+              aria-label={`${r.item_key}: ${r.item_title}`}
+              tabIndex={-1}
+              data-current={i === cursor}
               className={i === cursor ? "rq-row cur" : "rq-row"}
               data-kind={r.kind}
               onClick={() => setCursor(i)}
+              onFocus={() => setCursor(i)}
             >
               <input
                 type="checkbox"
@@ -181,6 +242,10 @@ export function ReviewQueue() {
                 {r.item_key}
               </a>
               <span className="grow">{r.item_title}</span>
+              <span className="meta">
+                {r.reporter ? `${r.reporter} · ` : ""}
+                {ago(r.created_at)}
+              </span>
               <Pill severity="info">{String(r.kind).replaceAll("_", " ")}</Pill>
               <RowActions
                 row={r}
@@ -189,10 +254,10 @@ export function ReviewQueue() {
                 people={people.data ?? []}
                 onResolve={resolve}
               />
-            </li>
+            </div>
           );
         })}
-      </ul>
+      </div>
     </section>
   );
 }
@@ -204,11 +269,11 @@ function RowActions({
   people,
   onResolve,
 }: {
-  row: Row;
-  choice: Row | null;
-  projects: Row[];
-  people: Row[];
-  onResolve: (r: Row, c: Row) => void;
+  row: ReviewRow;
+  choice: ReviewChoice | null;
+  projects: Project[];
+  people: Person[];
+  onResolve: (r: ReviewRow, c: ReviewChoice) => void;
 }) {
   const label = choice ? Object.values(choice)[0] : null;
   return (
@@ -265,7 +330,13 @@ function RowActions({
 }
 
 /** One-click mapping fix for a Jira gap: name the Jira value (outbound) or the Team Tracker state (inbound status). */
-function JiraGapFix({ row, onResolve }: { row: Row; onResolve: (r: Row, c: Row) => void }) {
+function JiraGapFix({
+  row,
+  onResolve,
+}: {
+  row: ReviewRow;
+  onResolve: (r: ReviewRow, c: ReviewChoice) => void;
+}) {
   const [v, setV] = useState("");
   const s = row.suggestion ?? {};
   const inbound = s.jira_status != null;

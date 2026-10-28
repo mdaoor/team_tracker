@@ -17,7 +17,7 @@ from tt_server.integrations.llm import LLMGatewayClient
 from tests.api.conftest import Api
 from tests.api.test_acl_llm import answer, fake_gateway
 
-ROUTERS_COVERED = ("presentations",)
+ROUTERS_COVERED = ("presentations", "presentation_deck_io", "presentation_insights")
 
 
 async def mk(api: Api, as_: str = "@mahmoud", **body: Any) -> dict[str, Any]:

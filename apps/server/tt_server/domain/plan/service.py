@@ -23,10 +23,10 @@ from tt_schema.enums import (
 
 from tt_server.acl.context import AclContext
 from tt_server.acl.visibility import item_visible_for
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
-from tt_server.domain.common import emit
+from tt_server.domain.common import emit, zone
+from tt_server.domain.errors import DomainError, Invalid
 from tt_server.domain.items import service as items
 from tt_server.domain.projects.service import item_type
 
@@ -34,6 +34,8 @@ AT_RISK_DAYS, DUE_SOON_DAYS, AT_RISK_PROGRESS = 7, 14, 50
 
 
 class DeliverableIn(BaseModel):
+    # Input shape of a deliverable inside a submitted plan.
+
     ref: str | None = None  # a local name other deliverables can depend on
     title: str = Field(min_length=1)
     planned_start: date | None = None
@@ -45,6 +47,8 @@ class DeliverableIn(BaseModel):
 
 
 class PhaseIn(BaseModel):
+    # Input shape of a plan phase with its deliverables.
+
     title: str = Field(min_length=1)
     planned_start: date | None = None
     planned_end: date | None = None
@@ -52,6 +56,8 @@ class PhaseIn(BaseModel):
 
 
 class MilestoneIn(BaseModel):
+    # Input shape of a plan milestone.
+
     name: str = Field(min_length=1)
     kind: MilestoneKind = MilestoneKind.OTHER
     due_date: date
@@ -59,12 +65,14 @@ class MilestoneIn(BaseModel):
 
 
 class PlanIn(BaseModel):
+    # Input shape of a whole plan: phases and milestones.
+
     phases: list[PhaseIn] = Field(default_factory=list)
     milestones: list[MilestoneIn] = Field(default_factory=list)
 
 
-def _bad(msg: str, pointer: str) -> ApiError:
-    return ApiError(400, "invalid_plan", msg, pointer=pointer)
+def _bad(msg: str, pointer: str) -> DomainError:
+    return Invalid("invalid_plan", msg, pointer=pointer)
 
 
 async def create_plan(
@@ -191,6 +199,7 @@ def deliverable_status(
     predecessor_overdue: bool,
     today: date,
 ) -> str:
+    """Derive a deliverable's status (done, overdue, at risk, on track) from its dates and progress."""
     if done:
         return "done"
     if planned_end is not None and planned_end < today:
@@ -202,6 +211,7 @@ def deliverable_status(
 
 
 def milestone_status(*, completed: bool, due: date, today: date) -> str:
+    """Derive a milestone's status: completed, overdue, due_soon or planned."""
     if completed:
         return "completed"
     if due < today:
@@ -210,6 +220,7 @@ def milestone_status(*, completed: bool, due: date, today: date) -> str:
 
 
 def project_health(milestones: list[str], deliverables: list[str]) -> str:
+    """Roll milestone and deliverable statuses up into green, amber, red or unknown."""
     if not milestones and not deliverables:
         return "unknown"
     if "overdue" in milestones:
@@ -223,6 +234,7 @@ def project_health(milestones: list[str], deliverables: list[str]) -> str:
 async def get_plan(
     session: AsyncSession, project: m.Project, *, today: date, acl: AclContext | None = None
 ) -> dict[str, Any]:
+    """Read a project's plan with computed statuses, hiding items the ACL does not allow."""
     vis = item_visible_for(acl, m.WorkItem) if acl is not None else None
     base = (
         select(m.WorkItem, m.WorkItem.id, m.WorkflowState.category, m.WorkItemType.key)
@@ -391,9 +403,8 @@ def _parent(delivs: list[tuple[m.WorkItem, StateCategory]], iid: str) -> str | N
 
 
 def today_in(tz: str) -> date:
+    """Today's date in the given IANA time zone."""
     from datetime import datetime
-
-    from tt_server.domain.common import zone
 
     return datetime.now(zone(tz)).date()
 

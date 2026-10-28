@@ -41,6 +41,11 @@ export function expandSlides(slides, ctx) {
       out.push(s);
       continue;
     }
+    if (s.fit === "shrink") {
+      // one slide, scaled so `per` rows' worth of height holds all `n` rows (never below half size)
+      out.push({ ...s, _shrink: Math.max(0.5, r.per / n) });
+      continue;
+    }
     const pages = Math.ceil(n / r.per);
     for (let k = 0; k < pages; k++)
       out.push({
@@ -84,7 +89,7 @@ export function slideHtml(ctx, slide, n, total) {
   const bare = slide.kind === "title" || slide.kind === "section_divider";
   return `<article class="slide ${bare ? "bare" : ""}" data-kind="${esc(slide.kind)}" data-id="${esc(slide.id)}" data-layout="${esc(slide.layout ?? "full")}" aria-label="${esc(slideTitle(slide))}">
     ${bare ? "" : `<header class="s-head"><div><h2 class="s-title">${esc(slideTitle(slide))}</h2>${slide.subtitle ? `<div class="s-sub">${esc(slide.subtitle)}</div>` : ""}</div><div class="s-meta"><span class="chip scope">${esc(D.meta.scope_label)}</span><span>as of ${esc(D.as_of.replace("T", " ").slice(0, 16))}</span></div></header>`}
-    <div class="s-body">${slideBody(ctx, slide)}</div>
+    <div class="s-body"${slide._shrink ? ` data-shrink="1" style="--fit:${slide._shrink.toFixed(3)}"` : ""}>${slideBody(ctx, slide)}</div>
     <footer class="s-foot"><span class="stamp">${esc(ctx.stamp)}</span><span class="pageno">${n} / ${total}</span></footer>
   </article>`;
 }

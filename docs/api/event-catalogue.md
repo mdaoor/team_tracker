@@ -4,6 +4,7 @@
 event_types:
   # tenancy
   - workspace.created
+  - workspace.settings_changed
   - member.added
   - member.updated
   - member.removed
@@ -11,6 +12,8 @@ event_types:
   - team.created
   - team.updated
   - membership.changed
+  - team.members_changed  # command-level summary of a team membership change (Phase 14)
+  - command.previewed  # optional audit of a preview (off by default)
   - reporting_line.changed
   - context_note.*
   # projects
@@ -43,6 +46,8 @@ event_types:
   - item.planned_end_set
   - item.field_conflict
   - item.deleted
+  - item.merged  # sources folded into a target (Phase 14, ADR-0050)
+  - item.split  # an item split into siblings (Phase 14)
   - item.linked
   - item.unlinked
   - item.custom_field_set
@@ -54,7 +59,9 @@ event_types:
   - activity.resumed
   - activity.ended
   - activity.blocked
-  - time.logged
+  - time.logged  # payload.after may carry calendar_ref{provider,event_id,series_id,instance_start} (Phase 15, ADR-0054)
+  - time.unlogged  # Phase 15: a person removed a time entry they sent ("Unsend"); payload before{time_entry_id,minutes,date}, corrects=client_id
+  - time.unlog_ignored  # Phase 15: an unlog request whose target was not found or not the actor's (warning unlog_target_not_found)
   - evidence.added
   - estimate.set
   - comment.*
@@ -69,6 +76,7 @@ event_types:
   - dailylog.confirmed
   - dailylog.reviewed
   - dailylog.summarised
+  - command.applied  # Phase 14: one per applied management command (op, client_id); carries the idempotency CommandLog row
   # overlay
   - dimension.*
   - dimension_value.*
@@ -93,7 +101,9 @@ event_types:
   - review.created
   - review.resolved
   - review.updated
+  - review.reopened
   - glossary.learned
+  - glossary.unlearned
   - translator_rule.*
   # governance
   - policy.*
@@ -143,3 +153,14 @@ and documents the payload schema in a section below.
 
 _Phase 0 defines no concrete emitters; payload schemas are added by the phase that introduces
 each event type (Phase 1 starts with `item.created`, `activity.*`, `time.logged`, `evidence.added`)._
+
+### Phase 15 (personal tracker send path)
+
+| event | entity | payload |
+|---|---|---|
+| `time.logged` | work_item | `after{time_entry_id, minutes, date, calendar_ref?}`; the primary event of the message also carries `result` as before |
+| `time.unlogged` | work_item | `before{time_entry_id, minutes, date}`, `corrects` (the original `client_id`); primary event of the unlog message, so a retry deduplicates by its own `client_id` |
+| `time.unlog_ignored` | person | `after{corrects}`; written so the unlog message stays idempotent when the target is unknown or belongs to someone else |
+
+A second send of the same calendar occurrence (same workspace, person, `calendar_ref.provider`, `event_id`, `instance_start`) writes **no** event and answers
+`status: deduplicated` (ADR-0054). Titles, attendees and notes of a calendar entry never reach the server except in the `note` the person chose to send.

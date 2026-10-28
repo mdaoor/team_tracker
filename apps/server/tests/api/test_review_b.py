@@ -196,7 +196,26 @@ def test_production_refuses_a_weak_or_default_session_secret() -> None:
             Settings(env="prod", session_secret=bad).validate_for_runtime()
     with pytest.raises(RuntimeError, match="DEV_AUTH"):
         Settings(env="prod", session_secret="x" * 40, dev_auth=True).validate_for_runtime()
-    Settings(env="prod", session_secret="x" * 40).validate_for_runtime()
+    # Phase 13 R3.9: the credential-encryption key is its own secret outside dev
+    with pytest.raises(RuntimeError, match="TT_SECRET_KEY"):
+        Settings(env="prod", session_secret="x" * 40).validate_for_runtime()
+    with pytest.raises(RuntimeError, match="differ"):
+        Settings(env="prod", session_secret="x" * 40, secret_key="x" * 40).validate_for_runtime()
+    Settings(env="prod", session_secret="x" * 40, secret_key="k" * 40).validate_for_runtime()
+
+
+def test_fernet_does_not_fall_back_to_the_session_secret_outside_dev(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import pytest
+    from tt_server.integrations.jira import crypto
+    from tt_server.settings import Settings
+
+    monkeypatch.setattr(crypto, "get_settings", lambda: Settings(env="prod", session_secret="x" * 40))
+    with pytest.raises(RuntimeError, match="TT_SECRET_KEY"):
+        crypto.encrypt("token")
+    monkeypatch.setattr(crypto, "get_settings", lambda: Settings(env="dev"))
+    assert crypto.decrypt(crypto.encrypt("token")) == "token"
+    monkeypatch.setattr(crypto, "get_settings", lambda: Settings(env="prod", secret_key="k" * 40))
+    assert crypto.decrypt(crypto.encrypt("t2")) == "t2"
 
 
 async def test_image_slides_refuse_external_hosts(api: Api) -> None:
@@ -374,7 +393,9 @@ async def test_every_declared_hot_path_index_exists_in_the_migrated_database(
     assert declared <= have, sorted(declared - have)
 
 
-async def test_browser_renders_are_bounded_and_the_overflow_is_told_to_retry(api: Api, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+async def test_browser_renders_are_bounded_and_the_overflow_is_told_to_retry(
+    committed_api: Api, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
     """Review 19: at most MAX_BROWSER_RENDERS Chromium exports run at once; the rest get 503 render_busy instead of piling up."""
     import asyncio
 
@@ -394,10 +415,13 @@ async def test_browser_renders_are_bounded_and_the_overflow_is_told_to_retry(api
     monkeypatch.setattr(pr, "RENDER_WAIT_S", 0.05)
     monkeypatch.setattr(pr, "_RENDER_SLOTS", asyncio.Semaphore(pr.MAX_BROWSER_RENDERS))
     pid = (
-        await api.call("POST", "/presentations", json={"title": "D", "slides": [{"kind": "kpis"}]})
+        await committed_api.call("POST", "/presentations", json={"title": "D", "slides": [{"kind": "kpis"}]})
     ).json()["id"]
     got = await asyncio.gather(
-        *(api.call("POST", f"/presentations/{pid}/render", params={"format": "pdf"}) for _ in range(5))
+        *(
+            committed_api.call("POST", f"/presentations/{pid}/render", params={"format": "pdf"})
+            for _ in range(5)
+        )
     )
     codes = sorted(r.status_code for r in got)
     assert state["peak"] <= pr.MAX_BROWSER_RENDERS

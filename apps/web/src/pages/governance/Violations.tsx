@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, w } from "../../api/http";
+import { violationAction } from "../../api/governance";
+import type { Violation } from "../../api/types";
 import { AddToPresentation } from "../../components/AddToPresentation";
 import { useToasts } from "../../components/Toasts";
 import { Button, Chip, Empty, Pill } from "../../components/ui";
@@ -24,7 +25,7 @@ export function Violations() {
     category: sp.get("category") ?? undefined,
   };
   const mine = sp.get("who") === "mine";
-  const list = useList("/violations", { ...f, limit: 500 });
+  const list = useList<Violation>("/violations", { ...f, limit: 500 });
   const rows = useMemo(
     () => (list.data ?? []).filter((v) => !mine || (me && v.person_id === me.person_id)),
     [list.data, mine, me],
@@ -50,7 +51,7 @@ export function Violations() {
             : act === "resolve"
               ? { note: text }
               : undefined;
-        await api.post(w(ws, `/violations/${id}:${act}`), body);
+        await violationAction(ws, id, act, body);
       }
     },
     onSuccess: () => {
@@ -158,7 +159,7 @@ export function Violations() {
             </h2>
             {g.policies.map((p) => (
               <div key={p.policy}>
-                <h3>{p.policy}</h3>
+                <h3>{String(p.policy).replaceAll("_", " ")}</h3>
                 <ul className="plain violations">
                   {p.rows.map((v) => (
                     <li
@@ -169,18 +170,18 @@ export function Violations() {
                     >
                       <input
                         type="checkbox"
-                        aria-label={`Select ${v.target_id}`}
+                        aria-label={`Select ${v.target}`}
                         checked={sel.has(v.id)}
                         onChange={() => toggle(v.id)}
                       />
                       <a
-                        href={`?item=${v.evidence?.item ?? v.target_id}`}
+                        href={`?item=${v.evidence?.item ?? v.target}`}
                         onClick={(e) => {
                           e.preventDefault();
                           setSp((q) => (q.set("item", v.evidence?.item ?? v.target_id), q));
                         }}
                       >
-                        {v.evidence?.item ?? v.target_id}
+                        {v.evidence?.item ?? v.target}
                       </a>
                       <span className="chips">
                         {evidenceChips(v.evidence).map((c) => (

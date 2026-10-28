@@ -17,17 +17,22 @@ from tt_schema.enums import EventSource, ItemTypeKey, ProgressMode, StateCategor
 
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
+from tt_server.domain.common import emit, system_person
+from tt_server.domain.items import service as items
 
 TRIGRAM_MIN = Decimal("0.5")
 
 
 @dataclass(frozen=True)
 class Candidate:
+    """A work item proposed for linking, with its match score."""
+
     item: m.WorkItem
     score: float
 
 
 async def deliverables(session: AsyncSession, project_id: str) -> list[m.WorkItem]:
+    """List the deliverable-typed work items of a project."""
     return list(
         (
             await session.scalars(
@@ -92,7 +97,6 @@ async def glossary_match(
 
 async def attach_or_ask(ctx: Any, item: m.WorkItem, project: m.Project) -> str:
     """Called for a task the capture pipeline just created. Returns `linked:<key>`, `asked`, or `no_plan`."""
-    from tt_server.domain.items import service as items
 
     s = ctx.session
     if item.parent_id is not None:
@@ -176,8 +180,6 @@ async def _children_progress(session: AsyncSession, parent: m.WorkItem) -> int |
 async def recompute_all(factory: Any) -> int:
     """Nightly heal: re-derive every `children`-mode container, deepest first so a phase sees its deliverables' final value.
     Each correction is an event (`item.progress_recomputed`), so drift is visible rather than silently repaired."""
-    from tt_server.db.uow import UnitOfWork
-    from tt_server.domain.common import emit
 
     fixed = 0
     async with factory() as s:
@@ -219,8 +221,8 @@ items_hook_registered = False
 
 
 def register() -> None:
+    """Install the state-change hook that keeps plan linkage current (idempotent)."""
     global items_hook_registered
-    from tt_server.domain.items import service as items
 
     if not items_hook_registered:
         items.on_state_category_changed.append(on_state_changed)
@@ -266,7 +268,6 @@ async def plan_changed(uow: UnitOfWork, ws: m.Workspace, item: m.WorkItem) -> li
                 suggestion=suggestion,
             )
         )
-        from tt_server.domain.common import emit, system_person
 
         sysp = await system_person(s)
         from tt_schema.enums import EventSource

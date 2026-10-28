@@ -14,10 +14,10 @@ from tt_schema.base import new_id, utcnow
 from tt_schema.enums import MembershipRole, MemberStatus, ScopeType, TargetType
 
 from tt_server.acl import roles as acl_roles
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Forbidden
 from tt_server.domain.tenancy import service as tenancy
 from tt_server.integrations.ldap import DirectoryUser
 
@@ -257,13 +257,13 @@ async def provision_login(
     if member is None:
         if not (mapped or domain_allowed(ws, email)):
             await _request_access(uow, ws, person, provider)
-            raise ApiError(403, "pending_approval", "your account is awaiting approval by a workspace admin")
+            raise Forbidden("pending_approval", "your account is awaiting approval by a workspace admin")
         handle, _ = await _unique_handle(uow, ws, "@" + handle_hint.lower().lstrip("@"), person.id)
         member = await tenancy.add_member(uow, ws, person, handle=handle, actor_id=person.id)
     elif member.status == MemberStatus.INVITED:
         member.status = MemberStatus.ACTIVE  # an admin-created invitation is itself the allow-list entry
     if member.status != MemberStatus.ACTIVE:
-        raise ApiError(403, "suspended", "this account is suspended")
+        raise Forbidden("suspended", "this account is suspended")
     await apply_groups(uow, ws, person.id, provider, groups)
     emit(
         uow,

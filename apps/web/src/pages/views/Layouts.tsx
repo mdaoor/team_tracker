@@ -1,7 +1,8 @@
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import * as itemsApi from "../../api/items";
+import type { BoardColumn, Item, Json } from "../../api/types";
 import { Empty } from "../../components/ui";
 import { useWs } from "../../lib/hooks";
 import { chipId, toFilter, type Chip, type ViewState } from "../../lib/viewState";
@@ -20,7 +21,7 @@ function useItems(st: ViewState) {
   };
   return useQuery({
     queryKey: [ws, "query/items", body],
-    queryFn: () => api.post<Row>(w(ws, "/query/items"), body),
+    queryFn: () => itemsApi.queryItems(ws, body),
     enabled: !!ws,
   });
 }
@@ -29,7 +30,7 @@ export function ListLayout({ st }: { st: ViewState }) {
   const q = useItems(st);
   if (q.isLoading) return <p>Loading…</p>;
   if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
-  const items: Row[] = q.data?.items ?? [];
+  const items: Item[] = q.data?.items ?? [];
   if (!items.length) return <Empty>No items match these filters.</Empty>;
   const groups = st.groupBy
     ? [...new Set(items.map((i) => (i.dims?.[st.groupBy!] ?? [])[0] ?? i[st.groupBy!] ?? "—"))]
@@ -82,15 +83,26 @@ export function ListLayout({ st }: { st: ViewState }) {
   );
 }
 
-function DragCard({ item }: { item: Row }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: item.key });
+/** The drag handle is its own button, a sibling of the card's link (axe `nested-interactive`; keyboard drag works from it). */
+function DragCard({ item }: { item: Item }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform } = useDraggable({
+    id: item.key,
+  });
   return (
     <div
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
+      className="dragcard"
       style={{ transform: transform ? `translate(${transform.x}px,${transform.y}px)` : undefined }}
     >
+      <button
+        ref={setActivatorNodeRef}
+        className="drag-handle"
+        aria-label={`Drag ${item.key}`}
+        {...attributes}
+        {...listeners}
+      >
+        ⠿
+      </button>
       <Card item={item} />
     </div>
   );
@@ -100,10 +112,14 @@ function Col({
   over,
   children,
   title,
+  count,
+  onCount,
 }: {
   id: string;
   over?: boolean;
   title: string;
+  count?: number;
+  onCount?: () => void;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -114,7 +130,21 @@ function Col({
       aria-label={title}
       data-col={id}
     >
-      <h3>{title}</h3>
+      <h3>
+        {title}
+        {count != null && onCount && (
+          <>
+            {" · "}
+            <button
+              className="linkbtn"
+              onClick={onCount}
+              aria-label={`Show the ${count} items in ${title}`}
+            >
+              {count}
+            </button>
+          </>
+        )}
+      </h3>
       {children}
     </section>
   );
@@ -125,25 +155,27 @@ export function Columns({
   kind,
   ref_,
   st,
+  drill,
 }: {
   kind: "board" | "pipeline";
   ref_: string;
   st: ViewState;
+  drill?: Drill;
 }) {
   const ws = useWs();
   const qc = useQueryClient();
   const path = kind === "board" ? `/projects/${ref_}/board` : `/processes/${ref_}/pipeline`;
   const q = useQuery({
     queryKey: [ws, path, st.chips],
-    queryFn: () => api.get<Row>(w(ws, path), { filter: JSON.stringify(toFilter(st.chips)) }),
+    queryFn: () => itemsApi.getBoard(ws, path, JSON.stringify(toFilter(st.chips))),
     enabled: !!ws && !!ref_,
   });
   const [err, setErr] = useState<string | null>(null);
   const move = useMutation({
     mutationFn: ({ key, to }: { key: string; to: string }) =>
       kind === "board"
-        ? api.post(w(ws, `/items/${key}/state`), { state: to })
-        : api.put(w(ws, `/items/${key}/stage`), { process: ref_, stage: to }),
+        ? itemsApi.setItemState(ws, key, to)
+        : itemsApi.setItemStage(ws, key, ref_, to),
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: [ws, path] });
@@ -156,8 +188,8 @@ export function Columns({
   if (!ref_) return <Empty>Pick a {kind === "board" ? "project" : "process"} first.</Empty>;
   if (q.isLoading) return <p>Loading…</p>;
   if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
-  const cols: Row[] = q.data?.columns ?? [];
-  const idOf = (c: Row) => (kind === "board" ? c.state : c.stage);
+  const cols: BoardColumn[] = q.data?.columns ?? [];
+  const idOf = (c: BoardColumn) => (kind === "board" ? c.state : c.stage) as string;
   return (
     <>
       {err && <p role="alert">{err}</p>}
@@ -168,15 +200,32 @@ export function Columns({
               key={idOf(c)}
               id={idOf(c)}
               over={c.over_wip}
-              title={`${c.name} · ${kind === "board" ? c.count : c.wip_count}${c.wip_limit ? `/${c.wip_limit}` : ""}`}
+              title={c.name}
+              count={kind === "board" ? c.count : c.wip_count}
+              onCount={
+                drill
+                  ? () =>
+                      drill(`${c.name}`, [
+                        {
+                          id: chipId(),
+                          label: kind === "board" ? `state = ${c.name}` : `stage = ${c.name}`,
+                          clause:
+                            kind === "board"
+                              ? { state: { in: [c.state] } }
+                              : { stage: { in: [c.stage] } },
+                        },
+                      ])
+                  : undefined
+              }
             >
+              {c.wip_limit ? <small>limit {c.wip_limit}</small> : null}
               {kind === "pipeline" && (
                 <small>
                   Σ weight {c.weight_sum}
                   {c.over_expected ? ` · ${c.over_expected} over expected` : ""}
                 </small>
               )}
-              {c.items.map((i: Row) => (
+              {c.items.map((i) => (
                 <DragCard key={i.key} item={i} />
               ))}
             </Col>
@@ -198,7 +247,7 @@ export function MatrixLayout({ st, drill }: { st: ViewState; drill: Drill }) {
   };
   const q = useQuery({
     queryKey: [ws, "query/aggregate", body],
-    queryFn: () => api.post<Row>(w(ws, "/query/aggregate"), body),
+    queryFn: () => itemsApi.queryAggregate(ws, body),
     enabled: !!ws,
   });
   if (q.isLoading) return <p>Loading…</p>;
@@ -217,7 +266,7 @@ export function MatrixLayout({ st, drill }: { st: ViewState; drill: Drill }) {
           : { dims: { [dim]: { in: [v] } } },
   });
   return (
-    <div className="vmatrix">
+    <div className="vmatrix" role="region" aria-label="Matrix" tabIndex={0}>
       <table>
         <thead>
           <tr>
@@ -230,7 +279,7 @@ export function MatrixLayout({ st, drill }: { st: ViewState; drill: Drill }) {
           </tr>
         </thead>
         <tbody>
-          {d.rows.map((r: Row, ri: number) => (
+          {d.rows.map((r: Json, ri: number) => (
             <tr key={r.value}>
               <th>{r.value}</th>
               {d.cols.map((c: string, ci: number) => {
@@ -241,7 +290,10 @@ export function MatrixLayout({ st, drill }: { st: ViewState; drill: Drill }) {
                     key={c}
                     className="cell"
                     data-cell={`${r.value}|${c}`}
-                    style={{ background: level ? `var(--seq${level})` : undefined }}
+                    style={{
+                      background: level ? `var(--seq${level})` : undefined,
+                      color: level ? `var(--seq${level}-fg)` : undefined,
+                    }}
                     onClick={() =>
                       v &&
                       drill(`${r.value} × ${c}`, [
@@ -262,85 +314,15 @@ export function MatrixLayout({ st, drill }: { st: ViewState; drill: Drill }) {
   );
 }
 
-const DAY = 86400000;
-export function GanttLayout({ st }: { st: ViewState }) {
-  const ws = useWs();
-  const body = { filter: toFilter(st.chips), baseline: "baseline-1" };
-  const q = useQuery({
-    queryKey: [ws, "query/gantt", body],
-    queryFn: () => api.post<Row>(w(ws, "/query/gantt"), body),
-    enabled: !!ws,
-  });
-  if (q.isLoading) return <p>Loading…</p>;
-  if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
-  const rows: Row[] = (q.data?.rows ?? []).filter((r: Row) => r.planned_start && r.planned_end);
-  if (!rows.length) return <Empty>No scheduled items.</Empty>;
-  const t = (s: string) => new Date(s).getTime();
-  const lo = Math.min(
-    ...rows.map((r) => t(r.baseline?.planned_start ?? r.planned_start)),
-    ...rows.map((r) => t(r.planned_start)),
-  );
-  const hi = Math.max(
-    ...rows.map((r) => t(r.planned_end)),
-    ...rows.map((r) => (r.baseline ? t(r.baseline.planned_end) : 0)),
-  );
-  const X = (s: string) => 160 + ((t(s) - lo) / DAY) * 6;
-  const width = X(new Date(hi).toISOString().slice(0, 10)) + 40;
-  const pos: Record<string, number> = Object.fromEntries(rows.map((r, i) => [r.key, i]));
-  return (
-    <svg
-      className="vgantt"
-      width={width}
-      height={rows.length * 24 + 20}
-      role="img"
-      aria-label="Gantt chart"
-    >
-      {rows.map((r, i) => (
-        <g key={r.key} transform={`translate(0,${i * 24 + 10})`} data-row={r.key}>
-          <text x={4} y={12}>
-            {r.key}
-          </text>
-          {r.baseline && (
-            <rect
-              data-ghost
-              x={X(r.baseline.planned_start)}
-              y={2}
-              width={Math.max(2, X(r.baseline.planned_end) - X(r.baseline.planned_start))}
-              height={4}
-              fill="var(--text-3)"
-              opacity={0.5}
-            />
-          )}
-          <rect
-            x={X(r.planned_start)}
-            y={8}
-            width={Math.max(2, X(r.planned_end) - X(r.planned_start))}
-            height={r.rollup ? 6 : 10}
-            rx={2}
-            fill={r.state_category === "done" ? "var(--s5)" : "var(--s1)"}
-          />
-        </g>
-      ))}
-      {(q.data?.dependencies ?? []).map((d: Row, i: number) =>
-        pos[d.from] != null && pos[d.to] != null ? (
-          <line
-            key={i}
-            x1={X(rows[pos[d.from]].planned_end)}
-            y1={pos[d.from] * 24 + 23}
-            x2={X(rows[pos[d.to]].planned_start)}
-            y2={pos[d.to] * 24 + 23}
-            stroke="var(--text-3)"
-          />
-        ) : null,
-      )}
-    </svg>
-  );
-}
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+/** Month grid with titles and previous/next/today navigation (UX review: calendar showed bare keys and had no month nav). */
 export function CalendarLayout({ st }: { st: ViewState }) {
   const ws = useWs();
-  const [anchor] = useState(() => new Date());
-  const from = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
+  const [offset, setOffset] = useState(0);
+  const now = new Date();
+  const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
+  const from = anchor;
   const to = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 0));
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   const body = {
@@ -351,12 +333,31 @@ export function CalendarLayout({ st }: { st: ViewState }) {
   };
   const q = useQuery({
     queryKey: [ws, "query/calendar", body],
-    queryFn: () => api.post<Row>(w(ws, "/query/calendar"), body),
+    queryFn: () => itemsApi.queryCalendar(ws, body),
     enabled: !!ws,
   });
+  const label = anchor.toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const nav = (
+    <div className="row" role="group" aria-label="Month">
+      <button className="btn" aria-label="Previous month" onClick={() => setOffset((o) => o - 1)}>
+        ‹
+      </button>
+      <strong aria-live="polite">{label}</strong>
+      <button className="btn" aria-label="Next month" onClick={() => setOffset((o) => o + 1)}>
+        ›
+      </button>
+      <button className="btn btn-ghost" onClick={() => setOffset(0)} disabled={offset === 0}>
+        Today
+      </button>
+    </div>
+  );
   if (q.isLoading) return <p>Loading…</p>;
   if (q.error) return <p role="alert">{(q.error as Error).message}</p>;
-  const days: Record<string, Row[]> = q.data?.days ?? {};
+  const days: Record<string, Item[]> = q.data?.days ?? {};
   const cells: (string | null)[] = [
     ...Array((from.getUTCDay() + 6) % 7).fill(null),
     ...Array.from({ length: to.getUTCDate() }, (_, i) =>
@@ -364,17 +365,30 @@ export function CalendarLayout({ st }: { st: ViewState }) {
     ),
   ];
   return (
-    <div className="vcal">
-      {cells.map((d, i) => (
-        <div key={i} data-day={d ?? ""}>
-          {d && <strong>{d.slice(8)}</strong>}
-          {(d ? (days[d] ?? []) : []).map((e, j) => (
-            <div key={j} className={`ev ${e.kind}`}>
-              {e.key ?? e.title}
-            </div>
-          ))}
-        </div>
-      ))}
+    <div>
+      {nav}
+      <div className="vcal" role="group" aria-label={label}>
+        {WEEKDAYS.map((d) => (
+          <div key={d} className="vcal-h" aria-hidden>
+            {d}
+          </div>
+        ))}
+        {cells.map((d, i) => (
+          <div key={i} data-day={d ?? ""} className={d === iso(now) ? "today" : ""}>
+            {d && <strong>{d.slice(8)}</strong>}
+            {(d ? (days[d] ?? []) : []).map((e, j) => (
+              <div
+                key={j}
+                className={`ev ${e.kind}`}
+                title={`${e.key ?? e.kind}: ${e.title ?? ""}`}
+              >
+                {e.key && <span className="key">{e.key} </span>}
+                {e.title}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -383,11 +397,11 @@ export function NowLayout() {
   const ws = useWs();
   const q = useQuery({
     queryKey: [ws, "now"],
-    queryFn: () => api.get<Row>(w(ws, "/now")),
+    queryFn: () => itemsApi.getNow(ws),
     enabled: !!ws,
     refetchInterval: 30000,
   });
-  const rows: Row[] = q.data?.data ?? [];
+  const rows: Item[] = q.data?.data ?? [];
   if (!rows.length) return <Empty>Nobody is working on anything right now.</Empty>;
   return (
     <ul>

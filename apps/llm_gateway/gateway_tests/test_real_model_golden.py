@@ -116,6 +116,29 @@ async def test_translator_golden_set_with_a_real_model(real: Callable[[], Harnes
     assert rep["accuracy"]["messages"] >= MIN_ACCURACY, rep["failures"][:5]
 
 
+async def test_command_translator_golden_with_a_real_model() -> None:
+    """Phase 14: the 80+ line management-command set through the real router (catalogue from the committed fixture)."""
+    import pytest as _pytest
+
+    from gateway_tests.test_translate_command import CatalogueCore, run_golden
+    from gateway_tests.test_translate_command import golden as command_golden
+
+    _pytest.MonkeyPatch().setenv("TT_LLM_GATEWAY_TOKENS", "tok")
+    h = Harness(cfg(), litellm_backend, CatalogueCore())  # type: ignore[arg-type]
+    g = command_golden()
+    op_acc, arg_acc, misses, _ = await run_golden(h, g)
+    report(
+        "Command translator golden set (real model)",
+        [
+            f"* model config: `{os.environ.get('TT_LLM_CONFIG', 'default')}`, lines: {len(g['cases'])}",
+            f"* op accuracy: {op_acc:.2%} (target 85 %), argument accuracy: {arg_acc:.2%} (target 90 %)",
+            *[f"* MISS {m}" for m in misses[:20]],
+        ],
+    )
+    assert op_acc >= float(os.environ.get("TT_LLM_MIN_OP_ACCURACY", "0.85")), misses[:5]
+    assert arg_acc >= float(os.environ.get("TT_LLM_MIN_ARG_ACCURACY", "0.90")), misses[:5]
+
+
 async def test_deck_author_with_a_real_model_only_uses_known_kinds_and_projects(
     real: Callable[[], Harness],
 ) -> None:

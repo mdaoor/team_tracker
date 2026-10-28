@@ -9,8 +9,8 @@ from tt_schema.base import new_id
 from tt_schema.enums import ScopeType
 
 from tt_server.acl.permissions import ROLES
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
+from tt_server.domain.errors import NotFound
 
 
 async def ensure_builtin_roles(session: AsyncSession) -> dict[str, m.Role]:
@@ -41,7 +41,7 @@ async def get_role(session: AsyncSession, key: str, ws_id: str | None = None) ->
         custom = await session.scalar(select(m.Role).where(m.Role.workspace_id == ws_id, m.Role.key == key))
         if custom:
             return custom
-    raise ApiError(404, "not_found", f"role {key!r} not found")
+    raise NotFound("not_found", f"role {key!r} not found")
 
 
 async def assign(

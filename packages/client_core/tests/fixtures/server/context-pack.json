@@ -1,0 +1,384 @@
+{
+  "actor": "@mahmoud",
+  "calendar_mapping_hints": {
+    "client_domains": [],
+    "teams": [
+      {
+        "projects": [
+          "DATA"
+        ],
+        "team": "data"
+      },
+      {
+        "projects": [
+          "GOV"
+        ],
+        "team": "platform"
+      },
+      {
+        "projects": [
+          "MOB"
+        ],
+        "team": "squad-a"
+      },
+      {
+        "projects": [
+          "WEB"
+        ],
+        "team": "squad-b"
+      }
+    ]
+  },
+  "context_schema_version": 1,
+  "custom_fields": [],
+  "development_project": {
+    "exists": false,
+    "key": "DEV",
+    "tag": "development"
+  },
+  "generated_at": "2026-10-27T20:16:26.859110+00:00",
+  "glossary": {},
+  "iterations": [],
+  "manager_rules": [],
+  "manual_mode": {
+    "per_project": {},
+    "required_fields": [
+      "action",
+      "item",
+      "project"
+    ]
+  },
+  "milestones": [
+    {
+      "due": "2026-10-31",
+      "name": "Rules v1 published",
+      "project": "GOV"
+    },
+    {
+      "due": "2026-11-06",
+      "name": "Phase 2 gate",
+      "project": "DATA"
+    },
+    {
+      "due": "2026-11-10",
+      "name": "Beta release",
+      "project": "WEB"
+    },
+    {
+      "due": "2026-11-20",
+      "name": "Offline sync demo",
+      "project": "MOB"
+    }
+  ],
+  "my_capacity_hours_per_week": null,
+  "my_current_activity": {
+    "key": "DATA-101",
+    "title": "retry logic rework"
+  },
+  "my_open_items": [
+    {
+      "key": "WEB-136",
+      "project": "WEB",
+      "stage": null,
+      "title": "fix the login redirect loop"
+    },
+    {
+      "key": "GOV-10",
+      "project": "GOV",
+      "stage": null,
+      "title": "Rule authoring UI"
+    },
+    {
+      "key": "WEB-108",
+      "project": "WEB",
+      "stage": null,
+      "title": "rate-limit reset endpoint"
+    },
+    {
+      "key": "WEB-117",
+      "project": "WEB",
+      "stage": null,
+      "title": "checkout address form"
+    },
+    {
+      "key": "WEB-133",
+      "project": "WEB",
+      "stage": null,
+      "title": "staging smoke tests"
+    },
+    {
+      "key": "MOB-101",
+      "project": "MOB",
+      "stage": null,
+      "title": "conflict resolution strategy"
+    },
+    {
+      "key": "MOB-115",
+      "project": "MOB",
+      "stage": null,
+      "title": "notification deep links"
+    },
+    {
+      "key": "MOB-127",
+      "project": "MOB",
+      "stage": null,
+      "title": "telemetry for sync"
+    },
+    {
+      "key": "MOB-131",
+      "project": "MOB",
+      "stage": null,
+      "title": "store listing update"
+    },
+    {
+      "key": "DATA-101",
+      "project": "DATA",
+      "stage": null,
+      "title": "retry logic rework"
+    },
+    {
+      "key": "DATA-118",
+      "project": "DATA",
+      "stage": null,
+      "title": "alerting on lag"
+    },
+    {
+      "key": "DATA-123",
+      "project": "DATA",
+      "stage": null,
+      "title": "phase 2 runbook"
+    },
+    {
+      "key": "DATA-127",
+      "project": "DATA",
+      "stage": null,
+      "title": "platform sign-off package"
+    },
+    {
+      "key": "GOV-105",
+      "project": "GOV",
+      "stage": null,
+      "title": "CEL validator in UI"
+    },
+    {
+      "key": "GOV-108",
+      "project": "GOV",
+      "stage": null,
+      "title": "rule templates gallery"
+    },
+    {
+      "key": "GOV-115",
+      "project": "GOV",
+      "stage": null,
+      "title": "perf test 10k rules"
+    },
+    {
+      "key": "GOV-121",
+      "project": "GOV",
+      "stage": null,
+      "title": "permission matrix"
+    }
+  ],
+  "my_projects_as_manager": [
+    "DATA",
+    "GOV",
+    "MOB",
+    "WEB"
+  ],
+  "my_role_modes": [
+    "reporter",
+    "manager",
+    "pm",
+    "admin"
+  ],
+  "my_teams_with_members": [
+    {
+      "kind": "org",
+      "members": [
+        "@nour",
+        "@omar"
+      ],
+      "name": "data",
+      "slug": "data"
+    },
+    {
+      "kind": "org",
+      "members": [
+        "@lina",
+        "@mahmoud"
+      ],
+      "name": "platform",
+      "slug": "platform"
+    },
+    {
+      "kind": "org",
+      "members": [
+        "@dina",
+        "@youssef"
+      ],
+      "name": "squad-a",
+      "slug": "squad-a"
+    },
+    {
+      "kind": "org",
+      "members": [
+        "@ali",
+        "@sara"
+      ],
+      "name": "squad-b",
+      "slug": "squad-b"
+    }
+  ],
+  "pending_approvals": [
+    {
+      "id": "01a17f01-c90c-7111-84ee-7e2ffa9a9dca",
+      "project_key": "GOV",
+      "requested_at": "2026-10-27T20:16:25.821351+00:00",
+      "requested_by": "@mahmoud",
+      "title": "GOV-101 \u2192 Staging"
+    }
+  ],
+  "pending_approvals_count": 1,
+  "people": [
+    {
+      "handle": "@ali",
+      "name": "Ali K.",
+      "team": "squad-b"
+    },
+    {
+      "handle": "@dina",
+      "name": "Dina T.",
+      "team": "squad-a"
+    },
+    {
+      "handle": "@lina",
+      "name": "Lina M.",
+      "team": "platform"
+    },
+    {
+      "handle": "@mahmoud",
+      "name": "Mahmoud A.",
+      "team": "platform"
+    },
+    {
+      "handle": "@nour",
+      "name": "Nour S.",
+      "team": "data"
+    },
+    {
+      "handle": "@omar",
+      "name": "Omar F.",
+      "team": "data"
+    },
+    {
+      "handle": "@sara",
+      "name": "Sara H.",
+      "team": "squad-b"
+    },
+    {
+      "handle": "@youssef",
+      "name": "Youssef R.",
+      "team": "squad-a"
+    }
+  ],
+  "priorities": [
+    "lowest",
+    "low",
+    "medium",
+    "high",
+    "highest",
+    "critical"
+  ],
+  "projects": [
+    {
+      "aliases": [],
+      "default_stage": "discovery",
+      "jira": null,
+      "jira_auto_send": false,
+      "jira_enabled": false,
+      "key": "DATA",
+      "name": "Ingestion Pipeline",
+      "process": "sw-delivery"
+    },
+    {
+      "aliases": [],
+      "default_stage": "idea",
+      "jira": null,
+      "jira_auto_send": false,
+      "jira_enabled": false,
+      "key": "GOV",
+      "name": "Governance Rules",
+      "process": "sw-delivery"
+    },
+    {
+      "aliases": [],
+      "default_stage": "idea",
+      "jira": null,
+      "jira_auto_send": false,
+      "jira_enabled": false,
+      "key": "MOB",
+      "name": "Mobile App v2",
+      "process": "sw-delivery"
+    },
+    {
+      "aliases": [],
+      "default_stage": "idea",
+      "jira": null,
+      "jira_auto_send": false,
+      "jira_enabled": false,
+      "key": "WEB",
+      "name": "Website Refresh",
+      "process": "sw-delivery"
+    }
+  ],
+  "required_dimensions": [],
+  "review_queue_count": 1,
+  "risks": [
+    {
+      "key": "DATA-R3",
+      "project": "DATA",
+      "title": "Retry storm under upstream outage"
+    },
+    {
+      "key": "GOV-R2",
+      "project": "GOV",
+      "title": "Rule engine performance at 10k rules"
+    },
+    {
+      "key": "MOB-R1",
+      "project": "MOB",
+      "title": "App-store review delay"
+    },
+    {
+      "key": "WEB-R7",
+      "project": "WEB",
+      "title": "OAuth provider deprecates v1 API in Dec"
+    }
+  ],
+  "stages": {
+    "sw-delivery": [
+      "idea",
+      "discovery",
+      "design",
+      "build",
+      "test",
+      "staging",
+      "production",
+      "retired"
+    ]
+  },
+  "tags": [
+    "ux",
+    "backend",
+    "incident",
+    "security",
+    "bug",
+    "auth",
+    "frontend",
+    "infra",
+    "docs",
+    "tech-debt"
+  ],
+  "truncated": false,
+  "workspace": "acme"
+}

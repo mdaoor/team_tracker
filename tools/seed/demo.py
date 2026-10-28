@@ -33,6 +33,7 @@ from tt_schema.enums import (
     ReportingKind,
     RiskCategory,
     RiskStatus,
+    ScopeType,
     StateCategory,
     TargetType,
     TeamKind,
@@ -54,7 +55,7 @@ AS_OF = datetime(2026, 10, 23, 18, 30, tzinfo=timezone(timedelta(hours=3)))
 GEN_SNAPSHOT = Path(__file__).resolve().parents[1] / "gen_snapshot.py"
 
 # Not in the snapshot: project owners (members of the team) and the reporting graph for the review queue.
-PROJECT_OWNER = {"WEB": "@sara", "MOB": "@youssef", "DATA": "@nour", "GOV": "@mahmoud"}
+PROJECT_OWNER = {"WEB": "@lina", "MOB": "@youssef", "DATA": "@nour", "GOV": "@mahmoud"}
 TEAM_LEAD = {"platform": "@mahmoud", "squad-a": "@youssef", "squad-b": "@sara", "data": "@nour"}
 PROJECT_SETTINGS = {"DATA": {"default_stage": "discovery"}}
 PRIORITY = {
@@ -83,6 +84,24 @@ def load_snapshot() -> dict[str, Any]:
 def _dt(d: str | date) -> datetime:
     day = date.fromisoformat(d) if isinstance(d, str) else d
     return datetime(day.year, day.month, day.day, 12, 0, tzinfo=UTC)
+
+
+async def sync_key_sequences(session_factory: async_sessionmaker[AsyncSession]) -> None:
+    """Seeded items carry the generator's keys (WEB-131); the next new item must continue after them (UX review "also")."""
+    from sqlalchemy import text
+
+    async with session_factory() as s:
+        await s.execute(
+            text(
+                """
+                INSERT INTO project_key_sequences (project_id, next)
+                SELECT project_id, MAX(NULLIF(substring(key from '-([0-9]+)$'), '')::int) + 1
+                FROM work_items GROUP BY project_id
+                ON CONFLICT (project_id) DO UPDATE SET next = GREATEST(project_key_sequences.next, EXCLUDED.next)
+                """
+            )
+        )
+        await s.commit()
 
 
 async def persist_demo(
@@ -236,6 +255,15 @@ async def persist_demo(
         }
         default_scheme = await weights.ensure_default_scheme(s, ws.id)
         _ = default_scheme
+        s.add(  # a second scheme so "compare weightings" has something to compare (UX review "also")
+            m.WeightScheme(
+                id=new_id(),
+                workspace_id=ws.id,
+                name="effort-only",
+                scope_type=ScopeType.WORKSPACE,
+                formula={"base": "estimate_hours", "multipliers": {}},
+            )
+        )
         team_of = {p["handle"]: ids["team"][p["team"]] for p in snap["people"]}
         epic: dict[str, m.WorkItem] = {}
         for e in snap["epics"]:
@@ -411,6 +439,7 @@ async def persist_demo(
             build.wip_limit = 4
         await uow.commit(allow_unlogged=True)
     await seed_governance(session_factory, ids)
+    await sync_key_sequences(session_factory)
     return created
 
 

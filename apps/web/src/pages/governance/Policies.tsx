@@ -1,7 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, w, type Row } from "../../api/http";
+import * as govApi from "../../api/governance";
+import type {
+  Json,
+  Policy,
+  PolicyParam,
+  PolicyTemplate,
+  PolicyVersion,
+  Process,
+  Project,
+  Stage,
+  Violation,
+} from "../../api/types";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty, Field, Pill } from "../../components/ui";
 import type { Severity } from "../../lib/confidence";
@@ -46,16 +57,15 @@ function PolicyList() {
   const qc = useQueryClient();
   const toasts = useToasts();
   const { can } = useMe();
-  const pol = useList("/policies");
-  const open = useList("/violations", { status: "open,acknowledged", limit: 500 });
+  const pol = useList<Policy>("/policies");
+  const open = useList<Violation>("/violations", { status: "open,acknowledged", limit: 500 });
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
     for (const v of open.data ?? []) c[v.policy] = (c[v.policy] ?? 0) + 1;
     return c;
   }, [open.data]);
   const toggle = useMutation({
-    mutationFn: ({ key, on }: { key: string; on: boolean }) =>
-      api.post(w(ws, `/policies/${key}:${on ? "activate" : "deactivate"}`)),
+    mutationFn: ({ key, on }: { key: string; on: boolean }) => govApi.activatePolicy(ws, key, on),
     onSuccess: () => void qc.invalidateQueries({ queryKey: [ws, "/policies"] }),
     onError: (e) => toasts.error(e),
   });
@@ -129,11 +139,13 @@ function PolicyForm({ existing }: { existing?: string }) {
   const toasts = useToasts();
   const [sp, setSp] = useSearchParams();
   const { can, admin } = useMe();
-  const templates = useList("/policy-templates");
+  const templates = useList<PolicyTemplate>("/policy-templates");
   const schema = useObj("/governance/context-schema", { version: 1 });
-  const stages: Row[] = (useList("/processes").data ?? []).flatMap((p) => p.stages ?? []);
-  const cur = useObj(`/policies/${existing}`, undefined, !!existing);
-  const policy = cur.data as Row | undefined;
+  const stages: Stage[] = (useList<Process>("/processes").data ?? []).flatMap(
+    (p) => p.stages ?? [],
+  );
+  const cur = useObj<Policy>(`/policies/${existing}`, undefined, !!existing);
+  const policy = cur.data;
   const [mode, setMode] = useState<"template" | "cel">("template");
   const [tplKey, setTplKey] = useState<string>(sp.get("template") ?? "");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -146,17 +158,17 @@ function PolicyForm({ existing }: { existing?: string }) {
   const [chips, setChips] = useState<Chip[]>([]);
   const [notify, setNotify] = useState<Notify>({ ...emptyNotify(), reporting_line: ["line"] });
   const [auto, setAuto] = useState<AutoAction>(emptyAuto());
-  const versions = useList(`/policies/${existing}/versions`, undefined, !!existing);
-  const projectKeys = (useList("/projects").data ?? []).map((p) => p.key as string);
+  const versions = useList<PolicyVersion>(`/policies/${existing}/versions`, undefined, !!existing);
+  const projectKeys = (useList<Project>("/projects").data ?? []).map((p) => p.key);
   const [problems, setProblems] = useState<CelProblem[]>([]);
   const [compiled, setCompiled] = useState("");
   const [describe, setDescribe] = useState("");
   const [draftNote, setDraftNote] = useState("");
-  const [run, setRun] = useState<Row | null>(null);
+  const [run, setRun] = useState<Json | null>(null);
   const tpl = (templates.data ?? []).find((t) => t.key === tplKey);
   const controls = useMemo(
     () =>
-      (tpl?.params ?? []).map((p: Row) =>
+      (tpl?.params ?? []).map((p: PolicyParam) =>
         controlFor(
           p,
           stages.map((s) => s.key),
@@ -200,8 +212,8 @@ function PolicyForm({ existing }: { existing?: string }) {
       return;
     }
     const id = setTimeout(() => {
-      api
-        .post<Row>(w(ws, "/policies:check"), JSON.parse(sig))
+      govApi
+        .checkPolicy(ws, JSON.parse(sig))
         .then((r) => {
           setProblems(r.errors ?? []);
           if (mode === "template") setCompiled(r.cel ?? "");
@@ -211,7 +223,7 @@ function PolicyForm({ existing }: { existing?: string }) {
     return () => clearTimeout(id);
   }, [sig, wantCheck, ws, mode]);
 
-  const body = (): Row => ({
+  const body = (): Json => ({
     key,
     name,
     severity: sev || undefined,
@@ -229,7 +241,7 @@ function PolicyForm({ existing }: { existing?: string }) {
     mutationFn: async () => {
       if (existing) {
         const b = body();
-        return api.patch<Row>(w(ws, `/policies/${existing}`), {
+        return govApi.updatePolicy(ws, existing, {
           name: b.name,
           severity: b.severity,
           grace_period: b.grace_period ?? null,
@@ -241,7 +253,7 @@ function PolicyForm({ existing }: { existing?: string }) {
           ...(mode === "template" ? { params: b.params } : { condition_cel: cel }),
         });
       }
-      return api.post<Row>(w(ws, "/policies"), body());
+      return govApi.createPolicy(ws, body());
     },
     onSuccess: (p) => {
       void qc.invalidateQueries({ queryKey: [ws, "/policies"] });
@@ -253,7 +265,7 @@ function PolicyForm({ existing }: { existing?: string }) {
     onError: (e) => toasts.error(e),
   });
   const test = useMutation({
-    mutationFn: () => api.post<Row>(w(ws, `/policies/${existing}:test`), { window: "7d" }),
+    mutationFn: () => govApi.testPolicy(ws, existing as string),
     onSuccess: (r) => {
       setRun(r);
       void qc.invalidateQueries({ queryKey: [ws, `/policies/${existing}`] });
@@ -261,8 +273,7 @@ function PolicyForm({ existing }: { existing?: string }) {
     onError: (e) => toasts.error(e),
   });
   const activate = useMutation({
-    mutationFn: (force: boolean) =>
-      api.post<Row>(w(ws, `/policies/${existing}:activate${force ? "?force=true" : ""}`)),
+    mutationFn: (force: boolean) => govApi.activatePolicyForced(ws, existing as string, force),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: [ws, `/policies/${existing}`] });
       void qc.invalidateQueries({ queryKey: [ws, "/policies"] });
@@ -271,8 +282,8 @@ function PolicyForm({ existing }: { existing?: string }) {
     onError: (e) => toasts.error(e),
   });
   const restore = useMutation({
-    mutationFn: (v: Row) =>
-      api.patch<Row>(w(ws, `/policies/${existing}`), restoreBody(v.definition)),
+    mutationFn: (v: PolicyVersion) =>
+      govApi.updatePolicy(ws, existing as string, restoreBody(v.definition as Json)),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: [ws, `/policies/${existing}`] });
       void qc.invalidateQueries({ queryKey: [ws, `/policies/${existing}/versions`] });
@@ -281,7 +292,7 @@ function PolicyForm({ existing }: { existing?: string }) {
     onError: (e) => toasts.error(e),
   });
   const author = useMutation({
-    mutationFn: () => api.post<Row>(w(ws, "/policies:author"), { request: describe }),
+    mutationFn: () => govApi.authorPolicy(ws, describe),
     onSuccess: (r) => {
       const d = r.draft ?? {};
       if (d.mode === "template" && d.template) {
@@ -346,11 +357,11 @@ function PolicyForm({ existing }: { existing?: string }) {
         {mode === "template" ? (
           <>
             {!existing && (
-              <div className="gallery" role="list" aria-label="Templates">
+              <div className="gallery" role="group" aria-label="Templates">
                 {(templates.data ?? []).map((t) => (
                   <button
                     key={t.key}
-                    role="listitem"
+                    aria-pressed={t.key === tplKey}
                     className={`tile ${t.key === tplKey ? "on" : ""}`}
                     onClick={() => {
                       setTplKey(t.key);

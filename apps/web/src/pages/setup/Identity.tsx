@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../../api/http";
+import { deleteIdpMapping, idpSync } from "../../api/teams";
+import type { Json } from "../../api/types";
 import { Button, Card } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
@@ -12,10 +13,10 @@ export function Identity() {
   const toasts = useToasts();
   const maps = useList("/idp/mappings");
   const teams = useList("/teams");
-  const [log, setLog] = useState<Row | null>(null);
+  const [log, setLog] = useState<Json | null>(null);
   const sync = async () => {
     try {
-      setLog(await api.post<Row>(w(ws, "/idp/sync"), {}));
+      setLog(await idpSync(ws));
     } catch (e) {
       toasts.error(e);
     }
@@ -55,7 +56,7 @@ export function Identity() {
                   variant="ghost"
                   aria-label="delete mapping"
                   onClick={async () => {
-                    await api.del(w(ws, `/idp/mappings/${r.id}`));
+                    await deleteIdpMapping(ws, r.id);
                     await qc.invalidateQueries({ queryKey: [ws, "/idp/mappings"] });
                   }}
                 >

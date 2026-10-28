@@ -94,3 +94,10 @@ cases:
   # ---- free text with no verb (LLM-assisted in production; the parser must still not lose the text)
   - {line: "the pipeline retry logic is flaky", expect: [{action: note, note: "the pipeline retry logic is flaky"}]}
   - {line: "need to talk to ops about staging", expect: [{action: note, note: "need to talk to ops about staging"}]}
+
+  # ---- capture intent (Phase 13 R6.2, ADR-0043): a verb-less noun phrase is new work, never a note on the active item
+  - {line: "refactor the ingestion retry p:ingestion #retry-logic", expect: [{action: create, title: "refactor the ingestion retry", project: ingestion, tags: [retry-logic]}]}
+  - {line: "frobnicate the glorp", expect: [{action: create, title: "frobnicate the glorp"}]}
+  - {line: "dashboard export CSV encoding", expect: [{action: create, title: "dashboard export CSV encoding"}]}
+  - {line: "WEB-114 looks fine now", expect: [{action: note, key: WEB-114, note: "looks fine now"}]}
+  - {line: "it keeps timing out", expect: [{action: note, note: "it keeps timing out"}]}

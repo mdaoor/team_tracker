@@ -11,7 +11,7 @@ from tt_server.db import models as m
 
 from tests.api.conftest import Api
 
-ROUTERS_COVERED = ("core", "client")
+ROUTERS_COVERED = ("core", "core_projects", "core_tenancy", "client")
 
 
 async def pid(api: Api, handle: str) -> str:

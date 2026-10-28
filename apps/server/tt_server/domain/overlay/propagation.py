@@ -25,6 +25,8 @@ from tt_server.domain.overlay.products import delivering_product
 
 @dataclass
 class PropagationResult:
+    """Outcome of propagating a value down the hierarchy: items touched and values kept as overrides."""
+
     item_keys: list[str] = field(default_factory=list)
     kept: set[str] = field(default_factory=set)
 
@@ -112,6 +114,7 @@ async def set_item_priority(
     manual: bool = True,
     correlation_id: str | None = None,
 ) -> PropagationResult:
+    """Set an item's priority (manual or inherited), sync mirrors, recompute its weight and record the change."""
     corr = correlation_id or new_id()
     before = item.priority
     item.priority = priority
@@ -228,6 +231,7 @@ async def set_container_priority(
 
 
 async def project_priority(session: object, project_id: str) -> Priority | None:
+    """The priority classification of a project, if it has one."""
     from sqlalchemy.ext.asyncio import AsyncSession
 
     assert isinstance(session, AsyncSession)  # noqa: S101

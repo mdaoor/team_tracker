@@ -32,6 +32,8 @@ def window_start(window: str, now: datetime, tz: str = "UTC") -> datetime:
 
 @dataclass
 class Facts:
+    """Pre-aggregated figures (evidence, hours, reopens) the condition templates read."""
+
     now: datetime
     evidence_last: dict[str, datetime] = field(default_factory=dict)
     evidence_count: dict[tuple[str, str | None], int] = field(default_factory=dict)
@@ -44,6 +46,7 @@ class Facts:
     wip: dict[str, int] = field(default_factory=dict)  # "<project key>|<stage key>" and "<project key>|"
     minutes: dict[tuple[str, str], int] = field(default_factory=dict)
     distinct: dict[tuple[str, str], int] = field(default_factory=dict)
+    development: dict[tuple[str, str], int] = field(default_factory=dict)  # minutes on `#development` items
     active: dict[str, int] = field(default_factory=dict)
     overrun: dict[tuple[str, str], float] = field(default_factory=dict)
 
@@ -165,6 +168,24 @@ async def load(
                 )
             ).all():
                 f.minutes[(pid, w)], f.distinct[(pid, w)] = int(mins or 0), n
+    if person_ids and "development" in needs:
+        for w in windows or {"7d"}:
+            since = window_start(w, now).date()
+            dev_rows = await s.execute(
+                select(m.TimeEntry.person_id, func.sum(m.TimeEntry.minutes))
+                .join(m.TagLink, (m.TagLink.target_id == m.TimeEntry.work_item_id) & (m.TagLink.target_type == TargetType.WORK_ITEM))
+                .join(m.Tag, m.Tag.id == m.TagLink.tag_id)
+                .where(
+                    m.TimeEntry.person_id.in_(person_ids),
+                    m.TimeEntry.date >= since,
+                    m.TimeEntry.deleted_at.is_(None),
+                    func.lower(m.Tag.name) == "development",
+                    m.Tag.workspace_id == ws_id,
+                )
+                .group_by(m.TimeEntry.person_id)
+            )  # fmt: skip
+            for pid, mins in dev_rows.all():
+                f.development[(pid, w)] = int(mins or 0)
     if person_ids and "active" in needs:
         for pid, n in (
             await s.execute(
@@ -229,6 +250,7 @@ async def _missing_dimensions(
 
 
 def date_ts(d: date | datetime | None) -> datetime | None:
+    """Normalise a date or datetime to an aware datetime; None stays None."""
     if d is None:
         return None
     if isinstance(d, datetime):

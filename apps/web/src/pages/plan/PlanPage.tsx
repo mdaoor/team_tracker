@@ -1,7 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, w, type Row } from "../../api/http";
+import { patchItemFields } from "../../api/items";
+import * as presentApi from "../../api/present";
+import { approveBaseline } from "../../api/projects";
+import type { Plan, PlanBarRow, Project } from "../../api/types";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty } from "../../components/ui";
 import { useList, useMe, useObj, useWs } from "../../lib/hooks";
@@ -13,7 +16,7 @@ export function PlanRoute() {
 }
 
 function PlanIndex() {
-  const projects = useList("/projects");
+  const projects = useList<Project>("/projects");
   return (
     <div className="plan">
       <h1>Project plans</h1>
@@ -41,14 +44,14 @@ function PlanPage({ projectKey }: { projectKey: string }) {
   const qc = useQueryClient();
   const toasts = useToasts();
   const { can, admin } = useMe();
-  const plan = useObj(`/projects/${projectKey}/plan`);
+  const plan = useObj<Plan>(`/projects/${projectKey}/plan`);
   const [error, setError] = useState<{ key: string; msg: string } | null>(null);
   const refresh = () =>
     void qc.invalidateQueries({ queryKey: [ws, `/projects/${projectKey}/plan`] });
-  const data = plan.data as Row | undefined;
-  const rows: Row[] = (data?.phases ?? []).flatMap((p: Row) => [
+  const data = plan.data;
+  const rows: PlanBarRow[] = (data?.phases ?? []).flatMap((p) => [
     { ...p, level: 0 },
-    ...(p.deliverables ?? []).map((d: Row) => ({ ...d, level: 1, phase: p.key })),
+    ...(p.deliverables ?? []).map((d) => ({ ...d, level: 1, phase: p.key })),
   ]);
   const axis = axisOf(rows);
   const canWrite = admin || !!can["project.write"] || !!can["item.write_overlay"];
@@ -63,19 +66,14 @@ function PlanPage({ projectKey }: { projectKey: string }) {
       field: "planned_start" | "planned_end";
       value: string;
     }) => {
-      const cur = await api.getWithEtag<Row>(w(ws, `/items/${key}`));
-      return api.patch<Row>(
-        w(ws, `/items/${key}`),
-        { [field]: value || null },
-        { "If-Match": cur.etag ?? "*" },
-      );
+      return patchItemFields(ws, key, { [field]: value || null });
     },
     onSuccess: refresh,
     onError: (e) => toasts.error(e),
   });
   const present = useMutation({
     mutationFn: () =>
-      api.post<Row>(w(ws, "/presentations:from-template"), {
+      presentApi.fromTemplate(ws, {
         template: "project_plan_review",
         scope: `project:${projectKey}`,
         params: { project: projectKey },
@@ -85,19 +83,14 @@ function PlanPage({ projectKey }: { projectKey: string }) {
   });
   const approve = useMutation({
     mutationFn: () =>
-      api.post(
-        w(
-          ws,
-          `/projects/${projectKey}/baselines?name=${encodeURIComponent(`Approved ${new Date().toISOString().slice(0, 10)}`)}`,
-        ),
-      ),
+      approveBaseline(ws, projectKey, `Approved ${new Date().toISOString().slice(0, 10)}`),
     onSuccess: () => {
       toasts.push("Plan approved: this is now the baseline");
       refresh();
     },
     onError: (e) => toasts.error(e),
   });
-  const setDate = (r: Row, field: "planned_start" | "planned_end", value: string) => {
+  const setDate = (r: PlanBarRow, field: "planned_start" | "planned_end", value: string) => {
     const start = field === "planned_start" ? value : r.planned_start;
     const end = field === "planned_end" ? value : r.planned_end;
     const msg = dateEditError(start || null, end || null);
@@ -114,7 +107,7 @@ function PlanPage({ projectKey }: { projectKey: string }) {
         <Empty>This project has no plan yet. Create one from the API or import a template.</Empty>
       </div>
     );
-  const proj = data.project as Row;
+  const proj = data.project;
   return (
     <div className="plan">
       <div className="row">
@@ -187,7 +180,7 @@ function PlanPage({ projectKey }: { projectKey: string }) {
       {(data.milestones ?? []).length > 0 && (
         <Card title="Milestones">
           <ul className="plain" aria-label="Milestones">
-            {(data.milestones as Row[]).map((m) => (
+            {data.milestones.map((m) => (
               <li key={m.id}>
                 <strong>{m.name}</strong> · {m.due_date} · {STATUS_LABEL[m.status] ?? m.status} (
                 {m.deliverables_done}/{m.deliverables_total} deliverables)

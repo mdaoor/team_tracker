@@ -11,6 +11,7 @@ from tt_schema.enums import GrantLevel, ProductLinkRole, ProjectRole, ScopeType,
 
 from tt_server.acl.permissions import GRANT_PERMISSIONS, OWN_PERMISSIONS, PROJECT_OWNER, ROLES
 from tt_server.acl.reporting import LINE_KINDS, reports_of
+from tt_server.clock import person_today
 from tt_server.db import models as m
 
 MANAGER_ROLES = ("manager", "project_owner", "workspace_admin")
@@ -196,7 +197,10 @@ async def load_context(
             t = parent.get(t)  # type: ignore[assignment]
 
     # reporting lines
-    ctx.managed_ids = set(await reports_of(session, ws_id, person_id, LINE_KINDS))
+    person = await session.get(m.Person, person_id)
+    ctx.managed_ids = set(
+        await reports_of(session, ws_id, person_id, LINE_KINDS, at=person_today(person) if person else None)
+    )
 
     # grants (person, my teams, my roles)
     role_ids = {str(r.id) for r, _ in rows}

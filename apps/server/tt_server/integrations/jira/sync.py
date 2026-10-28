@@ -16,7 +16,7 @@ from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit, system_person
 from tt_server.integrations.jira import crypto, mapping
-from tt_server.integrations.jira.client import JiraClient, JiraError, JiraUnavailable
+from tt_server.integrations.jira.client import JiraClient, JiraError, JiraUnavailable, adf
 
 # Tests inject a transport (and a no-op sleep) here; production leaves both unset.
 CLIENT_KW: dict[str, Any] = {}
@@ -263,8 +263,6 @@ async def push_item(
             if want.target_status and (force or link.last_state_key != want.state_key):
                 outcome = await _ensure_status(client, link.issue_key, want.target_status)
                 if outcome == "no_path":
-                    from tt_server.integrations.jira.client import adf
-
                     await client.add_comment(
                         link.issue_key,
                         adf(
@@ -283,7 +281,7 @@ async def push_item(
             link.last_state_key = want.state_key
             link.last_pushed_at = utcnow()
             link.status, link.attempts, link.last_error = "synced", 0, None
-            await uow.commit_bookkeeping()
+            await finish(uow)  # the item.jira_linked event (if any) commits with the link, not after it
             if cfg.get("sync_time_logs"):
                 n = await _push_worklogs(uow, client, ws, item, link)
                 if n:

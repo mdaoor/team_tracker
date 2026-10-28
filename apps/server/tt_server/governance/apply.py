@@ -15,6 +15,9 @@ from tt_schema.enums import EventSource, PolicyCategory, TargetType, ViolationSt
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.items import service as items
+from tt_server.domain.overlay import process as proc
+from tt_server.domain.overlay import propagation
 from tt_server.governance import notify as notifier
 from tt_server.governance import service
 from tt_server.governance.engine import EvalResult, Match
@@ -37,6 +40,8 @@ def parse_duration(text: str | None) -> timedelta:
 
 @dataclass
 class Applied:
+    """Tally of what applying evaluation results did: violations opened and resolved, notifications, actions."""
+
     opened: list[m.Violation] = field(default_factory=list)
     resolved: list[m.Violation] = field(default_factory=list)
     pending: int = 0  # matches still inside their grace period
@@ -215,16 +220,12 @@ async def _auto_action(
     if "set" in act and item is not None:
         from tt_schema.enums import Priority
 
-        from tt_server.domain.overlay import propagation
-
         if "priority" in act["set"] and item.priority.value != act["set"]["priority"]:
             await propagation.set_item_priority(
                 uow, ws, item, Priority(act["set"]["priority"]), actor=sys_id, manual=False
             )
             n += 1
     if "move_stage" in act and item is not None:
-        from tt_server.domain.overlay import process as proc
-
         p = await proc.get_process(s, ws.id, None)
         stage = await proc.get_stage(s, p, act["move_stage"])
         await proc.place(
@@ -240,8 +241,6 @@ async def _auto_action(
         )
         n += 1
     if "create_item" in act:
-        from tt_server.domain.items import service as items
-
         spec = act["create_item"]
         project = await s.scalar(
             select(m.Project).where(

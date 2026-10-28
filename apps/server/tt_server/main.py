@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from tt_schema import client_message_json_schema
 
+from tt_server.api.commands.router import router as commands_router
 from tt_server.api.errors import error_body, install_error_handlers
 from tt_server.api.routers import (
     access,
@@ -23,38 +24,47 @@ from tt_server.api.routers import (
     client,
     console,
     core,
+    core_projects,
+    core_tenancy,
     governance,
+    governance_habits,
     governance_ui,
+    governance_violations,
     identity,
+    item_attachments,
     item_extras,
+    item_fields,
     jira,
     llm,
     overlay,
     plan,
+    presentation_deck_io,
+    presentation_insights,
     presentation_templates,
     presentations,
     privacy,
     query,
+    query_layouts,
     recurrence,
+    saved_views,
     webauth,
 )
 from tt_server.api.session import CSRF_COOKIE, set_session
+from tt_server.bootstrap import seed_reference_data
+from tt_server.csp import html_csp
 from tt_server.db.session import make_engine, make_session_factory
 from tt_server.integrations.ldap import ldap_provider_from_settings
 from tt_server.integrations.llm import gateway_from_settings
 from tt_server.integrations.oidc import oidc_provider_from_settings
 from tt_server.logging import configure_logging
 from tt_server.metrics import Metrics
-from tt_server.ratelimit import SlidingWindow, credential_key
+from tt_server.ratelimit import SlidingWindow, client_ip, credential_key
 from tt_server.settings import Settings, get_settings
-from tt_server.telemetry import configure_telemetry
+from tt_server.telemetry import configure_telemetry, instrument
 
 log = structlog.get_logger()
 
-HTML_CSP = (
-    "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-    "font-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-)
+HTML_CSP = html_csp()  # fallback only: shells set their own nonce-bearing policy
 
 
 def create_app(
@@ -65,11 +75,16 @@ def create_app(
     settings = settings or get_settings()
     settings.validate_for_runtime()
     configure_logging(settings.log_level, json=settings.log_json)
-    configure_telemetry(otlp_endpoint=settings.otlp_endpoint)
+    provider = configure_telemetry(otlp_endpoint=settings.otlp_endpoint)
     db_engine = engine or make_engine(settings.database_url)
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app_: FastAPI) -> AsyncIterator[None]:
+        if settings.seed_reference_on_start:
+            try:  # idempotent; also done by `tt-admin migrate`
+                await seed_reference_data(app_.state.session_factory)
+            except Exception:  # noqa: BLE001 - a database that is down must not stop the process; /readyz reports it
+                log.warning("reference_data_not_seeded", exc_info=True)
         yield
         await db_engine.dispose()
 
@@ -88,20 +103,31 @@ def create_app(
         identity.router,
         console.router,
         query.router,
+        query_layouts.router,
+        saved_views.router,
         governance.router,
+        governance_violations.router,
+        governance_habits.router,
         governance_ui.router,
         jira.router,
         plan.router,
         jira.hook,
         presentation_templates.router,
         presentations.router,
+        presentation_deck_io.router,
+        presentation_insights.router,
         presentations.public,
         presentations.shell,
+        commands_router,  # `/items:merge` and `/commands/*` before core's `/items/{id_or_key}`
         llm.router,  # before core: `/items/search` must win over `/items/{id_or_key}`
         capture.router,
         privacy.router,
         item_extras.router,
+        item_fields.router,
+        item_attachments.router,
         recurrence.router,
+        core_tenancy.router,
+        core_projects.router,
         core.router,
         client.router,
         overlay.router,
@@ -129,10 +155,40 @@ def create_app(
             )
         return response
 
+    def request_ip(request: Request) -> str | None:
+        return client_ip(
+            settings, request.client.host if request.client else None, request.headers.get("x-forwarded-for")
+        )
+
     capture_window = (
         SlidingWindow(settings.rate_capture_per_min) if settings.rate_capture_per_min > 0 else None
     )
     auth_window = SlidingWindow(settings.rate_auth_per_min) if settings.rate_auth_per_min > 0 else None
+    command_window = (
+        SlidingWindow(settings.rate_commands_per_min) if settings.rate_commands_per_min > 0 else None
+    )
+
+    def throttle_commands(request: Request, n: int) -> JSONResponse | None:
+        """Count `n` management commands against the caller's credential bucket; a 429 response when over the limit.
+        Called by the three entry points that run commands (their bodies are only known after parsing)."""
+        if command_window is None or n <= 0:
+            return None
+        wait = command_window.hit(
+            credential_key(
+                request.headers.get("authorization"), request.cookies.get("tt_session"),
+                request.headers.get("x-debug-actor"), request_ip(request),
+            ),
+            n,
+        )  # fmt: skip
+        if wait is None:
+            return None
+        retry = str(int(wait) + 1)
+        return JSONResponse(
+            error_body("rate_limited", "too many commands; slow down", None, {"retry_after": int(retry)}),
+            429, headers={"Retry-After": retry},
+        )  # fmt: skip
+
+    app.state.throttle_commands = throttle_commands
 
     @app.middleware("http")
     async def rate_limit(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -141,13 +197,11 @@ def create_app(
         if request.method == "POST" and capture_window and path.endswith("/capture/batches"):
             key = credential_key(
                 request.headers.get("authorization"), request.cookies.get("tt_session"),
-                request.headers.get("x-debug-actor"), request.client.host if request.client else None,
+                request.headers.get("x-debug-actor"), request_ip(request),
             )  # fmt: skip
             wait = capture_window.hit(key)
         elif request.method == "POST" and auth_window and path.startswith("/auth/"):
-            wait = auth_window.hit(
-                credential_key(None, None, None, request.client.host if request.client else None)
-            )
+            wait = auth_window.hit(credential_key(None, None, None, request_ip(request)))
         if wait is not None:
             retry = str(int(wait) + 1)
             return JSONResponse(
@@ -257,4 +311,5 @@ def create_app(
         """The exact JSON Schema translators must emit (served so clients can fetch the matching version)."""
         return client_message_json_schema(batch=batch)
 
+    instrument(app, db_engine, provider)
     return app

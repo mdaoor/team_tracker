@@ -5,9 +5,10 @@ from __future__ import annotations
 from procrastinate import RetryStrategy
 
 from tt_server.db import models as m
-from tt_server.db.session import make_engine, make_session_factory
+from tt_server.db.session import make_session_factory
 from tt_server.integrations.jira import sync
-from tt_server.jobs.app import app
+from tt_server.jobs.engine import shared_engine
+from tt_server.jobs.otel import traced_task
 from tt_server.settings import get_settings
 
 
@@ -20,17 +21,14 @@ async def item_of_event(session, event_id: str) -> str | None:  # type: ignore[n
     return None
 
 
-@app.task(name="jira.on_event", retry=RetryStrategy(max_attempts=sync.MAX_ATTEMPTS, exponential_wait=15))
+@traced_task(name="jira.on_event", retry=RetryStrategy(max_attempts=sync.MAX_ATTEMPTS, exponential_wait=15))
 async def on_event(event_id: str) -> str:
     if not get_settings().features.jira_sync:
         return "disabled"
-    engine = make_engine()
-    try:
-        factory = make_session_factory(engine)
-        async with factory() as s:
-            item_id = await item_of_event(s, event_id)
-        if item_id is None:
-            return "not_an_item_event"
-        return (await sync.push_item(factory, item_id)).status
-    finally:
-        await engine.dispose()
+    engine = shared_engine()
+    factory = make_session_factory(engine)
+    async with factory() as s:
+        item_id = await item_of_event(s, event_id)
+    if item_id is None:
+        return "not_an_item_event"
+    return (await sync.push_item(factory, item_id)).status

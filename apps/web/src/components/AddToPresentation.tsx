@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, w, type Row } from "../api/http";
+import { addSlide, createPresentation } from "../api/present";
 import { useList, useWs } from "../lib/hooks";
 import type { SlideDraft } from "../lib/slides";
 import { Button } from "./ui";
@@ -18,13 +18,10 @@ export function AddToPresentation({ build }: { build: () => SlideDraft }) {
       const slide = build();
       let id = target;
       if (!id) {
-        const p = await api.post<Row>(w(ws, "/presentations"), {
-          title: "New presentation",
-          slides: [],
-        });
+        const p = await createPresentation(ws, { title: "New presentation", slides: [] });
         id = p.id as string;
       }
-      await api.post(w(ws, `/presentations/${id}/slides`), { slide });
+      await addSlide(ws, id, slide);
       return id;
     },
     onSuccess: (id) => {

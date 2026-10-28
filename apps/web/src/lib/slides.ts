@@ -1,10 +1,10 @@
-import type { Row } from "../api/http";
+import type { Json } from "../api/http";
 import { sortParam, toFilter, type ViewState } from "./viewState";
 
 export interface SlideDraft {
   kind: string;
   title?: string;
-  config: Row;
+  config: Json;
   live?: boolean;
 }
 

@@ -17,9 +17,11 @@ from tt_server.acl.visibility import redact_event, visible
 from tt_server.api.authz import check
 from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
-from tt_server.api.routers.core import row_dict
 from tt_server.api.routers.governance import policy_context
 from tt_server.db import models as m
+from tt_server.domain.common import row_dict, team_subtree_ids
+from tt_server.domain.errors import DomainError
+from tt_server.domain.names import Names
 from tt_server.domain.overlay import weights
 from tt_server.governance import service
 from tt_server.integrations.llm import GatewayBudgetExceeded, GatewayUnavailable
@@ -51,7 +53,6 @@ async def check_policy(body: CheckIn, actor: CurrentActor, uow: Uow) -> dict[str
     cel = body.cel
     try:
         if body.template:
-            await service.ensure_builtins(uow.session)
             row = await service.find_template(uow.session, actor.ws.id, body.template)
             t = service.template_from_row(row)
             cel = tt_cel.render(t.cel, t.params, body.params)
@@ -119,22 +120,7 @@ async def digest(actor: CurrentActor, uow: Uow, team: str | None = None, days: i
         )
         if team_row is None:
             raise ApiError(404, "not_found", "team not found")
-        ids, frontier = {team_row.id}, {team_row.id}
-        while frontier:
-            kids = (
-                set(
-                    (
-                        await s.scalars(
-                            select(m.Team.id).where(
-                                m.Team.workspace_id == actor.ws.id, m.Team.parent_team_id.in_(frontier)
-                            )
-                        )
-                    ).all()
-                )
-                - ids
-            )
-            ids |= kids
-            frontier = kids
+        ids = await team_subtree_ids(s, actor.ws.id, {team_row.id})
         people = set(
             (
                 await s.scalars(
@@ -182,6 +168,11 @@ async def digest(actor: CurrentActor, uow: Uow, team: str | None = None, days: i
     if people is not None:
         ev_q = ev_q.where(m.Event.actor_id.in_(people))
     events = (await s.scalars(ev_q.order_by(m.Event.occurred_at.desc()).limit(50))).all()
+    names = await Names.load(
+        s,
+        actor.ws.id,
+        [(e.entity_type, e.entity_id) for e in events] + [("person", e.actor_id) for e in events],
+    )
     notes_q = select(m.ContextNote).where(
         m.ContextNote.workspace_id == actor.ws.id,
         m.ContextNote.deleted_at.is_(None),
@@ -220,7 +211,14 @@ async def digest(actor: CurrentActor, uow: Uow, team: str | None = None, days: i
         "since": since.astimezone(UTC),
         "daily_logs": [{**row_dict(r), "person": handles.get(r.person_id, r.person_id)} for r in logs],
         "unreviewed": sum(1 for r in logs if r.status.value == "confirmed"),
-        "events": [redact_event(actor.acl, row_dict(e)) for e in events],
+        "events": [
+            {
+                **redact_event(actor.acl, row_dict(e)),
+                "entity": names.label(e.entity_type, e.entity_id),
+                "actor": names.person(e.actor_id),
+            }
+            for e in events
+        ],
         "notes": [row_dict(n) for n in notes],
         "insights": [{**row_dict(i), "project": projects[i.scope_id]} for i in insights],
     }
@@ -246,7 +244,6 @@ async def author_policy(body: AuthorIn, request: Request, actor: CurrentActor, u
     errors: list[dict[str, Any]] = []
     try:
         if draft.get("mode") == "template" and draft.get("template"):
-            await service.ensure_builtins(uow.session)
             t = service.template_from_row(
                 await service.find_template(uow.session, actor.ws.id, draft["template"])
             )
@@ -257,7 +254,7 @@ async def author_policy(body: AuthorIn, request: Request, actor: CurrentActor, u
             raise tt_cel.CelError("the draft has neither a template nor a CEL expression")
     except tt_cel.CelError as exc:
         errors.append(exc.as_dict())
-    except ApiError as exc:
+    except DomainError as exc:
         errors.append({"message": exc.message})
     draft["validated"] = not errors
     return {"draft": draft, "errors": errors, "run_id": ans.run_id, "warnings": ans.warnings}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, w } from "../../api/http";
+import { getContextPack } from "../../api/teams";
 import { Button, Card } from "../../components/ui";
 import { useToasts } from "../../components/Toasts";
 import { useList, useObj, useWs } from "../../lib/hooks";
@@ -15,7 +15,7 @@ export function Manual() {
   const required: string[] = pack.data?.manual_mode?.required_fields ?? [];
   const exportPack = async () => {
     try {
-      const data = await api.get(w(ws, "/context-pack"), who ? { for: who } : undefined);
+      const data = await getContextPack(ws, who);
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
       );

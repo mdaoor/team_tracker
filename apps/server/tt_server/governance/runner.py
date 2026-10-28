@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import datetime
 from typing import Any
 
 import tt_cel
@@ -11,11 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import utcnow
 from tt_schema.enums import EventSource, PolicyTrigger, TargetType
 
+from tt_server.clock import ws_today
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit, system_person
+from tt_server.domain.overlay import process as proc
 from tt_server.governance import apply as applymod
+from tt_server.governance import context as ctxmod
 from tt_server.governance import engine, habits, metrics, service
+from tt_server.governance import facts as factmod
 
 
 async def run_policy(
@@ -45,8 +49,6 @@ async def run_workspace(
     """Sweep every active scheduled policy of the workspace (`only_due`: just the ones whose cron matches this minute)."""
     now = now or utcnow()
     async with factory() as s:
-        await service.ensure_builtins(s)
-        await s.commit()
         policies = (
             await s.scalars(
                 select(m.Policy).where(
@@ -141,9 +143,6 @@ def _listens(p: m.Policy, event_type: str) -> bool:
 
 async def stage_rules(uow: UnitOfWork, ws: m.Workspace, item_id: str, ev: m.Event) -> int:
     """`StageTransitionRule.auto_when` (CEL over the same context): move the item when the rule holds, as `source=rule`."""
-    from tt_server.domain.overlay import process as proc
-    from tt_server.governance import context as ctxmod
-    from tt_server.governance import facts as factmod
 
     s = uow.session
     place = await s.scalar(
@@ -234,7 +233,7 @@ async def nightly(
     async with UnitOfWork(factory) as uow:
         ws = await uow.session.get(m.Workspace, ws_id)
         assert ws is not None  # noqa: S101
-        day = now.astimezone(UTC).date() if isinstance(now, datetime) else date.today()
+        day = ws_today(ws, now)
         schemes: list[str | None] = [
             None,
             *(

@@ -1,4 +1,4 @@
-import type { Row } from "../api/http";
+import type { PlanRow } from "../api/types";
 
 export const STATUS_LABEL: Record<string, string> = {
   done: "Done",
@@ -52,6 +52,6 @@ export function dateEditError(start: string | null, end: string | null): string 
   return null;
 }
 
-export function deliverablesOf(plan: Row): Row[] {
-  return (plan.phases ?? []).flatMap((p: Row) => p.deliverables ?? []);
+export function deliverablesOf(plan: { phases?: { deliverables?: PlanRow[] }[] }): PlanRow[] {
+  return (plan.phases ?? []).flatMap((p) => p.deliverables ?? []);
 }

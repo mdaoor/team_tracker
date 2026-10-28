@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import jsonschema
@@ -15,6 +17,13 @@ import structlog
 
 from tt_llm.config import LOCAL_PREFIXES, GatewayConfig
 from tt_llm.storage import Storage
+
+
+def _no_cost_map_download() -> None:
+    """LiteLLM fetches its price table from github.com on first import unless told to use the copy it ships. A gateway in
+    `local_only` mode promises to open no connection beyond loopback, so it never downloads."""
+    os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+
 
 log = structlog.get_logger()
 
@@ -93,6 +102,7 @@ async def litellm_backend(
     max_tokens: int | None,
     api_base: str | None,
 ) -> Completion:
+    _no_cost_map_download()
     import litellm
 
     kw: dict[str, Any] = {
@@ -148,6 +158,7 @@ def parse_json(text: str | None) -> Any:
 
 
 async def litellm_embed(*, model: str, texts: list[str], api_base: str | None) -> list[list[float]]:
+    _no_cost_map_download()
     import litellm
 
     kw: dict[str, Any] = {"model": model, "input": texts}
@@ -200,19 +211,40 @@ class Router:
         return models
 
     # -- budgets ---------------------------------------------------------------------------------
-    def limit_for(self, workspace: str) -> float:
+    def limit_for(self, workspace: str) -> Decimal:
         b = self.cfg.budgets
-        return b.workspaces.get(workspace, b.default_usd_per_workspace_per_day)
+        return Decimal(str(b.workspaces.get(workspace, b.default_usd_per_workspace_per_day)))
+
+    def _retry_after(self, now: datetime) -> int:
+        midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
+        return max(1, int((midnight - now).total_seconds()))
 
     async def check_budget(self, workspace: str) -> None:
+        """Refuse a workspace whose day is already spent (no hold: used by calls that cost nothing measurable)."""
         now = datetime.now(UTC)
         if await self.storage.spent(workspace, now.date()) >= self.limit_for(workspace):
-            midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
-            raise BudgetExceeded(workspace, max(1, int((midnight - now).total_seconds())))
+            raise BudgetExceeded(workspace, self._retry_after(now))
+
+    async def _reserve(self, workspace: str) -> Decimal:
+        """Hold the per-request reserve against today's budget, or raise BudgetExceeded. Returns what was held."""
+        hold = Decimal(str(self.cfg.budgets.reserve_usd_per_request))
+        now = datetime.now(UTC)
+        if hold <= 0:
+            await self.check_budget(workspace)
+            return Decimal(0)
+        if not await self.storage.reserve(workspace, now.date(), hold, self.limit_for(workspace)):
+            raise BudgetExceeded(workspace, self._retry_after(now))
+        return hold
+
+    async def _settle(self, workspace: str, held: Decimal, actual_usd: float | Decimal) -> None:
+        """Replace the hold by what the call really cost (negative when it cost less)."""
+        delta = Decimal(str(actual_usd)) - held
+        if delta:
+            await self.storage.add_spend(workspace, datetime.now(UTC).date(), delta)
 
     async def _charge(self, workspace: str, usd: float) -> None:
         if usd:
-            await self.storage.add_spend(workspace, datetime.now(UTC).date(), usd)
+            await self.storage.add_spend(workspace, datetime.now(UTC).date(), Decimal(str(usd)))
 
     # -- completion ------------------------------------------------------------------------------
     async def complete(
@@ -227,7 +259,27 @@ class Router:
         timeout: float | None = None,  # noqa: ASYNC109 - per-call override, enforced with wait_for
         privacy_mode: str | None = None,
     ) -> Completion:
-        await self.check_budget(workspace)
+        held = await self._reserve(workspace)
+        try:
+            return await self._complete_held(
+                alias, messages, workspace, held, tools, schema, temperature, timeout, privacy_mode
+            )
+        except BaseException:
+            await self._settle(workspace, held, 0)  # nothing was spent: give the hold back
+            raise
+
+    async def _complete_held(
+        self,
+        alias: str,
+        messages: list[dict[str, Any]],
+        workspace: str,
+        held: Decimal,
+        tools: list[dict[str, Any]] | None,
+        schema: dict[str, Any] | None,
+        temperature: float,
+        timeout: float | None,  # noqa: ASYNC109
+        privacy_mode: str | None,
+    ) -> Completion:
         lim = self.cfg.limits
         fmt = (
             {"type": "json_schema", "json_schema": {"name": "answer", "schema": schema, "strict": False}}
@@ -251,7 +303,8 @@ class Router:
                         ),
                         timeout=timeout or lim.request_timeout_s,
                     )
-                    await self._charge(workspace, comp.cost_usd)
+                    await self._settle(workspace, held, comp.cost_usd)
+                    held = Decimal(0)  # settled: an exception from here on must not refund it twice
                     return comp
                 except GatewayError:
                     raise

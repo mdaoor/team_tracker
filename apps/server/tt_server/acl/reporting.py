@@ -9,6 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.enums import ReportingKind, ScopeType
 
+from tt_server.clock import utc_today
 from tt_server.db import models as m
 
 LINE_KINDS = (ReportingKind.LINE, ReportingKind.SENIOR)
@@ -34,7 +35,7 @@ async def managers_of(
     stmt = select(m.ReportingLine.manager_id).where(
         m.ReportingLine.workspace_id == ws_id,
         m.ReportingLine.person_id == person_id,
-        *_valid(at or date.today()),  # type: ignore[arg-type]
+        *_valid(at or utc_today()),  # type: ignore[arg-type]
     )
     if kinds is not None:
         stmt = stmt.where(m.ReportingLine.kind.in_(list(kinds)))
@@ -59,7 +60,7 @@ async def reports_of(
     stmt = select(m.ReportingLine.person_id).where(
         m.ReportingLine.workspace_id == ws_id,
         m.ReportingLine.manager_id == manager_id,
-        *_valid(at or date.today()),  # type: ignore[arg-type]
+        *_valid(at or utc_today()),  # type: ignore[arg-type]
     )
     if kinds is not None:
         stmt = stmt.where(m.ReportingLine.kind.in_(list(kinds)))

@@ -59,6 +59,9 @@ def bind(facts: Any) -> dict[str, Callable[..., Any]]:
     def minutes_logged(_ns: Any, person_id: Any, window: Any) -> Any:
         return celtypes.IntType(facts.minutes.get((str(person_id), str(window)), 0))
 
+    def development_minutes(_ns: Any, person_id: Any, window: Any) -> Any:
+        return celtypes.IntType(facts.development.get((str(person_id), str(window)), 0))
+
     def distinct_items(_ns: Any, person_id: Any, window: Any) -> Any:
         return celtypes.IntType(facts.distinct.get((str(person_id), str(window)), 0))
 
@@ -86,5 +89,5 @@ def bind(facts: Any) -> dict[str, Callable[..., Any]]:
     ops: dict[str, Callable[..., Any]] = {"_==_": _eq, "_!=_": _ne}
     return ops | {f.__name__: f for f in (
         evidence_last_at, evidence_count, hours_logged, reopen_count, days_in_stage, children_count, open_violations,
-        missing_required_dimensions, wip_count, minutes_logged, distinct_items, active_items, wip, overrun_rate, business_days,
+        missing_required_dimensions, wip_count, minutes_logged, development_minutes, distinct_items, active_items, wip, overrun_rate, business_days,
     )}  # fmt: skip

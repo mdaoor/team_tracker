@@ -23,6 +23,7 @@ dev-dependencies = [
   "types-dateparser>=1.4.3.20260907",
   "schemathesis>=4.32.4",
   "types-python-dateutil>=2.9.0.20261021",
+  "pytest-xdist>=3.8.0",
 ]
 
 [tool.uv.workspace]
@@ -43,7 +44,7 @@ target-version = "py312"
 extend-exclude = ["docs/spec", "tools/gen_snapshot.py"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "DTZ005", "DTZ011"]  # DTZ: no naive/server-local "now" for business dates (use tt_server.clock)
 ignore = ["E501"]  # `ruff format` wraps code; long docstrings/strings are left to the author
 
 [tool.ruff.lint.per-file-ignores]
@@ -52,6 +53,8 @@ ignore = ["E501"]  # `ruff format` wraps code; long docstrings/strings are left 
 "**/slack_tests/**" = ["S", "E501"]
 "tools/**" = ["S"]
 "packages/schema/src/tt_schema/*.py" = ["F403", "F405", "UP007", "UP042", "UP045", "S101"]
+# `token_scope` is the API-token scope an op needs ("manage" | "admin"), not a credential
+"apps/server/tt_server/api/commands/*.py" = ["S105", "S106", "S107"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -59,7 +62,11 @@ timeout = 120
 timeout_method = "thread"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-markers = ["llm: tests that need a real model (opt-in)", "contract: OpenAPI fuzzing against a live server"]
+markers = [
+  "llm: tests that need a real model (opt-in)",
+  "contract: OpenAPI fuzzing against a live server",
+  "perf: latency/throughput budgets; run without coverage tracing (CI runs them in their own step)",
+]
 filterwarnings = ["ignore:.*is deprecated.*:DeprecationWarning:ldap3.*"]
 testpaths = ["packages", "apps"]
 

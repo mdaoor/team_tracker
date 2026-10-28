@@ -11,6 +11,8 @@ import time
 from collections import deque
 from collections.abc import Callable
 
+from tt_server.sso import trusted_peer
+
 
 class SlidingWindow:
     def __init__(
@@ -20,15 +22,17 @@ class SlidingWindow:
         self._hits: dict[str, deque[float]] = {}
         self._swept = clock()
 
-    def hit(self, key: str) -> float | None:
-        """Record a request. Returns None when allowed, else the seconds until the oldest hit leaves the window."""
+    def hit(self, key: str, n: int = 1) -> float | None:
+        """Record `n` requests. Returns None when allowed, else the seconds until enough hits leave the window."""
         now = self.clock()
         q = self._hits.setdefault(key, deque())
         while q and now - q[0] >= self.window:
             q.popleft()
-        if len(q) >= self.limit:
-            return max(0.0, self.window - (now - q[0]))
-        q.append(now)
+        if len(q) + n > self.limit:
+            # the hit that must expire for `n` more to fit; a single call larger than the limit waits a full window
+            idx = len(q) + n - self.limit - 1
+            return max(0.0, self.window - (now - q[idx])) if idx < len(q) else self.window
+        q.extend([now] * n)
         if now - self._swept > self.window * 5:  # forget idle keys so the table cannot grow without bound
             self._swept = now
             for k in [k for k, v in self._hits.items() if not v or now - v[-1] >= self.window]:
@@ -44,3 +48,17 @@ def credential_key(
         if raw:
             return tag + hashlib.sha256(raw.encode()).hexdigest()[:20]
     return "anon"
+
+
+def client_ip(settings: object, peer: str | None, forwarded_for: str | None) -> str | None:
+    """The caller's address. `X-Forwarded-For` is believed only when the TCP peer is a configured trusted proxy
+    (`TT_TRUSTED_PROXIES`); then the right-most hop that is not itself a trusted proxy is the client. Anything else is
+    attacker-controlled and ignored, so a stranger cannot pick their own bucket (Phase 13 R3.4, review T1)."""
+
+    if not peer or not forwarded_for or not trusted_peer(settings, peer):  # type: ignore[arg-type]
+        return peer
+    hops = [h.strip() for h in forwarded_for.split(",") if h.strip()]
+    for hop in reversed(hops):
+        if not trusted_peer(settings, hop):  # type: ignore[arg-type]
+            return hop
+    return hops[0] if hops else peer

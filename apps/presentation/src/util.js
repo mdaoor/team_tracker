@@ -26,6 +26,7 @@ export function applyFilter(items, f, D) {
     if (f.hours && !(i.hours_logged > 0)) return false;
     if (f.late && !(i.actual_end && i.actual_end > i.planned_end)) return false;
     if (f.risk && !i.risks.length) return false;
+    if (f.violated && !violationsOf(D, [i]).length) return false;
     if (f.overdue && !(i.state !== "done" && i.planned_end < f.overdue))
       return false;
     if (f.dims)
@@ -34,8 +35,9 @@ export function applyFilter(items, f, D) {
     return true;
   });
 }
-export const drillAttr = (label, f) =>
-  `data-drill="${esc(JSON.stringify({ label, f }))}"`;
+/** `note` says how the number on the tile relates to the list it opens (e.g. "36 violations on 31 items"). */
+export const drillAttr = (label, f, note) =>
+  `data-drill="${esc(JSON.stringify(note ? { label, f, note } : { label, f }))}"`;
 
 export function keysOf(i, dim) {
   return dim === "tags" ? (i.tags.length ? i.tags : ["—"]) : [i[dim] ?? "—"];
@@ -86,3 +88,9 @@ export const sev = (s) =>
 export const stuck = (D, i) =>
   i.state !== "done" &&
   i.stage_age_days > (D.stage_expected_days[i.stage] ?? Infinity);
+
+/** A project is shown when it has reported work or a plan (a plan-only project has deliverables but no items yet). */
+export const projectShown = (ctx, p) =>
+  ctx.items.some((i) => i.project === p.key) ||
+  (ctx.D.deliverables ?? []).some((d) => d.project === p.key) ||
+  (ctx.D.phases ?? []).some((ph) => ph.project === p.key);

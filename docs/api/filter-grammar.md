@@ -14,7 +14,7 @@ Inbox projects are excluded unless `include_inbox` is true (and are still only v
 | `priority` | `gte / lte / eq / in` over `lowest < low < medium < high < highest < critical` | ordinal `CASE` |
 | `weight` | `gte / lte / eq`, optional `scheme` | the scheme's `weights` row (or the item's cached default weight) |
 | `impact` | `gte / lte / eq` (1-5) | column |
-| `due_date` `planned_start` `planned_end` `actual_end` `created` | `between [a,b]` / `before` / `after` / `is_null`; tokens `today tomorrow yesterday start_of_week end_of_week start_of_month end_of_month +Nd -Nd +Nw -Nw` or ISO dates | date columns (ADR-0010) |
+| `due_date` `planned_start` `planned_end` `actual_end` `created` | `between [a,b]` / `before` / `after` / `is_null`; tokens `today tomorrow yesterday start_of_week end_of_week start_of_next_week end_of_next_week start_of_month end_of_month +Nd -Nd +Nw -Nw` or ISO dates | date columns (ADR-0010) |
 | `touched` | `{since: token}` | `EXISTS events` since the start of that day in the viewer's zone |
 | `state` | `{category: [open,active,done], in: [state keys]}` | `workflow_states` |
 | `stage` | `{in, process, age_gt_expected}` | current `stage_placements`; `age_gt_expected` compares `entered_at` with the stage's expected days |

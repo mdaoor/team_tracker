@@ -84,6 +84,18 @@ async def test_sql_storage_round_trips_runs_and_budgets() -> None:
         await store.add_spend("acme", day, 0.5)
         await store.add_spend("acme", day, 0.25)
         assert await store.spent("acme", day) == 0.75 and await store.spent("other", day) == 0.0
+        # reservation is one statement: with 0.25 left, exactly one of four concurrent holds of 0.25 wins
+        import asyncio
+        from decimal import Decimal
+
+        held = await asyncio.gather(
+            *(store.reserve("acme", day, Decimal("0.25"), Decimal("1.0")) for _ in range(4))
+        )
+        assert sorted(held) == [False, False, False, True]
+        assert await store.spent("acme", day) == Decimal("1.0")
+        assert (
+            await store.reserve("tiny", day, Decimal("0.5"), Decimal("0.1")) is False
+        )  # a hold larger than the limit
     finally:
         import sqlalchemy as sa
 

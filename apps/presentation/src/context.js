@@ -1,4 +1,4 @@
-import { applyFilter, scopeItems } from "./util.js";
+import { applyFilter, projectShown, scopeItems } from "./util.js";
 import { habitList } from "./renderers/people.js";
 import { peopleList } from "./renderers/people.js";
 import { radarRows } from "./renderers/time.js";
@@ -25,9 +25,7 @@ export function makeContext(data, { interactive = false } = {}) {
     restricted: (id) => !!(data.slide_data ?? {})[id]?.restricted,
     radarRows: (cfg) => radarRows(ctx, cfg),
     peopleCount: () => peopleList(ctx).length,
-    projectCount: () =>
-      D.projects.filter((p) => ctx.items.some((i) => i.project === p.key))
-        .length,
+    projectCount: () => D.projects.filter((p) => projectShown(ctx, p)).length,
     habitCount: () => habitList(ctx).length,
     scope(scope, path = []) {
       let items = scopeItems(D, scope);

@@ -1,4 +1,4 @@
-{{- define "tt.name" -}}{{ .Release.Name }}-{{ .component }}{{- end -}}
+{{- define "tt.name" -}}{{ .root.Release.Name }}-{{ .component }}{{- end -}}
 {{- define "tt.labels" -}}
 app.kubernetes.io/name: team-tracker
 app.kubernetes.io/instance: {{ .root.Release.Name }}

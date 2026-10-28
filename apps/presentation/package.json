@@ -3,6 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "exports": {
+    "./gantt": {
+      "types": "./src/gantt.d.ts",
+      "default": "./src/gantt.js"
+    },
+    "./gantt.css": "./src/gantt.css"
+  },
   "scripts": {
     "build": "node build.mjs",
     "test": "vitest run",

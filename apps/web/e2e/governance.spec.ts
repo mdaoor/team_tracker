@@ -7,7 +7,10 @@ test("a manager creates a template policy, dry-runs it, activates it and waives 
   request,
 }) => {
   await page.goto("/w/acme/policies/new");
-  await page.getByRole("listitem").filter({ hasText: "Item stuck in a stage" }).click();
+  await page
+    .getByRole("group", { name: "Templates" })
+    .getByRole("button", { name: /Item stuck in a stage/ })
+    .click();
   await page.getByLabel("Key").fill("e2e_stuck");
   await page.getByRole("spinbutton").fill("3");
   // no CEL is needed (or shown) for a template policy
@@ -64,7 +67,10 @@ test("the thin editors: scope, filter, notify, automatic action are saved with t
   request,
 }) => {
   await page.goto("/w/acme/policies/new");
-  await page.getByRole("listitem").filter({ hasText: "Item stuck in a stage" }).click();
+  await page
+    .getByRole("group", { name: "Templates" })
+    .getByRole("button", { name: /Item stuck in a stage/ })
+    .click();
   await page.getByLabel("Key").fill("e2e_editors");
   await page.getByRole("spinbutton").fill("5");
   await page.getByLabel("Policy scope type").selectOption("project");

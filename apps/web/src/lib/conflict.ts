@@ -1,13 +1,19 @@
-import { api, ApiError, type Row } from "../api/http";
+import { api, ApiError, type Json } from "../api/http";
 
-export type Conflict = { current: Row; etag: string; attempted: Row };
+export type Conflict = {
+  current: Json;
+  etag: string;
+  attempted: Json;
+  changedBy?: string;
+  changedAt?: string;
+};
 
 /** PATCH with `If-Match`; a 409 becomes a `Conflict` the dialog can resolve (keep mine / take theirs / revert). */
 export async function patchWithEtag(
   path: string,
-  body: Row,
+  body: Json,
   etag: string,
-): Promise<{ ok: true; data: Row } | { ok: false; conflict: Conflict }> {
+): Promise<{ ok: true; data: Json } | { ok: false; conflict: Conflict }> {
   try {
     return { ok: true, data: await api.patch(path, body, { "If-Match": etag }) };
   } catch (e) {
@@ -15,7 +21,13 @@ export async function patchWithEtag(
       const d = e.body?.error?.details ?? e.body?.error ?? {};
       return {
         ok: false,
-        conflict: { current: d.current ?? {}, etag: d.etag ?? etag, attempted: body },
+        conflict: {
+          current: d.current ?? {},
+          etag: d.etag ?? etag,
+          attempted: body,
+          changedBy: d.changed_by ?? undefined,
+          changedAt: d.changed_at ?? undefined,
+        },
       };
     }
     throw e;

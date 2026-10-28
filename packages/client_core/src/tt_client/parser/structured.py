@@ -30,7 +30,10 @@ class ParseContext:
     now: datetime
     tz: str = "UTC"
     hours_per_day: int = 8
-    default_action: ClientAction = ClientAction.NOTE
+    # None = infer: a bare noun phrase creates an item, text about a named key is a note (Phase 13 R6.2, ADR-0043)
+    default_action: ClientAction | None = None
+    # handles the workspace knows; others stay in the title text so nothing the person typed disappears
+    known_people: frozenset[str] | None = None
 
 
 @dataclass
@@ -80,6 +83,12 @@ _EST_AMOUNT = re.compile(
 )
 _TOOK = re.compile(
     r"(?:^|\b)(?:took|spent|logged|time)\s*:?\s*(?P<dur>\d[\w .]*?)(?=$|\s+(?:on|for|in|by|to)\b|[,|])", re.I
+)
+# Sentences that comment on something ("the retry logic is flaky", "need to talk to ops") are notes, not new work.
+_OBSERVATION = re.compile(
+    r"\b(?:is|are|was|were|isn't|aren't|seems?|looks?|keeps?|can't|cannot|won't|doesn't|don't|didn't|"
+    r"need(?:s)?\s+to|should|shouldn't|might|maybe|probably\s+(?:is|needs?)|think|thinks|wondering|fyi)\b",
+    re.I,
 )
 _BLOCK_SPLIT = re.compile(r"\s+(?:waiting\s+(?:for|on)|because|blocked\s+by|due\s+to)\b|\s+[—–-]\s+", re.I)
 
@@ -157,7 +166,14 @@ class StructuredParser:
         tags = list(dict.fromkeys(t for t in _TAG.findall(text)))
         text = _TAG.sub(" ", text)
         people = list(dict.fromkeys("@" + p for p in _PERSON.findall(text)))
-        text = _PERSON.sub(" ", text)
+        known = self.ctx.known_people
+        if known is not None:  # unknown handles are words in the title, not assignees (R6.2)
+            lower = {k.lower() for k in known}
+            unknown = [p for p in people if p.lower() not in lower]
+            people = [p for p in people if p.lower() in lower]
+            text = _PERSON.sub(lambda mt: mt.group(0) if "@" + mt.group(1) in unknown else " ", text)
+        else:
+            text = _PERSON.sub(" ", text)
 
         clauses = [c for c in re.split(r"\||\n", text) if c.strip()]
         action, item_type, first_clause = self._verb(clauses)
@@ -199,6 +215,12 @@ class StructuredParser:
         messages = []
         for i, el in enumerate(elements):
             act = action or self._infer(el, evidence if i == 0 else [])
+            ambiguous = (
+                action is None
+                and act == ClientAction.CREATE
+                and el.minutes is None
+                and len(el.title.split()) <= 2
+            )
             title = el.title or None
             note = None
             if act == ClientAction.BLOCKED and title:
@@ -231,8 +253,11 @@ class StructuredParser:
                     priority=priority,
                     assignees=assignees,
                     raw_input=raw,
+                    llm_confidence={"intent": 0.4} if ambiguous else None,
                 )
             )
+            if ambiguous:
+                notes.append(f"{el.title!r}: new task or a note? it was treated as a new task")
         return ParseResult(messages, notes)
 
     # ------------------------------------------------------------------ helpers
@@ -315,4 +340,10 @@ class StructuredParser:
             return ClientAction.ESTIMATE
         if evidence and not el.title:
             return ClientAction.EVIDENCE
-        return self.ctx.default_action
+        if self.ctx.default_action is not None:
+            return self.ctx.default_action
+        if el.title and not el.key and not _OBSERVATION.search(el.title):
+            return (
+                ClientAction.CREATE
+            )  # a noun phrase names new work; it is never glued to whatever is active
+        return ClientAction.NOTE

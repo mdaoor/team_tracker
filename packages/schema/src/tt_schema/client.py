@@ -10,6 +10,8 @@ from pydantic import Field
 from tt_schema.base import TTModel as _Client
 from tt_schema.enums import ItemTypeKey, Priority, StrEnum
 
+CLIENT_SCHEMA_VERSION = "0.2"  # ADR-0051: ClientBatch gains `commands[]`
+
 
 class ClientAction(StrEnum):
     START = "start"
@@ -32,6 +34,25 @@ class ClientTaskRef(_Client):
     key: Optional[str] = None
     id: Optional[str] = None
     title: Optional[str] = None
+
+
+# ADR-0054 (Phase 15): where a message came from. Backwards compatible additions, always optional.
+CLIENT_SCHEMA_MINOR = "0.2"  # client_version a Phase 15 client sends; the server accepts 0.1 and 0.2
+ClientOrigin = Literal["manual", "assisted", "personal", "calendar:google", "calendar:microsoft"]
+
+
+class CalendarRef(_Client):
+    """Which calendar occurrence a sent message stands for. The server never sees titles or attendees, only this key."""
+
+    provider: Literal["google", "microsoft"]
+    event_id: str
+    series_id: Optional[str] = None
+    instance_start: Optional[datetime] = None  # the occurrence start; part of the dedup key
+
+
+class ClientSource(_Client):
+    origin: ClientOrigin = "assisted"
+    calendar_ref: Optional[CalendarRef] = None
 
 
 class ClientMessage(_Client):
@@ -65,14 +86,41 @@ class ClientMessage(_Client):
     raw_input: Optional[str] = None
     llm_confidence: Optional[dict[str, float]] = None  # per-field confidence
     jira: Optional[dict[str, Any]] = None  # {"project":"WEB","issuetype":"Task"} pass-through
+    # Phase 15 additions (ADR-0054). `corrects` + action=update asks the server to remove the time entry
+    # created by that earlier client_id (time.unlog; only its owner may).
+    corrects: Optional[str] = None
+    source: Optional[ClientSource] = None
+
+
+class ClientCommand(_Client):
+    """A management command (Phase 14, ADR-0051/0052): unlike a capture message it is authorised and validated
+    server-side and MAY be rejected. `args` is validated against the op's `args_schema` from `GET /commands/catalogue`.
+
+    `args["_meta"]` (optional) carries `{"client_version", "mode", "role_mode", "forced"}`; the server records it in the
+    event payload (audit). `preview_only=True` asks for the effect without writing anything."""
+
+    client_id: str  # idempotency key
+    actor: str  # "@handle"
+    at: datetime
+    op: str  # e.g. "project.create"
+    args: dict[str, Any] = Field(default_factory=dict)
+    on_behalf_of: Optional[str] = None
+    preview_only: bool = False
 
 
 class ClientBatch(_Client):
-    """A client can send several messages at once (offline sync, 'doing 1,2,3')."""
+    """A client can send several messages at once (offline sync, 'doing 1,2,3').
+
+    Schema 0.2 (ADR-0051): `commands[]` sits next to `messages[]`; the server runs messages first, then commands, in order."""
 
     workspace: str
     messages: list[ClientMessage]
-    client_version: str = "0.1"
+    client_version: str = (
+        "0.1"  # spec default (parity); clients that know commands send CLIENT_SCHEMA_VERSION
+    )
+    commands: list[ClientCommand] = Field(
+        default_factory=list, max_length=50
+    )  # ADR-0051; more than 50 go through POST /commands in chunks: schema addition, backwards compatible
     mode: Optional[Literal["assisted", "manual"]] = None  # ADR-0004: schema addition, backwards compatible
 
 

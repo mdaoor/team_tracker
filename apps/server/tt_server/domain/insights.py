@@ -15,8 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import new_id
 from tt_schema.enums import InsightKind, InsightStatus, ScopeType
 
-from tt_server.api.errors import ApiError
+from tt_server.acl.context import load_context
 from tt_server.db import models as m
+from tt_server.db.uow import commit_derived
+from tt_server.domain.errors import NotFound
 from tt_server.integrations.llm import GatewayBudgetExceeded, GatewayUnavailable, LLMGatewayClient
 
 
@@ -89,6 +91,7 @@ def fallback_summary(facts: dict[str, Any]) -> str:
 
 
 def fact_ids(facts: dict[str, Any]) -> set[str]:
+    """Collect the item keys present in a fact sheet; an insight may cite only these."""
     ids = {facts["project"]["key"]}
     ids |= {i["key"] for i in facts.get("stuck_items", [])}
     if facts.get("top_risk"):
@@ -97,6 +100,7 @@ def fact_ids(facts: dict[str, Any]) -> set[str]:
 
 
 def grounded(supporting: list[str], facts: dict[str, Any]) -> bool:
+    """True when every supporting key an insight cites exists in the facts it was generated from."""
     return set(supporting) <= fact_ids(facts)
 
 
@@ -174,7 +178,7 @@ async def facts_for_project(qc: Any, ws: m.Workspace, project_key: str) -> tuple
     )
     pd = next((p for p in snap["projects"] if p["key"] == project_key.upper()), None)
     if proj is None or pd is None:
-        raise ApiError(404, "not_found", f"unknown project {project_key!r}", pointer="/scope")
+        raise NotFound("not_found", f"unknown project {project_key!r}", pointer="/scope")
     return proj, project_facts(
         pd, snap["items"], snap["milestones"], snap["risks"], snap["stage_expected_days"], qc.today
     )
@@ -183,7 +187,6 @@ async def facts_for_project(qc: Any, ws: m.Workspace, project_key: str) -> tuple
 async def nightly(factory: Any, gateway: LLMGatewayClient, ws_id: str) -> int:
     """Generate a gateway summary for every project in the workspace, as its first admin. Without a gateway nothing is stored: the
     snapshot computes the deterministic text live."""
-    from tt_server.acl.context import load_context
     from tt_server.domain import deckdata
 
     written = 0
@@ -227,5 +230,5 @@ async def nightly(factory: Any, gateway: LLMGatewayClient, ws_id: str) -> int:
                 written += 1
             else:
                 await s.delete(row)  # a deterministic text is not worth a row; the snapshot recomputes it
-        await s.commit()
+        await commit_derived(s)
     return written

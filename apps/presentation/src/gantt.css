@@ -1,0 +1,97 @@
+/* The shared Gantt (src/gantt.js). Tokens fall back to neutral colours so the web console can import this file as is. */
+.roadmap svg {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+}
+.rm-label {
+  font-size: 11px;
+  fill: var(--text-1, #222);
+}
+.rm-label.phase {
+  font-weight: 600;
+}
+.rm-month {
+  font-size: 10px;
+  fill: var(--text-3, #889);
+}
+.rm-bar {
+  fill: var(--s1, #46a);
+  opacity: 0.85;
+}
+.rm-bar.phase {
+  fill: var(--s3, #678);
+}
+.rm-bar.st-overdue {
+  fill: var(--crit, #c33);
+}
+.rm-bar.st-at_risk {
+  fill: var(--warn, #c80);
+}
+.rm-bar.st-done {
+  fill: var(--good, #2a7);
+}
+.rm-done {
+  fill: rgba(255, 255, 255, 0.55);
+}
+.rm-ghost {
+  stroke: var(--text-1, #222);
+  stroke-width: 2;
+  stroke-dasharray: 2 2;
+}
+.rm-dep {
+  fill: none;
+  stroke: var(--text-3, #889);
+  stroke-width: 1.2;
+}
+.rm-dep-head {
+  fill: var(--text-3, #889);
+}
+.rm-ms path {
+  fill: var(--s4, #a6c);
+}
+.rm-ms.st-overdue path {
+  fill: var(--crit, #c33);
+}
+.rm-ms.st-completed path {
+  fill: var(--good, #2a7);
+}
+.rm-today {
+  stroke: var(--crit, #c33);
+  stroke-width: 1;
+}
+
+.rm-scroll {
+  overflow-x: auto;
+}
+.roadmap .rm-scroll svg {
+  width: auto;
+  max-width: none;
+}
+.rm-grid {
+  stroke: var(--line, #ddd);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+.rm-grid.major {
+  opacity: 1;
+}
+.rm-todaylbl {
+  font-size: 10px;
+  fill: var(--crit, #c33);
+}
+.rm-ghost-bar {
+  fill: var(--text-2, #556);
+  opacity: 0.55;
+}
+.rm-bar.epic,
+.rm-bar.rollup {
+  fill: var(--s2, #468);
+}
+.rm-bar.milestone {
+  fill: var(--s4, #a6c);
+}
+.rm-bar.slip {
+  stroke: var(--crit, #c33);
+  stroke-width: 1.5;
+}

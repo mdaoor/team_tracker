@@ -13,9 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import new_id
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.domain import presentations as pres
+from tt_server.domain.errors import DomainError, Invalid, NotFound
 
 SCHEMA_VERSION = 1
 VARIABLES = (
@@ -36,6 +36,8 @@ ALL_SCOPES: list[ScopeKind] = ["workspace", "product", "project", "team", "perso
 
 
 class Param(BaseModel):
+    # A parameter a template asks for (name, type, whether required).
+
     name: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
     type: Literal["project", "product", "team", "process", "dimension", "int", "string", "date_range"] = (
         "string"
@@ -46,6 +48,8 @@ class Param(BaseModel):
 
 
 class TSlide(BaseModel):
+    # A slide blueprint inside a template, with title templates and the data it requires.
+
     kind: str
     title_template: str | None = None
     subtitle_template: str | None = None
@@ -57,12 +61,16 @@ class TSlide(BaseModel):
 
 
 class PostRule(BaseModel):
+    # A rule applied after rendering, e.g. dropping slides when a condition holds.
+
     when: str
     action: Literal["drop_slides"] = "drop_slides"
     kinds: list[str] = Field(default_factory=list)
 
 
 class Theme(BaseModel):
+    # Optional visual defaults of a template (palette, font, logo, footer).
+
     palette: str | None = None
     font: str | None = None
     logo_attachment_id: str | None = None
@@ -70,6 +78,8 @@ class Theme(BaseModel):
 
 
 class TemplateBody(BaseModel):
+    # The validated body of a presentation template.
+
     schema_version: int = SCHEMA_VERSION
     key: str = Field(pattern=r"^[a-z][a-z0-9_]{1,62}$")
     name: str = Field(min_length=1, max_length=120)
@@ -82,6 +92,7 @@ class TemplateBody(BaseModel):
 
 
 def json_schema() -> dict[str, Any]:
+    """JSON Schema of TemplateBody for authoring tools."""
     return TemplateBody.model_json_schema()
 
 
@@ -130,7 +141,7 @@ def validate_body(raw: Any) -> tuple[TemplateBody | None, list[dict[str, str]]]:
         trial = _substitute(sl.config, {v: "x" for v in known}, strict=False)
         try:
             pres.normalise_slides([pres.SlideIn(kind=sl.kind, config=_loosen(sl.kind, trial))])
-        except ApiError as exc:
+        except DomainError as exc:
             errors.append(
                 {
                     "pointer": f"/slides/{i}" + (exc.pointer or "").split("/slides/0", 1)[-1],
@@ -206,7 +217,7 @@ def _substitute(x: Any, values: dict[str, Any], *, strict: bool = True) -> Any:
 
 
 def _missing(name: str) -> Any:
-    raise ApiError(400, "missing_variable", f"no value for ${{{name}}}", pointer=f"/params/{name}")
+    raise Invalid("missing_variable", f"no value for ${{{name}}}", pointer=f"/params/{name}")
 
 
 def resolve_params(body: TemplateBody, given: dict[str, Any]) -> dict[str, Any]:
@@ -214,8 +225,7 @@ def resolve_params(body: TemplateBody, given: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     unknown = set(given) - {p.name for p in body.params}
     if unknown:
-        raise ApiError(
-            400,
+        raise Invalid(
             "unknown_param",
             f"unknown parameter(s) {sorted(unknown)}",
             pointer=f"/params/{sorted(unknown)[0]}",
@@ -223,15 +233,13 @@ def resolve_params(body: TemplateBody, given: dict[str, Any]) -> dict[str, Any]:
     for p in body.params:
         v = given.get(p.name, p.default)
         if v in (None, "") and p.required:
-            raise ApiError(
-                400, "missing_param", f"parameter {p.name!r} is required", pointer=f"/params/{p.name}"
-            )
+            raise Invalid("missing_param", f"parameter {p.name!r} is required", pointer=f"/params/{p.name}")
         if p.type == "int" and v not in (None, ""):
             try:
                 v = int(v)
             except (TypeError, ValueError) as exc:
-                raise ApiError(
-                    400, "invalid_param", f"{p.name} must be a whole number", pointer=f"/params/{p.name}"
+                raise Invalid(
+                    "invalid_param", f"{p.name} must be a whole number", pointer=f"/params/{p.name}"
                 ) from exc
         out[p.name] = v if v is not None else ""
     return out
@@ -285,6 +293,7 @@ def instantiate(
 
 # ---------------------------------------------------------------- storage
 def builtin_bodies() -> list[dict[str, Any]]:
+    """Load the template JSON files shipped with the server."""
     return [json.loads(p.read_text()) for p in sorted(TEMPLATE_DIR.glob("*.json"))]
 
 
@@ -347,10 +356,11 @@ async def find(
     for r in rows:
         if r.workspace_id is None or r.is_shared or r.owner_id == viewer_id or viewer_id is None:
             return r
-    raise ApiError(404, "not_found", f"unknown presentation template {ref!r}")
+    raise NotFound("not_found", f"unknown presentation template {ref!r}")
 
 
 def view(r: m.PresentationTemplate) -> dict[str, Any]:
+    """Serialise a stored template for the API."""
     b = r.body
     return {
         "id": r.id, "key": r.key, "version": r.version, "name": b["name"], "description": b.get("description", ""), "is_builtin": r.is_builtin,

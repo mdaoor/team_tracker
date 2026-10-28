@@ -10,15 +10,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tt_schema.base import new_id
 from tt_schema.enums import EventSource, ItemTypeKey, ProjectKind, StateCategory, TargetType, Visibility
 
-from tt_server.api.errors import ApiError
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit
+from tt_server.domain.errors import Conflict, Fault, Invalid
 
 KEY_RE = re.compile(r"^[A-Z][A-Z0-9_-]{0,31}$")
 
 
 async def default_workflow(session: AsyncSession, workspace_id: str) -> m.Workflow:
+    """The workspace's default workflow; a missing one is a server fault."""
     wf = await session.scalar(
         select(m.Workflow)
         .where(
@@ -27,13 +28,14 @@ async def default_workflow(session: AsyncSession, workspace_id: str) -> m.Workfl
         .order_by(m.Workflow.created_at)
     )
     if wf is None:
-        raise ApiError(500, "no_default_workflow", "workspace has no default workflow")
+        raise Fault("no_default_workflow", "workspace has no default workflow")
     return wf
 
 
 async def item_type(
     session: AsyncSession, workspace_id: str, key: ItemTypeKey, project_id: str | None = None
 ) -> m.WorkItemType:
+    """An item type by key: a project-specific type wins over the workspace builtin."""
     stmt = select(m.WorkItemType).where(
         m.WorkItemType.workspace_id == workspace_id,
         m.WorkItemType.key == key,
@@ -46,10 +48,11 @@ async def item_type(
     for row in rows:
         if row.project_id is None:
             return row
-    raise ApiError(500, "no_item_type", f"item type {key.value!r} missing")
+    raise Fault("no_item_type", f"item type {key.value!r} missing")
 
 
 async def workflow_states(session: AsyncSession, workflow_id: str) -> list[m.WorkflowState]:
+    """The states of a workflow in order."""
     return list(
         (
             await session.scalars(
@@ -64,6 +67,7 @@ async def workflow_states(session: AsyncSession, workflow_id: str) -> list[m.Wor
 def pick_state(
     states: list[m.WorkflowState], category: StateCategory, *, initial: bool = False, terminal: bool = False
 ) -> m.WorkflowState:
+    """The state to use for a category: the initial/terminal one when asked, else the first of the category, else the first."""
     if initial:
         for s in states:
             if s.is_initial:
@@ -90,17 +94,18 @@ async def create_project(
     visibility: Visibility = Visibility.MEMBERS,
     **extra: Any,
 ) -> m.Project:
+    """Create a project (key upper-cased unless it is an inbox) with its owner, workflow defaults and audit event."""
     if kind != ProjectKind.INBOX:
         key = key.upper()
     if kind != ProjectKind.INBOX and not KEY_RE.match(key):
-        raise ApiError(
-            400, "invalid_key", "project key must be upper-case letters, digits, '_' or '-'", pointer="/key"
+        raise Invalid(
+            "invalid_key", "project key must be upper-case letters, digits, '_' or '-'", pointer="/key"
         )
     session = uow.session
     if await session.scalar(
         select(m.Project.id).where(m.Project.workspace_id == ws.id, m.Project.key == key)
     ):
-        raise ApiError(409, "project_exists", f"project {key} already exists", pointer="/key")
+        raise Conflict("project_exists", f"project {key} already exists", pointer="/key")
     wf = await default_workflow(session, ws.id)
     task = await item_type(session, ws.id, ItemTypeKey.TASK)
     if kind != ProjectKind.INBOX and "default_process_id" not in extra:

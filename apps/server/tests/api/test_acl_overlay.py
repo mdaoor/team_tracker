@@ -5,7 +5,16 @@ from __future__ import annotations
 from tests.api.conftest import Api
 from tests.api.test_acl_core import pid
 
-ROUTERS_COVERED = ("overlay",)
+ROUTERS_COVERED = (
+    "overlay",
+    "overlay_dimensions",
+    "overlay_items",
+    "overlay_process",
+    "overlay_products",
+    "overlay_review",
+    "overlay_risks",
+    "overlay_weights",
+)
 
 
 async def _item(api: Api, project: str = "WEB", **extra: object) -> dict[str, str]:

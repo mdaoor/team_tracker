@@ -130,7 +130,7 @@ def _run(config: uvicorn.Config) -> _Running:
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    for _ in range(100):
+    for _ in range(400):  # up to 20 s: a loaded or instrumented runner is slow to bind
         if server.started:
             return _Running(server, thread)
         time.sleep(0.05)
