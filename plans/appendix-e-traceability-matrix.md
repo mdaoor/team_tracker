@@ -112,3 +112,5 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | P15 §15.5 | CLI commands, desktop views through the sidecar | 15 | `apps/cli/tests/test_personal_cli.py`, `test_personal_bridge.py` + `contract.json` |
 | P15 §15.6 | Privacy: first run, toggles, audit, unsend, erase, tokens never in outbox/logs | 15 | `test_personal_tracker.py::test_tokens_never_*`, desktop privacy tests |
 | P2 §2.2 / P15 | Gateway translate variant for personal lines (local only, sends nothing) | 15 | `apps/llm_gateway/gateway_tests/test_translate_personal.py` |
+| P3 §3.x / P1 §1.2 | Unlink a project from a product; same-project item moves; `external_packs` and `allow_same_level_nesting` workspace switches | 3, 1, 7 | `apps/server/tests/api/test_server_gaps.py`, `apps/web/e2e/setup-editors.spec.ts`, ADR-0059 |
+

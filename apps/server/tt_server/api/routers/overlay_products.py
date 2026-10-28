@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from pydantic import BaseModel
 from tt_schema.enums import Priority, ProductLinkRole, ScopeType, TargetType
 
@@ -96,6 +96,24 @@ async def link_product(ref: str, body: LinkIn, actor: CurrentActor, uow: Uow) ->
     )
     await uow.commit()
     return row_dict(row)
+
+
+@router.delete(
+    "/products/{ref}/links/{project}",
+    status_code=204,
+    tags=["overlay"],
+    dependencies=[needs("product.admin")],
+)
+async def unlink_product_project(ref: str, project: str, actor: CurrentActor, uow: Uow) -> Response:
+    """Remove the link between a product and a project (any role); moving a project is unlink + link."""
+    begin(uow, actor)
+    p = await products.get_product(uow, actor.ws.id, ref)
+    tid = await target_id_of(uow, actor.ws.id, TargetType.PROJECT, project)
+    await products.unlink(
+        uow, actor.ws, p, target_type=TargetType.PROJECT, target_id=tid, actor_id=actor.person.id
+    )
+    await uow.commit()
+    return Response(status_code=204)
 
 
 @router.get("/products/{ref}/links", tags=["overlay"])

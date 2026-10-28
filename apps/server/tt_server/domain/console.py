@@ -138,6 +138,8 @@ def settings_view(settings: dict[str, Any] | None) -> dict[str, Any]:
     return {
         "external_share": bool(s.get("external_share")),
         "external_share_redaction": s.get("external_share_redaction", "standard"),
+        "external_packs": bool(s.get("external_packs")),
+        "allow_same_level_nesting": bool(s.get("allow_same_level_nesting")),
     }
 
 

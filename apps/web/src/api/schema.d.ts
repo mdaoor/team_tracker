@@ -2723,6 +2723,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/products/{ref}/links/{project}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink Product Project
+         * @description Remove the link between a product and a project (any role); moving a project is unlink + link.
+         */
+        delete: operations["unlink_product_project_api_v1_w__ws__products__ref__links__project__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/w/{ws}/products/{ref}/priority": {
         parameters: {
             query?: never;
@@ -3481,7 +3501,7 @@ export interface paths {
         head?: never;
         /**
          * Patch Settings
-         * @description Admin-only workspace switches the console needs (external sharing). One event per change.
+         * @description Admin-only workspace switches the console needs (external sharing, generation packs, same-level nesting). One event per change.
          */
         patch: operations["patch_settings_api_v1_w__ws__settings_patch"];
         trace?: never;
@@ -5391,6 +5411,10 @@ export interface components {
         };
         /** SettingsPatch */
         SettingsPatch: {
+            /** Allow Same Level Nesting */
+            allow_same_level_nesting?: boolean | null;
+            /** External Packs */
+            external_packs?: boolean | null;
             /** External Share */
             external_share?: boolean | null;
             /** External Share Redaction */
@@ -12960,6 +12984,40 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_product_project_api_v1_w__ws__products__ref__links__project__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ref: string;
+                project: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

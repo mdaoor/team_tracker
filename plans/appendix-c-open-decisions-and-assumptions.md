@@ -131,3 +131,12 @@ Date: YYYY-MM-DD   Status: proposed | accepted | superseded by ADR-MMMM
 | H5 | `ClientBatch.client_version` default | `"0.2"` in the spec file and the model together (ADR-0051 addendum). |
 | H6 | Roadmap slide `rows` / `zoom` | Optional; when present `rows` is one of phase / epic / milestone and `zoom` one of day / week / month / fit, else a 422 `invalid_slide` with the pointer; the renderer keeps phase / fit as defaults. |
 | H7 | Docstring coverage | Public items of `domain/` and `governance/` carry docstrings (class docstrings on Pydantic models appear as schema `description`); `tools/docstring_coverage.py`, test gate 90 %, actual 100 %. |
+
+## Server gaps (2026-10-28, branch leftovers/server-gaps; ADR-0059)
+| # | Topic | Decision |
+|---|---|---|
+| G1 | Unlinking a project from a product | `DELETE /products/{ref}/links/{project}` (`product.admin`, 204, event `product_link.removed`); removing a delivering link drops the inherited `product` classifications of the project and its items, manual ones stay. |
+| G2 | Cross-project item move | Not allowed: 400 `cross_project_move`. Keys, workflow states, iterations and capture rows are per project and re-keying would break external references; `item.merge` with `allow_cross_project` is the supported route. |
+| G3 | `external_packs` | `external_packs: bool` in `PATCH/GET /settings` (admin), default off, one `workspace.settings_changed` event. |
+| G4 | Epic under epic | `allow_same_level_nesting: bool` in `PATCH/GET /settings` (admin), default off. |
+

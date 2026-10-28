@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy import select
-from tt_schema.base import new_id
+from tt_schema.base import new_id, utcnow
 from tt_schema.enums import EventSource, ProductLinkRole, ScopeType, TargetType, ValueSource
 
 from tt_server.acl.context import AclContext
@@ -175,6 +175,66 @@ async def link(
         await on_team_linked_to_product(uow, ws, product, target_id)
     if role == ProductLinkRole.DELIVERS and target_type == TargetType.PROJECT:
         await inherit_product_for_project(uow, ws, target_id, product, actor_id=actor_id)
+    return row
+
+
+async def unlink(
+    uow: UnitOfWork,
+    ws: m.Workspace,
+    product: m.Product,
+    *,
+    target_type: TargetType,
+    target_id: str,
+    actor_id: str,
+) -> m.ProductLink:
+    """Soft-delete a live link. Removing a project's delivering link also drops the product values its items inherited
+    from it (manual classifications stay), so the project can be linked under another product."""
+    s = uow.session
+    row = await s.scalar(
+        select(m.ProductLink).where(
+            m.ProductLink.product_id == product.id,
+            m.ProductLink.target_type == target_type,
+            m.ProductLink.target_id == target_id,
+            m.ProductLink.deleted_at.is_(None),
+        )
+    )
+    if row is None:
+        raise NotFound("not_found", "link not found")
+    row.deleted_at = utcnow()
+    await s.flush()
+    emit(
+        uow,
+        workspace_id=ws.id,
+        actor_id=actor_id,
+        entity_type=TargetType.PRODUCT,
+        entity_id=product.id,
+        event_type="product_link.removed",
+        payload={
+            "before": {"target_type": target_type.value, "target_id": target_id, "role": row.role.value}
+        },
+    )
+    if row.role == ProductLinkRole.DELIVERS and target_type == TargetType.PROJECT:
+        for c in (
+            await s.scalars(
+                select(m.Classification).where(
+                    m.Classification.inherited_from_type == TargetType.PRODUCT,
+                    m.Classification.inherited_from_id == product.id,
+                    m.Classification.source == ValueSource.INHERITED,
+                    m.Classification.deleted_at.is_(None),
+                    (
+                        (m.Classification.target_type == TargetType.PROJECT)
+                        & (m.Classification.target_id == target_id)
+                    )
+                    | (
+                        (m.Classification.target_type == TargetType.WORK_ITEM)
+                        & m.Classification.target_id.in_(
+                            select(m.WorkItem.id).where(m.WorkItem.project_id == target_id)
+                        )
+                    ),
+                )
+            )
+        ).all():
+            c.deleted_at = utcnow()
     return row
 
 

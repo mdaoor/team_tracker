@@ -32,9 +32,10 @@ reload. **Expected:** state survives reload (URL carries it); the matrix numbers
 
 ## 6. Generate with AI (needs a gateway) and external packs
 1. **Present** -> *Generate with AI*: "Quarterly steering review of the ERP rollout". **Expected:** a draft deck using only known slide kinds and project keys.
-2. Admin enables `external_packs` (Setup -> workspace settings JSON `{"external_packs": true}`); **Download pack** -> a zip with manifest, snapshot, slide-kinds,
+2. Without the switch, **Download pack** answers "not allowed" (403 `external_packs_disabled`). An admin then enables it: `PATCH /api/v1/w/<ws>/settings` with `{"external_packs": true}`
+   (workspace admins only; `GET .../settings` shows the value; the change is one `workspace.settings_changed` event; `{"external_packs": false}` switches it off again). **Download pack** -> a zip with manifest, snapshot, slide-kinds,
    schemas, prompt. Give it to any external model, paste its JSON into **Import a deck an external LLM wrote**. **Expected:** invalid slides are dropped with
-   warnings (lenient) and the deck records its provenance. Without the setting the download answers "not allowed".
+   warnings (lenient) and the deck records its provenance. Back to step 2 with the switch off: the download is refused again.
 
 ## 7. Policies and violations (manager)
 1. **Policies** -> new policy from template *Item stuck in a stage*; set scope, candidate filter, notify, automatic action; **Create**.
