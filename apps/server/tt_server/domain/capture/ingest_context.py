@@ -48,11 +48,13 @@ class Ctx:
 
     @property
     def session(self) -> AsyncSession:
+        """The unit of work's database session."""
         return self.uow.session
 
     def emit(
         self, event_type: str, entity_type: TargetType, entity_id: str, payload: dict[str, Any] | None = None
     ) -> None:
+        """Emit an event attributed to the message's actor, stamped with the message time, source `client` and the batch correlation id."""
         self.events.append(
             emit(
                 self.uow,
@@ -70,5 +72,6 @@ class Ctx:
         )
 
     def conf_ok(self, name: str) -> bool:
+        """True when the model's confidence for `name` is unknown or at least `CONFIDENCE_FLOOR`."""
         c = (self.msg.llm_confidence or {}).get(name)
         return c is None or c >= CONFIDENCE_FLOOR

@@ -43,9 +43,11 @@ class Report:
 
     @property
     def clean(self) -> bool:
+        """True when no check found anything."""
         return not self.findings
 
     def as_dict(self) -> dict[str, Any]:
+        """The report as JSON: the `clean` flag and the offending row ids per check."""
         return {"clean": self.clean, "findings": self.findings}
 
 

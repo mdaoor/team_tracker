@@ -2,6 +2,7 @@
   "$defs": {
     "Deliverable": {
       "additionalProperties": false,
+      "description": "A plan deliverable with owner and status.",
       "properties": {
         "actual_end": {
           "anyOf": [
@@ -157,6 +158,7 @@
     },
     "Epic": {
       "additionalProperties": false,
+      "description": "An epic as seen in a snapshot.",
       "properties": {
         "key": {
           "title": "Key",
@@ -181,6 +183,7 @@
     },
     "Habit": {
       "additionalProperties": false,
+      "description": "A computed habit rate and trend for a person or team.",
       "properties": {
         "key": {
           "title": "Key",
@@ -215,6 +218,7 @@
     },
     "Item": {
       "additionalProperties": false,
+      "description": "A work item as seen in a snapshot.",
       "properties": {
         "actual_end": {
           "anyOf": [
@@ -424,6 +428,7 @@
     },
     "Meta": {
       "additionalProperties": false,
+      "description": "Provenance block of a snapshot: who it was built for and how.",
       "properties": {
         "generated_for": {
           "title": "Generated For",
@@ -448,6 +453,7 @@
     },
     "Milestone": {
       "additionalProperties": false,
+      "description": "A plan milestone with its computed status.",
       "properties": {
         "completed_at": {
           "anyOf": [
@@ -504,6 +510,7 @@
     },
     "Now": {
       "additionalProperties": false,
+      "description": "What a person is working on right now.",
       "properties": {
         "item": {
           "title": "Item",
@@ -543,6 +550,7 @@
     },
     "Person": {
       "additionalProperties": false,
+      "description": "A person as seen in a snapshot.",
       "properties": {
         "handle": {
           "title": "Handle",
@@ -574,6 +582,7 @@
     },
     "Phase": {
       "additionalProperties": false,
+      "description": "A plan phase with planned dates.",
       "properties": {
         "deliverable_count": {
           "default": 0,
@@ -644,6 +653,7 @@
     },
     "ProcessInfo": {
       "additionalProperties": false,
+      "description": "A process definition with its stages and expected stage durations.",
       "properties": {
         "key": {
           "title": "Key",
@@ -674,6 +684,7 @@
     },
     "Product": {
       "additionalProperties": false,
+      "description": "A product as seen in a snapshot.",
       "properties": {
         "key": {
           "title": "Key",
@@ -693,6 +704,7 @@
     },
     "Project": {
       "additionalProperties": false,
+      "description": "A project as seen in a snapshot.",
       "properties": {
         "baseline_name": {
           "anyOf": [
@@ -818,6 +830,7 @@
     },
     "Range": {
       "additionalProperties": false,
+      "description": "The inclusive date range a snapshot covers.",
       "properties": {
         "from": {
           "title": "From",
@@ -837,6 +850,7 @@
     },
     "Risk": {
       "additionalProperties": false,
+      "description": "A risk with probability and impact scores.",
       "properties": {
         "i": {
           "title": "I",
@@ -876,6 +890,7 @@
     },
     "Violation": {
       "additionalProperties": false,
+      "description": "An open policy violation as seen in a snapshot.",
       "properties": {
         "category": {
           "title": "Category",
@@ -946,6 +961,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "The top-level snapshot document, versioned by SCHEMA_VERSION.",
   "properties": {
     "as_of": {
       "title": "As Of",

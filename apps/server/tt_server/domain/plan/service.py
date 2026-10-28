@@ -39,7 +39,7 @@ from tt_server.domain.projects.service import item_type
 
 
 class DeliverableIn(BaseModel):
-    # Input shape of a deliverable inside a submitted plan.
+    """Input shape of a deliverable inside a submitted plan."""
 
     ref: str | None = None  # a local name other deliverables can depend on
     title: str = Field(min_length=1)
@@ -52,7 +52,7 @@ class DeliverableIn(BaseModel):
 
 
 class PhaseIn(BaseModel):
-    # Input shape of a plan phase with its deliverables.
+    """Input shape of a plan phase with its deliverables."""
 
     title: str = Field(min_length=1)
     planned_start: date | None = None
@@ -61,7 +61,7 @@ class PhaseIn(BaseModel):
 
 
 class MilestoneIn(BaseModel):
-    # Input shape of a plan milestone.
+    """Input shape of a plan milestone."""
 
     name: str = Field(min_length=1)
     kind: MilestoneKind = MilestoneKind.OTHER
@@ -70,7 +70,7 @@ class MilestoneIn(BaseModel):
 
 
 class PlanIn(BaseModel):
-    # Input shape of a whole plan: phases and milestones.
+    """Input shape of a whole plan: phases and milestones."""
 
     phases: list[PhaseIn] = Field(default_factory=list)
     milestones: list[MilestoneIn] = Field(default_factory=list)

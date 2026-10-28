@@ -79,7 +79,7 @@ EXPLORER_MEASURES = {"count", "hours", "wt", "viol"}
 
 
 class SlideIn(BaseModel):
-    # Input shape of one slide in a presentation (kind, titles, config).
+    """Input shape of one slide in a presentation (kind, titles, config)."""
 
     id: str | None = None
     kind: str
