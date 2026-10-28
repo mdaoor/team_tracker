@@ -90,7 +90,7 @@ test("R1.6 sharing is explained when it is off, and an admin can switch it on", 
   await page.getByRole("button", { name: "Turn it on" }).click();
   await expect(btn).toBeEnabled();
   await btn.click();
-  await expect(page.getByText(/Link: /)).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Share link" })).toHaveValue(/\/p\/t\//);
 });
 
 test.describe("R1.5 a contributor", () => {

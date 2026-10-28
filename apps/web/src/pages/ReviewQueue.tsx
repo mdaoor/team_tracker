@@ -4,7 +4,6 @@ import { w } from "../api/http";
 import * as reviewApi from "../api/review";
 import type { Person, Project, ReviewChoice, ReviewRow } from "../api/types";
 import { Button, ConfidenceCue, Empty, Pill } from "../components/ui";
-import { confidenceCue } from "../lib/confidence";
 import { useToasts } from "../components/Toasts";
 import { useList, useWs } from "../lib/hooks";
 import { ago } from "../lib/format";
@@ -321,16 +320,11 @@ function RowActions({
   people: Person[];
   onResolve: (r: ReviewRow, c: ReviewChoice) => void;
 }) {
-  const label = choice ? Object.values(choice)[0] : null;
   return (
     <span className="row">
       {choice && (
-        <Button
-          variant="primary"
-          aria-label={`${choiceVerb(choice)}, confidence ${confidenceCue(row.confidence).label}`}
-          onClick={() => onResolve(row, choice)}
-        >
-          {String(label)}{" "}
+        <Button variant="primary" onClick={() => onResolve(row, choice)}>
+          {choiceVerb(choice)}{" "}
           <ConfidenceCue
             confidence={row.confidence}
             confirmed={row.kind === "unconfirmed_classification" && false}
