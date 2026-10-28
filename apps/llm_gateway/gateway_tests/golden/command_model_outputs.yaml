@@ -427,13 +427,13 @@ outputs:
     args:
       habit: daily-log
       note: great streak
-- line: mark the daily-log habit as improving
+- line: mark the daily-log habit as in coaching
   kind: ok
   commands:
   - op: habit.set_status
     args:
       habit: daily-log
-      status: improving
+      status: in_coaching
 - line: turn on the wip-limit policy
   kind: ok
   commands:

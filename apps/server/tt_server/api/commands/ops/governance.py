@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from tt_schema.enums import HabitStatus
 
 from tt_server.api.commands.ops._common import _items, _need_item, _person, _res, _slug, _team  # noqa: F401
 from tt_server.api.commands.registry import Ctx, Outcome, command
@@ -134,17 +135,17 @@ async def habit_coach_note(ctx: Ctx, a: HabitCoachNote) -> Outcome:
 
 class HabitSetStatus(BaseModel):
     habit: str
-    status: Literal["open", "acknowledged", "improving", "resolved", "dismissed"]
+    status: HabitStatus = Field(description="observed | flagged | in_coaching | resolved")
 
 
 @command(
     "habit.set_status", "governance", "Set a habit's coaching status", HabitSetStatus, permission="habit.coach", modes=("coach", "manager", "admin"),
-    example_args={"habit": "<habit id>", "status": "improving"}, example_text="mark habit as improving",
+    example_args={"habit": "<habit id>", "status": "in_coaching"}, example_text="mark habit as in coaching",
 )  # fmt: skip
 async def habit_set_status(ctx: Ctx, a: HabitSetStatus) -> Outcome:
     return _res(
         await governance_habits.patch_habit(
-            a.habit, governance_habits.HabitPatch.model_validate({"status": a.status}), ctx.actor, ctx.uow
+            a.habit, governance_habits.HabitPatch(status=a.status), ctx.actor, ctx.uow
         )
     )
 

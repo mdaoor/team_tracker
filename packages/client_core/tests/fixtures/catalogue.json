@@ -1,5 +1,5 @@
 {
- "etag": "\"3d2561af9fd9f3f6\"",
+ "etag": "\"b2b450c5a5e722f9\"",
  "ops": [
   {
    "op": "approval.decide",
@@ -346,21 +346,26 @@
     "admin"
    ],
    "args_schema": {
+    "$defs": {
+     "HabitStatus": {
+      "enum": [
+       "observed",
+       "flagged",
+       "in_coaching",
+       "resolved"
+      ],
+      "title": "HabitStatus",
+      "type": "string"
+     }
+    },
     "properties": {
      "habit": {
       "title": "Habit",
       "type": "string"
      },
      "status": {
-      "enum": [
-       "open",
-       "acknowledged",
-       "improving",
-       "resolved",
-       "dismissed"
-      ],
-      "title": "Status",
-      "type": "string"
+      "$ref": "#/$defs/HabitStatus",
+      "description": "observed | flagged | in_coaching | resolved"
      }
     },
     "required": [
@@ -373,9 +378,9 @@
    "example": {
     "args": {
      "habit": "<habit id>",
-     "status": "improving"
+     "status": "in_coaching"
     },
-    "text": "mark habit as improving"
+    "text": "mark habit as in coaching"
    }
   },
   {
