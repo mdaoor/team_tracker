@@ -3,6 +3,7 @@ import { useState } from "react";
 import { deleteRule, dryRunRule } from "../../api/teams";
 import type { DryRunResult } from "../../api/types";
 import { Button, Card, Empty } from "../../components/ui";
+import { useConfirm } from "../../components/Confirm";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
 import { CreateForm } from "./common";
@@ -11,6 +12,7 @@ export function Rules() {
   const ws = useWs();
   const qc = useQueryClient();
   const toasts = useToasts();
+  const confirm = useConfirm();
   const rules = useList("/translator-rules");
   const [draft, setDraft] = useState("");
   const [result, setResult] = useState<DryRunResult | null>(null);
@@ -34,8 +36,19 @@ export function Rules() {
               variant="ghost"
               aria-label={`delete rule ${r.position}`}
               onClick={async () => {
-                await deleteRule(ws, r.id);
-                await qc.invalidateQueries({ queryKey: [ws, "/translator-rules"] });
+                if (
+                  !(await confirm({
+                    title: `Delete rule ${r.position}?`,
+                    body: `“${r.text}” stops steering the translator.`,
+                  }))
+                )
+                  return;
+                try {
+                  await deleteRule(ws, r.id);
+                  await qc.invalidateQueries({ queryKey: [ws, "/translator-rules"] });
+                } catch (e) {
+                  toasts.error(e);
+                }
               }}
             >
               ✕
