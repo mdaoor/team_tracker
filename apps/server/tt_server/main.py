@@ -58,7 +58,7 @@ from tt_server.integrations.llm import gateway_from_settings
 from tt_server.integrations.oidc import oidc_provider_from_settings
 from tt_server.logging import configure_logging
 from tt_server.metrics import Metrics
-from tt_server.ratelimit import SlidingWindow, client_ip, credential_key
+from tt_server.ratelimit import SlidingWindow, client_ip, credential_key, signin_key, signin_username
 from tt_server.settings import Settings, get_settings
 from tt_server.telemetry import configure_telemetry, instrument
 
@@ -164,6 +164,10 @@ def create_app(
         SlidingWindow(settings.rate_capture_per_min) if settings.rate_capture_per_min > 0 else None
     )
     auth_window = SlidingWindow(settings.rate_auth_per_min) if settings.rate_auth_per_min > 0 else None
+    # a coarse per-address ceiling above the (address, username) bucket: spraying many usernames from one address is still capped
+    auth_ip_window = (
+        SlidingWindow(settings.rate_auth_per_min * 10) if settings.rate_auth_per_min > 0 else None
+    )
     command_window = (
         SlidingWindow(settings.rate_commands_per_min) if settings.rate_commands_per_min > 0 else None
     )
@@ -200,8 +204,13 @@ def create_app(
                 request.headers.get("x-debug-actor"), request_ip(request),
             )  # fmt: skip
             wait = capture_window.hit(key)
-        elif request.method == "POST" and auth_window and path.startswith("/auth/"):
-            wait = auth_window.hit(credential_key(None, None, None, request_ip(request)))
+        elif request.method == "POST" and auth_window and auth_ip_window and path.startswith("/auth/"):
+            ip = request_ip(request)
+            user = await signin_username(request)
+            wait = auth_ip_window.hit(credential_key(None, None, None, ip))
+            if wait is None:
+                # per (address, username): one person's typos cannot lock out colleagues behind the same NAT
+                wait = auth_window.hit(signin_key(ip, user))
         if wait is not None:
             retry = str(int(wait) + 1)
             return JSONResponse(

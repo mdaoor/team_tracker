@@ -40,6 +40,9 @@ async def test_every_foreign_key_states_its_delete_rule(engine: AsyncEngine) -> 
                 text(
                     "select conrelid::regclass::text, conname from pg_constraint "
                     "where contype = 'f' and connamespace = 'public'::regnamespace and confdeltype = 'a' "
+                    # procrastinate's own tables (procrastinate_events, _periodic_defers, ...) are created by the library's
+                    # schema, not by our models, and its foreign keys are plain NO ACTION by design (job rows are deleted
+                    # only through its own retention API). Every FK in *our* schema must say what happens on delete.
                     "and conrelid::regclass::text not like 'procrastinate%' order by 1, 2"
                 )
             )

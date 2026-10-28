@@ -98,3 +98,14 @@ Date: YYYY-MM-DD   Status: proposed | accepted | superseded by ADR-MMMM
 ## Alternatives considered
 <bullets>
 ```
+
+## Hygiene defaults (2026-10-28, branch leftovers/hygiene)
+| # | Topic | Decision |
+|---|---|---|
+| H1 | Sign-in rate limit key | Per **(client address, username)** bucket at `rate_auth_per_min`, plus a coarse per-address ceiling of ten times that, so one person's typos cannot lock colleagues behind a shared NAT out and username spraying from one address is still capped. |
+| H2 | `uv` image pin | `ghcr.io/astral-sh/uv:<version>@sha256:<index digest>` in both Dockerfiles; `tests/unit/test_images.py` rejects a tag-only reference. Bump version and digest together. |
+| H3 | Review resolve undo window | 3 s (plan R1.4), one web constant `REVIEW_UNDO_MS`. |
+| H4 | Gateway money | `Decimal` from provider price to the `Numeric(18, 6)` run column; JSON responses keep numbers (no contract change). |
+| H5 | `ClientBatch.client_version` default | `"0.2"` in the spec file and the model together (ADR-0051 addendum). |
+| H6 | Roadmap slide `rows` / `zoom` | Optional; when present `rows` is one of phase / epic / milestone and `zoom` one of day / week / month / fit, else a 422 `invalid_slide` with the pointer; the renderer keeps phase / fit as defaults. |
+| H7 | Docstring coverage | Public items of `domain/` and `governance/` carry docstrings (class docstrings on Pydantic models appear as schema `description`); `tools/docstring_coverage.py`, test gate 90 %, actual 100 %. |

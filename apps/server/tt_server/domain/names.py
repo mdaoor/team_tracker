@@ -28,9 +28,11 @@ class Names:
         return str(getattr(t, "value", t))
 
     def person(self, pid: str | None) -> str | None:
+        """The handle of a person id, or `(former member)` when it is no longer known."""
         return None if pid is None else self._m.get(("person", pid), "(former member)")
 
     def label(self, entity_type: Any, eid: str | None) -> str | None:
+        """Display name of an entity, or a `(<kind> removed)` placeholder; None when there is no id."""
         if eid is None:
             return None
         kind = self._kind(entity_type)

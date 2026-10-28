@@ -634,6 +634,7 @@
         "type": "object"
       },
       "DeliverableIn": {
+        "description": "Input shape of a deliverable inside a submitted plan.",
         "properties": {
           "depends_on": {
             "items": {
@@ -2147,6 +2148,7 @@
         "type": "object"
       },
       "PhaseIn": {
+        "description": "Input shape of a plan phase with its deliverables.",
         "properties": {
           "deliverables": {
             "items": {
@@ -2192,6 +2194,7 @@
         "type": "object"
       },
       "PlanIn": {
+        "description": "Input shape of a whole plan: phases and milestones.",
         "properties": {
           "milestones": {
             "items": {
@@ -3637,6 +3640,7 @@
         "type": "object"
       },
       "SlideIn": {
+        "description": "Input shape of one slide in a presentation (kind, titles, config).",
         "properties": {
           "config": {
             "additionalProperties": true,
@@ -5145,6 +5149,7 @@
         "type": "object"
       },
       "tt_server__domain__plan__service__MilestoneIn": {
+        "description": "Input shape of a plan milestone.",
         "properties": {
           "description": {
             "anyOf": [

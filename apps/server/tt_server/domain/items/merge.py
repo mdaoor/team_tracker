@@ -31,6 +31,7 @@ class MergePlan:
     counts: dict[str, int] = field(default_factory=dict)
 
     def preview(self) -> dict[str, Any]:
+        """The dry-run summary shown before a merge: what moves, what is kept and what is dropped."""
         c = self.counts
         return {
             "affected": len(self.sources),

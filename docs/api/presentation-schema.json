@@ -1,6 +1,7 @@
 {
   "$defs": {
     "SlideIn": {
+      "description": "Input shape of one slide in a presentation (kind, titles, config).",
       "properties": {
         "config": {
           "additionalProperties": true,

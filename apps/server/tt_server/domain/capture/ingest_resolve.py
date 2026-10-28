@@ -34,6 +34,7 @@ from tt_server.domain.items import service as items
 
 
 async def member_by_handle(session: AsyncSession, ws_id: str, handle: str) -> m.WorkspaceMember | None:
+    """The active workspace member with this `@handle` (case-insensitive), or None."""
     handle = handle if handle.startswith("@") else "@" + handle
     return await session.scalar(
         select(m.WorkspaceMember).where(
@@ -45,6 +46,7 @@ async def member_by_handle(session: AsyncSession, ws_id: str, handle: str) -> m.
 
 
 async def can_act_for(session: AsyncSession, ws_id: str, actor_pid: str, subject_pid: str) -> bool:
+    """Whether `actor_pid` may record work for `subject_pid`: themselves or someone they manage."""
     if actor_pid == subject_pid:
         return True
     line = await session.scalar(
@@ -118,6 +120,7 @@ def title_phrase(title: str, *, limit: int = 6) -> str:
 
 
 def calendar_key(msg: ClientMessage) -> tuple[str, str, str] | None:
+    """The (calendar, event, instance start) triple that identifies a calendar-sourced message, or None (ADR-0054)."""
     ref = msg.source.calendar_ref if msg.source else None
     if ref is None:
         return None
@@ -190,6 +193,7 @@ async def resolve_project(ctx: Ctx) -> m.Project:
 
 
 async def state_category(session: AsyncSession, state_id: str) -> StateCategory:
+    """The category of a workflow state; `open` when the state is unknown."""
     cat = await session.scalar(select(m.WorkflowState.category).where(m.WorkflowState.id == state_id))
     return cat or StateCategory.OPEN
 

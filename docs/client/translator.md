@@ -1,6 +1,6 @@
 # Translator, parser and client modes
 
-`context_schema_version`: **1** (ContextPack). `ClientBatch.client_version`: `0.1`.
+`context_schema_version`: **1** (ContextPack). `ClientBatch.client_version`: `0.2` (the default; `0.1` is still accepted).
 
 ## Pipeline (`tt_client.parser.llm.translate_line`)
 1. `StructuredParser` parses the line deterministically (works with no model).

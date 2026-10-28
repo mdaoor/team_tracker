@@ -2,28 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
-from tt_schema.base import new_id, utcnow
-from tt_schema.enums import TargetType, ValueSource
+from tt_schema.enums import TargetType
 
-from tt_server.acl.permissions import TOKEN_SCOPES
-from tt_server.acl.visibility import visible
 from tt_server.api.authz import needs, needs_review
-from tt_server.api.deps import CurrentActor, Uow, hash_token, new_token
+from tt_server.api.deps import CurrentActor, Uow
 from tt_server.api.errors import ApiError
 from tt_server.api.overlay_support import check_target, target_id_of
-from tt_server.db import models as m
-from tt_server.domain.common import emit
+from tt_server.domain import llm_tools
 from tt_server.domain.errors import DomainError
-from tt_server.domain.overlay import classify as classify_svc
 from tt_server.domain.overlay import review as review_svc
 from tt_server.domain.overlay import suggestions
 from tt_server.domain.overlay.dimensions import get_dimension
+from tt_server.domain.tokens import mint_service_token
 
 router = APIRouter(prefix="/api/v1/w/{ws}", tags=["llm"])
 
@@ -39,41 +33,18 @@ async def search_items(
     limit: int = Query(default=8, ge=1, le=25),
 ) -> dict[str, Any]:
     """Fuzzy title search with trigram similarity scores (pg_trgm) -- the agent's `search_items` tool."""
-    score = func.similarity(m.WorkItem.title, q).label("score")
-    stmt = (
-        select(m.WorkItem.key, m.WorkItem.title, m.Project.key, m.WorkflowState.category, score)
-        .join(m.Project, m.Project.id == m.WorkItem.project_id)
-        .join(m.WorkflowState, m.WorkflowState.id == m.WorkItem.state_id)
-        .where(
-            m.Project.workspace_id == actor.ws.id,
-            m.WorkItem.deleted_at.is_(None),
-            or_(m.WorkItem.title.op("%")(q), m.WorkItem.title.ilike(f"%{q}%")),
-        )
+    rows = await llm_tools.search_items(
+        uow.session,
+        actor.acl,
+        actor.ws.id,
+        actor.person.id,
+        q=q,
+        project=project,
+        assignee=assignee,
+        state_category=state_category,
+        limit=limit,
     )
-    stmt = visible(stmt, actor.acl, m.WorkItem)
-    if project:
-        stmt = stmt.where(func.lower(m.Project.key) == project.lower())
-    if assignee:
-        pid = (
-            actor.person.id
-            if assignee == "me"
-            else await uow.session.scalar(
-                select(m.WorkspaceMember.person_id).where(
-                    m.WorkspaceMember.workspace_id == actor.ws.id, m.WorkspaceMember.handle == assignee
-                )
-            )
-        )
-        stmt = stmt.where(m.WorkItem.assignee_id == pid)
-    if state_category:
-        stmt = stmt.where(m.WorkflowState.category.in_(state_category.split(",")))
-    rows = (await uow.session.execute(stmt.order_by(score.desc(), m.WorkItem.key).limit(limit))).all()
-    return {
-        "data": [
-            {"key": k, "title": t, "project_key": p, "state_category": c.value, "score": round(float(s), 3)}
-            for k, t, p, c, s in rows
-        ],
-        "next_cursor": None,
-    }
+    return {"data": rows, "next_cursor": None}
 
 
 # ---------------------------------------------------------------- review items (suggestions)
@@ -100,27 +71,14 @@ class ReviewPatch(BaseModel):
 async def patch_review_item(rid: str, body: ReviewPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """Edit the stored suggestion / confidence (or ignore the row) -- only by the manager who owns it."""
     await _owned_row(actor, uow, rid)
-    row = await uow.session.get(m.ReviewItem, rid)
-    assert row is not None  # noqa: S101
-    uow.context["actor_id"] = actor.person.id
-    before = {
-        "suggestion": row.suggestion,
-        "confidence": float(row.confidence) if row.confidence is not None else None,
-    }
-    if body.suggestion is not None:
-        row.suggestion = {**(row.suggestion or {}), **body.suggestion}
-    if body.confidence is not None:
-        row.confidence = body.confidence  # type: ignore[assignment]
-    if body.status is not None:
-        row.status = "resolved" if body.status == "ignored" else "open"
-    emit(
+    row = await llm_tools.edit_review_item(
         uow,
-        workspace_id=actor.ws.id,
-        actor_id=actor.person.id,
-        entity_type=TargetType.WORK_ITEM,
-        entity_id=row.target_id,
-        event_type="review.updated",
-        payload={"before": before, "after": {"suggestion": row.suggestion, "status": row.status}},
+        actor.ws.id,
+        actor.person.id,
+        rid,
+        suggestion=body.suggestion,
+        confidence=body.confidence,
+        status=body.status,
     )
     await uow.commit()
     return (
@@ -153,21 +111,11 @@ async def bulk_suggested(body: SuggestedBulk, actor: CurrentActor, uow: Uow) -> 
     for s in body.suggestions:
         try:
             dim = await get_dimension(uow, actor.ws.id, s.dimension)
-            value = await uow.session.scalar(
-                select(m.DimensionValue).where(
-                    m.DimensionValue.dimension_id == dim.id,
-                    m.DimensionValue.deleted_at.is_(None),
-                    m.DimensionValue.is_active.is_(True),
-                    (m.DimensionValue.key == s.value) | (m.DimensionValue.id == s.value),
-                )
-            )
-            if value is None:
-                raise ApiError(404, "not_found", f"value {s.value!r} not found")
             tid = await target_id_of(uow, actor.ws.id, TargetType.WORK_ITEM, s.target)
             await check_target(actor, uow, "classification.write", TargetType.WORK_ITEM, tid)
-            row = await classify_svc.classify(
-                uow, actor.ws, target_type=TargetType.WORK_ITEM, target_id=tid, dimension=dim, value=value,
-                source=ValueSource.RULE, set_by=actor.person.id, confidence=s.confidence, is_confirmed=False,
+            row = await llm_tools.store_suggested_classification(
+                uow, actor.ws, actor.person.id,
+                dimension=dim, value_ref=s.value, target_id=tid, confidence=s.confidence,
             )  # fmt: skip
             if row is None:
                 skipped.append(
@@ -213,26 +161,8 @@ class ServiceTokenIn(BaseModel):
 @router.post("/auth/service-tokens", status_code=201, dependencies=[needs("role.admin")])
 async def create_service_token(body: ServiceTokenIn, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
     """A `read`-scoped token the gateway may use for tools when the *core server* initiates the work."""
-    secret = new_token()
-    scopes = [s for s in TOKEN_SCOPES if s in {"capture", "read"}]
-    row = m.ApiToken(
-        id=new_id(),
-        workspace_id=actor.ws.id,
-        person_id=actor.person.id,
-        name=f"service:{body.name}",
-        hash=hash_token(secret),
-        scopes=scopes,
-        expires_at=utcnow() + timedelta(days=body.expires_in_days),
-    )
-    uow.session.add(row)
-    emit(
-        uow,
-        workspace_id=actor.ws.id,
-        actor_id=actor.person.id,
-        entity_type=TargetType.PERSON,
-        entity_id=actor.person.id,
-        event_type="token.created",
-        payload={"after": {"token_id": row.id, "name": row.name, "service": True}},
+    result = mint_service_token(
+        uow, actor.ws.id, actor.person.id, name=body.name, expires_in_days=body.expires_in_days
     )
     await uow.commit()
-    return {"id": row.id, "token": secret, "scopes": scopes, "expires_at": row.expires_at}
+    return result

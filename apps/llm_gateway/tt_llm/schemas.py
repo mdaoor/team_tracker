@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import copy
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from tt_schema import client_message_json_schema
 from tt_schema.base import new_id
+
+from tt_llm.money import Money
 
 
 class Options(BaseModel):
@@ -59,7 +62,7 @@ class TaskResponse(BaseModel):
     rationale: str | None = None
     run_id: str
     model: str | None = None
-    cost_usd: float = 0.0
+    cost_usd: Money = Decimal(0)
     warnings: list[str] = Field(default_factory=list)
 
 

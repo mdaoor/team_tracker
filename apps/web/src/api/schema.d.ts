@@ -4398,7 +4398,10 @@ export interface components {
             comment?: string | null;
             decision: components["schemas"]["Decision"];
         };
-        /** DeliverableIn */
+        /**
+         * DeliverableIn
+         * @description Input shape of a deliverable inside a submitted plan.
+         */
         DeliverableIn: {
             /** Depends On */
             depends_on?: string[];
@@ -4942,7 +4945,10 @@ export interface components {
             /** Weight Scheme Id */
             weight_scheme_id?: string | null;
         };
-        /** PhaseIn */
+        /**
+         * PhaseIn
+         * @description Input shape of a plan phase with its deliverables.
+         */
         PhaseIn: {
             /** Deliverables */
             deliverables?: components["schemas"]["DeliverableIn"][];
@@ -4953,7 +4959,10 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** PlanIn */
+        /**
+         * PlanIn
+         * @description Input shape of a whole plan: phases and milestones.
+         */
         PlanIn: {
             /** Milestones */
             milestones?: components["schemas"]["tt_server__domain__plan__service__MilestoneIn"][];
@@ -5395,7 +5404,10 @@ export interface components {
             position?: number | null;
             slide: components["schemas"]["SlideIn"];
         };
-        /** SlideIn */
+        /**
+         * SlideIn
+         * @description Input shape of one slide in a presentation (kind, titles, config).
+         */
         SlideIn: {
             /** Config */
             config?: {
@@ -5924,7 +5936,10 @@ export interface components {
             /** Time Zone */
             time_zone?: string | null;
         };
-        /** MilestoneIn */
+        /**
+         * MilestoneIn
+         * @description Input shape of a plan milestone.
+         */
         tt_server__domain__plan__service__MilestoneIn: {
             /** Description */
             description?: string | null;

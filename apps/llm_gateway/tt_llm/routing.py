@@ -16,6 +16,7 @@ import jsonschema
 import structlog
 
 from tt_llm.config import LOCAL_PREFIXES, GatewayConfig
+from tt_llm.money import dec
 from tt_llm.storage import Storage
 
 
@@ -69,9 +70,12 @@ class Completion:
     content: str | None
     tool_calls: list[ToolCall] = field(default_factory=list)
     model: str = ""
-    cost_usd: float = 0.0
+    cost_usd: Decimal = Decimal(0)
     prompt_tokens: int = 0
     completion_tokens: int = 0
+
+    def __post_init__(self) -> None:
+        self.cost_usd = dec(self.cost_usd)  # providers and tests may hand in a float
 
     def as_message(self) -> dict[str, Any]:
         msg: dict[str, Any] = {"role": "assistant", "content": self.content}
@@ -129,9 +133,9 @@ async def litellm_backend(
             args = {"_unparsable": c.function.arguments}
         calls.append(ToolCall(c.id or f"call_{len(calls)}", c.function.name, args))
     try:
-        cost = float(litellm.completion_cost(completion_response=resp) or 0.0)
+        cost = dec(litellm.completion_cost(completion_response=resp))
     except Exception:  # noqa: BLE001 - unknown/local models have no price
-        cost = 0.0
+        cost = Decimal(0)
     usage = getattr(resp, "usage", None)
     return Completion(
         content=choice.content,
@@ -238,13 +242,13 @@ class Router:
 
     async def _settle(self, workspace: str, held: Decimal, actual_usd: float | Decimal) -> None:
         """Replace the hold by what the call really cost (negative when it cost less)."""
-        delta = Decimal(str(actual_usd)) - held
+        delta = dec(actual_usd) - held
         if delta:
             await self.storage.add_spend(workspace, datetime.now(UTC).date(), delta)
 
-    async def _charge(self, workspace: str, usd: float) -> None:
+    async def _charge(self, workspace: str, usd: float | Decimal) -> None:
         if usd:
-            await self.storage.add_spend(workspace, datetime.now(UTC).date(), Decimal(str(usd)))
+            await self.storage.add_spend(workspace, datetime.now(UTC).date(), dec(usd))
 
     # -- completion ------------------------------------------------------------------------------
     async def complete(

@@ -43,6 +43,7 @@ async def _activities(
 
 
 async def current_activity(ctx: Ctx, item: m.WorkItem | None) -> m.Activity | None:
+    """The subject's activity on `item` (a live one first, else the latest); without an item, their only active activity, or None when there are none or several."""
     pid = ctx.subject.person_id
     if item is not None:
         live = [

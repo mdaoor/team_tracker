@@ -38,7 +38,7 @@ def sanitise_text(s: str | None) -> str | None:
 
 
 class DeckIn(BaseModel):
-    # Schema of the deck JSON an external LLM returns for import as a presentation.
+    """Schema of the deck JSON an external LLM returns for import as a presentation."""
 
     pack_id: str | None = None
     title: str = Field(min_length=1, max_length=200)

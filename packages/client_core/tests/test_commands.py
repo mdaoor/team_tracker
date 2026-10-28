@@ -393,7 +393,9 @@ def test_sync_skips_unconfirmed_commands_and_stamps_only_confirmed_ones(
 def test_old_batches_stay_valid() -> None:
     old = {"workspace": "acme", "messages": [_msg("a")]}
     b = ClientBatch.model_validate(old)
-    assert b.commands == [] and b.client_version == "0.1"
+    assert (
+        b.commands == [] and b.client_version == "0.2"
+    )  # ADR-0051 addendum: the default follows the schema minor
     assert make_batch("acme").client_version == "0.2"
 
 
