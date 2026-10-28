@@ -11,18 +11,16 @@ from tt_filter import FilterError
 from tt_schema.enums import TargetType
 
 from tt_server.db import models as m
+from tt_server.query.aggregate import MEASURES, _check_dim, aggregate, dim_values, measure_expr  # noqa: F401
 from tt_server.query.compile import (
     QueryCtx,
     priority_rank,
     weight_expr,
 )
-
-from tt_server.query.aggregate import MEASURES, _check_dim, aggregate, dim_values, measure_expr  # noqa: F401
 from tt_server.query.expressions import (
     _hours,
     _last_touched,
     _open_violations,
-    _parse,
     _top_risk,
     current_stage,
     filtered_items,

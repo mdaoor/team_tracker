@@ -14,9 +14,7 @@ from tt_server.query.compile import (
     QueryCtx,
     weight_expr,
 )
-
 from tt_server.query.expressions import _hours, _open_violations, current_stage, filtered_items
-
 
 MEASURES = (
     "count",
