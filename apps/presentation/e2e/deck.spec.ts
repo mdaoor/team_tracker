@@ -94,6 +94,53 @@ test("the gantt chart has a table toggle", async ({ page }) => {
   await expect(page.locator(".slide.active table")).toBeVisible();
 });
 
+test("the pipeline and radar slides have a table toggle that keeps the numbers and the drill", async ({
+  page,
+}) => {
+  await open(page, "&slide=3");
+  await expect(page.locator(".slide.active .pipe .col").first()).toBeVisible();
+  const total = async () =>
+    (
+      await page.locator(".slide.active .pipe .col .n").allTextContents()
+    ).reduce((n, t) => n + Number(t), 0);
+  const sum = await total();
+  await page.locator(".slide.active .tbl-toggle").click();
+  await expect(page.locator(".slide.active .pipe")).toHaveCount(0);
+  const counts = await page
+    .locator(".slide.active tbody tr td:nth-child(2)")
+    .allTextContents();
+  expect(counts.reduce((n, t) => n + Number(t), 0)).toBe(sum);
+  await page.locator(".slide.active tbody a").first().click();
+  await expect(page.getByRole("dialog", { name: "Drill-down" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.locator(".slide.active .tbl-toggle").click();
+  await expect(page.locator(".slide.active .pipe .col").first()).toBeVisible();
+
+  await open(page, "&slide=5");
+  await expect(page.locator(".slide.active .tbl-toggle")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await page.locator(".slide.active .tbl-toggle").click();
+  await expect(page.locator(".slide.active thead th").first()).toHaveText(
+    "due",
+  );
+  await expect(
+    page.locator(".slide.active tr[data-open]").first(),
+  ).toBeVisible();
+});
+
+test("the gantt slide is the shared one: epic rows, today line, milestone diamonds", async ({
+  page,
+}) => {
+  await open(page, "&slide=6");
+  const svg = page.locator(".slide.active svg.rm-svg");
+  await expect(svg).toBeVisible();
+  expect(await svg.locator("rect.rm-bar.epic").count()).toBeGreaterThan(0);
+  await expect(svg.locator(".rm-today")).toHaveCount(1);
+  expect(await svg.locator(".rm-ms").count()).toBeGreaterThan(0);
+});
+
 test("notes (N) and reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await open(page);
