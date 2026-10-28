@@ -76,7 +76,11 @@ def _deliver(rt: Runtime, entries: list[Entry]) -> None:
             continue
     report = sync(rt.api, rt.outbox, only=entries)
     for e in report.unconfirmed or []:
-        typer.echo(f"kept in the outbox: needs confirmation (tt send {e.batch_id[:8]} --yes)")
+        typer.echo(f"kept in the outbox: needs confirmation (tt send {rt.outbox.short_ref(e)} --yes)")
+    if report.unconfirmed:  # exit status stays 0: holding a command back is the safe outcome, not a failure
+        typer.echo(
+            f"{len(report.unconfirmed)} batch(es) kept: they carry commands nobody has confirmed; nothing was sent for them."
+        )
     if report.offline:
         typer.echo(f"offline — queued {report.kept} batch(es); `tt sync` will deliver them (exactly once).")
         return

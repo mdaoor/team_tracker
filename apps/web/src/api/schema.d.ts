@@ -473,7 +473,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Daily Logs */
+        /**
+         * List Daily Logs
+         * @description One person's daily logs, optionally for one day (`day`, or `date` as the other list endpoints name it).
+         */
         get: operations["list_daily_logs_api_v1_w__ws__daily_logs_get"];
         put?: never;
         post?: never;
@@ -7123,6 +7126,8 @@ export interface operations {
         parameters: {
             query?: {
                 day?: string | null;
+                /** @description same as `day` */
+                date?: string | null;
                 person?: string | null;
             };
             header?: {

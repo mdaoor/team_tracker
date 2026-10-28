@@ -7821,6 +7821,7 @@
     },
     "/api/v1/w/{ws}/daily-logs": {
       "get": {
+        "description": "One person's daily logs, optionally for one day (`day`, or `date` as the other list endpoints name it).",
         "operationId": "list_daily_logs_api_v1_w__ws__daily_logs_get",
         "parameters": [
           {
@@ -7847,6 +7848,25 @@
                 }
               ],
               "title": "Day"
+            }
+          },
+          {
+            "description": "same as `day`",
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "same as `day`",
+              "title": "Date"
             }
           },
           {

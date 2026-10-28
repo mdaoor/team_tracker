@@ -155,8 +155,8 @@ cases:
     commands: [{op: violation.waive, args: {id: V-10, reason: the customer asked us to wait}}]
   - line: "write a coaching note on daily-log: great streak"
     commands: [{op: habit.coach_note, args: {habit: daily-log, note: great streak}}]
-  - line: "mark the daily-log habit as improving"
-    commands: [{op: habit.set_status, args: {habit: daily-log, status: improving}}]
+  - line: "mark the daily-log habit as in coaching"
+    commands: [{op: habit.set_status, args: {habit: daily-log, status: in_coaching}}]
   - line: "turn on the wip-limit policy"
     commands: [{op: policy.activate, args: {policy: wip-limit}}]
   - line: "switch off the wip-limit policy"

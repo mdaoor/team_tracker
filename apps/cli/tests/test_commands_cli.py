@@ -206,6 +206,24 @@ def test_sync_never_delivers_an_unconfirmed_destructive_command(home: Path, serv
     assert "needs confirmation" in again and not server.state.get("merged")
 
 
+def test_sync_with_only_unconfirmed_entries_exits_zero_and_prints_how_many_were_kept(
+    home: Path, server: FakeServer
+) -> None:
+    """Decision (appendix C): holding back an unconfirmed command is the safe outcome, not a failure, so `tt sync` exits 0;
+    it prints a count so scripts and people can see something is still waiting. Rejected commands still exit 1."""
+    tt("role", "manager")
+    tt("do", "merge WEB-101 and WEB-105", "--no-send")
+    tt("do", "tag WEB-101 #q4", "--no-send")
+    out = tt("sync", code=0)
+    assert "2 batch(es) kept: they carry commands nobody has confirmed" in out
+    assert out.count("kept in the outbox: needs confirmation") == 2 and "(tt send " in out
+    assert len(_queued(home)) == 2 and not [c for c in server.commands_seen if not c.get("preview_only")]
+    refs = [line.split("tt send ")[1].split(" ")[0] for line in out.splitlines() if "tt send " in line]
+    assert (
+        len(set(refs)) == 2
+    )  # ids are time-ordered: the hint prints enough characters to name exactly one entry
+
+
 def test_sync_keeps_an_unconfirmed_ordinary_command_too(home: Path, server: FakeServer) -> None:
     tt("role", "manager")
     tt("do", "tag WEB-101 #q4", "--no-send")

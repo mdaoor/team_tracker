@@ -122,6 +122,14 @@ or use `tt say …` for capture lines that start with one of them.
   from a file, or left behind by a destructive command that only had `--yes` has no `confirmed_at`: `tt sync` prints
   `kept in the outbox: needs confirmation (tt send <id> --yes)` and never posts it, ordinary or destructive. `tt sync` prints one line per
   command (`✓ op` / `✗ op rejected: <reason>`) and exits 1 if the server rejected any.
+  **Exit status when it only kept unconfirmed entries: 0.** Holding a command back is the safe outcome, not a failure, so a script
+  that runs `tt sync` is not woken by it; the command prints `N batch(es) kept: they carry commands nobody has confirmed; nothing was
+  sent for them.` and the `tt send <id> --yes` hint (long enough to name exactly one entry; ids are time-ordered) for each. Network
+  failure keeps its own message and rejected commands keep exit 1.
+* **Batches are cut at 50 commands.** The server refuses a `ClientBatch` with more than 50 `commands[]`, so `sync` splits a larger
+  confirmed entry on disk before sending: the first 50 commands (with all the messages) stay in the entry, the rest become new
+  command-only entries that inherit the confirmation and go out right after, in order. A dropped connection midway leaves the unsent
+  chunks queued exactly once.
 * **Audit.** Every command carries `args._meta = {client_version, mode, role_mode, forced}`; the server records it in the event payload
   next to `payload.command`. `on_behalf_of` is recorded too.
 * **The gateway cannot be talked into new powers.** It offers the model only catalogue ops, drops any op or argument that is not in the

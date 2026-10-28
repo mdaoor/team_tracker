@@ -530,9 +530,9 @@ def _coach_note(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
 
 @rule(r"^(resolve|dismiss|acknowledge|ack|improving)\s+habit\s+(\S+)$")
 def _habit_status(m: re.Match[str], ctx: CommandParseContext) -> Built | None:
-    status = {
-        "resolve": "resolved", "dismiss": "dismissed", "acknowledge": "acknowledged",
-        "ack": "acknowledged", "improving": "improving",
+    status = {  # the words people use -> the habit statuses the server has (observed | flagged | in_coaching | resolved)
+        "resolve": "resolved", "dismiss": "resolved", "acknowledge": "flagged",
+        "ack": "flagged", "improving": "in_coaching",
     }[m.group(1).lower()]  # fmt: skip
     return [("habit.set_status", {"habit": m.group(2), "status": status})]
 

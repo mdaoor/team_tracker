@@ -87,6 +87,9 @@ def emit(
         # a management command from a client: every event it causes says which op, from which client and mode (Phase 14)
         payload = {**(payload or {}), "command": cmd}
         source = EventSource.CLIENT
+    correlation_id = correlation_id or uow.context.get(
+        "correlation_id"
+    )  # a command batch / request-wide id (Phase 14)
     event = Event(
         workspace_id=workspace_id,
         actor_id=actor_id,

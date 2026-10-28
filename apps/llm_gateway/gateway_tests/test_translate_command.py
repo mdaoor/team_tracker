@@ -1,7 +1,10 @@
 """`/v1/translate/command` and `/v1/agent/command` (Phase 14): catalogue-constrained NL -> ClientCommand[].
 
-Golden: 80+ lines with a SCRIPTED model (some deliberately imperfect). Asserted: op accuracy >= 0.85, argument accuracy >= 0.90,
-and that no op outside the catalogue ever leaves the gateway."""
+Golden: 80+ lines answered by a SCRIPTED model that replays RECORDED answers (`golden/command_model_outputs.yaml`), never the
+golden's expected commands: 12 of the answers are wrong or partial on purpose (wrong op, wrong argument, stopped early) and 8 are
+invented ops / people / keys the gateway must absorb. Asserted: op accuracy >= 0.85 and argument accuracy >= 0.90 against the
+independent expectation, the exact scores those flaws imply (so a scorer that stopped noticing them fails), that a model which
+answers nothing or answers wrongly scores badly, and that no op outside the catalogue ever leaves the gateway."""
 
 from __future__ import annotations
 
@@ -28,6 +31,7 @@ from gateway_tests.conftest import CORE_TOKEN, Backend, FakeCore, Harness, reque
 
 ROOT = Path(__file__).parents[3] / "packages" / "client_core" / "tests"
 GOLDEN = ROOT / "golden" / "command_lines.yaml"
+RECORDED = Path(__file__).parent / "golden" / "command_model_outputs.yaml"
 CATALOGUE = json.loads((ROOT / "fixtures" / "catalogue.json").read_text())
 MIN_OP_ACCURACY, MIN_ARG_ACCURACY = 0.85, 0.90
 HEADER = {"X-TT-Core-Token": CORE_TOKEN}
@@ -72,16 +76,24 @@ def golden() -> dict[str, Any]:
     return yaml.safe_load(GOLDEN.read_text())  # type: ignore[no-any-return]
 
 
-def scripted_model(g: dict[str, Any]) -> Callable[[dict[str, Any]], Any]:
-    """Answers each golden line with its `model` output if given (an imperfect model), else the expected commands."""
-    by_line = {c["line"]: c.get("model", c["commands"]) for c in g["cases"]}
+def recorded() -> dict[str, dict[str, Any]]:
+    """line -> {kind, commands}: what the model said, written down independently of the expected commands."""
+    rows = yaml.safe_load(RECORDED.read_text())["outputs"]
+    return {r["line"]: r for r in rows}
+
+
+def scripted_model(
+    g: dict[str, Any], outputs: dict[str, dict[str, Any]] | None = None
+) -> Callable[[dict[str, Any]], Any]:
+    """Answers each golden line with the recorded model output for that line (never with the golden's expected `commands`)."""
+    said = outputs if outputs is not None else recorded()
 
     def answer(kw: dict[str, Any]) -> Any:
         asked = next(
             m["content"] for m in reversed(kw["messages"]) if m["content"].startswith("<reporter_text")
         )
         line = asked.split("\n", 2)[1]
-        return text({"commands": by_line[line], "rationale": "scripted"})
+        return text({"commands": said[line]["commands"], "rationale": "scripted"})
 
     return answer
 
@@ -126,14 +138,44 @@ async def run_golden(h: Harness, g: dict[str, Any]) -> tuple[float, float, list[
     return op_ok / n, (arg_ok / pairs if pairs else 1.0), misses, emitted
 
 
+def test_every_golden_line_has_an_independent_recorded_answer() -> None:
+    g, said = golden(), recorded()
+    assert [c["line"] for c in g["cases"]] == list(said)  # same lines, same order, nothing defaulted
+    assert {r["kind"] for r in said.values()} == {
+        "ok",
+        "wrong_op",
+        "wrong_arg",
+        "partial",
+        "imperfect_absorbed",
+    }
+    flawed = [r for r in said.values() if r["kind"] in ("wrong_op", "wrong_arg", "partial")]
+    assert len(flawed) >= 10  # a tenth of the answers are really wrong, so 1.000 cannot happen by echo
+    for c in g["cases"]:
+        r = said[c["line"]]
+        if r["kind"] in ("wrong_op", "wrong_arg", "partial"):
+            assert r["commands"] != c["commands"], c["line"]
+
+
 async def test_golden_with_a_scripted_model(harness: Callable[..., Harness], ccore: CatalogueCore) -> None:
     g = golden()
     assert len(g["cases"]) >= 80
+    said = recorded()
     h = harness(Backend(default=scripted_model(g)))
     op_acc, arg_acc, misses, emitted = await run_golden(h, g)
     print(f"\ncommand golden: op accuracy {op_acc:.3f}, arg accuracy {arg_acc:.3f}, {len(g['cases'])} lines")  # noqa: T201
     assert op_acc >= MIN_OP_ACCURACY, "\n".join(misses)
     assert arg_acc >= MIN_ARG_ACCURACY, "\n".join(misses)
+    # the scores are pinned to what the recorded flaws imply: every wrong answer is a reported miss, nothing else is
+    n = len(g["cases"])
+    wrong_ops = [line for line, r in said.items() if r["kind"] in ("wrong_op", "partial")]
+    wrong_args = [line for line, r in said.items() if r["kind"] == "wrong_arg"]
+    assert len(wrong_ops) == 7 and len(wrong_args) == 5
+    assert op_acc == pytest.approx((n - len(wrong_ops)) / n) and op_acc < 1.0
+    pairs = sum(len(c["commands"]) for c in g["cases"] if c["line"] not in wrong_ops and c["commands"])
+    assert arg_acc == pytest.approx((pairs - len(wrong_args)) / pairs) and arg_acc < 1.0
+    assert sorted(mi.split("': ")[0].lstrip("'") for mi in misses) == sorted([*wrong_ops, *wrong_args]), (
+        misses
+    )
     cat = Catalogue.from_doc(CATALOGUE)
     for c in emitted:  # whatever came out is a catalogue op with schema-valid args and no client-owned fields
         assert c["op"] in cat and cat.validate(c["op"], c["args"]) == [], c
@@ -141,6 +183,26 @@ async def test_golden_with_a_scripted_model(harness: Callable[..., Harness], cco
     # the catalogue was fetched with the caller's token and revalidated by ETag after the first request
     assert ccore.catalogue_gets[0] is None and set(ccore.catalogue_gets[1:]) == {ccore.etag}
     assert all(r.headers["authorization"] == f"Bearer {CORE_TOKEN}" for r in ccore.requests)
+
+
+@pytest.mark.parametrize("model", ["silent", "wrong"])
+async def test_the_scorer_fails_a_model_that_is_silent_or_wrong(
+    harness: Callable[..., Harness], model: str
+) -> None:
+    """The metric must be able to say no: a model that answers nothing, or the wrong op everywhere, falls far below the bars."""
+    g = golden()
+    said = recorded()
+    if model == "silent":
+        bad: dict[str, dict[str, Any]] = {line: {"commands": []} for line in said}
+    else:  # the right number of commands, every op replaced by an unrelated catalogue op
+        bad = {
+            line: {"commands": [{"op": "dailylog.confirm", "args": {}} for _ in r["commands"]]}
+            for line, r in said.items()
+        }
+    h = harness(Backend(default=scripted_model(g, bad)))
+    op_acc, arg_acc, misses, _ = await run_golden(h, g)
+    assert op_acc < MIN_OP_ACCURACY and misses, (op_acc, arg_acc)
+    assert op_acc <= 0.2  # only the "nothing to do" lines can match by accident
 
 
 async def test_invented_ops_and_people_are_dropped(harness: Callable[..., Harness]) -> None:
