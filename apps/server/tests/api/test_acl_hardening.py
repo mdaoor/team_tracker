@@ -316,3 +316,15 @@ def test_sliding_window_counts_n_hits_at_once() -> None:
     assert w.hit("a", 2) is None
     t[0] = 10.0
     assert w.hit("a", 5) is None
+
+
+async def test_sign_in_bucket_is_per_address_and_username(limited: httpx.AsyncClient) -> None:
+    """13 M4: one user's failed attempts do not lock a colleague behind the same address out."""
+
+    async def go(user: str) -> int:
+        r = await limited.post("/auth/ldap/login", json={"workspace": "acme", "username": user, "password": "p"})
+        return r.status_code
+
+    assert [await go("alice") for _ in range(3)] == [404, 404, 429]
+    assert await go("bob") == 404  # own bucket
+    assert await go("ALICE") == 429  # case-insensitive: same person
