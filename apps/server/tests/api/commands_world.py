@@ -347,6 +347,9 @@ async def _note(w: World) -> Args:
 
 
 async def _dailylog(w: World) -> Args:
+    await w.api.send(
+        action="log_time", item={"title": w.uniq("logged ")}, project="WEB", minutes=30
+    )  # drafts the day's log
     return {"day": "2026-10-23"}
 
 
