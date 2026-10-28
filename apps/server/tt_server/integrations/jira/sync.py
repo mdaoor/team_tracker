@@ -365,3 +365,87 @@ async def push_bounded(
         return await asyncio.wait_for(push_item(factory, item_id), timeout_s)
     except (TimeoutError, JiraUnavailable, JiraError, httpx.HTTPError):
         return None
+
+
+async def push_merge(
+    factory: async_sessionmaker[AsyncSession], source_id: str, target_key: str, *, client: JiraClient | None = None
+) -> PushResult:
+    """Project `item.merged` (ADR-0050 amendment): when the source item has a Jira issue, link it to the target's issue
+    (a "Duplicate" link, configurable as `jira.merge_link_type`) and leave a comment saying where the work went. A target with
+    no issue yet is pushed first when its own project opts it in; if it still has none, only the comment is posted. Idempotent:
+    a source already announced (a successful `merge` log row) is left alone."""
+    async with UnitOfWork(factory) as uow:
+        s = uow.session
+        await s.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"jira:{source_id}"})
+        src = await s.get(m.WorkItem, source_id)  # soft-deleted by the merge: read it anyway
+        if src is None:
+            return PushResult("skipped", reason="no_item")
+        project = await s.get(m.Project, src.project_id)
+        assert project is not None  # noqa: S101
+        cfg = project_config(project)
+        conn = await connection(s, project.workspace_id)
+        if conn is None:
+            return PushResult("skipped", reason="no_connection")
+        if not cfg.get("enabled") or not cfg.get("project_key"):
+            return PushResult("skipped", reason="project_not_linked")
+        link = await s.scalar(select(m.JiraLink).where(m.JiraLink.item_id == src.id))
+        if link is None:
+            return PushResult("skipped", reason="no_link")
+        if await s.scalar(
+            select(m.JiraSyncLog.id).where(
+                m.JiraSyncLog.item_id == src.id, m.JiraSyncLog.action == "merge", m.JiraSyncLog.ok.is_(True)
+            )
+        ):
+            return PushResult("unchanged", key=link.issue_key, reason="already_announced")
+        ws_id, src_key, src_issue = project.workspace_id, src.key, link.issue_key
+        tgt = await s.scalar(
+            select(m.WorkItem).where(
+                m.WorkItem.key == target_key,
+                m.WorkItem.project_id.in_(select(m.Project.id).where(m.Project.workspace_id == ws_id)),
+            )
+        )
+        tgt_id = tgt.id if tgt else None
+    target_issue: str | None = None
+    if tgt_id is not None:
+        await push_item(factory, tgt_id, client=client)  # a no-op when it is linked and unchanged or not opted in
+        async with factory() as rs:
+            target_issue = await rs.scalar(select(m.JiraLink.issue_key).where(m.JiraLink.item_id == tgt_id))
+    own = client is None
+    async with UnitOfWork(factory) as uow:
+        s = uow.session
+        conn = await connection(s, ws_id)
+        if conn is None:
+            return PushResult("skipped", reason="no_connection")
+        client = client or make_client(conn)
+        linked, link_error = False, None
+        try:
+            if target_issue:
+                try:
+                    await client.link_issues(
+                        target_issue, src_issue, str(cfg.get("merge_link_type") or "Duplicate")
+                    )
+                    linked = True
+                except JiraError as exc:  # e.g. the link type does not exist in this Jira: the comment still helps
+                    link_error = str(exc)
+            where = f"{target_key} ({target_issue})" if target_issue else target_key
+            await client.add_comment(
+                src_issue,
+                adf(
+                    f"Team Tracker: {src_key} was merged into {where}. Its time and evidence now live on {target_key}."
+                ),
+            )
+        except JiraUnavailable:
+            raise  # the task retries; nothing was logged, so the retry announces it
+        except JiraError as exc:
+            await _log(s, ws_id, source_id, src_issue, "merge", ok=False, error=str(exc)[:300], diff={"into": target_key})  # fmt: skip
+            await uow.commit_bookkeeping()
+            return PushResult("failed", key=src_issue, reason=str(exc))
+        finally:
+            if own:
+                await client.aclose()
+        diff: dict[str, Any] = {"into": target_key, "target_issue": target_issue, "linked": linked}
+        if link_error:
+            diff["link_error"] = link_error[:200]
+        await _log(s, ws_id, source_id, src_issue, "merge", ok=True, diff=diff)
+        await uow.commit_bookkeeping()
+        return PushResult("pushed", key=src_issue, changed=["comment", *(["link"] if linked else [])])

@@ -135,6 +135,18 @@ class JiraClient:
     async def add_comment(self, key: str, adf: dict[str, Any]) -> None:
         await self._req("POST", f"/rest/api/3/issue/{key}/comment", json={"body": adf})
 
+    async def link_issues(self, inward_key: str, outward_key: str, link_type: str = "Duplicate") -> None:
+        """Link two issues: `outward_key` <outward description> `inward_key` (for "Duplicate": outward duplicates inward)."""
+        await self._req(
+            "POST",
+            "/rest/api/3/issueLink",
+            json={
+                "type": {"name": link_type},
+                "inwardIssue": {"key": inward_key},
+                "outwardIssue": {"key": outward_key},
+            },
+        )
+
     async def list_worklogs(self, key: str) -> list[dict[str, Any]]:
         out = await self._req("GET", f"/rest/api/3/issue/{key}/worklog")
         return list((out or {}).get("worklogs", []))

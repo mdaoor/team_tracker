@@ -13,6 +13,8 @@ class FakeJira:
         self.issues: dict[str, dict[str, Any]] = {}
         self.worklogs: list[dict[str, Any]] = []
         self.comments: list[dict[str, Any]] = []
+        self.links: list[dict[str, Any]] = []
+        self.link_types = {"Duplicate", "Relates", "Blocks"}
         self.calls: list[tuple[str, str]] = []
         self.users = {"sara@acme.test": "acc-sara", "mahmoud@acme.test": "acc-mahmoud"}
         self.down = False
@@ -71,6 +73,17 @@ class FakeJira:
                 self.lose_create_response = False
                 return httpx.Response(504, json={})  # created, but the caller never learns
             return httpx.Response(201, json={"id": str(self.n), "key": key})
+        if path == "/rest/api/3/issueLink" and m == "POST":
+            if body["type"]["name"] not in self.link_types:
+                return httpx.Response(404, json={"errorMessages": ["No issue link type with name found"]})
+            self.links.append(
+                {
+                    "type": body["type"]["name"],
+                    "inward": body["inwardIssue"]["key"],
+                    "outward": body["outwardIssue"]["key"],
+                }
+            )
+            return httpx.Response(201)
         parts = path.split("/")
         if len(parts) >= 6 and parts[4] == "issue":
             key = parts[5]
