@@ -14,7 +14,12 @@ from tt_server.acl.reporting import LINE_KINDS, reports_of
 from tt_server.clock import person_today
 from tt_server.db import models as m
 
-MANAGER_ROLES = ("manager", "project_owner", "workspace_admin")
+MANAGER_ROLES = (
+    "manager",
+    "project_owner",
+    "project_manager",
+    "workspace_admin",
+)  # project_manager = project_owner rights (Phase 14)
 
 
 @dataclass(frozen=True)
