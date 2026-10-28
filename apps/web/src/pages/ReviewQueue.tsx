@@ -10,6 +10,8 @@ import { ago } from "../lib/format";
 import { t } from "../lib/i18n";
 
 export const DEFAULT_THRESHOLD = 0.7;
+/** How long the resolve toast offers Undo / Don't learn (plan R1.4: 3 s). */
+export const REVIEW_UNDO_MS = 3000;
 
 /** The suggestion's primary choice for a row, if any (stored suggestion or the LLM gateway's best guess). */
 export function suggestedChoice(
@@ -75,7 +77,7 @@ export function ReviewQueue() {
             : `${row.item_key}: ${String(done.resolved)}`;
         toasts.push(text, {
           key: `resolved:${row.ref}`,
-          ms: 6000,
+          ms: REVIEW_UNDO_MS,
           undo: done.undoable
             ? async () => {
                 try {
