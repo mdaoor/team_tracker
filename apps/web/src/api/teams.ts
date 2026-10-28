@@ -7,6 +7,25 @@ export const productLinks = (ws: string, productKey: string) =>
   api.get<{ data?: Link[] }>(w(ws, `/products/${productKey}/links`));
 export const reparentProduct = (ws: string, key: string, parentId: string | null) =>
   api.patch(w(ws, `/products/${key}`), { parent_product_id: parentId });
+/** Moving a project between products is unlink + link (`DELETE /products/{ref}/links/{project}`, then `POST .../links`). */
+export const unlinkProject = (ws: string, productKey: string, projectKey: string) =>
+  api.del(w(ws, `/products/${productKey}/links/${projectKey}`));
+export const linkProject = (
+  ws: string,
+  productKey: string,
+  projectKey: string,
+  role: string,
+  weight?: number | null,
+) =>
+  api.post(w(ws, `/products/${productKey}/links`), {
+    target_type: "project",
+    target_id: projectKey,
+    role,
+    ...(weight == null ? {} : { weight }),
+  });
+/** Re-parent an item inside its own project (`parent` null = top level); the server refuses another project's parent. */
+export const moveItem = (ws: string, key: string, parent: string | null) =>
+  api.post(w(ws, `/items/${key}/move`), { parent });
 export const linkRisk = (ws: string, risk: string, item: string) =>
   api.post(w(ws, `/risks/${risk}/links`), { item });
 export const bulkDimensionValues = (ws: string, key: string, values: unknown) =>

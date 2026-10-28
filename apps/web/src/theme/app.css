@@ -1037,7 +1037,8 @@ ul.tree {
   background: var(--surface-2);
 }
 
-.tree-product {
+.tree-product,
+.tree-node {
   background: none;
   border: 1px dashed transparent;
   color: inherit;
@@ -1048,7 +1049,10 @@ ul.tree {
 }
 .tree-product:hover,
 .tree-product:focus-visible,
-.tree-product.drop {
+.tree-product.drop,
+.tree-node:hover,
+.tree-node:focus-visible,
+.tree-node.drop {
   border-color: var(--s1);
   background: var(--surface-2);
 }

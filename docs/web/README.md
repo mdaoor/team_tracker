@@ -27,7 +27,7 @@ is imported only by `pages/governance/CelEditor.tsx` and therefore ships only in
 `ErrorBoundary` (a render error or a failed chunk load shows "Something went wrong" with **Reload** / **Try again** and raises an error
 toast; navigating clears it) and a `Suspense` skeleton. `scripts/check-bundle.mjs` runs at the end of `pnpm build` (and so in CI) and fails
 the build if the entry chunk is 250 kB gzip or more, a route-group chunk is missing, or CodeMirror appears outside the policy chunk
-(today: entry 84 kB gzip, 246 kB for all chunks).
+(today: entry 85 kB gzip, 250 kB for all chunks).
 
 ## Responsive shell
 Below 900 px the side navigation becomes a drawer opened by the **Menu** button in the top bar (closes on navigation); toolbars and
@@ -38,9 +38,11 @@ their own focusable `region`, never the page. Acceptance: at 390x844 no console 
 ## Setup editors
 Process: the stage chip opens a **popover anchored under the chip** (name, expected days, WIP, approval, category) with a live mini-pipeline; focus moves to the
 first field, `Esc` or a click elsewhere closes it and returns focus to the chip, it is shifted to stay inside the viewport (390 px too) and is axe clean
-(`e2e/setup-editors.spec.ts`); Projects: the product → project → epic tree (`ProjectTree`). **Products** reparent by drag-and-drop and `Alt+←/→`
-(outdent / nest under the previous sibling), covered end to end; **projects and epics are shown but cannot be moved yet**: the API has no operation for
-it (no way to unlink a project from a product, no `project` field on the item patch), so a move there needs a server change first; Planning: milestone and iteration month calendar; Risks: heat map with probability/impact axis labels,
+(`e2e/setup-editors.spec.ts`); Projects: the product → project → epic tree (`ProjectTree`). Everything moves by drag-and-drop and `Alt+←/→` (outdent / indent under the previous sibling), covered end to end:
+**products** (one `PATCH`), **projects** (dropped on a product, or `Alt+←` to the parent product / `Alt+→` into the last product inside the current one: `DELETE /products/{ref}/links/{project}` then
+`POST .../links` with the same role and weight, the old link restored if the second call fails) and **epics** (`POST /items/{key}/move` inside their own project: drop on the project or `Alt+←` for top-level;
+drop on another epic or `Alt+→` to nest, which the server only allows with the workspace switch `allow_same_level_nesting`). **An epic never changes project** (the server answers 400 `cross_project_move`,
+ADR-0059: keys, workflow states and the plan belong to the project), and the tree says so when you try; Planning: milestone and iteration month calendar; Risks: heat map with probability/impact axis labels,
 a cell filters the register, drag a risk onto an item to link it; People: org tree with per-person and team capacity; Dimensions: paste a
 list (lines, commas, quotes; de-duplicated, with a live count). Covered by `e2e/setup-editors.spec.ts` and `e2e/console.spec.ts`.
 

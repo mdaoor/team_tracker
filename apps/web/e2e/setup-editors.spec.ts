@@ -133,6 +133,135 @@ test("the Projects tree is product > project > epic; products reparent by drag a
   await expect(page.getByText("Already top-level")).toBeVisible();
 });
 
+test("projects move between products and epics inside their project, by drag and by Alt+Arrow", async ({
+  page,
+  request,
+}) => {
+  const tag = unique().toUpperCase();
+  const pk = `Q${tag}`;
+  const prod = { a: `ZA${tag}`, b: `ZB${tag}` };
+  for (const k of [prod.a, prod.b])
+    expect(
+      (await request.post(`${API}/products`, { data: { key: k, name: `P ${k}` } })).ok(),
+    ).toBeTruthy();
+  expect(
+    (await request.post(`${API}/projects`, { data: { key: pk, name: `Proj ${tag}` } })).ok(),
+  ).toBeTruthy();
+  const linked = await request.post(`${API}/products/${prod.a}/links`, {
+    data: { target_type: "project", target_id: pk, role: "delivers", weight: 2 },
+  });
+  expect(linked.ok(), await linked.text()).toBeTruthy();
+  const epic = async (title: string): Promise<string> => {
+    const r = await request.post(`${API}/capture/batches`, {
+      data: {
+        workspace: "acme",
+        messages: [
+          {
+            actor: "@mahmoud",
+            action: "create",
+            at: new Date().toISOString(),
+            client_id: crypto.randomUUID(),
+            item: { title },
+            project: pk,
+            item_type: "epic",
+          },
+        ],
+      },
+    });
+    const res = (await r.json()).results[0];
+    expect(res.item?.key, JSON.stringify(res)).toBeTruthy();
+    return res.item.key as string;
+  };
+  const e1 = await epic(`First epic ${tag}`);
+  const e2 = await epic(`Second epic ${tag}`);
+  const nest = await request.patch(`${API}/settings`, { data: { allow_same_level_nesting: true } });
+  expect(nest.ok()).toBeTruthy();
+  try {
+    await page.setViewportSize({ width: 1280, height: 2400 }); // a tall tree: every drop target stays on screen
+    await page.goto("/w/acme/setup/projects");
+    const tree = page.getByRole("tree", { name: "Products, projects and epics" });
+    const btn = (re: RegExp) => tree.getByRole("button", { name: re });
+    const level = (b: ReturnType<typeof btn>) =>
+      b.locator("xpath=ancestor::li[@role='treeitem'][1]").getAttribute("aria-level");
+    /** The product button of the nearest product ancestor of a project or epic. */
+    const owner = (b: ReturnType<typeof btn>) =>
+      b
+        .locator(
+          "xpath=ancestor::li[@role='treeitem'][.//button[starts-with(@aria-label,'Product ')]]",
+        )
+        .last()
+        .locator("button[aria-label^='Product ']")
+        .first()
+        .getAttribute("aria-label");
+    const product = (k: string) => btn(new RegExp(`^Product P ${k}\\.`));
+    const project = btn(new RegExp(`^Project ${pk} `));
+    /** The project shows once, under the named product (the two link lists refetch separately, so wait out the overlap). */
+    const settled = async (name: string) => {
+      await expect(project).toHaveCount(1);
+      await expect.poll(() => owner(project)).toContain(name);
+      await expect(project).toHaveCount(1);
+    };
+    await expect(project).toBeVisible();
+    expect(await owner(project)).toContain(`P ${prod.a}`);
+
+    // drag the project onto the other product: unlink + link, role and weight carried over
+    await project.dragTo(product(prod.b));
+    await expect(page.getByText(`Moved ${pk} to ${prod.b}`)).toBeVisible();
+    await settled(`P ${prod.b}`);
+    const bLinks = (await (await request.get(`${API}/products/${prod.b}/links`)).json()).data;
+    expect(bLinks).toHaveLength(1);
+    expect([bLinks[0].role, Number(bLinks[0].weight)]).toEqual(["delivers", 2]);
+    expect((await (await request.get(`${API}/products/${prod.a}/links`)).json()).data).toHaveLength(
+      0,
+    );
+
+    // nest B under A, then Alt+Left / Alt+Right move the project out to A and back in under B
+    await product(prod.b).dragTo(product(prod.a));
+    await expect.poll(() => level(product(prod.b))).toBe("2");
+    await expect.poll(() => level(project)).toBe("3");
+    await project.focus();
+    await page.keyboard.press("Alt+ArrowLeft");
+    await settled(`P ${prod.a}`);
+    await expect.poll(() => level(project)).toBe("2");
+    await project.focus();
+    await page.keyboard.press("Alt+ArrowRight");
+    await settled(`P ${prod.b}`);
+    await project.focus();
+    await page.keyboard.press("Alt+ArrowLeft");
+    await settled(`P ${prod.a}`);
+    await project.focus();
+    await page.keyboard.press("Alt+ArrowLeft");
+    await expect(page.getByText("Already under a top-level product")).toBeVisible();
+
+    // epics: drag the second onto the first (nests: same-level nesting is on), Alt+Left lifts it, Alt+Right nests it again
+    const epicBtn = (k: string) => btn(new RegExp(`^Epic ${k} `));
+    await expect(epicBtn(e2)).toBeVisible();
+    const top = await level(epicBtn(e1));
+    expect(await level(epicBtn(e2))).toBe(top);
+    await epicBtn(e2).dragTo(epicBtn(e1));
+    await expect(page.getByText(`Moved ${e2}`)).toBeVisible();
+    await expect.poll(async () => Number(await level(epicBtn(e2)))).toBe(Number(top) + 1);
+    await epicBtn(e2).focus();
+    await page.keyboard.press("Alt+ArrowLeft");
+    await expect.poll(() => level(epicBtn(e2))).toBe(top);
+    await epicBtn(e2).focus();
+    await page.keyboard.press("Alt+ArrowRight");
+    await expect.poll(async () => Number(await level(epicBtn(e2)))).toBe(Number(top) + 1);
+    // dropping on the project makes it top-level again
+    await epicBtn(e2).dragTo(project);
+    await expect.poll(() => level(epicBtn(e2))).toBe(top);
+
+    // an epic never changes project: the tree says so, and the API refuses the move
+    await epicBtn(e2).dragTo(btn(/^Project WEB /));
+    await expect(page.getByText(/keeps its project/)).toBeVisible();
+    const cross = await request.post(`${API}/items/${e2}/move`, { data: { parent: "WEB-120" } });
+    expect(cross.status()).toBe(400);
+    expect((await cross.json()).error.code).toBe("cross_project_move");
+  } finally {
+    await request.patch(`${API}/settings`, { data: { allow_same_level_nesting: false } });
+  }
+});
+
 test("milestones and iterations show on a month calendar", async ({ page, request }) => {
   const name = `ms-${unique()}`;
   const due = new Date().toISOString().slice(0, 8) + "15";

@@ -337,6 +337,20 @@ test("UAT 6.2: without the workspace setting the generation pack answers 'not al
   await page.goto("/w/acme/present");
   await page.getByRole("button", { name: /Download pack/i }).click();
   await expect(page.locator(".toast").first()).toContainText(/not allow|external LLM|enable/i);
+
+  // an admin switches it on (PATCH /settings); the pack is a zip, and switching it off refuses again
+  const on = await request.patch(`${API}/settings`, { data: { external_packs: true } });
+  expect(on.ok(), await on.text()).toBeTruthy();
+  try {
+    expect((await (await request.get(`${API}/settings`)).json()).external_packs).toBe(true);
+    const ok = await request.post(`${API}/presentations:generation-pack`, { data: { brief: "x" } });
+    expect(ok.status()).toBe(200);
+    expect(ok.headers()["content-type"]).toContain("application/zip");
+  } finally {
+    await request.patch(`${API}/settings`, { data: { external_packs: false } });
+  }
+  const off = await request.post(`${API}/presentations:generation-pack`, { data: { brief: "x" } });
+  expect(off.status()).toBe(403);
 });
 
 // ------------------------------------------------------------------ UAT 8 and 9: habits export, weights, digest
