@@ -14,16 +14,15 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Emu, Inches
 
 from tt_server.exports import compute
-
 from tt_server.exports.pptx_plan import PLAN_KINDS, _gantt, _plan_slide
 from tt_server.exports.pptx_primitives import (
     ACCENT,
-    H,
     LINE,
     MUTED,
     ROWS_PER_SLIDE,
     SEQ,
     SERIOUS,
+    H,
     W,
     _bar_chart,
     _frame,

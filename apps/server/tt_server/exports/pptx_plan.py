@@ -9,9 +9,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Emu, Inches
 
-
 from tt_server.exports.pptx_primitives import ACCENT, LINE, MUTED, SERIOUS, _pages, _table, _text
-
 
 PLAN_KINDS = {"roadmap", "milestones", "deliverables", "plan_vs_actual", "phase_status", "project_overview"}
 STATUS_FILL = {

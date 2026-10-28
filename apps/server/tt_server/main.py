@@ -208,7 +208,8 @@ def create_app(
             ip = request_ip(request)
             user = await signin_username(request)
             wait = auth_ip_window.hit(credential_key(None, None, None, ip))
-            if wait is None:  # (address, username): one person's typos cannot lock out colleagues behind the same NAT
+            if wait is None:
+                # per (address, username): one person's typos cannot lock out colleagues behind the same NAT
                 wait = auth_window.hit(signin_key(ip, user))
         if wait is not None:
             retry = str(int(wait) + 1)

@@ -9,7 +9,6 @@ from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches, Pt
 
-
 W, H = Inches(13.333), Inches(7.5)
 INK, MUTED, LINE = RGBColor(0x0B, 0x0B, 0x0B), RGBColor(0x52, 0x51, 0x4E), RGBColor(0xE3, 0xE1, 0xDC)
 SEQ = [RGBColor.from_string(c) for c in ("CDE2FB", "9EC5F4", "6DA7EC", "3987E5", "1C5CAB", "0D366B")]
