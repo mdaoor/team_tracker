@@ -96,7 +96,7 @@ test("every governance report can be added to a presentation", async ({ page }) 
   for (const path of ["violations", "habits", "performance", "insights", "digest", "weights"]) {
     await page.goto(`/w/acme/${path}`);
     await page.getByRole("button", { name: "Add to presentation" }).click();
-    await page.getByRole("menuitem", { name: /New presentation/ }).click();
+    await page.getByRole("menuitem", { name: /^＋ New presentation/ }).click();
     await expect(page.getByText("Added to presentation")).toBeVisible();
   }
 });
