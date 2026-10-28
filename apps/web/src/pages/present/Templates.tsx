@@ -10,6 +10,7 @@ import type {
   TemplateBody,
   TemplateParam,
 } from "../../api/types";
+import { useConfirm } from "../../components/Confirm";
 import { useToasts } from "../../components/Toasts";
 import { Button, Card, Empty, Field } from "../../components/ui";
 import { useList, useWs } from "../../lib/hooks";
@@ -45,6 +46,32 @@ export function Templates() {
     onSuccess: refresh,
     onError: (e) => toasts.error(e),
   });
+  const confirm = useConfirm();
+  const askDelete = async (t: PresentationTemplate) => {
+    if (
+      !(await confirm({
+        title: `Delete “${t.name}”?`,
+        body: "Decks already made from it are not affected. You can undo for a few seconds.",
+      }))
+    )
+      return;
+    try {
+      await api.del(w(ws, `/presentation-templates/${t.key}`));
+    } catch (e) {
+      return toasts.error(e);
+    }
+    refresh();
+    toasts.push(`Deleted “${t.name}”`, {
+      undo: async () => {
+        try {
+          await presentApi.restoreTemplate(ws, t.key);
+          refresh();
+        } catch (e) {
+          toasts.error(e);
+        }
+      },
+    });
+  };
   const download = async (t: PresentationTemplate) => {
     const doc = await presentApi.exportTemplate(ws, t.key);
     const url = URL.createObjectURL(
@@ -138,12 +165,7 @@ export function Templates() {
                     >
                       {t.is_shared ? "Unshare" : "Share"}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        act.mutate({ path: `/presentation-templates/${t.key}`, method: "delete" })
-                      }
-                    >
+                    <Button variant="ghost" onClick={() => void askDelete(t)}>
                       Delete
                     </Button>
                   </>
