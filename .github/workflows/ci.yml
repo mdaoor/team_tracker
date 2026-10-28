@@ -59,6 +59,50 @@ jobs:
           pnpm --filter @tt/web gen:api
           git diff --exit-code apps/web/src/api/schema.d.ts
 
+  web-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_DB: postgres, POSTGRES_USER: tt, POSTGRES_PASSWORD: tt }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tt" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # TT_CHROMIUM stays unset: both Playwrights use the browser installed below
+      TT_DATABASE_URL: postgresql+psycopg://tt:tt@localhost:5432/tt_e2e
+      TT_E2E_ADMIN_URL: postgresql://tt:tt@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Presentation bundle (the present specs and the exports serve it)
+        run: pnpm --filter @tt/presentation build
+      - run: uv sync --all-packages --frozen
+      - name: Chromium for the server PDF and PNG exports
+        run: uv run playwright install --with-deps chromium
+      - name: Chromium for the web specs
+        run: pnpm --filter @tt/web exec playwright install --with-deps chromium
+      - name: Migrate and seed the demo workspace (global-setup repeats this on a fresh database)
+        run: |
+          psql "$TT_E2E_ADMIN_URL" -c 'create database tt_e2e'
+          uv run tt-admin migrate
+          uv run tt-admin seed demo --reset
+      - name: Web Playwright suite (API on 8010, Vite on 5173)
+        run: pnpm --filter @tt/web exec playwright test
+      - name: Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e-report
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          if-no-files-found: ignore
+
   presentation:
     runs-on: ubuntu-latest
     steps:
