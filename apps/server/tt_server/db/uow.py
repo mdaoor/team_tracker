@@ -45,6 +45,9 @@ class UnitOfWork:
         self._session: AsyncSession | None = None
         # Ambient data for hooks (actor_id, correlation_id, sync_depth ...); reset on every `async with`.
         self.context: dict[str, Any] = {}
+        # While set, `commit()` and `commit_bookkeeping()` only flush: the holder (the command executor) makes the one real
+        # commit, so a multi-step command is atomic however many router functions it calls.
+        self.hold_commits = False
 
     @property
     def session(self) -> AsyncSession:
@@ -57,6 +60,7 @@ class UnitOfWork:
         self._touched_projection = False
         self._touched_tables = set()
         self.context = {}
+        self.hold_commits = False
         event.listen(self._session.sync_session, "before_flush", self._on_before_flush)
         return self
 
@@ -95,6 +99,8 @@ class UnitOfWork:
                 f"commit_bookkeeping() would commit domain tables {sorted(leaked)} without an Event; "
                 "emit the event and use commit()"
             )
+        if self.hold_commits:
+            return
         await self.session.commit()
         self._touched_projection = False
         self._touched_tables = set()
@@ -107,6 +113,8 @@ class UnitOfWork:
         """
         session = self.session
         await session.flush()
+        if self.hold_commits:
+            return  # the holder commits once, after every step; the Event guard runs then
         if self._touched_projection and len(self.events) == 0 and not allow_unlogged:
             await session.rollback()
             raise MissingEventError("projection tables changed without an Event in the same unit of work")

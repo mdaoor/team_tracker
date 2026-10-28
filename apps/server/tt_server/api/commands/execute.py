@@ -1,8 +1,9 @@
 """Run one `ClientCommand`: validate, authorise, preview or apply, record. Rejection is a per-command result, never an HTTP error.
 
-Each command is its own transaction. Handlers commit through the unit of work (as the routers do); on any failure the session
-is rolled back and the event buffer cleared, so a rejected command leaves nothing behind and does not disturb the commands
-before or after it in a batch.
+Each command is its own transaction. The unit of work is put on hold while a handler runs, so the router functions it calls
+(which each `commit()`) only flush; the executor makes the single commit after the handler, with the command's `CommandLog` row
+and `command.applied` event. On any failure the session is rolled back and the event buffer cleared, so a rejected command
+leaves nothing behind (not even the first steps of a multi-step op) and does not disturb the commands around it in a batch.
 """
 
 from __future__ import annotations
@@ -66,6 +67,20 @@ async def _authorise(ctx: Ctx, spec: Command, args: Any) -> None:
     ref = getattr(args, spec.scope_arg, None)
     if spec.scope == "project":
         check(actor, spec.permission) if ref is None else await check_project(actor, uow, spec.permission, await core._project(uow, actor.ws.id, ref))  # fmt: skip
+    elif spec.scope == "target":
+        # a classification/link target of any type: the item's, project's or product's own scope (never "an item key")
+        from tt_schema.enums import TargetType
+
+        from tt_server.api.overlay_support import check_target, target_id_of
+
+        ttype = TargetType(getattr(args, "target_type", TargetType.WORK_ITEM))
+        await check_target(actor, uow, spec.permission, ttype, await target_id_of(uow, actor.ws.id, ttype, ref))
+    elif spec.scope == "risk":
+        # a risk is written in its own project: `risk.write` there, not workspace-wide
+        from tt_server.domain.overlay import risk_register
+
+        risk = await risk_register.get_risk(uow, actor.ws.id, ref)
+        await check_project(actor, uow, spec.permission, await risk_register.project_of(uow, risk))
     elif spec.scope in ("item", "items"):
         refs = [ref] if isinstance(ref, str) else list(ref or [])
         for r in refs:
@@ -166,6 +181,7 @@ async def run(
         uow.context["actor_id"] = actor.person.id
         uow.context["correlation_id"] = correlation_id
         uow.context["command"] = {"op": cmd.op, "client_id": cmd.client_id, "client_version": meta.get("client_version"), "mode": meta.get("mode"), "role_mode": meta.get("role_mode"), **({"forced": True} if meta.get("forced") else {}), **({"on_behalf_of": cmd.on_behalf_of} if cmd.on_behalf_of else {})}  # fmt: skip
+        uow.hold_commits = True  # every router function the handler calls flushes; the one commit is below
         out = await spec.handler(ctx, args)
         if preview:
             await _reset(uow, actor)  # a preview never writes, whatever the handler did to compute it
@@ -179,10 +195,12 @@ async def run(
             event_type="command.applied",
             payload={"after": {"op": cmd.op, "client_id": cmd.client_id, "status": "applied"}},
         )  # the CommandLog row rides on a real event, so the commit guard needs no allow-list entry
+        uow.hold_commits = False
         await uow.commit()
         return result
     except (ValidationError, ApiError, DomainError, IntegrityError, StatementError) as exc:
         await _reset(uow, actor)
         return _result(cmd, "rejected", errors=_summary(exc))
     finally:
+        uow.hold_commits = False
         uow.context.pop("command", None)
