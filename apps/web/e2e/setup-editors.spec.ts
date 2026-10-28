@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { API } from "./api";
 
 /** Phase 13 R6.3 (UX §3.3): the setup editors behave as designed, not as flat CRUD tables. */
@@ -26,6 +27,110 @@ test("a stage chip opens an editor with a live mini-pipeline and saves", async (
   await expect(page.locator(".stage-chip").first()).toContainText("40 d");
   await expect(page.locator(".stage-chip").first()).toContainText("WIP 7");
   await expect(page.locator(".stage-chip").first()).toContainText("approval");
+});
+
+test("the stage editor is a popover anchored to its chip: focus, Escape, outside click, axe", async ({
+  page,
+}) => {
+  await page.goto("/w/acme/setup/process");
+  await page.waitForLoadState("networkidle");
+  const chips = page.locator(".stage-chip");
+  const last = chips.nth((await chips.count()) - 1);
+  await last.click();
+  const pop = page.getByRole("dialog", { name: /Edit stage/ });
+  await expect(pop).toBeVisible();
+  // anchored: inside the chip's own list item, directly below the chip, and never wider than the viewport
+  await expect(page.locator("li[data-stage]").last().getByRole("dialog")).toHaveCount(1);
+  const c = (await last.boundingBox())!;
+  const p = (await pop.boundingBox())!;
+  const vw = page.viewportSize()!.width;
+  expect(p.y).toBeGreaterThanOrEqual(c.y + c.height - 1);
+  expect(p.y).toBeLessThan(c.y + c.height + 40);
+  expect(p.x).toBeGreaterThanOrEqual(0);
+  expect(p.x + p.width).toBeLessThanOrEqual(vw + 1);
+  // keyboard: focus lands in the first field, Escape closes and gives focus back to the chip
+  await expect(pop.getByLabel("Name")).toBeFocused();
+  const res = await new AxeBuilder({ page }).include(".stages").analyze();
+  expect(res.violations.filter((v) => v.impact === "serious" || v.impact === "critical")).toEqual(
+    [],
+  );
+  await page.keyboard.press("Escape");
+  await expect(pop).toHaveCount(0);
+  await expect(last).toBeFocused();
+  // a click elsewhere closes it too, and the chip toggles it
+  await last.click();
+  await expect(pop).toBeVisible();
+  await page.getByRole("heading", { level: 1 }).click();
+  await expect(pop).toHaveCount(0);
+  await last.click();
+  await last.click();
+  await expect(pop).toHaveCount(0);
+});
+
+test("at 390x844 the stage popover stays on screen and the page does not scroll sideways", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/w/acme/setup/process");
+  await page.waitForLoadState("networkidle");
+  const chips = page.locator(".stage-chip");
+  for (const i of [0, (await chips.count()) - 1]) {
+    await chips.nth(i).click();
+    const box = (await page.getByRole("dialog", { name: /Edit stage/ }).boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(391);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      390,
+    );
+    await page.keyboard.press("Escape");
+  }
+});
+
+test("the Projects tree is product > project > epic; products reparent by drag and by Alt+Arrow", async ({
+  page,
+  request,
+}) => {
+  const tag = unique().toUpperCase();
+  const names = { a: `ZA ${tag}`, b: `ZB ${tag}` };
+  for (const [k, n] of [
+    [`ZA${tag}`, names.a],
+    [`ZB${tag}`, names.b],
+  ])
+    expect(
+      (await request.post(`${API}/products`, { data: { key: k, name: n } })).ok(),
+    ).toBeTruthy();
+  await page.goto("/w/acme/setup/projects");
+  const tree = page.getByRole("tree", { name: "Products, projects and epics" });
+  await expect(tree).toBeVisible();
+
+  // the epic level: Customer Portal > WEB > WEB-120 (seed data)
+  const web = tree
+    .locator('li[aria-level="1"]', { hasText: "Customer Portal" })
+    .locator('li[aria-level="2"]')
+    .filter({ has: page.locator("strong", { hasText: /^WEB$/ }) });
+  await expect(web).toHaveCount(1);
+  await expect(web.locator('li[aria-level="3"]').filter({ hasText: "WEB-120" })).toHaveCount(1);
+
+  // drag product B onto product A: B becomes a child of A
+  const btn = (n: string) => tree.getByRole("button", { name: new RegExp(`^Product ${n}\\.`) });
+  const level = (n: string) =>
+    btn(n).locator("xpath=ancestor::li[@role='treeitem'][1]").getAttribute("aria-level");
+  expect(await level(names.b)).toBe("1");
+  await btn(names.b).dragTo(btn(names.a));
+  await expect(page.getByText(`Moved ZB${tag}`)).toBeVisible();
+  await expect.poll(() => level(names.b)).toBe("2");
+
+  // Alt+Left moves it back out; Alt+Right nests it under the previous sibling again
+  await btn(names.b).focus();
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect.poll(() => level(names.b)).toBe("1");
+  await btn(names.b).focus();
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect.poll(() => level(names.b)).toBe("2");
+  // already top-level: the keys say so instead of failing silently
+  await btn(names.a).focus();
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect(page.getByText("Already top-level")).toBeVisible();
 });
 
 test("milestones and iterations show on a month calendar", async ({ page, request }) => {
