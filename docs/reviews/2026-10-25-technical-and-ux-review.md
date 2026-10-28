@@ -261,35 +261,78 @@ Failures: `pnpm install` from the agent shell (cwd reset — fixed with `-C`); P
 
 ---
 
-# Resolution (Phases 13–15, implementation line `feat/phase-14-server`)
+# Resolution (Phases 13–15, implementation line `feat/phase-14-server`; re-verified on `leftovers/web`, 2026-10-28)
 
-Status of the ranked findings after the remediation phase (plan 15) and what changed around it. "Fixed" means a test guards it.
+How to read this. **Verified** means a named test ran green on a freshly seeded stack in the web pass (`leftovers/web`): Playwright specs under `apps/web/e2e/` (run as `pnpm exec playwright test`
+against a dev-auth API and Vite), `apps/presentation/e2e/`, or vitest. **Not verified** says what no test in that pass exercised. "Fixed" alone, as this section used to say, is no longer used.
+The web pass covered `apps/web` and `apps/presentation` only; rows about server code keep the status the branch claimed and say so.
 
 ## Technical risks
-| # | Finding | Status | Where |
-|---|---|---|---|
-| 1 | Proxy-blind rate limiter | Fixed | trusted-proxy client IP in `ratelimit.py`; ADR-0041 |
-| 2 | `Settings` reads `.env` in tests | Fixed | hermetic fixture, `tests/unit/test_hermetic.py` |
-| 3 | 60 FK columns without indexes | Fixed | migration 0011; `tests/unit/test_fk_indexes.py` |
-| 4 | UoW bypassed on read paths that write | Fixed | `commit_derived`; `tests/unit/test_architecture.py` (only the UoW commits) |
-| 5 | Event jobs without retry | Fixed | `jobs/retry.py`, ADR-0044; `tests/unit/test_job_retries.py` |
-| 6 | Orchestration in fat routers | Mostly fixed | overlay/core/governance/item_extras/query split into per-concern routers with services under `domain/`; routers ≤ 560 lines. Still over 400: `presentations.py` (556), `domain/overlay/review.py`, `governance/habits.py`, `domain/capture/ingest.py`; not extracted: `access`, `jira`, `console`, `client`, `identity`, `webauth` |
-| 7 | Domain depends on the API layer | Fixed | typed `domain/errors.py`, ADR-0047; architecture test |
-| 8 | Server-local `date.today()` | Fixed | `ws_today`, `clock.py`; ruff DTZ ban |
-| 9 | Container images | Fixed | multi-stage, non-root, pinned `uv`; `tests/unit/test_images.py` |
-| 10 | Harness vs concurrency; suite speed | Fixed | `committed_client`, per-worker DB templates; full suite ≈ 14 min under xdist (was ≈ 80) |
-| 11 | Frontend type erasure | Fixed | typed wrapper modules in `apps/web/src/api/`, `Row` used 8 times (limit 10) |
-| 12 | No ErrorBoundary / code-splitting | Fixed | `ErrorBoundary`, `React.lazy` route groups |
-| 13 | CSP `'unsafe-inline'` | Fixed | per-response nonce, `csp.py`, ADR-0046 |
-| 14 | Gateway budget TOCTOU / float money | Fixed | reserve-then-settle with `Decimal`, ADR-0045 |
-| 15 | Enum/cascade invariants only in app code | Fixed | migration 0012: CHECK on 96 enum columns, explicit `ON DELETE`; ADR-0049 |
+| # | Finding | Status | Verified in the web pass | Not verified in the web pass |
+|---|---|---|---|---|
+| 1 | Proxy-blind rate limiter | Claimed fixed (`ratelimit.py`, ADR-0041) | `e2e/uat-walk.spec.ts` "UAT 14": capture is limited per credential and answers 429 with `Retry-After` | the trusted-proxy address logic (server unit tests only) |
+| 2 | `Settings` reads `.env` in tests | Claimed fixed (`tests/unit/test_hermetic.py`) | – | server suite not run in this pass |
+| 3 | 60 FK columns without indexes | Claimed fixed (migration 0011, `test_fk_indexes.py`) | – | server suite |
+| 4 | UoW bypassed on read paths that write | Claimed fixed (`commit_derived`) | – | server suite |
+| 5 | Event jobs without retry | Claimed fixed (`jobs/retry.py`) | – | server suite |
+| 6 | Orchestration in fat routers | Mostly fixed (see the hand-over for the files still over 400 lines) | – | server |
+| 7 | Domain depends on the API layer | Claimed fixed (ADR-0047) | – | server suite |
+| 8 | Server-local `date.today()` | Claimed fixed (ruff DTZ) | – | server suite |
+| 9 | Container images | Claimed fixed | – | `tests/unit/test_images.py` not run |
+| 10 | Harness vs concurrency; suite speed | Claimed fixed | – | server suite |
+| 11 | Frontend type erasure | Fixed | `pnpm --filter @tt/web lint` and `typecheck` green; the untyped `Row` appears 7 times outside `api/http.ts` (limit 10) | – |
+| 12 | No ErrorBoundary / code-splitting | Fixed | `components/ErrorBoundary.test.tsx`; `pnpm --filter @tt/web build` runs `scripts/check-bundle.mjs` (entry 84.9 kB gzip < 250, 18 chunks, CodeMirror only in `Policies`) | a real chunk-load failure in a browser |
+| 13 | CSP `'unsafe-inline'` | Claimed fixed (nonce, ADR-0046) | `e2e/present.spec.ts` "the served deck shell carries a CSP and renders with zero violations"; `apps/presentation/e2e/deck.spec.ts` "no request leaves the origin" | – |
+| 14 | Gateway budget TOCTOU / float money | Claimed fixed (ADR-0045) | – | gateway tests not run |
+| 15 | Enum/cascade invariants only in app code | Claimed fixed (migration 0012) | – | server suite |
 
-## UX issues
-1 downloads (fixed, `phase13.spec.ts`), 2 builder preview (fixed), 3 own captures in own queue (fixed, ADR-0042), 4 free text with an active timer (fixed, ADR-0043), 5 raw IDs (fixed, `domain/names.py`), 6 delete confirmation (fixed, `Confirm`), 7 responsive layout (a single breakpoint at 900 px; not re-audited on every screen), 8 review one-click default and Enter (fixed), 9 undo after resolve (fixed), 10 setup editors tree/drag (fixed, `Tree`, `ProjectTree`), 11 Gantt (fixed: axis, today line, labels, milestones, zoom), 12 nav gating (fixed), 13 share link dead end (fixed), 14 deck overflow (fixed: `fit` paginate/shrink and the KPI drill are guarded by `apps/presentation/e2e/fit-and-drill.spec.ts` and `src/kpi-drill.test.js`; each tile now says how its number relates to the list, e.g. "36 open violations on 31 items"), 15 CLI cues (fixed: end to end in `apps/cli/tests/test_first_run_and_cues.py`; first-run ghost examples, empty state and the end-of-day confirm nudge through `NotificationPort` are guarded there too).
+## UX issues (the 15 of the first review)
+| # | Issue | Status | Verified by | Not verified |
+|---|---|---|---|---|
+| 1 | Downloads fail | Fixed | `phase13.spec.ts` "R1.1 every export button in the builder downloads a file" (HTML, PDF, PPTX, PNG) and "the Views CSV export downloads" | the PNG and CSV zips share a file name (nit) |
+| 2 | Builder preview dead | Fixed | `phase13.spec.ts` "R1.2 the builder preview renders the selected slide" | – |
+| 3 | Reporter's lines in own queue; no-project line → no row | Fixed | `uat-walk.spec.ts` "UX 3 / UAT 2": two lines captured as `@sara` (one with an unknown project phrase, one with no project) are rows in `@mahmoud`'s queue with `@sara · <age>`; `@sara`'s own queue holds neither | the CLI wording nits (UUID prefix as "manager", line printed twice) |
+| 4 | Verb-less text with a timer → note | Fixed (CLI) | – | CLI only; `apps/cli/tests` (not run here) |
+| 5 | Raw UUIDs | Fixed | `uat-walk.spec.ts` "UX 5": no UUID in the visible text of 15 screens (review, three Views layouts, Present, Policies, Violations, Habits, Performance, Digest, Insights, Weights, Setup people/projects/identity) nor in any of the six item-drawer tabs; the drawer shows `reported by @sara` | attribute values (`href`, `aria-label`) are not scanned; the residual `ƒ` glyph was not checked |
+| 6 | Delete without confirmation | Fixed in this pass for every delete in the console | presentations: `phase13.spec.ts` "R1.3 delete asks first…" (confirm, cancel, delete, Undo); templates: `templates.spec.ts` "R1.3 deleting a template asks first, and Undo brings it back" (was one click with no undo, found by the PR 11 review); glossary phrases and translator rules: `uat-walk.spec.ts` "UX 6" (dialog, Cancel keeps the row, Delete removes it) | the identity-mapping delete asks first in code but no spec exercises it (the seed has no mapping); glossary, rule and mapping deletes are hard deletes with no Undo |
+| 7 | Nothing adapts < 1000 px | Fixed / partially | `a11y.spec.ts` "mobile 390x844" (all console screens, six Views layouts, six Setup sections: no horizontal scroll, axe clean) and `setup-editors.spec.ts` "at 390x844 the stage popover stays on screen" | the review row at 390 px wrapping to four lines and clipping its primary button (only `scrollWidth` is asserted) |
+| 8 | No one-click default; Enter inert; no reporter/time | Fixed, caveats fixed in this pass | `console.spec.ts` "review queue works by keyboard alone"; `walkthrough.spec.ts` "7.2"; `uat-walk.spec.ts` "UX 8 / UX 9" (one primary button named `Assign to <project>`, Enter takes it, focus lands on the next row, not `<body>`) and "UX 8: Confirm all suggested says why it is zero" | – |
+| 9 | No undo; duplicate toasts | Fixed | `phase13.spec.ts` "R1.4 … Undo and Don't learn, with one toast"; `console.spec.ts` "resolving a review row teaches the glossary" and "a row with no project phrase learns from the title and 'Don't learn' forgets it"; `uat-walk.spec.ts` "UX 8 / UX 9" (Undo puts the row back) | the PR 11 regression (resolving → DATA wrote no glossary entry) was not reproduced; the learning cases above pass |
+| 10 | Setup editors | Fixed except moving projects and epics | `setup-editors.spec.ts`: stage editor is a popover anchored under its chip (inside its `li`, below the chip, inside the viewport, first field focused, `Esc` and outside click close, focus returns to the chip, axe serious/critical clean; same at 390 px); product → project → epic tree with the seed's `WEB-120` under `WEB` under Customer Portal, products reparent by drag and by `Alt+←/→` ("Already top-level" message); milestone/iteration calendar; heat-map labels and cell filter; org tree with capacity; dimension paste; `console.spec.ts` "reordering stages updates the pipeline" | **dragging or `Alt+←/→` on a project or an epic**: the API has no operation for it (no way to unlink a project from a product, no `project` field in the item patch), so this needs a server change first |
+| 11 | Gantt unreadable | Fixed | `views.spec.ts` "the Gantt draws a time axis, a today line and milestone diamonds (shared module)"; presentation `src/gantt.test.js` and `e2e/gantt.spec.ts` (the Roadmap slide: bars, dependency arrows, baseline ghost, table twin, zoom and rows selects) | dependency arrows in the web Views (they need links in the query result; not asserted in a browser) |
+| 12 | Viewer nav → 403s | Fixed | `phase13.spec.ts` "R1.5 a contributor sees only the areas they can use…"; `uat-walk.spec.ts` "UX 12 a viewer": every link in `@ali`'s main navigation loads without the access message, a project he is not on answers 404 | – |
+| 13 | Share link dead end | Fixed in this pass | `phase13.spec.ts` "R1.6 sharing is explained when it is off, and an admin can switch it on"; `uat-walk.spec.ts` "UX 13": the link stays in a read-only field with **Copy link** (it used to live in a toast), the anonymous data has no habits and no live sessions, the shell sends `frame-ancestors 'none'` | the link cannot be shown again after a reload (the server returns the token only when it is created) |
+| 14 | Deck KPI drill / overflow / tables | Fixed | presentation `e2e/deck.spec.ts` (KPI drill, row → in-deck drawer, keyboard path, table toggles on gantt, **pipeline and radar** (new), shared gantt slide), `e2e/fit-and-drill.spec.ts`, `src/kpi-drill.test.js`, `src/table-toggle.test.js`, `src/gantt-slide.test.js` | – |
+| 15 | CLI cues contradict reality | CLI only | – | no web surface; `apps/cli/tests/test_first_run_and_cues.py` is the guard and was not run in this pass |
+
+## UAT script, sections 1–14, walked in a browser (`uat-walk.spec.ts` unless stated)
+| § | Result | Verified | Not walked |
+|---|---|---|---|
+| 1 Capture | web side only | `walkthrough.spec.ts` "7.1": a captured line shows as "now" | the CLI preview card, `tt today`, offline queue and `tt sync` (CLI and keyring) |
+| 2 Review queue | Pass | `walkthrough.spec.ts` "7.2"; "UX 3 / UAT 2"; "UX 8 / UX 9"; "UAT 2.3 a contributor" (`@sara` gets the access page or an empty queue) | – |
+| 3 Views | Pass | "UAT 3": a filter and the layout survive a reload; the matrix total equals the list count; `views.spec.ts` (chips round-trip, saved view) | – |
+| 4 Plan | Pass except step 3 | `plan.spec.ts` (roadmap bars, a date edit sticks, an end before the start is refused inline, **Present this plan** opens a deck) | step 3 (a captured task linking under a deliverable needs the translator) |
+| 5 Presentations | Pass | `present.spec.ts` (template, reorder survives reload, matrix slide equals the view and exports PPTX), `phase13.spec.ts` R1.1 (PPTX, PDF, PNG), "UX 13" (share link, anonymous data), "UAT 5.4" (duplicate a built-in, JSON pointer error, save, instantiate) | full-screen presenting by a person (the deck e2e covers it headlessly) |
+| 6 AI and packs | Partly | "UAT 6.2": without the setting the pack answers 403 `external_packs_disabled` and the page toasts it; `present.spec.ts` lenient import | 6.1 needs a gateway. **6.2 cannot be followed**: nothing sets `external_packs` (`PATCH /settings` accepts only `external_share*`, and there is no Setup field), so the pack download and its zip contents were not walked. Needs a server change |
+| 7 Policies | Pass | `governance.spec.ts` (template policy, dry run, activation gate, waive with reason; scope/filter/notify/action saved, version history and restore; the form keeps what is typed while data loads) | the notification bell for the right people |
+| 8 Habits | Pass | `governance.spec.ts` (wellbeing restricted, sparklines), "UAT 8" (Export for 1:1 CSV stamped with `@mahmoud` and a date) | viewing as `@sara` end to end beyond the restriction test |
+| 9 Weights, performance, digest, insights | Pass | "UAT 9": weight preview table, a confirmed daily log is marked reviewed (count drops by one), axe clean, **Add to presentation** on six pages; `governance.spec.ts` "every governance report can be added" | changing and saving a scheme |
+| 10 Items | Pass (found a gap, fixed) | "UAT 10": a comment, a checklist and a link appear in the item drawer's new **discussion** tab (the drawer did not show them before), a cycle answers 409, an `.html` upload is served as an attachment | custom fields; an upload of a PNG |
+| 11 Recurring work | Not walked | – | needs the worker (not part of the e2e stack) |
+| 12 Access control | Partly | "UX 12 a viewer" (404 for a project `@ali` is not on) | the capture-scoped token on a write endpoint (no token issuance in the e2e stack) |
+| 13 Privacy | Partly | "UAT 13": own export, `@sara`'s export without wellbeing data (scope says so), erase refused when the handle is typed wrongly, purge answers | an actual erase (destructive) |
+| 14 Operations | Partly | "UAT 14": `/readyz`, `/metrics` answers 200, 401 or 404 as configured, the capture bucket answers 429 with a positive `Retry-After` | the certificate reload (`kill -HUP`) |
 
 ## Added around the review
 Phase 14 (management commands from the client, role modes, item merge/split: ADR-0050..0052, 0056) and Phase 15 (personal tracker with Google/Outlook/Teams calendars: ADR-0053..0055). Two defects of the remediation itself were found and fixed while integrating: the review-queue rows had become `group`s while the e2e specs still queried listbox options, and the Gantt scroll region and the confidence cue failed axe (focusable region, contrast).
 
+## Found and fixed in the web pass
+Template delete had no confirm or undo; glossary, rule and mapping deletes were one click; the review queue's primary button was named "WEB confidence: ask", focus fell to `<body>` after Enter and a zero "Confirm all" gave no reason; the share link lived in a toast; the item drawer had no comments, checklists or links although the UAT script says it shows them; the radar and pipeline slides had no table toggle; the deck's `gantt` slide had its own drawing code; the stage editor was an inline panel; the policy form rendered empty and filled itself in when the saved policy (or the template list) arrived, overwriting anything typed in between (found as an intermittent failure of `governance.spec.ts` "the thin editors…", now guarded by "typing in the policy form is not overwritten…"). `e2e/governance.spec.ts` "every governance report can be added" matched six menu items once other specs had created decks called "New presentation" (selector narrowed).
+
 ## Not done / caveats
-* Docstring coverage on public functions in `domain/` and `governance/` is below the 80 % target (62 % measured before about 50 were added).
+* Moving a project between products and an epic between projects (drag and `Alt+←/→`): needs server operations first.
+* UAT 6.2 (`external_packs` has no switch) and the notification/worker/CLI-dependent steps above.
+* The web Playwright suite now runs in CI (`web-e2e` job) but that job has not run on GitHub yet; the commands were run locally.
+* Page mode vs the prototype is 1.7 % of pixels (budget 2 %) since the `gantt` slide moved to the shared module; it was 0.02 %.
+* Docstring coverage on public functions in `domain/` and `governance/` and the server-side rows above are outside the web pass.
 * Playwright PDF/PNG exports and the TLS/perf tests depend on the machine (Chromium present, no CPU contention); they pass alone.

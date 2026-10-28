@@ -15,6 +15,8 @@ export const deletePresentation = (ws: string, id: string) =>
   api.del(w(ws, `/presentations/${id}`));
 export const restorePresentation = (ws: string, id: string) =>
   api.post(w(ws, `/presentations/${id}:restore`), {});
+export const restoreTemplate = (ws: string, key: string) =>
+  api.post(w(ws, `/presentation-templates/${key}:restore`), {});
 export const sharePresentation = (ws: string, id: string, enabled: boolean) =>
   api.post<{ url?: string }>(w(ws, `/presentations/${id}/share`), { enabled });
 

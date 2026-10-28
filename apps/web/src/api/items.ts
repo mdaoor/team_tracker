@@ -24,6 +24,24 @@ export const itemEvents = (ws: string, key: string) =>
 export const itemViolations = (ws: string, itemId: string | undefined) =>
   api.get<List<Violation>>(w(ws, "/violations"), { target_id: itemId, limit: 100 });
 
+export type ItemComment = { id: string; author_id: string; body: string; created_at: string };
+export type ItemChecklist = {
+  id: string;
+  title: string;
+  done: number;
+  total: number;
+  items: { id: string; text: string; is_done: boolean }[];
+};
+export type ItemLink = { id: string; link_type: string; direction: "in" | "out"; other: string };
+export const itemComments = (ws: string, key: string) =>
+  api.get<List<ItemComment>>(w(ws, `/items/${key}/comments`));
+export const addItemComment = (ws: string, key: string, body: string) =>
+  api.post(w(ws, `/items/${key}/comments`), { body });
+export const itemChecklists = (ws: string, key: string) =>
+  api.get<List<ItemChecklist>>(w(ws, `/items/${key}/checklists`));
+export const itemLinks = (ws: string, key: string) =>
+  api.get<List<ItemLink>>(w(ws, `/items/${key}/links`));
+
 /** GET with the item's ETag, then PATCH with `If-Match` (the plan page's date edit). */
 export async function patchItemFields(ws: string, key: string, fields: Json): Promise<Item> {
   const cur = await getItem(ws, key);

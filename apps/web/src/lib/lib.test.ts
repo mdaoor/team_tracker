@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { confidenceCue, severityColor, stageAgeColor } from "./confidence";
 import { patchWithEtag } from "./conflict";
-import { suggestedChoice } from "../pages/ReviewQueue";
+import { choiceVerb, suggestedChoice } from "../pages/ReviewQueue";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -70,6 +70,14 @@ test("suggested choice comes from the gateway suggestion first, then from the ro
     action: "confirm",
   });
   expect(suggestedChoice({ kind: "unknown_person", suggestion: {} })).toBeNull();
+});
+
+test("the primary review button is named by what it does, not by a bare key", () => {
+  expect(choiceVerb({ project: "WEB" })).toBe("Assign to WEB");
+  expect(choiceVerb({ stage: "test" })).toBe("Move to test");
+  expect(choiceVerb({ product: "CUST" })).toBe("Link to CUST");
+  expect(choiceVerb({ action: "confirm" })).toBe("Confirm");
+  expect(choiceVerb({ handle: "@sara" })).toBe("Assign to @sara");
 });
 
 import { undecodable } from "./viewState";

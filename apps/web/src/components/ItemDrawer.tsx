@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import * as itemsApi from "../api/items";
-import { w } from "../api/http";
+import { api, w } from "../api/http";
+import { ago } from "../lib/format";
 import type { Json } from "../api/types";
 import { patchWithEtag, type Conflict } from "../lib/conflict";
 import { Drawer } from "./Drawer";
@@ -10,7 +11,8 @@ import { useToasts } from "./Toasts";
 import { Button, Empty, ProvenanceChip } from "./ui";
 
 const PRIORITIES = ["lowest", "low", "medium", "high", "critical"];
-type Tab = "overview" | "activity" | "evidence" | "placements" | "violations" | "events";
+type Tab =
+  "overview" | "activity" | "discussion" | "evidence" | "placements" | "violations" | "events";
 
 export function ItemDrawer({
   ws,
@@ -46,6 +48,38 @@ export function ItemDrawer({
     enabled: tab === "events",
   });
   const it = item.data?.data;
+  const people = useQuery({
+    queryKey: [ws, "people-handles"],
+    queryFn: () => api.get<{ data?: { id: string; handle: string }[] }>(w(ws, "/people")),
+    enabled: tab === "discussion",
+  });
+  const comments = useQuery({
+    queryKey: [ws, "comments", itemKey],
+    queryFn: () => itemsApi.itemComments(ws, itemKey),
+    enabled: tab === "discussion",
+  });
+  const checklists = useQuery({
+    queryKey: [ws, "checklists", itemKey],
+    queryFn: () => itemsApi.itemChecklists(ws, itemKey),
+    enabled: tab === "discussion",
+  });
+  const links = useQuery({
+    queryKey: [ws, "links", itemKey],
+    queryFn: () => itemsApi.itemLinks(ws, itemKey),
+    enabled: tab === "discussion",
+  });
+  const [draft, setDraft] = useState("");
+  const handleOf = new Map((people.data?.data ?? []).map((p) => [p.id, p.handle]));
+  const post = async () => {
+    if (!draft.trim()) return;
+    try {
+      await itemsApi.addItemComment(ws, itemKey, draft.trim());
+      setDraft("");
+      await qc.invalidateQueries({ queryKey: [ws, "comments", itemKey] });
+    } catch (e) {
+      toasts.error(e);
+    }
+  };
   const violations = useQuery({
     queryKey: [ws, "item-violations", it?.id],
     queryFn: () => itemsApi.itemViolations(ws, it?.id),
@@ -83,7 +117,15 @@ export function ItemDrawer({
           </p>
           <div role="tablist" className="tabs">
             {(
-              ["overview", "activity", "evidence", "placements", "violations", "events"] as Tab[]
+              [
+                "overview",
+                "activity",
+                "discussion",
+                "evidence",
+                "placements",
+                "violations",
+                "events",
+              ] as Tab[]
             ).map((x) => (
               <button key={x} role="tab" aria-selected={tab === x} onClick={() => setTab(x)}>
                 {x}
@@ -186,6 +228,68 @@ export function ItemDrawer({
             ) : (
               <Empty>No activity yet.</Empty>
             ))}
+          {tab === "discussion" && (
+            <div className="discussion">
+              <h3>Comments</h3>
+              {(comments.data?.data ?? []).length === 0 ? (
+                <Empty>No comments yet.</Empty>
+              ) : (
+                <ul className="plain">
+                  {(comments.data?.data ?? []).map((c) => (
+                    <li key={c.id}>
+                      <strong>{handleOf.get(c.author_id) ?? "someone"}</strong>{" "}
+                      <small className="muted">{ago(c.created_at)}</small>
+                      <div>{c.body}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <label>
+                Add a comment
+                <textarea rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} />
+              </label>
+              <Button onClick={() => void post()} disabled={!draft.trim()}>
+                Comment
+              </Button>
+              <h3>Checklists</h3>
+              {(checklists.data?.data ?? []).length === 0 ? (
+                <Empty>No checklists.</Empty>
+              ) : (
+                (checklists.data?.data ?? []).map((cl) => (
+                  <section key={cl.id} aria-label={cl.title}>
+                    <strong>{cl.title}</strong>{" "}
+                    <small className="muted">
+                      {cl.done}/{cl.total}
+                    </small>
+                    <ul className="plain">
+                      {cl.items.map((i) => (
+                        <li key={i.id}>
+                          <span aria-hidden="true">{i.is_done ? "☑" : "☐"}</span>{" "}
+                          <span className="sr-only">{i.is_done ? "done: " : "open: "}</span>
+                          {i.text}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))
+              )}
+              <h3>Links</h3>
+              {(links.data?.data ?? []).length === 0 ? (
+                <Empty>No links.</Empty>
+              ) : (
+                <ul className="plain">
+                  {(links.data?.data ?? []).map((l) => (
+                    <li key={l.id}>
+                      {l.direction === "out"
+                        ? `${l.link_type.replaceAll("_", " ")} → `
+                        : `← ${l.link_type.replaceAll("_", " ")} by `}
+                      <a href={`?item=${l.other}`}>{l.other}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {tab === "evidence" && <p>{it.evidence_count} evidence item(s).</p>}
           {tab === "placements" && (
             <table>

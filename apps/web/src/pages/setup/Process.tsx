@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { patchStage, reorderStages } from "../../api/teams";
 import type { BoardResult, Json, Process as ProcessT, Stage } from "../../api/types";
 import { Card } from "../../components/ui";
@@ -45,6 +45,32 @@ export function Process() {
       maps_to_state_category: s.maps_to_state_category,
     });
   };
+  const popRef = useRef<HTMLDivElement>(null);
+  const chipOf = (key: string | null) =>
+    document.querySelector<HTMLElement>(`.stages li[data-stage="${key}"] .stage-chip`);
+  const close = (restoreFocus = true) => {
+    const key = editing;
+    setEditing(null);
+    if (restoreFocus && key) requestAnimationFrame(() => chipOf(key)?.focus());
+  };
+  // popover behaviour: first field gets focus, a click outside closes it, and it never runs off the viewport edge
+  useLayoutEffect(() => {
+    const el = popRef.current;
+    if (!el) return;
+    el.style.transform = "";
+    const r = el.getBoundingClientRect();
+    const over = r.right - (document.documentElement.clientWidth - 8);
+    if (over > 0) el.style.transform = `translateX(${-Math.min(over, r.left - 8)}px)`;
+    el.querySelector<HTMLInputElement>("input")?.focus();
+  }, [editing]);
+  useEffect(() => {
+    if (!editing) return;
+    const away = (e: MouseEvent) => {
+      if (!(e.target as Element).closest?.(`.stages li[data-stage="${editing}"]`)) setEditing(null);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [editing]);
   const save = async () => {
     try {
       const num = (v: unknown) => (v === "" || v == null ? null : Number(v));
@@ -54,7 +80,7 @@ export function Process() {
         wip_limit: num(draft.wip_limit),
       });
       toasts.push("Stage updated");
-      setEditing(null);
+      close();
       await qc.invalidateQueries({ queryKey: [ws, "/processes"] });
     } catch (e) {
       toasts.error(e);
@@ -96,18 +122,19 @@ export function Process() {
         {stages.map((s) => (
           <li
             key={s.key}
-            draggable
+            draggable={editing !== s.key}
             onDragStart={() => setDrag(s.key)}
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => drop(s.key)}
             data-stage={s.key}
-            style={{ background: seq(counts[s.key] ?? 0, max) }}
+            style={{ background: seq(counts[s.key] ?? 0, max), position: "relative" }}
           >
             <button
               className="chip stage-chip"
               aria-haspopup="dialog"
               aria-expanded={editing === s.key}
-              onClick={() => (editing === s.key ? setEditing(null) : open(s))}
+              aria-controls={editing === s.key ? `stage-pop-${s.key}` : undefined}
+              onClick={() => (editing === s.key ? close(false) : open(s))}
             >
               {s.name}
               <small>
@@ -123,79 +150,95 @@ export function Process() {
             <button aria-label={`Move ${s.name} right`} onClick={() => move(s.key, 1)}>
               →
             </button>
+            {editing === s.key && (
+              <div
+                ref={popRef}
+                id={`stage-pop-${s.key}`}
+                role="dialog"
+                aria-label={`Edit stage ${s.key}`}
+                className="card stage-edit"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.stopPropagation();
+                    close();
+                  }
+                }}
+              >
+                <div className="row">
+                  <label>
+                    Name
+                    <input
+                      value={String(draft.name ?? "")}
+                      onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Expected days
+                    <input
+                      type="number"
+                      min={0}
+                      value={String(draft.expected_duration_days ?? "")}
+                      onChange={(e) =>
+                        setDraft({ ...draft, expected_duration_days: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    WIP limit
+                    <input
+                      type="number"
+                      min={0}
+                      value={String(draft.wip_limit ?? "")}
+                      onChange={(e) => setDraft({ ...draft, wip_limit: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!draft.requires_approval}
+                      onChange={(e) => setDraft({ ...draft, requires_approval: e.target.checked })}
+                    />{" "}
+                    Needs approval
+                  </label>
+                  <label>
+                    Category
+                    <select
+                      value={String(draft.category ?? "")}
+                      onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+                    >
+                      {["intake", "build", "verify", "release", "done"].map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="mini-pipeline" role="img" aria-label="Mini pipeline preview">
+                  {preview.map((s) => (
+                    <span
+                      key={s.key}
+                      className={s.key === editing ? "on" : ""}
+                      style={{
+                        flexGrow: Math.max(1, Number(s.expected_duration_days) || 1) / totalDays,
+                      }}
+                      title={`${s.name}: ${s.expected_duration_days ?? "–"} d`}
+                    >
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+                <div className="row">
+                  <button className="btn btn-primary" onClick={() => void save()}>
+                    Save stage
+                  </button>
+                  <button className="btn" onClick={() => close()}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </li>
         ))}
       </ol>
-      {editing && (
-        <div role="dialog" aria-label={`Edit stage ${editing}`} className="card stage-edit">
-          <div className="row">
-            <label>
-              Name
-              <input
-                value={String(draft.name ?? "")}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              />
-            </label>
-            <label>
-              Expected days
-              <input
-                type="number"
-                min={0}
-                value={String(draft.expected_duration_days ?? "")}
-                onChange={(e) => setDraft({ ...draft, expected_duration_days: e.target.value })}
-              />
-            </label>
-            <label>
-              WIP limit
-              <input
-                type="number"
-                min={0}
-                value={String(draft.wip_limit ?? "")}
-                onChange={(e) => setDraft({ ...draft, wip_limit: e.target.value })}
-              />
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={!!draft.requires_approval}
-                onChange={(e) => setDraft({ ...draft, requires_approval: e.target.checked })}
-              />{" "}
-              Needs approval
-            </label>
-            <label>
-              Category
-              <select
-                value={String(draft.category ?? "")}
-                onChange={(e) => setDraft({ ...draft, category: e.target.value })}
-              >
-                {["intake", "build", "verify", "release", "done"].map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="mini-pipeline" role="img" aria-label="Mini pipeline preview">
-            {preview.map((s) => (
-              <span
-                key={s.key}
-                className={s.key === editing ? "on" : ""}
-                style={{ flexGrow: Math.max(1, Number(s.expected_duration_days) || 1) / totalDays }}
-                title={`${s.name}: ${s.expected_duration_days ?? "–"} d`}
-              >
-                {s.name}
-              </span>
-            ))}
-          </div>
-          <div className="row">
-            <button className="btn btn-primary" onClick={() => void save()}>
-              Save stage
-            </button>
-            <button className="btn" onClick={() => setEditing(null)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
       {proc && (
         <CreateForm
           path={`/processes/${proc.key}/stages`}

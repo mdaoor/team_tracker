@@ -983,7 +983,16 @@ dialog.confirm {
   white-space: nowrap;
 }
 .stage-edit {
-  margin-top: 0.75rem;
+  /* a popover anchored under its chip (the chip's <li> is the positioning context) */
+  position: absolute;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  z-index: 30;
+  inline-size: min(34rem, calc(100vw - 2rem));
+  margin: 0;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.22);
+  background: var(--surface);
+  cursor: default;
 }
 .mini-pipeline {
   display: flex;

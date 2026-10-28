@@ -3,6 +3,7 @@ import { useState } from "react";
 import { deleteIdpMapping, idpSync } from "../../api/teams";
 import type { Json } from "../../api/types";
 import { Button, Card } from "../../components/ui";
+import { useConfirm } from "../../components/Confirm";
 import { useToasts } from "../../components/Toasts";
 import { useList, useWs } from "../../lib/hooks";
 import { CreateForm, Table } from "./common";
@@ -11,6 +12,7 @@ export function Identity() {
   const ws = useWs();
   const qc = useQueryClient();
   const toasts = useToasts();
+  const confirm = useConfirm();
   const maps = useList("/idp/mappings");
   const teams = useList("/teams");
   const [log, setLog] = useState<Json | null>(null);
@@ -56,8 +58,19 @@ export function Identity() {
                   variant="ghost"
                   aria-label="delete mapping"
                   onClick={async () => {
-                    await deleteIdpMapping(ws, r.id);
-                    await qc.invalidateQueries({ queryKey: [ws, "/idp/mappings"] });
+                    if (
+                      !(await confirm({
+                        title: `Delete the mapping ${r.provider} / ${r.group}?`,
+                        body: "People signing in through that group lose the role it grants at their next sync.",
+                      }))
+                    )
+                      return;
+                    try {
+                      await deleteIdpMapping(ws, r.id);
+                      await qc.invalidateQueries({ queryKey: [ws, "/idp/mappings"] });
+                    } catch (e) {
+                      toasts.error(e);
+                    }
                   }}
                 >
                   ✕

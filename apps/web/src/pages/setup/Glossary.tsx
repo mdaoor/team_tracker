@@ -1,5 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { deleteGlossary, markGlossaryManual } from "../../api/teams";
+import { useConfirm } from "../../components/Confirm";
+import { useToasts } from "../../components/Toasts";
 import { Button, Card } from "../../components/ui";
 import { useList, useWs } from "../../lib/hooks";
 import { CreateForm, Table } from "./common";
@@ -7,6 +9,8 @@ import { CreateForm, Table } from "./common";
 export function Glossary() {
   const ws = useWs();
   const qc = useQueryClient();
+  const confirm = useConfirm();
+  const toasts = useToasts();
   const tags = useList("/tags");
   const gloss = useList("/glossary");
   const projects = useList("/projects");
@@ -56,8 +60,19 @@ export function Glossary() {
                     variant="ghost"
                     aria-label={`delete ${r.phrase}`}
                     onClick={async () => {
-                      await deleteGlossary(ws, r.id);
-                      await refresh();
+                      if (
+                        !(await confirm({
+                          title: `Delete “${r.phrase}”?`,
+                          body: "Reporters' lines that use this phrase are no longer placed automatically.",
+                        }))
+                      )
+                        return;
+                      try {
+                        await deleteGlossary(ws, r.id);
+                        await refresh();
+                      } catch (e) {
+                        toasts.error(e);
+                      }
                     }}
                   >
                     Delete

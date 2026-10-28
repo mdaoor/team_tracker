@@ -36,10 +36,26 @@ their own focusable `region`, never the page. Acceptance: at 390x844 no console 
 (`e2e/a11y.spec.ts`, "mobile 390x844", all 14 screens, the six Views layouts and six Setup sections, each also axe serious/critical clean).
 
 ## Setup editors
-Process: stage chip opens an editor (duration, WIP, approval, category) with a live mini-pipeline; Projects: product tree (products/projects) with
-drag-to-reparent and Alt+Left/Right; Planning: milestone and iteration month calendar; Risks: heat map with probability/impact axis labels,
+Process: the stage chip opens a **popover anchored under the chip** (name, expected days, WIP, approval, category) with a live mini-pipeline; focus moves to the
+first field, `Esc` or a click elsewhere closes it and returns focus to the chip, it is shifted to stay inside the viewport (390 px too) and is axe clean
+(`e2e/setup-editors.spec.ts`); Projects: the product → project → epic tree (`ProjectTree`). **Products** reparent by drag-and-drop and `Alt+←/→`
+(outdent / nest under the previous sibling), covered end to end; **projects and epics are shown but cannot be moved yet**: the API has no operation for
+it (no way to unlink a project from a product, no `project` field on the item patch), so a move there needs a server change first; Planning: milestone and iteration month calendar; Risks: heat map with probability/impact axis labels,
 a cell filters the register, drag a risk onto an item to link it; People: org tree with per-person and team capacity; Dimensions: paste a
 list (lines, commas, quotes; de-duplicated, with a live count). Covered by `e2e/setup-editors.spec.ts` and `e2e/console.spec.ts`.
+
+## Review queue and confirmations (UX review items 6, 8, 9)
+The primary button on a suggested row is named by its action (`Assign to WEB`, `Move to test`, `Link to CUST`, `Confirm`) with the confidence cue beside it; `Enter` takes it and focus moves to
+the row that takes its place (never to `<body>`); when "Confirm all suggested" is 0 because every suggestion is under the slider, the page says so. Every destructive action asks first
+through `useConfirm`: presentations and templates (with Undo through the server's `:restore` endpoints), glossary phrases, translator rules and identity mappings (these three are hard
+deletes, so the dialog is the only protection).
+
+## Item drawer
+Tabs: overview (inline edits with `If-Match`, provenance), activity, **discussion** (comments with an add form, checklists with their done count, dependency links), evidence, placements, violations,
+events. Person ids are always shown as handles; `e2e/uat-walk.spec.ts` ("UX 5") fails if any screen or drawer tab shows a UUID.
+
+## Presenting
+The builder keeps the read-only share link in the page after it is created (read-only field plus **Copy link**; the server returns the token only when it is created, so it cannot be shown again after a reload).
 
 ## Add a screen
 1. Create `src/pages/<Name>.tsx` using `useList/useObj` and `api.*`.
@@ -61,7 +77,12 @@ make migrate && make seed SEED_ARGS=--reset
 cd apps/web && pnpm exec playwright test            # all
 pnpm exec playwright test a11y.spec.ts -g mobile    # the 390x844 pass
 ```
-Set `TT_WEB_URL` to test an already running stack, `TT_VIDEO=1` to record the walkthrough.
+Set `TT_WEB_URL` to test an already running stack, `TT_VIDEO=1` to record the walkthrough. To run beside another suite on the same machine set `TT_E2E_DB` (database, default `tt_e2e`),
+`TT_E2E_API_PORT` (8010) and `TT_E2E_WEB_PORT` (5173; with it Vite uses `--strictPort` and never reuses a running server); the specs read the API address from `e2e/api.ts`.
+
+CI runs the whole suite in the `web-e2e` job (`.github/workflows/ci.yml`): Postgres service, `uv sync`, the presentation bundle, Chromium for both Playwrights (`TT_CHROMIUM` unset), then
+`playwright test`; the report and traces are uploaded on failure. `e2e/uat-walk.spec.ts` walks `docs/uat/uat-script.md` sections 2 to 14 and the review's UX items; see the Resolution table in
+`docs/reviews/2026-10-25-technical-and-ux-review.md` for what each spec verifies and what is not walked (CLI, worker, LLM gateway).
 
 ## Not done
 A Lighthouse accessibility run, dragging on the milestone calendar, the allocation-% and validity editors for reporting lines, and
