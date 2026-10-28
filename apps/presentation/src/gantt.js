@@ -247,15 +247,39 @@ export function ganttTable(model, rows) {
 /**
  * Rows for a deck/page snapshot, by `rows` kind (the same names the web query uses):
  *  - `phase` (default for the plan Roadmap): each phase followed by its deliverables, dependencies from `depends_on`;
+ *  - `item`: each scheduled item as its own bar;
  *  - `epic`: each epic spanning its items' planned dates, progress = done / total;
  *  - `milestone`: each milestone as a bar from the earliest planned start of its project to its due date.
  */
 export function snapshotRows(
   D,
   items,
-  { rows = "phase", project_key = null } = {},
+  { rows = "phase", project_key = null, baseline = false } = {},
 ) {
   const inProject = (x) => !project_key || x.project === project_key;
+  // `baseline`: items may carry `baseline_end` (the end the plan first promised); epics take the latest of their items
+  const ghost = (end) =>
+    baseline && end ? { baseline: { planned_end: end } } : {};
+  if (rows === "item") {
+    const out = items
+      .filter((i) => inProject(i) && i.planned_start && i.planned_end)
+      .sort(
+        (a, b) =>
+          a.planned_start.localeCompare(b.planned_start) ||
+          a.key.localeCompare(b.key),
+      )
+      .map((i) => ({
+        key: i.key,
+        title: `${i.key} ${i.title}`,
+        type: "item",
+        status: i.state === "done" ? "done" : undefined,
+        planned_start: i.planned_start,
+        planned_end: i.planned_end,
+        progress_pct: i.state === "done" ? 100 : null,
+        ...ghost(i.baseline_end),
+      }));
+    return { rows: out, deps: [] };
+  }
   if (rows === "epic") {
     const out = D.epics.filter(inProject).flatMap((e) => {
       const its = items.filter((i) => i.epic === e.key);
@@ -278,6 +302,13 @@ export function snapshotRows(
           planned_end: ends.at(-1),
           progress_pct: Math.round((done / its.length) * 100),
           rollup: true,
+          ...ghost(
+            its
+              .map((i) => i.baseline_end)
+              .filter(Boolean)
+              .sort()
+              .at(-1),
+          ),
         },
       ];
     });

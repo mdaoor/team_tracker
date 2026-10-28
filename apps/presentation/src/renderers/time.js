@@ -1,4 +1,7 @@
+import { ganttSvg, ganttTable, layoutGantt, snapshotRows } from "../gantt.js";
 import { drillAttr, esc, tableToggle, teamColor } from "../util.js";
+
+const GANTT_ZOOMS = ["fit", "month", "week", "day"];
 
 export function renderRadar(ctx, cfg, slide) {
   const { D, items } = ctx;
@@ -68,69 +71,46 @@ export const radarRows = (ctx, cfg) => {
   ).length;
 };
 
+const GANTT_ROWS = ["epic", "item", "milestone"];
+
+/**
+ * The `gantt` slide: epics (default), items or milestones drawn by the shared gantt.js (R6.4), the same module as the Roadmap
+ * slide. `cfg.rows` = epic | item | milestone, `cfg.baseline` ghosts the original end where an item carries `baseline_end`.
+ * The `table ⇄` toggle shows the rows as a table plus the milestones.
+ */
 export function renderGantt(ctx, cfg, slide) {
   const { D, items } = ctx;
-  const epics = D.epics.filter((e) => items.some((i) => i.epic === e.key));
-  const rows = epics
-    .map((e) => {
-      const ei = items.filter((i) => i.epic === e.key);
-      return {
-        e,
-        start: ei
-          .map((i) => i.planned_start)
-          .filter(Boolean)
-          .sort()[0],
-        end: ei
-          .map((i) => i.planned_end)
-          .filter(Boolean)
-          .sort()
-          .slice(-1)[0],
-        done: ei.filter((i) => i.state === "done").length,
-        n: ei.length,
-        project: e.project,
-      };
-    })
-    .filter((r) => r.start);
-  const ms = D.milestones.filter((m) =>
-    items.some((i) => i.project === m.project),
-  );
-  const asTable = ctx.tableMode(slide?.id);
-  const toggle = `<button class="ghost tbl-toggle" data-toggle="${esc(slide?.id ?? "")}" aria-pressed="${asTable}">${asTable ? "chart" : "table"} ⇄</button>`;
+  const kind = GANTT_ROWS.includes(cfg.rows) ? cfg.rows : "epic";
+  const { rows, deps } = snapshotRows(D, items, {
+    rows: kind,
+    project_key: cfg.project_key,
+    baseline: !!cfg.baseline,
+  });
   if (!rows.length)
-    return `<div class="card">No scheduled epics in scope.</div>`;
+    return `<div class="card">No scheduled ${kind === "epic" ? "epics" : kind === "item" ? "items" : "milestones"} in scope.</div>`;
+  const projects = new Set(items.map((i) => i.project));
+  const milestones = D.milestones.filter((m) => projects.has(m.project));
+  const asTable = ctx.tableMode(slide?.id);
+  const toggle = tableToggle(slide, asTable);
+  const model = layoutGantt({
+    rows,
+    deps,
+    milestones: kind === "milestone" ? [] : milestones,
+    today: D.as_of.slice(0, 10),
+    zoom: GANTT_ZOOMS.includes(cfg.zoom) ? cfg.zoom : "fit",
+    width: 900,
+    labelWidth: 220,
+    axisHeight: 30,
+  });
   if (asTable) {
-    return `<div class="card">${toggle}<table><thead><tr><th>epic</th><th>start</th><th>end</th><th>done</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.e.key)} ${esc(r.e.title)}</td><td>${r.start}</td><td>${r.end}</td><td>${r.done}/${r.n}</td></tr>`).join("")}${ms.map((m) => `<tr><td>◆ ${esc(m.name)}</td><td colspan="2">${m.due}</td><td>${esc(m.project)}</td></tr>`).join("")}</tbody></table></div>`;
+    const ms = kind === "milestone" ? [] : milestones;
+    return `<div class="card">${toggle}${ganttTable(model, rows).replace("</tbody>", ms.map((m) => `<tr><td>◆ ${esc(m.name)}</td><td colspan="2">${esc(m.due)}</td><td>${esc(m.project)}</td></tr>`).join("") + "</tbody>")}</div>`;
   }
-  const dates = [
-    ...rows.flatMap((r) => [r.start, r.end]),
-    ...ms.map((m) => m.due),
-    D.as_of.slice(0, 10),
-  ].sort();
-  const d0 = new Date(dates[0]), d1 = new Date(dates.at(-1)); // prettier-ignore
-  d0.setDate(d0.getDate() - 2);
-  d1.setDate(d1.getDate() + 3);
-  const span = (d1 - d0) / 864e5, lw = 220, W = 900, px = (W - lw - 20) / span; // prettier-ignore
-  const x = (d) => lw + ((new Date(d) - d0) / 864e5) * px;
-  const H = rows.length * 26 + 40;
-  let g = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="max-width:${W}px" role="img" aria-label="Gantt chart">`;
-  for (let t = new Date(d0); t <= d1; t.setDate(t.getDate() + 1))
-    if (t.getDay() === 1)
-      g += `<line x1="${x(t)}" x2="${x(t)}" y1="0" y2="${H - 20}" stroke="var(--line)"/><text x="${x(t) + 3}" y="${H - 6}">${t.toISOString().slice(5, 10)}</text>`;
-  const tx = x(D.as_of.slice(0, 10));
-  g += `<line x1="${tx}" x2="${tx}" y1="0" y2="${H - 20}" stroke="var(--s8)" stroke-dasharray="3 3"/><text x="${tx + 3}" y="10" fill="var(--s8)">today</text>`;
-  rows.forEach((r, k) => {
-    const y = k * 26 + 16, x0 = x(r.start), x1 = x(r.end), w = Math.max(4, x1 - x0); // prettier-ignore
-    const team = D.projects.find((p) => p.key === r.project)?.team;
-    g += `<text x="${lw - 8}" y="${y + 12}" text-anchor="end">${esc(r.e.key)} ${esc(r.e.title).slice(0, 28)}</text>
-    <rect x="${x0}" y="${y}" width="${w}" height="14" rx="4" fill="var(--line)"/><rect x="${x0}" y="${y}" width="${(w * r.done) / Math.max(1, r.n)}" height="14" rx="4" fill="${teamColor(D, team)}"/>
-    <text x="${x1 + 6}" y="${y + 11}" fill="var(--text)">${r.done}/${r.n}</text>`;
+  const svg = ganttSvg(model, {
+    label: `Gantt chart: ${rows.length} ${kind} row${rows.length === 1 ? "" : "s"}`,
   });
-  ms.forEach((m) => {
-    const mx = x(m.due);
-    g += `<polygon points="${mx},${H - 32} ${mx + 6},${H - 26} ${mx},${H - 20} ${mx - 6},${H - 26}" fill="var(--s7)"><title>${esc(m.name)} ${m.due}</title></polygon>`;
-  });
-  g += "</svg>";
-  return `<div class="card">${toggle}${g}<div class="legend">${D.teams.map((t) => `<span><i style="background:${teamColor(D, t)}"></i>${esc(t)}</span>`).join("")}<span><i style="background:var(--s7)"></i>milestone</span><span><i style="background:var(--line)"></i>remaining</span></div></div>`;
+  const legend = `<div class="legend"><span><i class="rm-bar-key"></i>${kind} span</span><span><i class="rm-done-key"></i>done share</span><span><i class="rm-ms-key"></i>milestone</span><span><i class="rm-today-key"></i>today</span></div>`;
+  return `<figure class="card roadmap gantt-slide" data-rows="${kind}" data-zoom="fit">${toggle}${svg}${legend}</figure>`;
 }
 
 export function renderNow(ctx) {
