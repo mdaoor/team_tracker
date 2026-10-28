@@ -4,20 +4,11 @@ from __future__ import annotations
 
 import csv
 import io
-from pathlib import Path
 from typing import Any
 
 import pytest
-from tt_server.api.routers import presentations as pres_router
 
 from tests.api.conftest import Api
-
-
-@pytest.fixture
-def bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    b = tmp_path / "bundle.html"
-    b.write_text("<!doctype html><html><head><title>d</title></head><body></body></html>")
-    monkeypatch.setattr(pres_router, "BUNDLE", b)
 
 
 # ---------------------------------------------------------------- A1

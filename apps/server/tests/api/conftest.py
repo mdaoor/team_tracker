@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -88,3 +89,30 @@ async def api(client: httpx.AsyncClient, session_factory: async_sessionmaker[Asy
 async def committed_api(committed_client: httpx.AsyncClient) -> Api:
     """Same workspace over committing sessions: use it when the test fires requests in parallel (asyncio.gather)."""
     return await bootstrap_workspace(committed_client)
+
+
+@pytest.fixture
+def bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A minimal stand-in for the deck bundle so the HTML shell responds 200 and its headers can be asserted (13 M6)."""
+    from tt_server.api.routers import presentations as pres_router
+
+    b = tmp_path / "bundle.html"
+    b.write_text("<!doctype html><html><head><title>d</title></head><body></body></html>")
+    monkeypatch.setattr(pres_router, "BUNDLE", b)
+    return b
+
+
+@pytest.fixture(scope="session")
+def real_bundle() -> Path:
+    """The real built deck bundle; built once with `pnpm --filter @tt/presentation build` when dist is missing (CI's python job already builds it)."""
+    import subprocess
+
+    from tt_server.api.routers.presentations import BUNDLE
+
+    if not BUNDLE.exists():
+        root = BUNDLE.parents[3]
+        done = subprocess.run(
+            ["pnpm", "--filter", "@tt/presentation", "build"], cwd=root, capture_output=True, text=True
+        )
+        assert done.returncode == 0 and BUNDLE.exists(), f"cannot build the deck bundle:\n{done.stdout}\n{done.stderr}"
+    return BUNDLE
