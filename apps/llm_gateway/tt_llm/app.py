@@ -72,7 +72,7 @@ def create_app(
         outcome = "ok"
         try:
             resp = await call()
-            COST.add(resp.cost_usd, {"task": task, "workspace": req.workspace or "-"})
+            COST.add(float(resp.cost_usd), {"task": task, "workspace": req.workspace or "-"})
             return resp
         except GatewayError as exc:
             outcome = exc.code
@@ -168,7 +168,7 @@ def create_app(
             "alias": run.model_alias,
             "model": run.model,
             "status": run.status,
-            "cost_usd": run.cost_usd,
+            "cost_usd": float(run.cost_usd),
             "meta": run.meta,
             "started_at": run.started_at,
             "ended_at": run.ended_at,

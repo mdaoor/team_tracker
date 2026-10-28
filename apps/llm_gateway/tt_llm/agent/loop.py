@@ -147,7 +147,7 @@ async def run_agent(
                 )
             )
             span.set_attribute("tt.tool_calls", n_calls)
-            span.set_attribute("tt.cost_usd", run.cost_usd)
+            span.set_attribute("tt.cost_usd", float(run.cost_usd))
         run.status = "ok"
         return AgentResult(output, run, grounding, n_calls, warnings)
     except Exception:
