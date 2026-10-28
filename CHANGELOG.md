@@ -18,6 +18,7 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow `docs/op
   ready-to-send tray with deterministic suggestions and learned rules, one-tap send with `calendar_ref` dedup, Unsend (`time.unlog`), end-of-day and weekly reviews, `tt day|week|month|add|timer|cal|tray|recur|...`,
   desktop/mobile React views (axe 100 in light and dark, 390 px), gateway `/v1/translate/personal`, `development_hours_below` policy and `learning_consistency` habit, ContextPack `development_project`/`calendar_mapping_hints`/`my_capacity_hours_per_week`.
   Schema minor 0.2 (`source`, `corrects`), migration 0014, ADR-0053..0055.
+* Phases 13-15 follow-ups (PR #11 review): `pending_approvals` as a list, per-op token scopes, command rate limit and 50-command batch cap, `command.applied` event and a pinned commit allow-list, DailyLog drafts on time entry, glossary learning restored, `privacy.assist` for personal quick-add, neutral auto-sent meetings, `ReviewRow`/`TeamNowRow` mappings in `tt_client`, `tt-sidecar`, shared Gantt module, lazy route groups with an enforced bundle budget, mobile (390 px) axe pass, `filelock` override.
 ### Changed
 * Light-theme text colours darkened to meet WCAG AA contrast.
 ### Fixed

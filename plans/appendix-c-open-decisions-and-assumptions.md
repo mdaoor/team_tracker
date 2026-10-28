@@ -61,6 +61,18 @@ The spec is silent or ambiguous in the places below. Each row records the defaul
 4. Target scale for v1 (members, items/year)? (Default budgets assume 200 members, 100 k items/year.)
 5. Is OIDC provider known (Azure AD, Google, Okta)? (Default: generic OIDC.)
 
+## Answers adopted for the open product questions (2026-10-28; the product owner can overrule any of them)
+| # | question | decision adopted | status in code |
+|---|---|---|---|
+| 0a | Kerberos | proxy-terminated (header trusted only from `TT_TRUSTED_PROXIES`); in-process GSSAPI stays out of v1 | as built (ADR-0036) |
+| 0b | External generation packs | download off, in-product (import) on | as built |
+| 0c | Share-token redaction default | `standard`; `strict` selectable per workspace (`settings.external_share_redaction`) | as built |
+| 0d | Admin override of the Inbox privacy rule | **no override in v1**: admins never see another person's Inbox (ADR-0024); an audited break-glass is a v2 candidate | as built |
+| 0e | Replay-capable event log | **not in v1**: events carry before/after summaries, not full rows; revisit if replay or audit export is requested (ADR-0040) | as built |
+| 0f | Postgres TLS / Kerberos in-process | Postgres `verify-full` supported and tested; in-process Kerberos deferred with 0a | as built |
+| 14.x | Rejected management commands | logged as `command_log` rows with status `rejected`, excluded from idempotency (ADR-0056) | see leftovers/p14 |
+| sec | `filelock` CVEs vs `litellm<4` cap | uv `override-dependencies = ["filelock>=4.2.1"]` in the root `pyproject.toml`; gateway suite passes with filelock 4.2.4; remove the override when litellm lifts the cap | done |
+
 ## Phase 15 defaults (2026-10-25)
 | # | question | default adopted | where |
 |---|---|---|---|
