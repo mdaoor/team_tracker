@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Phase 13 R3.6: multi-stage, non-root, no build tools in the runtime image.
-# uv is pinned to a release; at release time append `@sha256:<digest>` (needs registry access) so the tag cannot move.
-FROM ghcr.io/astral-sh/uv:0.11.32 AS uv
+# uv is pinned to a release AND its multi-arch index digest (resolved from the ghcr.io registry API) so the tag cannot move.
+FROM ghcr.io/astral-sh/uv:0.11.32@sha256:df4cae8f3a96d175e2e5f992e597550000edbe78fdc2594d5cd8de1a217f504c AS uv
 
 FROM python:3.12-slim AS builder
 COPY --from=uv /uv /usr/local/bin/uv
