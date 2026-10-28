@@ -6,6 +6,9 @@ dependencies = []
 
 [tool.uv]
 package = false
+# litellm declares filelock<4 but works with it; filelock <4.2.1 has three CVEs (CVE-2026-112940/-112913/-112907).
+# Remove this override when a litellm release lifts the cap (docs/handover/phase-13-15-leftovers.md).
+override-dependencies = ["filelock>=4.2.1"]
 dev-dependencies = [
   "pytest>=8",
   "pytest-asyncio>=0.23",
