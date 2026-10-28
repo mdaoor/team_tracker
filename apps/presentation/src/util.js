@@ -94,3 +94,7 @@ export const projectShown = (ctx, p) =>
   ctx.items.some((i) => i.project === p.key) ||
   (ctx.D.deliverables ?? []).some((d) => d.project === p.key) ||
   (ctx.D.phases ?? []).some((ph) => ph.project === p.key);
+
+/** The `table ⇄ chart` button every chart-like slide carries (a11y: every chart has a table); `interact.js` flips it by slide id. */
+export const tableToggle = (slide, asTable) =>
+  `<button class="ghost tbl-toggle" data-toggle="${esc(slide?.id ?? "")}" aria-pressed="${asTable}">${asTable ? "chart" : "table"} ⇄</button>`;

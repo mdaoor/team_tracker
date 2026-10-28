@@ -1,4 +1,4 @@
-import { drillAttr, esc, teamColor } from "../util.js";
+import { drillAttr, esc, tableToggle, teamColor } from "../util.js";
 
 export function renderRadar(ctx, cfg, slide) {
   const { D, items } = ctx;
@@ -25,7 +25,23 @@ export function renderRadar(ctx, cfg, slide) {
   );
   const row = (i) =>
     `<tr class="row" data-open="${esc(i.key)}" tabindex="0"><td class="mono">${esc(i.key)}</td><td>${esc(i.title)}</td><td>${esc(i.assignee ?? "—")}</td><td>${esc(i.stage)} <span style="color:var(--text-3)">${i.stage_age_days}d</span></td><td>${i.risks.map((r) => `<span class="pill serious">⚠ ${esc(r)}</span>`).join(" ")}${i.estimate_h == null ? '<span class="pill warn">no est.</span>' : ""}</td></tr>`;
-  return `<div class="card">${overdue.length ? `<div class="meta" style="margin:0 0 10px"><span class="pill crit">${overdue.length} overdue</span><a href="#" ${drillAttr("overdue", { overdue: today })}>show ›</a></div>` : ""}
+  const asTable = ctx.tableMode(slide?.id);
+  const toggle = tableToggle(slide, asTable);
+  if (asTable) {
+    const flat = [...overdue, ...shown].sort((a, b) =>
+      a.planned_end.localeCompare(b.planned_end),
+    );
+    return `<div class="card">${toggle}<table><thead><tr><th>due</th><th>key</th><th>item</th><th>owner</th><th>stage</th><th>flags</th></tr></thead><tbody>${
+      flat
+        .map(
+          (i) =>
+            `<tr class="row" data-open="${esc(i.key)}" tabindex="0"><td>${i.planned_end}${i.planned_end < today ? ' <span class="pill crit">overdue</span>' : ""}</td><td class="mono">${esc(i.key)}</td><td>${esc(i.title)}</td><td>${esc(i.assignee ?? "—")}</td><td>${esc(i.stage)} ${i.stage_age_days}d</td><td>${i.risks.map((r) => `<span class="pill serious">⚠ ${esc(r)}</span>`).join(" ")}${i.estimate_h == null ? '<span class="pill warn">no est.</span>' : ""}</td></tr>`,
+        )
+        .join("") ||
+      `<tr><td colspan="6">Nothing planned in the next ${cfg.days ?? 14} days.</td></tr>`
+    }</tbody></table></div>`;
+  }
+  return `<div class="card">${toggle}${overdue.length ? `<div class="meta" style="margin:0 0 10px"><span class="pill crit">${overdue.length} overdue</span><a href="#" ${drillAttr("overdue", { overdue: today })}>show ›</a></div>` : ""}
   <table><thead><tr><th>key</th><th>item</th><th>owner</th><th>stage</th><th>flags</th></tr></thead><tbody>${
     Object.keys(byDay)
       .sort()

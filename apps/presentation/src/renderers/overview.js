@@ -4,6 +4,7 @@ import {
   drillAttr,
   esc,
   stuck,
+  tableToggle,
   teamColor,
   violationsOf,
 } from "../util.js";
@@ -153,14 +154,27 @@ export function renderProjects(ctx, cfg, slide) {
   );
 }
 
-export function renderPipeline(ctx) {
+export function renderPipeline(ctx, _cfg, slide) {
   const { D, items } = ctx;
   const wipBreach = new Set(
     D.violations
       .filter((v) => v.policy === "wip_breach")
       .map((v) => v.target.split("/")[1]),
   );
-  return `<div class="pipe">${D.stages
+  const asTable = ctx.tableMode(slide?.id);
+  const toggle = tableToggle(slide, asTable);
+  if (asTable) {
+    return `<div class="card">${toggle}<table><thead><tr><th>stage</th><th>items</th><th>Σ weight</th><th>over expected time</th><th>WIP</th></tr></thead><tbody>${D.stages
+      .map((s) => {
+        const its = items.filter((i) => i.stage === s);
+        const w = its.reduce((a, i) => a + i.weight, 0);
+        const over = its.filter((i) => stuck(D, i)).length;
+        const wip = wipBreach.has(s);
+        return `<tr class="${wip ? "over" : ""}"><th><a href="#" ${drillAttr("stage " + s, { stage: s })}>${esc(s)}</a></th><td>${its.length}</td><td>${+w.toFixed(2)}</td><td>${over ? `${over} over ${D.stage_expected_days[s]}d` : "—"}</td><td>${wip ? "breach" : "—"}</td></tr>`;
+      })
+      .join("")}</tbody></table></div>`;
+  }
+  return `${toggle}<div class="pipe">${D.stages
     .map((s) => {
       const its = items.filter((i) => i.stage === s);
       const w = its.reduce((a, i) => a + i.weight, 0);
