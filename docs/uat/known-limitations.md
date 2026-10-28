@@ -24,8 +24,15 @@ Plan budgets: capture < 150 ms/message, `query/items` < 300 ms, snapshot < 2 s c
 
 ## Phase 15 (personal tracker)
 * Calendar adapters were exercised only against hand-assembled fixtures (Google v3 and Graph v1.0 shapes); no live Google or Microsoft account, no real consent screen, no admin-consent case.
+  `tools/smoke_calendar.py` is the live-account check (runbook in `uat-personal-tracker.md`); it exists and is tested against fakes, but **has not been run against a real account** (no credentials).
 * OS keyring behaviour on macOS, Windows and Linux desktops is not verified (a fake backend and the 0600 file fallback are tested).
-* The Tauri desktop/mobile shells (tray timer, notifications "meeting ended - send?", share sheet, background sync, installers) are scaffolds that were not compiled; the React views, the sidecar commands and the CLI are tested. `tt-sidecar` as a PyInstaller binary is still not built.
+* **Desktop shell (Tauri):** `cargo check`, `clippy` and `cargo test` pass on Linux x86_64 and the app starts under a virtual display with the background loop reaching the frozen sidecar;
+  the tray icon, the drawn OS notification, the hotkey and close-to-tray were **not seen on a real desktop**; macOS and Windows were not built; no installer, no signing, no updater. The icon is a placeholder.
+  `tt-sidecar` as a PyInstaller binary **builds and answers** (125 MiB, ~3.6 s cold start per call); see `docs/client/desktop.md`.
+* **Mobile is "Mobile Lite", a PWA, not a native app** (ADR-0057): small grammar, no repeating items, no calendars, no suggestions, no OS push, store **not encrypted**, delivery needs a same-origin
+  deployment (no CORS), a *delivered* send cannot be taken back from the phone, and it was only exercised in Chromium, never on a real iOS or Android device. There is no Tauri mobile shell and no share sheet.
 * The development project is visible to workspace admins (platform rule for private items), not only to the person and their line manager (ADR-0055).
 * A meeting moved on the calendar after it was sent can be logged a second time (new `instance_start`); Unsend the first.
-* Write-back of focus blocks to calendars is not implemented.
+* Write-back of focus blocks to calendars is not implemented (the smoke script's create/delete test uses its own write-scope token and is not part of the app).
+* Fixed since the PR #11 review: Microsoft delta-link expiry (HTTP 410) now triggers a full resync; a meeting you deleted is not resurrected by a sync; the calendar list is re-read (24 h / `tt cal refresh`);
+  per-calendar exclude and the never-offer lists have commands and a screen.

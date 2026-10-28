@@ -27,6 +27,7 @@ State at hand-over (2026-10-27): everything is on **`feat/phase-14-server`**, PR
 * Verify (not just assert) these UX items from the review: 3, 5, 6, 8, 9, 12, 13 (the "Resolution" table says fixed; only the ones with an e2e test were exercised). Walk `docs/uat/uat-script.md` end to end against a seeded stack and correct the table.
 
 ### 4. Phase 15 / clients
+> **Update 2026-10-28 (`leftovers/p15`)**: Tauri shell now compiles (`cargo check`/`clippy`/`test` on Linux) with tray, notifications, background sync; the PyInstaller sidecar builds and answers; a PWA "Mobile Lite" exists; calendar 410/resurrection/exclude/suppress/refresh are done; `tools/smoke_calendar.py` exists but was **not run live**. See `docs/client/desktop.md`, ADR-0057/0058, `docs/uat/uat-personal-tracker.md`. Still open: real-desktop verification, installers/signing/updater, macOS/Windows, native mobile, the live smoke run, keyring on three OSs.
 * Nothing has been compiled for **Tauri** (desktop palette) or the mobile shell; `apps/desktop/sidecar/build.sh` (PyInstaller) was never run. Notifications through the OS are open.
 * Google Calendar / Microsoft Graph adapters are tested against fakes only; a real-account smoke test (OAuth consent, token refresh, Teams meetings) is outstanding. See `docs/uat/uat-personal-tracker.md` and `docs/uat/known-limitations.md`.
 * `ClientBatch.client_version` still defaults to `"0.1"` (the parity test pins the spec file); `CLIENT_SCHEMA_VERSION = "0.2"` is what new clients send. Decide whether to bump the spec file.

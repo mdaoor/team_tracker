@@ -73,6 +73,17 @@ The spec is silent or ambiguous in the places below. Each row records the defaul
 | 15.7 | Who sees the DEV project | the person, their line manager, and admins by the platform rule for private items | ADR-0055 |
 | 15.8 | Client domains for suggestions | workspace setting `calendar.client_domains` {domain: project key} | `contextpack.py` |
 
+## Phase 15 leftovers (2026-10-28, branch `leftovers/p15`)
+| # | question | default adopted | where |
+|---|---|---|---|
+| 15.9 | "Mobile shell" with no Python on the phone | an installable web app ("Mobile Lite") running the same React views on a browser-local TypeScript bridge, small stated scope, store **not encrypted**; no native iOS/Android app | ADR-0057 |
+| 15.10 | Who may a sync override | never the person: a deleted meeting stays deleted (`deleted_by`), only what the sync itself dropped may return; an expired cursor (410) means a full window pull that also drops meetings the provider no longer lists | ADR-0054 §5 |
+| 15.11 | How often the calendar list is re-read | every `calendar.refresh_hours` = 24 h (0 = only on demand) and on `tt cal refresh`; a calendar that left the list takes its unsent meetings with it | ADR-0054 §5 |
+| 15.12 | Where notification policy lives | Python (`tt_client.personal.notify`) behind the `NotificationPort`; Rust only displays. End-of-day nudge 17:30 local, workdays, once a day, only if something was done or waits; `notify.eod_time` empty = off | ADR-0058 |
+| 15.13 | Background sync in the shell | one `personal_shell_tick` sidecar call a minute (the Python `Scheduler` decides what is due); closing the window hides it to the tray | ADR-0058 |
+| 15.14 | Live-account smoke | `tools/smoke_calendar.py`, env-driven, skips with exit 0 without credentials; write steps use their own write-scope token and become SKIP (not FAIL) for a read-only one | `docs/uat/uat-personal-tracker.md` |
+| 15.15 | Where the phone's API token lives | the browser's `localStorage`, in clear, with a visible warning; use a revocable capture-scoped token; same-origin deployment (no CORS added) | ADR-0057 |
+
 ## ADR template (`docs/decisions/ADR-NNNN-title.md`)
 ```
 # ADR-NNNN: <title>

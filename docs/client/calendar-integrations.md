@@ -26,11 +26,14 @@ Write-back of focus blocks (`calendar.events`, `Calendars.ReadWrite`) is off and
 ## What is pulled
 Google: `calendarList`, then `events` with `singleEvents=true`; the first call reads a window (14 days back, 21 ahead) and stores `nextSyncToken`;
 later calls send only `syncToken` (410 -> full window again). Microsoft: `/me/calendars`, then `calendarView/delta` for the window; the `@odata.deltaLink`
-is stored and called next time (`@removed` = deleted). Teams meetings are events with `isOnlineMeeting` and `onlineMeeting.joinUrl`; the join link is
+is stored and called next time (`@removed` = deleted; **HTTP 410 `syncStateNotFound` -> a full window pull again**, same as Google). A full pull is the
+truth for the window: unsent meetings of that calendar inside it that the provider no longer lists are dropped, the rest are matched by
+`calendar_ref` so nothing is duplicated and local choices survive. A meeting **you deleted** is never brought back by any sync (ADR-0054 section 5). Teams meetings are events with `isOnlineMeeting` and `onlineMeeting.joinUrl`; the join link is
 shown. Each event becomes `PersonalItem{kind=meeting}` linked by `calendar_ref`; local choices (project, category, done/skipped, notes) survive re-sync.
 
 **Hidden by default** (each a setting `calendar.skip_*`): declined, cancelled, all-day, private/confidential, out-of-office, focus-time, working-location.
-Changing a filter forces one full pull. Per-calendar include/exclude: `calendar.excluded`.
+Changing a filter forces one full pull. Per-calendar include/exclude and the never-offer lists have commands and a screen: `tt cal list|exclude|include|suppress|refresh`
+and the desktop **Calendars** dialog (see `personal-tracker.md`). The calendar list itself is re-read every `calendar.refresh_hours` (default 24) and on `tt cal refresh`.
 
 ## When it syncs
 Every 5 minutes while the app runs (`calendar.poll_minutes`), on wake (a gap between ticks much longer than the interval), on demand
@@ -45,7 +48,8 @@ outbox, the config, the personal store or any log (tests scan all of them). `tt 
 Teams chat/presence, Apple/CalDAV (a generic CalDAV adapter would implement the same protocol), shared team calendars and an Outlook add-in are out of
 scope. Google Meet attendance is not read. The Microsoft focus-time detection uses the "Focus time" category or subject (Graph v1.0 has no event type).
 Provider fixtures in `packages/client_core/tests/fixtures/calendar` are hand-assembled from the API reference, **not recordings of a live account**;
-nothing has been run against real Google or Microsoft services.
+nothing has been run against real Google or Microsoft services. `tools/smoke_calendar.py` is the script that does it with a test account
+(runbook: `docs/uat/uat-personal-tracker.md`, "Live-account smoke"); it has itself only been run against fakes.
 
 ## Troubleshooting
 | symptom | cause / fix |

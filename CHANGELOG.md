@@ -18,6 +18,9 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow `docs/op
   ready-to-send tray with deterministic suggestions and learned rules, one-tap send with `calendar_ref` dedup, Unsend (`time.unlog`), end-of-day and weekly reviews, `tt day|week|month|add|timer|cal|tray|recur|...`,
   desktop/mobile React views (axe 100 in light and dark, 390 px), gateway `/v1/translate/personal`, `development_hours_below` policy and `learning_consistency` habit, ContextPack `development_project`/`calendar_mapping_hints`/`my_capacity_hours_per_week`.
   Schema minor 0.2 (`source`, `corrects`), migration 0014, ADR-0053..0055.
+* Phase 15 leftovers (branch `leftovers/p15`): Microsoft delta-link expiry (410) triggers a full resync and deleted meetings are never resurrected; per-calendar exclude/include, never-offer lists and calendar-list refresh (`tt cal list|exclude|include|suppress|refresh`, desktop Calendars dialog);
+  desktop shell tray, OS notifications through the `NotificationPort` (ready to send, end of day), palette hotkey and background calendar sync (compiles, `cargo test`; ADR-0058); the PyInstaller sidecar builds (125 MiB);
+  "Mobile Lite", an installable offline-capable web app for the planner views (ADR-0057); `tools/smoke_calendar.py` live-account smoke test (not yet run live).
 ### Changed
 * Light-theme text colours darkened to meet WCAG AA contrast.
 ### Fixed
