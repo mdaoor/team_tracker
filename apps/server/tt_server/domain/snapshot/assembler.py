@@ -8,8 +8,7 @@ is what redacts wellbeing habits for a project manager.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -19,89 +18,25 @@ from tt_schema.enums import (
     RiskStatus,
     StageCategory,
     TargetType,
-    ViolationStatus,
 )
 
 from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.domain import insights
-from tt_server.domain.errors import Invalid, NotFound
 from tt_server.domain.overlay import process as proc
 from tt_server.domain.plan import service as plan_svc
 from tt_server.domain.snapshot.model import SCHEMA_VERSION, Snapshot
+from tt_server.domain.snapshot.scope import CHUNK as CHUNK
+from tt_server.domain.snapshot.scope import OPEN_VIOLATION as OPEN_VIOLATION
+from tt_server.domain.snapshot.scope import _chunks as _chunks
+from tt_server.domain.snapshot.scope import _iso as _iso
+from tt_server.domain.snapshot.scope import _range_filter as _range_filter
+from tt_server.domain.snapshot.scope import _scope_filter as _scope_filter
+from tt_server.domain.snapshot.scope import parse_scope as parse_scope
 from tt_server.query import service
 from tt_server.query.compile import QueryCtx
 
 PAGE = 5000  # the epics list still pages through the generic query
-CHUNK = 5000
-OPEN_VIOLATION = (ViolationStatus.OPEN, ViolationStatus.ACKNOWLEDGED)
-
-
-def parse_scope(scope: str) -> tuple[str, str]:
-    """Split a 'kind:ref' scope string, rejecting unknown kinds."""
-    kind, _, ref = scope.partition(":")
-    if kind not in {"workspace", "product", "project", "team", "person"}:
-        raise Invalid("invalid_scope", f"unknown scope {scope!r}", pointer="/scope")
-    return kind, ref
-
-
-def _chunks(xs: list[str]) -> Iterable[list[str]]:
-    for i in range(0, len(xs), CHUNK):
-        yield xs[i : i + CHUNK]
-
-
-def _iso(d: Any) -> str | None:
-    if d is None:
-        return None
-    return d.date().isoformat() if isinstance(d, datetime) else d.isoformat()
-
-
-async def _scope_filter(qc: QueryCtx, kind: str, ref: str) -> tuple[dict[str, Any], str]:
-    s = qc.session
-    if kind == "workspace":
-        return {}, f"Workspace: {ref or 'all'}"
-    if kind == "project":
-        name = await s.scalar(
-            select(m.Project.name).where(m.Project.workspace_id == qc.ws_id, m.Project.key == ref.upper())
-        )
-        if name is None:
-            raise NotFound("not_found", f"unknown project {ref!r}", pointer="/scope")
-        return {"project": {"in": [ref.upper()]}}, f"Project: {name}"
-    if kind == "product":
-        prod = await s.scalar(
-            select(m.Product).where(m.Product.workspace_id == qc.ws_id, m.Product.key == ref.upper())
-        )
-        if prod is None:
-            raise NotFound("not_found", f"unknown product {ref!r}", pointer="/scope")
-        keys = (
-            await s.scalars(
-                select(m.Project.key)
-                .join(m.ProductLink, m.ProductLink.target_id == m.Project.id)
-                .where(
-                    m.ProductLink.product_id == prod.id,
-                    m.ProductLink.target_type == TargetType.PROJECT,
-                    m.ProductLink.deleted_at.is_(None),
-                )
-            )
-        ).all()
-        return {"project": {"in": sorted(keys) or ["-"]}}, f"Product: {prod.name}"
-    if kind == "team":
-        return {"people": {"assignee_in_team": ref}}, f"Team: {ref}"
-    handle = ref if ref.startswith("@") else "@" + ref
-    return {"people": {"assignee": handle}}, f"Person: {handle}"
-
-
-def _range_filter(frm: date, to: date) -> dict[str, Any]:
-    a, b = frm.isoformat(), to.isoformat()
-    return {
-        "or": [
-            {"state": {"category": ["open", "active"]}},
-            {"actual_end": {"between": [a, b]}},
-            {"planned_end": {"between": [a, b]}},
-            {"planned_start": {"between": [a, b]}},
-            {"touched": {"since": a}},
-        ]
-    }
 
 
 async def assemble(

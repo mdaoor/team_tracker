@@ -2,6 +2,8 @@ import { addDays, ymd } from "./format";
 import {
   BridgeError,
   CATEGORIES,
+  type CalendarRow,
+  type CalendarSettings,
   type Category,
   type DayView,
   type Draft,
@@ -251,6 +253,54 @@ export function demoBridge(opts: DemoOptions = {}): PersonalBridge & {
     first_run_done: !opts.firstRun,
     calendars: ["google", "microsoft"],
   };
+  const cals: CalendarRow[] = [
+    {
+      provider: "google",
+      id: "mahmoud@acme.com",
+      name: "mahmoud@acme.com",
+      primary: true,
+      selected: true,
+      excluded: false,
+    },
+    {
+      provider: "google",
+      id: "team-web@group.calendar.google.com",
+      name: "Web team",
+      primary: false,
+      selected: true,
+      excluded: false,
+    },
+    {
+      provider: "google",
+      id: "holidays@group.v.calendar.google.com",
+      name: "Holidays",
+      primary: false,
+      selected: false,
+      excluded: false,
+    },
+    {
+      provider: "microsoft",
+      id: "AAMkAD-cal-1",
+      name: "Calendar",
+      primary: true,
+      selected: true,
+      excluded: false,
+    },
+  ];
+  const suppress = { attendees: [] as string[], domains: [] as string[] };
+  const notified = new Set<string>();
+  const calOverview = (): CalendarSettings => ({
+    calendars: cals.map((c) => ({ ...c })),
+    refreshed_at: {
+      google: iso(TODAY, "09:00"),
+      microsoft: iso(TODAY, "09:00"),
+    },
+    refresh_hours: 24,
+    suppress: {
+      attendees: [...suppress.attendees],
+      domains: [...suppress.domains],
+    },
+  });
   const log = (name: string) => calls.push(name);
   const wait = async <T>(v: T): Promise<T> => {
     if (opts.latencyMs) await new Promise((r) => setTimeout(r, opts.latencyMs));
@@ -819,6 +869,90 @@ export function demoBridge(opts: DemoOptions = {}): PersonalBridge & {
         secrets: ["personal-store-key", "oauth:google"],
       })
     ),
+    calSettings: async () => (log("calSettings"), wait(calOverview())),
+    calExclude: async (calendar, excluded) => {
+      log("calExclude");
+      const want = calendar.toLowerCase();
+      const hits = cals.filter(
+        (c) =>
+          c.id.toLowerCase() === want ||
+          c.name.toLowerCase().includes(want) ||
+          c.id.toLowerCase().includes(want),
+      );
+      if (hits.length !== 1)
+        throw new BridgeError(
+          "bad_request",
+          hits.length
+            ? `several calendars match '${calendar}'`
+            : `no calendar matches '${calendar}'`,
+        );
+      hits[0].excluded = excluded;
+      return wait(calOverview());
+    },
+    calSuppress: async (kind, value, remove) => {
+      log("calSuppress");
+      const v = value.trim().toLowerCase().replace(/^@/, "");
+      const list = kind === "attendee" ? suppress.attendees : suppress.domains;
+      if (kind === "attendee" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v))
+        throw new BridgeError(
+          "bad_request",
+          `'${value}' is not an e-mail address`,
+        );
+      if (kind === "domain" && !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(v))
+        throw new BridgeError(
+          "bad_request",
+          `'${value}' is not a domain (like example.com)`,
+        );
+      const next = list.filter((x) => x !== v);
+      if (!remove) next.push(v);
+      next.sort();
+      list.splice(0, list.length, ...next);
+      return wait(calOverview());
+    },
+    calRefresh: async (provider) => {
+      log("calRefresh");
+      const added: string[] = [];
+      if (!cals.some((c) => c.id === "platform@group.calendar.google.com")) {
+        cals.push({
+          provider: "google",
+          id: "platform@group.calendar.google.com",
+          name: "Platform",
+          primary: false,
+          selected: true,
+          excluded: false,
+        });
+        added.push("Platform");
+      }
+      return wait({
+        ...calOverview(),
+        refreshed: [
+          { provider: provider ?? "google", added, removed: [], error: null },
+        ],
+      });
+    },
+    calSync: async () => (
+      log("calSync"),
+      wait({
+        reports: [
+          {
+            provider: "google",
+            added: 0,
+            updated: 0,
+            removed: 0,
+            skipped: {},
+            calendars: cals.filter((c) => !c.excluded && c.selected).length,
+            error: null,
+            retry_after: null,
+          },
+        ],
+      })
+    ),
+    notifications: async () => {
+      log("notifications");
+      const fresh = trayEntries().filter((e) => !notified.has(e.id));
+      fresh.forEach((e) => notified.add(e.id));
+      return wait({ entries: fresh });
+    },
   };
   return Object.assign(bridge, { calls, state }) as PersonalBridge & {
     calls: string[];

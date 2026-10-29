@@ -108,6 +108,40 @@ def _fingerprint(s: Settings) -> str:
     ).hexdigest()[:16]
 
 
+PROVIDER_NAMES = ("google", "microsoft")
+
+
+def calendar_overview(store: PersonalStore) -> dict[str, Any]:
+    """What the settings view shows, from the store only (no network): the cached calendars of each connected provider with
+    `excluded`, when each list was read, and the two suppress lists."""
+    s = Settings(store)
+    excluded = set(s.get("calendar.excluded"))
+    cals: list[dict[str, Any]] = []
+    refreshed: dict[str, str | None] = {}
+    for provider in PROVIDER_NAMES:
+        st = store.get_calendar_state(provider)
+        if not st.get("calendars"):
+            continue
+        refreshed[provider] = st.get("calendars_at")
+        cals += [
+            {
+                "provider": provider,
+                "id": c["id"],
+                "name": c["name"],
+                "primary": bool(c.get("primary")),
+                "selected": bool(c.get("selected", True)),
+                "excluded": c["id"] in excluded,
+            }
+            for c in st["calendars"]
+        ]
+    return {
+        "calendars": cals,
+        "refreshed_at": refreshed,
+        "refresh_hours": s.get("calendar.refresh_hours"),
+        "suppress": {"attendees": s.get("suppress.attendees"), "domains": s.get("suppress.domains")},
+    }
+
+
 class CalendarSync:
     def __init__(
         self,
@@ -139,8 +173,9 @@ class CalendarSync:
         if full or state.get("fingerprint") != _fingerprint(self.settings):
             state["cursors"] = {}
         try:
-            calendars = state.get("calendars") or [c.__dict__ for c in prov.list_calendars()]
-            state["calendars"] = calendars
+            if self._calendars_stale(state, now):
+                self._relist(prov, provider, state, now)
+            calendars = state["calendars"]
             excluded = set(self.settings.get("calendar.excluded"))
             window = (now - timedelta(days=WINDOW_BACK_DAYS), now + timedelta(days=WINDOW_AHEAD_DAYS))
             index = self._index()
@@ -155,6 +190,8 @@ class CalendarSync:
                     me=self.me.get(provider),
                 )
                 self._apply(prov, page.events, index, report, self.me.get(provider))
+                if page.full:
+                    self._reconcile(provider, cal["id"], page.events, window, index, report)
                 state.setdefault("cursors", {})[cal["id"]] = page.cursor
             state["fingerprint"] = _fingerprint(self.settings)
             state["last_ok"] = now.isoformat()
@@ -190,7 +227,7 @@ class CalendarSync:
             if reason is not None:
                 if existing is not None and existing.deleted_at is None and not existing.is_sent:
                     self.store.delete_item(
-                        existing.id
+                        existing.id, by="sync"
                     )  # it became declined/cancelled/private: drop it from the plan
                     report.removed += 1
                 elif existing is None:
@@ -198,13 +235,18 @@ class CalendarSync:
                 continue
             if ev.online_url and ev.end <= self.clock():
                 ev.attended_min = prov.attended_minutes(ev, me)
+            if existing is not None and existing.deleted_at is not None and existing.deleted_by != "sync":
+                # the person deleted this occurrence: a sync must not bring it back (ADR-0054 §5). Legacy rows without
+                # `deleted_by` count as the person's choice.
+                report.skipped["deleted locally"] = report.skipped.get("deleted locally", 0) + 1
+                continue
             if existing is None:
                 item = self.store.put_item(to_item(ev, self.tz))
                 index[ev.key] = item
                 report.added += 1
             else:
                 fresh = to_item(ev, self.tz)
-                existing.deleted_at = None
+                existing.deleted_at = existing.deleted_by = None
                 for f in (
                     "title",
                     "start",
@@ -223,6 +265,113 @@ class CalendarSync:
                 self.store.put_item(existing)
                 report.updated += 1
 
+    # -- the calendar list (M8) and per-calendar preferences (M7)
+    def _calendars_stale(self, state: dict[str, Any], now: datetime) -> bool:
+        """The cached list is re-read when it is missing or older than `calendar.refresh_hours` (0 = only when missing)."""
+        if not state.get("calendars"):
+            return True
+        hours = int(self.settings.get("calendar.refresh_hours"))
+        at = state.get("calendars_at")
+        return hours > 0 and (not at or now - datetime.fromisoformat(at) >= timedelta(hours=hours))
+
+    def _relist(
+        self, prov: CalendarProvider, provider: str, state: dict[str, Any], now: datetime
+    ) -> tuple[list[str], list[str]]:
+        """Ask the provider for its calendars and keep the answer in `state`. Returns (added names, removed names); the unsent
+        meetings of a calendar that is gone (unsubscribed, deleted) are dropped as the sync."""
+        old = {c["id"]: c for c in state.get("calendars") or []}
+        new = [c.__dict__.copy() for c in prov.list_calendars()]
+        fresh = {c["id"] for c in new}
+        state["calendars"], state["calendars_at"] = new, now.isoformat()
+        removed = [c for cid, c in old.items() if cid not in fresh]
+        for gone in removed:
+            self._drop_calendar(provider, gone["id"])
+            state.get("cursors", {}).pop(gone["id"], None)
+        return [c["name"] for c in new if c["id"] not in old] if old else [], [c["name"] for c in removed]
+
+    def _drop_calendar(self, provider: str, calendar_id: str) -> int:
+        n = 0
+        for i in self.store.items():
+            ref = i.calendar_ref
+            if ref and (ref.provider, ref.calendar_id) == (provider, calendar_id) and not i.is_sent:
+                self.store.delete_item(i.id, by="sync")
+                n += 1
+        return n
+
+    def refresh_calendars(self, provider: str) -> dict[str, Any]:
+        """Re-list the calendars now (`tt cal refresh`, the desktop button). Never raises: a failure keeps the old list."""
+        prov = self.providers.get(provider)
+        if prov is None:
+            return {
+                "provider": provider,
+                "added": [],
+                "removed": [],
+                "error": f"{provider} is not configured",
+            }
+        state = self.store.get_calendar_state(provider)
+        try:
+            added, removed = self._relist(prov, provider, state, self.clock())
+        except ProviderError as exc:
+            return {"provider": provider, "added": [], "removed": [], "error": str(exc)}
+        self.store.set_calendar_state(provider, state)
+        return {"provider": provider, "added": added, "removed": removed, "error": None}
+
+    def resolve_calendar(self, ref: str) -> tuple[str, str]:
+        """(provider, calendar id) for an id, a name or a fragment of either, from the cached lists. KeyError when none/several."""
+        cals = calendar_overview(self.store)["calendars"]
+        want = ref.strip().lower()
+        for hit in (
+            [c for c in cals if c["id"].lower() == want],
+            [c for c in cals if c["name"].lower() == want],
+            [c for c in cals if want in c["id"].lower() or want in c["name"].lower()],
+        ):
+            if len(hit) == 1:
+                return hit[0]["provider"], hit[0]["id"]
+            if len(hit) > 1:
+                names = ", ".join(sorted(f"{c['name']} ({c['provider']})" for c in hit))
+                raise KeyError(f"several calendars match {ref!r}: {names}")
+        raise KeyError(f"no calendar matches {ref!r}: run `tt cal sync` first or `tt cal refresh`")
+
+    def exclude(self, ref: str) -> dict[str, Any]:
+        """Stop reading a calendar. Its unsent meetings leave the plan (sent ones stay); `include` brings them back on the next sync."""
+        provider, cid = self.resolve_calendar(ref)
+        excluded = list(self.settings.get("calendar.excluded"))
+        if cid not in excluded:
+            excluded.append(cid)
+            self.settings.set("calendar.excluded", excluded)
+        return {"provider": provider, "calendar": cid, "dropped": self._drop_calendar(provider, cid)}
+
+    def include(self, ref: str) -> dict[str, Any]:
+        provider, cid = self.resolve_calendar(ref)
+        self.settings.set(
+            "calendar.excluded", [c for c in self.settings.get("calendar.excluded") if c != cid]
+        )
+        return {"provider": provider, "calendar": cid}
+
+    def _reconcile(
+        self,
+        provider: str,
+        calendar_id: str,
+        events: list[CalendarEvent],
+        window: tuple[datetime, datetime],
+        index: dict[tuple[str, str, str], PersonalItem],
+        report: SyncReport,
+    ) -> None:
+        """A full pull lists every event of the window, so unsent meetings of this calendar inside the window that it no longer
+        lists were deleted at the provider while we had no valid cursor (e.g. after a 410): drop them as the sync."""
+        seen = {ev.key for ev in events}
+        for key, item in index.items():
+            if (
+                key[:2] != (provider, calendar_id)
+                or key in seen
+                or item.deleted_at is not None
+                or item.is_sent
+            ):
+                continue
+            if item.start is not None and window[0] <= item.start <= window[1]:
+                self.store.delete_item(item.id, by="sync")
+                report.removed += 1
+
     def status(self, provider: str) -> dict[str, Any]:
         st = self.store.get_calendar_state(provider)
         return {k: st.get(k) for k in ("last_ok", "last_try", "error", "retry_at")}
@@ -234,7 +383,7 @@ class CalendarSync:
         if delete_items:
             for i in self.store.items():
                 if i.calendar_ref and i.calendar_ref.provider == provider and not i.is_sent:
-                    self.store.delete_item(i.id)
+                    self.store.delete_item(i.id, by="sync")
                     n += 1
         return n
 

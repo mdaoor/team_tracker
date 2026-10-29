@@ -41,7 +41,7 @@ class Command:
     args: type[BaseModel]
     handler: Handler
     permission: str | None  # None = any workspace member (their own data)
-    scope: str = "workspace"  # workspace | item | project  (what `scope_arg` names)
+    scope: str = "workspace"  # workspace | item | items | project | risk | target  (what `scope_arg` names)
     scope_arg: str | None = None
     preview: bool = False  # the op can describe its effect without writing
     destructive: bool = False

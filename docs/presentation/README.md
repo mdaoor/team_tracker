@@ -34,7 +34,7 @@ Cached per (viewer, scope, range, scheme) for 15 min; `fresh=1` bypasses.
 | `pipeline` | `process` | snapshot |
 | `explorer` | `dimA=team`, `dimB=stage`, `measure=count\|hours\|wt\|viol` | snapshot (bar chart without `dimB`) |
 | `radar` | `days=14` | snapshot |
-| `gantt` | `rows=epic\|item\|milestone`, `baseline` | snapshot |
+| `gantt` | `rows=epic\|item\|milestone` (epic), `baseline=false`, `zoom=fit\|month\|week\|day` (fit) | snapshot; drawn by the shared `gantt.js` |
 | `roadmap` | `project_key`, `rows=phase\|epic\|milestone` (phase), `zoom=fit\|month\|week\|day` (fit) | plan (phases, deliverables, milestones); epic rows from reported items |
 | `violations` | `with_habits=false` | snapshot; `restricted` flag |
 | `habits` | - | snapshot; `restricted` flag |
@@ -67,7 +67,7 @@ Per slide: `title`, `subtitle`, `notes` (speaker notes), `layout` (`full\|split\
 | swipe left/right | next / previous (touch) |
 
 Every number drills: tiles, pipeline columns, matrix cells and bars open the items behind them inside the deck; `Enter` on a focused
-row opens the item drawer. Every chart has a table toggle. Tables longer than a page continue on a "(cont.)" slide (`fit: paginate`, the default) or scale to one slide, never below half size (`fit: shrink`); the Projects slide includes plan-only projects. A KPI tile that is not a plain item count says how its number relates to the list ("36 open violations on 31 items"). `prefers-reduced-motion`
+row opens the item drawer. Every chart has a table toggle (`table ⇄`, explorer, gantt, roadmap, pipeline and radar; the pipeline's table lists stage, items, Σ weight, items over the expected time and the WIP breach, the radar's is a flat table by due date that also lists the overdue items). Tables longer than a page continue on a "(cont.)" slide (`fit: paginate`, the default) or scale to one slide, never below half size (`fit: shrink`); the Projects slide includes plan-only projects. A KPI tile that is not a plain item count says how its number relates to the list ("36 open violations on 31 items"). `prefers-reduced-motion`
 turns transitions off. Print: `@page A4 landscape`, one slide per page, footer stamped.
 
 ## Exports (`POST /presentations/{id}/render?format=`)
@@ -88,7 +88,9 @@ stored with `source: fallback`. `PATCH /insights/{id} {status}`; dismissed insig
 gateway summaries only. `POST /daily-logs/{id}/summarise` re-words a draft day through the gateway under the same grounding rule.
 
 ## Measured
-* Page mode vs the prototype: 0.02 % of pixels differ (light and dark), budget 2 %.
+* Page mode vs the prototype: 1.7 % of pixels differ (light and dark), budget 2 %. It was 0.02 % until the `gantt` slide moved to the shared module: the chart is now the shared one
+  (epic bars with a done share, ISO-week axis, diamonds, today line) instead of the prototype's hand-drawn SVG, so about 1.7 % of the page legitimately differs. The section keeps the
+  prototype's height (`.gantt-slide` in `gantt.css`), so nothing below it shifts. The budget stays 2 % rather than being re-baselined: a larger drift should fail.
 * 50 k-item snapshot (this container): ~2.7 s cold end to end on the first run, 4.3–6 s after a container restart (cold database caches; the bound asserted is 8 s), ~0.5 s cached; the plan asked < 2 s / < 100 ms. A 50 k snapshot is ~25 MB of JSON.
   Cold went from 11.5 s to 2.7 s by loading ids once into a temp table, joining instead of per-row subqueries, grouped enrichment queries,
   sampling the Pydantic check and bypassing `jsonable_encoder`.
@@ -96,11 +98,9 @@ gateway summaries only. `POST /daily-logs/{id}/summarise` re-words a draft day t
 ## The shared Gantt (plan 15 R6.4)
 `apps/presentation/src/gantt.js` is the only Gantt implementation: `layoutGantt({rows, deps, milestones, today, zoom})` (pure pixels: time axis ticks, today line,
 bars with progress, baseline ghost and slip, milestone diamonds, elbow dependency arrows, `day|week|month|fit` zoom), `ganttSvg(model)` (escaped SVG string, `rm-*` classes in
-`gantt.css`), `ganttTable` (the accessible twin) and `snapshotRows(D, items, {rows})`. The Roadmap slide draws with it. It is published as
+`gantt.css`), `ganttTable` (the accessible twin) and `snapshotRows(D, items, {rows})`. The Roadmap slide and the deck's `gantt` slide (`renderers/time.js`, `snapshotRows` with `rows=epic` by default, `item` and `milestone` also supported; `baseline` ghosts an item's `baseline_end` when the snapshot carries one) draw with it. It is published as
 `@tt/presentation/gantt` (types in `gantt.d.ts`, styles `@tt/presentation/gantt.css`) and as `dist/gantt.mjs` from `make presentation`.
 
-To switch the web console (`apps/web`, not done here): add `"@tt/presentation": "workspace:*"` to its dependencies; in `pages/views/Gantt.tsx` replace
-`layoutGantt` from `lib/gantt.ts` with the import (the model is a superset: same `bars/ticks/todayX/milestones/arrows`; rows keep the API's `GanttRow` shape, `dependencies`
-map to `deps`, `rows=epic|item|milestone` stays a server query), render `ganttSvg(model, {label})` in a `dangerouslySetInnerHTML` region (output is escaped) or port the
-10-line mapping to JSX, import `gantt.css`, and delete `lib/gantt.ts` (keep its tests as a contract by pointing them at the shared module). `zoom: "fit"` is new; the web
-keeps `day|week|month`. The existing `.vgantt*` styles can go.
+The web console's Views -> Gantt (`apps/web/src/pages/views/Gantt.tsx`) imports `layoutGantt` and `ganttSvg` from `@tt/presentation/gantt` plus `gantt.css` (`@tt/web` depends on
+`@tt/presentation` through the workspace); rows keep the API's `GanttRow` shape, `dependencies` map to `deps`, `rows=epic|item|milestone` stays a server query. `lib/gantt.contract.test.ts`
+pins the contract between the two. The web offers `day|week|month`; `fit` is the deck's default.

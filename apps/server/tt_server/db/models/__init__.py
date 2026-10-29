@@ -9,6 +9,7 @@ Keep this package free of business logic; the only place that may INSERT into `e
 from tt_server.db import conventions as _conventions  # noqa: E402
 from tt_server.db.base import Base as _Base  # noqa: E402
 from tt_server.db.models.acl import *  # noqa: F403
+from tt_server.db.models.approvals import *  # noqa: F403
 from tt_server.db.models.capture import *  # noqa: F403
 from tt_server.db.models.dimensions import *  # noqa: F403
 from tt_server.db.models.governance import *  # noqa: F403
@@ -20,6 +21,7 @@ from tt_server.db.models.presentations import *  # noqa: F403
 from tt_server.db.models.process import *  # noqa: F403
 from tt_server.db.models.products import *  # noqa: F403
 from tt_server.db.models.projects import *  # noqa: F403
+from tt_server.db.models.risks import *  # noqa: F403
 from tt_server.db.models.system import *  # noqa: F403
 from tt_server.db.models.tenancy import *  # noqa: F403
 from tt_server.db.models.views import *  # noqa: F403

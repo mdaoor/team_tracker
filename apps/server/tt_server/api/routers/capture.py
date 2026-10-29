@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-from sqlalchemy import select
 from tt_schema.base import new_id
 from tt_schema.client import ClientBatch
 
-from tt_server.acl.visibility import visible
 from tt_server.api.authz import check, needs
 from tt_server.api.commands.execute import can_send_commands, run
 from tt_server.api.deps import CurrentActor, Uow, get_session_factory
 from tt_server.api.errors import ApiError, error_body
-from tt_server.db import models as m
 from tt_server.domain.capture import dailylog
+from tt_server.domain.capture.batch_errors import describe_violation
 from tt_server.domain.capture.ingest import ingest_batch
 
 router = APIRouter(prefix="/api/v1/w/{ws}")
@@ -37,24 +35,8 @@ async def post_batch(request: Request, actor: CurrentActor, uow: Uow) -> JSONRes
     try:
         batch = ClientBatch.model_validate(raw)
     except ValidationError as exc:
-        first = exc.errors()[0]
-        loc = [str(p) for p in first["loc"]]
-        too_many = first["loc"][:1] == ("commands",) and first["type"] == "too_long"
-        return JSONResponse(
-            error_body(
-                "schema_violation",
-                "a batch carries at most 50 commands; send management commands with POST /commands in chunks of 50"
-                if too_many
-                else first["msg"],
-                "/" + "/".join(loc),
-                {
-                    "message_index": first["loc"][1]
-                    if len(first["loc"]) > 1 and first["loc"][0] == "messages"
-                    else None
-                },
-            ),
-            422,
-        )
+        message, pointer, details = describe_violation(exc)
+        return JSONResponse(error_body("schema_violation", message, pointer, details), 422)
     if batch.workspace not in (actor.ws.slug, actor.ws.id):
         return JSONResponse(
             error_body("workspace_mismatch", "batch.workspace does not match the URL", "/workspace"), 422
@@ -86,29 +68,21 @@ async def post_batch(request: Request, actor: CurrentActor, uow: Uow) -> JSONRes
 
 @router.get("/daily-logs", tags=["daily-logs"])
 async def list_daily_logs(
-    actor: CurrentActor, uow: Uow, day: date | None = None, person: str | None = None
+    actor: CurrentActor,
+    uow: Uow,
+    day: date | None = None,
+    date_: Annotated[date | None, Query(alias="date", description="same as `day`")] = None,
+    person: str | None = None,
 ) -> dict[str, Any]:
-    stmt = visible(select(m.DailyLog).where(m.DailyLog.workspace_id == actor.ws.id), actor.acl, m.DailyLog)
-    subject = actor.person.id
-    if person not in (None, "me"):
-        subject = (
-            await uow.session.scalar(
-                select(m.WorkspaceMember.person_id).where(
-                    m.WorkspaceMember.workspace_id == actor.ws.id,
-                    (m.WorkspaceMember.handle == person) | (m.WorkspaceMember.person_id == person),
-                )
-            )
-            or ""
-        )
-    stmt = stmt.where(m.DailyLog.person_id == subject)
-    if day:
-        stmt = stmt.where(m.DailyLog.date == day)
-        if subject == actor.person.id and not (await uow.session.scalars(stmt.limit(1))).first():
-            # asking for your own day that has work but no draft yet drafts it now: `tt today` must not say "none" after you logged
-            uow.context["actor_id"] = actor.person.id
-            if await dailylog.build_for_person(uow, actor.ws, actor.member, day, actor.person.id):
-                await uow.commit()
-    rows = (await uow.session.scalars(stmt.order_by(m.DailyLog.date.desc()).limit(100))).all()
+    """One person's daily logs, optionally for one day (`day`, or `date` as the other list endpoints name it)."""
+    if day and date_ and day != date_:
+        raise ApiError(400, "day_and_date_differ", "`day` and `date` name different days; send one of them")
+    day = day or date_
+    rows, drafted = await dailylog.list_visible(
+        uow, actor.ws, actor.member, actor.acl, actor.person.id, person=person, day=day
+    )
+    if drafted:
+        await uow.commit()
     return {"data": [dailylog.to_dict(r) for r in rows], "next_cursor": None}
 
 

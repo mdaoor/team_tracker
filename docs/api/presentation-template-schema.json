@@ -1,6 +1,7 @@
 {
   "$defs": {
     "Param": {
+      "description": "A parameter a template asks for (name, type, whether required).",
       "properties": {
         "default": {
           "default": null,
@@ -51,6 +52,7 @@
       "type": "object"
     },
     "PostRule": {
+      "description": "A rule applied after rendering, e.g. dropping slides when a condition holds.",
       "properties": {
         "action": {
           "const": "drop_slides",
@@ -77,6 +79,7 @@
       "type": "object"
     },
     "TSlide": {
+      "description": "A slide blueprint inside a template, with title templates and the data it requires.",
       "properties": {
         "config": {
           "additionalProperties": true,
@@ -175,6 +178,7 @@
       "type": "object"
     },
     "Theme": {
+      "description": "Optional visual defaults of a template (palette, font, logo, footer).",
       "properties": {
         "font": {
           "anyOf": [
@@ -229,6 +233,7 @@
       "type": "object"
     }
   },
+  "description": "The validated body of a presentation template.",
   "properties": {
     "description": {
       "default": "",

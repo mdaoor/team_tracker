@@ -206,3 +206,56 @@ def test_the_poll_interval_is_a_setting() -> None:
     clock.advance(minutes=6)
     assert sched.due("google") == "poll"
     assert NOW + timedelta(minutes=16) == clock()
+
+
+def test_microsoft_delta_token_expiry_410_triggers_a_full_resync_that_keeps_dedup() -> None:
+    sync, store, _, ms_state = setup()
+    sync.sync("microsoft")
+    sync.sync("microsoft")  # incremental: adds ms-10 ("Roadmap review"), drops ms-2
+    ms1 = next(i for i in store.items() if i.title == "Sprint planning")
+    ms1.project_hint = "WEB"  # a local choice must survive the resync
+    store.put_item(ms1)
+    ms_state["delta_gone"] = True  # the stored deltaLink is now answered with HTTP 410 syncStateNotFound
+    rep = sync.sync("microsoft")
+    assert rep.error is None, rep.error
+    assert sync.status("microsoft")["error"] is None
+    rows = [i for i in store.items(include_deleted=True) if i.calendar_ref]
+    keys = [(i.calendar_ref.provider, i.calendar_ref.calendar_id, i.calendar_ref.event_id) for i in rows]  # type: ignore[union-attr]
+    assert len(keys) == len(set(keys)), "a full resync must not duplicate meetings"
+    kept = next(i for i in store.items() if i.title == "Sprint planning")
+    assert kept.id == ms1.id and kept.project_hint == "WEB"
+    # the full pull is the truth for the window: ms-10 (only in the stale incremental) is gone, and a new cursor is stored
+    assert "Roadmap review" not in titles(store, "microsoft")
+    cursor = sync.store.get_calendar_state("microsoft")["cursors"]["AAMkAD-cal-1"]["delta_link"]
+    assert cursor.endswith("DELTA-1")
+    assert sync.sync("microsoft").error is None  # and the next sync is incremental again
+
+
+def test_a_meeting_the_person_deleted_is_not_resurrected_by_a_sync() -> None:
+    for provider, name in (("google", "Client sync with Globex"), ("microsoft", "Architecture sync")):
+        sync, store, *_ = setup()
+        sync.sync(provider)
+        sync.sync(provider)
+        gone = next(i for i in store.items() if i.title == name)
+        assert store.delete_item(gone.id)
+        for full in (False, True):
+            rep = sync.sync(provider, full=full)
+            assert rep.error is None
+            assert name not in titles(store, provider), (provider, full)
+        assert rep.skipped.get("deleted locally", 0) >= 1
+
+
+def test_a_meeting_dropped_by_the_sync_itself_comes_back_when_it_qualifies_again() -> None:
+    sync, store, *_ = setup()
+    s = Settings(store)
+    s.set("calendar.skip_declined", False)
+    sync.sync("google")
+    assert "Lunch with Omar" in titles(store, "google")
+    s.set(
+        "calendar.skip_declined", True
+    )  # filter change -> full pull -> the declined lunch is dropped by the sync
+    sync.sync("google")
+    assert "Lunch with Omar" not in titles(store, "google")
+    s.set("calendar.skip_declined", False)
+    sync.sync("google")
+    assert "Lunch with Omar" in titles(store, "google")  # not a local delete: it returns

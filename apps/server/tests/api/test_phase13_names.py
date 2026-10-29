@@ -59,9 +59,20 @@ async def test_digest_events_say_which_item_and_who(api: Api) -> None:
 
 
 async def test_habits_and_violations_label_their_targets(api: Api) -> None:
+    """Seeded: three estimate-less active items and an active policy, recomputed, so there is something to label."""
+    from datetime import UTC, datetime
+
+    from tests.api.test_acl_governance import active_item, make_policy
+
+    for n in range(3):
+        await active_item(api, f"label{n}", assignee="@sara")
+    await make_policy(api)
+    await api.call("POST", "/governance:recompute", params={"at": datetime.now(UTC).isoformat()})
     hs = (await api.call("GET", "/habits")).json()["data"]
+    assert hs, "the seeded workspace must produce habits, otherwise this test checks nothing"
     assert uuids_in_display(hs, {"subject"}) == []
     vs = (await api.call("GET", "/violations")).json()["data"]
+    assert vs, "the seeded workspace must produce violations, otherwise this test checks nothing"
     assert uuids_in_display(vs, {"target", "team", "project", "person"}) == []
 
 

@@ -61,6 +61,18 @@ The spec is silent or ambiguous in the places below. Each row records the defaul
 4. Target scale for v1 (members, items/year)? (Default budgets assume 200 members, 100 k items/year.)
 5. Is OIDC provider known (Azure AD, Google, Okta)? (Default: generic OIDC.)
 
+## Answers adopted for the open product questions (2026-10-28; the product owner can overrule any of them)
+| # | question | decision adopted | status in code |
+|---|---|---|---|
+| 0a | Kerberos | proxy-terminated (header trusted only from `TT_TRUSTED_PROXIES`); in-process GSSAPI stays out of v1 | as built (ADR-0036) |
+| 0b | External generation packs | download off, in-product (import) on | as built |
+| 0c | Share-token redaction default | `standard`; `strict` selectable per workspace (`settings.external_share_redaction`) | as built |
+| 0d | Admin override of the Inbox privacy rule | **no override in v1**: admins never see another person's Inbox (ADR-0024); an audited break-glass is a v2 candidate | as built |
+| 0e | Replay-capable event log | **not in v1**: events carry before/after summaries, not full rows; revisit if replay or audit export is requested (ADR-0040) | as built |
+| 0f | Postgres TLS / Kerberos in-process | Postgres `verify-full` supported and tested; in-process Kerberos deferred with 0a | as built |
+| 14.x | Rejected management commands | logged as `command_log` rows with status `rejected`, excluded from idempotency (ADR-0056) | see leftovers/p14 |
+| sec | `filelock` CVEs vs `litellm<4` cap | uv `override-dependencies = ["filelock>=4.2.1"]` in the root `pyproject.toml`; gateway suite passes with filelock 4.2.4; remove the override when litellm lifts the cap | done |
+
 ## Phase 15 defaults (2026-10-25)
 | # | question | default adopted | where |
 |---|---|---|---|
@@ -72,6 +84,28 @@ The spec is silent or ambiguous in the places below. Each row records the defaul
 | 15.6 | Category of the learning policy/habit | `wellbeing` (the enum has no development category; it gives subject + line manager visibility) | ADR-0055 |
 | 15.7 | Who sees the DEV project | the person, their line manager, and admins by the platform rule for private items | ADR-0055 |
 | 15.8 | Client domains for suggestions | workspace setting `calendar.client_domains` {domain: project key} | `contextpack.py` |
+
+## Phase 15 leftovers (2026-10-28, branch `leftovers/p15`)
+| # | question | default adopted | where |
+|---|---|---|---|
+| 15.9 | "Mobile shell" with no Python on the phone | an installable web app ("Mobile Lite") running the same React views on a browser-local TypeScript bridge, small stated scope, store **not encrypted**; no native iOS/Android app | ADR-0057 |
+| 15.10 | Who may a sync override | never the person: a deleted meeting stays deleted (`deleted_by`), only what the sync itself dropped may return; an expired cursor (410) means a full window pull that also drops meetings the provider no longer lists | ADR-0054 §5 |
+| 15.11 | How often the calendar list is re-read | every `calendar.refresh_hours` = 24 h (0 = only on demand) and on `tt cal refresh`; a calendar that left the list takes its unsent meetings with it | ADR-0054 §5 |
+| 15.12 | Where notification policy lives | Python (`tt_client.personal.notify`) behind the `NotificationPort`; Rust only displays. End-of-day nudge 17:30 local, workdays, once a day, only if something was done or waits; `notify.eod_time` empty = off | ADR-0058 |
+| 15.13 | Background sync in the shell | one `personal_shell_tick` sidecar call a minute (the Python `Scheduler` decides what is due); closing the window hides it to the tray | ADR-0058 |
+| 15.14 | Live-account smoke | `tools/smoke_calendar.py`, env-driven, skips with exit 0 without credentials; write steps use their own write-scope token and become SKIP (not FAIL) for a read-only one | `docs/uat/uat-personal-tracker.md` |
+| 15.15 | Where the phone's API token lives | the browser's `localStorage`, in clear, with a visible warning; use a revocable capture-scoped token; same-origin deployment (no CORS added) | ADR-0057 |
+## Phase 14 leftovers defaults (2026-10-28)
+| # | question | default adopted | where |
+|---|---|---|---|
+| 14.L1 | Should a rejected command leave a trace? | yes: a `command_log` row `rejected` + a `command.rejected` event (no arguments), excluded from idempotency so a corrected retry with the same `client_id` is evaluated | ADR-0056 §13 |
+| 14.L2 | Multi-step ops that commit per step | the unit of work is held during a command; one commit at the end | ADR-0056 §14 |
+| 14.L3 | What does Jira get when items merge? | a `Duplicate` issue link from the source to the target's issue plus a comment on the source; no transition, no delete | ADR-0050 amendment |
+| 14.L4 | Does `tt sync` fail when it only kept unconfirmed entries? | no: exit 0 and a count line; rejected commands still exit 1 | `docs/client/management-commands.md` |
+| 14.L5 | Batches over 50 commands | `sync` splits a confirmed entry into chunks of 50 on disk; the message rides with the first | `docs/client/management-commands.md` |
+| 14.L6 | Is a table-level allow-list enough for `commit_bookkeeping`? | no: row-level column guard for `api_tokens`, `people`, `jira_links`, `jira_worklogs` | ADR-0001 amendment |
+| 14.L7 | `/daily-logs` `day` vs `date` | both accepted; both given and different is `400 day_and_date_differ` | `api/routers/capture.py` |
+| 14.L8 | Gateway command golden | the scripted model replays recorded answers (12 deliberately wrong or partial), so scores are 0.917 / 0.932 and pinned | `gateway_tests/golden/command_model_outputs.yaml` |
 
 ## ADR template (`docs/decisions/ADR-NNNN-title.md`)
 ```
@@ -86,3 +120,23 @@ Date: YYYY-MM-DD   Status: proposed | accepted | superseded by ADR-MMMM
 ## Alternatives considered
 <bullets>
 ```
+
+## Hygiene defaults (2026-10-28, branch leftovers/hygiene)
+| # | Topic | Decision |
+|---|---|---|
+| H1 | Sign-in rate limit key | Per **(client address, username)** bucket at `rate_auth_per_min`, plus a coarse per-address ceiling of ten times that, so one person's typos cannot lock colleagues behind a shared NAT out and username spraying from one address is still capped. |
+| H2 | `uv` image pin | `ghcr.io/astral-sh/uv:<version>@sha256:<index digest>` in both Dockerfiles; `tests/unit/test_images.py` rejects a tag-only reference. Bump version and digest together. |
+| H3 | Review resolve undo window | 3 s (plan R1.4), one web constant `REVIEW_UNDO_MS`. |
+| H4 | Gateway money | `Decimal` from provider price to the `Numeric(18, 6)` run column; JSON responses keep numbers (no contract change). |
+| H5 | `ClientBatch.client_version` default | `"0.2"` in the spec file and the model together (ADR-0051 addendum). |
+| H6 | Roadmap slide `rows` / `zoom` | Optional; when present `rows` is one of phase / epic / milestone and `zoom` one of day / week / month / fit, else a 422 `invalid_slide` with the pointer; the renderer keeps phase / fit as defaults. |
+| H7 | Docstring coverage | Public items of `domain/` and `governance/` carry docstrings (class docstrings on Pydantic models appear as schema `description`); `tools/docstring_coverage.py`, test gate 90 %, actual 100 %. |
+
+## Server gaps (2026-10-28, branch leftovers/server-gaps; ADR-0059)
+| # | Topic | Decision |
+|---|---|---|
+| G1 | Unlinking a project from a product | `DELETE /products/{ref}/links/{project}` (`product.admin`, 204, event `product_link.removed`); removing a delivering link drops the inherited `product` classifications of the project and its items, manual ones stay. |
+| G2 | Cross-project item move | Not allowed: 400 `cross_project_move`. Keys, workflow states, iterations and capture rows are per project and re-keying would break external references; `item.merge` with `allow_cross_project` is the supported route. |
+| G3 | `external_packs` | `external_packs: bool` in `PATCH/GET /settings` (admin), default off, one `workspace.settings_changed` event. |
+| G4 | Epic under epic | `allow_same_level_nesting: bool` in `PATCH/GET /settings` (admin), default off. |
+

@@ -114,6 +114,8 @@ async def me(actor: CurrentActor, uow: Uow) -> dict[str, Any]:
 class SettingsPatch(BaseModel):
     external_share: bool | None = None
     external_share_redaction: str | None = Field(default=None, pattern="^(standard|strict)$")
+    external_packs: bool | None = None
+    allow_same_level_nesting: bool | None = None
 
 
 @router.get("/settings", dependencies=[needs("workspace.admin")])
@@ -123,7 +125,7 @@ async def get_settings(actor: CurrentActor) -> dict[str, Any]:
 
 @router.patch("/settings", dependencies=[needs("workspace.admin")])
 async def patch_settings(body: SettingsPatch, actor: CurrentActor, uow: Uow) -> dict[str, Any]:
-    """Admin-only workspace switches the console needs (external sharing). One event per change."""
+    """Admin-only workspace switches the console needs (external sharing, generation packs, same-level nesting). One event per change."""
     view, changed = await svc.update_settings(
         uow, actor.ws.id, actor.person.id, body.model_dump(exclude_none=True)
     )

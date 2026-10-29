@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-const API = "http://localhost:8010/api/v1/w/acme";
+import { API, ORIGIN } from "./api";
 
 async function deck(request: import("@playwright/test").APIRequestContext, title: string) {
   const r = await request.post(`${API}/presentations`, {
@@ -53,7 +52,7 @@ test("R1.2 the builder preview renders the selected slide", async ({ page, reque
 });
 
 test("R1.2 a share link page cannot be framed by anyone", async ({ request }) => {
-  const r = await request.get("http://localhost:8010/p/t/not-a-real-token");
+  const r = await request.get(`${ORIGIN}/p/t/not-a-real-token`);
   if (r.status() === 200)
     expect(r.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
 });
@@ -91,7 +90,7 @@ test("R1.6 sharing is explained when it is off, and an admin can switch it on", 
   await page.getByRole("button", { name: "Turn it on" }).click();
   await expect(btn).toBeEnabled();
   await btn.click();
-  await expect(page.getByText(/Link: /)).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Share link" })).toHaveValue(/\/p\/t\//);
 });
 
 test.describe("R1.5 a contributor", () => {

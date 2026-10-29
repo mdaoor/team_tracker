@@ -12,6 +12,7 @@ from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any
 
+from tt_client.integrations.sync import calendar_overview
 from tt_client.personal.model import Category
 from tt_client.personal.send import NeedsProject, NotSendable
 from tt_client.personal.service import Tracker, TrackerError
@@ -99,6 +100,13 @@ COMMANDS: dict[str, Handler] = {
     "personal_settings": lambda t, p, _a: t.settings.all(),
     "personal_setting_set": lambda t, p, _a: _setting(t, p),
     "personal_cal_sync": lambda t, p, a: _cal_sync(t, p),
+    "personal_cal_settings": lambda t, p, _a: calendar_overview(t.store),
+    "personal_cal_exclude": lambda t, p, _a: _cal_prefs(t, p),
+    "personal_cal_suppress": lambda t, p, _a: _cal_suppress(t, p),
+    "personal_cal_refresh": lambda t, p, _a: _cal_refresh(t, p),
+    "personal_cal_tick": lambda t, p, _a: _cal_tick(t),
+    "personal_notify": lambda t, p, _a: _notify(t),
+    "personal_shell_tick": lambda t, p, _a: _shell_tick(t),
 }
 
 
@@ -132,13 +140,70 @@ def _notifications(t: Tracker) -> dict[str, Any]:
     return {"entries": [e.as_dict() for e in fresh]}
 
 
-def _cal_sync(t: Tracker, p: dict[str, Any]) -> dict[str, Any]:
+def _cal_providers(t: Tracker) -> dict[str, Any]:
     from tt_client.integrations.factory import build_providers
 
     cfg = t.env.extra.get("cfg")
     provs = build_providers(cfg.extra.get("calendar", {}), t.env.secrets) if cfg else {}
     if not provs:
         raise TrackerError("no calendar configured")
+    return provs
+
+
+def _cal_prefs(t: Tracker, p: dict[str, Any]) -> dict[str, Any]:
+    """`{calendar, excluded: bool}`: switch one calendar off or on; answers the new overview."""
+    sync = t.calendar({})
+    out = sync.exclude(p["calendar"]) if p.get("excluded", True) else sync.include(p["calendar"])
+    return {**calendar_overview(t.store), "changed": out}
+
+
+def _cal_suppress(t: Tracker, p: dict[str, Any]) -> dict[str, Any]:
+    t.settings.suppress(p["kind"], p["value"], remove=bool(p.get("remove")))
+    return calendar_overview(t.store)
+
+
+def _cal_refresh(t: Tracker, p: dict[str, Any]) -> dict[str, Any]:
+    sync = t.calendar(_cal_providers(t))
+    names = [p["provider"]] if p.get("provider") else list(sync.providers)
+    return {"refreshed": [sync.refresh_calendars(n) for n in names], **calendar_overview(t.store)}
+
+
+def _cal_tick(t: Tracker) -> dict[str, Any]:
+    """What the shell's background loop calls about once a minute: sync every connected calendar that is *due* (first sync, poll
+    interval, wake, rate-limit wait-out). Quiet when no calendar is configured; the answer lists only the syncs that ran."""
+    try:
+        provs = _cal_providers(t)
+    except TrackerError:
+        return {"configured": False, "reports": []}
+    from tt_client.integrations.sync import Scheduler
+
+    sched = Scheduler(t.calendar(provs), t.env.clock)
+    return {
+        "configured": True,
+        "reports": [{**r.as_dict(), "why": why} for _name, why, r in sched.tick()],
+    }
+
+
+def _notify(t: Tracker) -> dict[str, Any]:
+    from tt_client.personal.notify import CollectingNotifier, notify_due
+
+    port = CollectingNotifier()
+    notify_due(t, port)
+    return {"notifications": port.as_dicts()}
+
+
+def _shell_tick(t: Tracker) -> dict[str, Any]:
+    """The desktop shell's whole background step in ONE sidecar call (the frozen binary pays its start-up cost per process):
+    due calendar syncs, OS notifications not yet shown, and the running timer for the tray line."""
+    return {
+        "calendar": _cal_tick(t),
+        "notifications": _notify(t)["notifications"],
+        "timer": t.timer_status(),
+    }
+
+
+def _cal_sync(t: Tracker, p: dict[str, Any]) -> dict[str, Any]:
+    provs = _cal_providers(t)
     sync = t.calendar(provs)
     return {
         "reports": [

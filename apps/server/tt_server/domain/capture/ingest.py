@@ -73,6 +73,7 @@ class MessageResult:
     jira: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
+        """The per-message result as the JSON the client reads (matched by `client_id`)."""
         return {
             "client_id": self.client_id,
             "status": self.status,

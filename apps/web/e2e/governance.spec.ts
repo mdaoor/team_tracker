@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-const API = "http://localhost:8010/api/v1/w/acme";
+import { API } from "./api";
 
 test("a manager creates a template policy, dry-runs it, activates it and waives a hit", async ({
   page,
@@ -84,7 +83,12 @@ test("the thin editors: scope, filter, notify, automatic action are saved with t
   expect(p.scope_id).toBeTruthy();
   expect(p.notify.reporting_line).toContain("senior");
   expect(p.auto_action).toEqual({ set: { priority: "high" } });
-  await page.getByLabel("Grace period (e.g. 2d)").fill("2d");
+  // the detail form loads the saved policy after the redirect: type only once it has, or the load would overwrite the edit
+  const grace = page.getByLabel("Grace period (e.g. 2d)");
+  await expect(grace).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await grace.fill("2d");
+  await expect(grace).toHaveValue("2d");
   await page.getByRole("button", { name: "Save changes" }).click();
   const history = page.getByRole("list", { name: "Version history" });
   await expect(history.getByRole("listitem")).toHaveCount(2);
@@ -93,11 +97,35 @@ test("the thin editors: scope, filter, notify, automatic action are saved with t
   await expect(page.getByText(/Restored/)).toBeVisible();
 });
 
+test("typing in the policy form is not overwritten when the saved policy or the templates arrive late", async ({
+  page,
+  request,
+}) => {
+  const key = `e2e_late_${Math.random().toString(36).slice(2, 6)}`;
+  const made = await request.post(`${API}/policies`, {
+    data: { key, name: "Late templates", template: "stuck_in_stage", params: { days: 5 } },
+  });
+  expect(made.ok(), await made.text()).toBeTruthy();
+  // the form used to render empty and fill itself in when the policy (and later the template list) arrived, overwriting the typing
+  const slow = (ms: number) => async (route: import("@playwright/test").Route) => {
+    await new Promise((r) => setTimeout(r, ms));
+    await route.continue();
+  };
+  await page.route(`**/policies/${key}`, slow(1200));
+  await page.route("**/policy-templates", slow(1500));
+  await page.goto(`/w/acme/policies/${key}`);
+  const grace = page.getByLabel("Grace period (e.g. 2d)");
+  await expect(grace).toBeVisible();
+  await grace.fill("4d");
+  await page.waitForTimeout(2500);
+  await expect(grace).toHaveValue("4d");
+});
+
 test("every governance report can be added to a presentation", async ({ page }) => {
   for (const path of ["violations", "habits", "performance", "insights", "digest", "weights"]) {
     await page.goto(`/w/acme/${path}`);
     await page.getByRole("button", { name: "Add to presentation" }).click();
-    await page.getByRole("menuitem", { name: /New presentation/ }).click();
+    await page.getByRole("menuitem", { name: /^＋ New presentation/ }).click();
     await expect(page.getByText("Added to presentation")).toBeVisible();
   }
 });

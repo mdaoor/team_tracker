@@ -13,6 +13,7 @@ from tt_llm import prompts
 from tt_llm.config import GatewayConfig
 from tt_llm.core_client import CoreClient
 from tt_llm.guards import SYSTEM_GUARD
+from tt_llm.money import to_scale
 from tt_llm.routing import Router
 from tt_llm.schemas import TaskRequest, TaskResponse
 from tt_llm.storage import Run, Storage
@@ -45,4 +46,4 @@ def system_prompt(deps: Deps, task: str, **slots: str) -> str:
 
 
 def respond(run: Run, **kw: Any) -> TaskResponse:
-    return TaskResponse(run_id=run.id, model=run.model, cost_usd=round(run.cost_usd, 6), **kw)
+    return TaskResponse(run_id=run.id, model=run.model, cost_usd=to_scale(run.cost_usd), **kw)

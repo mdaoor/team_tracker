@@ -115,9 +115,7 @@ class ClientBatch(_Client):
 
     workspace: str
     messages: list[ClientMessage]
-    client_version: str = (
-        "0.1"  # spec default (parity); clients that know commands send CLIENT_SCHEMA_VERSION
-    )
+    client_version: str = "0.2"  # = CLIENT_SCHEMA_MINOR; the spec default moved with it (ADR-0051 addendum); 0.1 is still accepted
     commands: list[ClientCommand] = Field(
         default_factory=list, max_length=50
     )  # ADR-0051; more than 50 go through POST /commands in chunks: schema addition, backwards compatible

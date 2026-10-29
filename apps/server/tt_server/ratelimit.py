@@ -7,9 +7,12 @@ Behind several replicas the effective limit is `limit x replicas`, which is acce
 from __future__ import annotations
 
 import hashlib
+import json
 import time
 from collections import deque
 from collections.abc import Callable
+
+from starlette.requests import Request
 
 from tt_server.sso import trusted_peer
 
@@ -48,6 +51,26 @@ def credential_key(
         if raw:
             return tag + hashlib.sha256(raw.encode()).hexdigest()[:20]
     return "anon"
+
+
+def signin_key(client: str | None, username: str | None) -> str:
+    """The sign-in bucket: (client address, username) so one person's typos cannot lock colleagues behind the same NAT out;
+    requests without a username in the body fall back to the address alone."""
+    if not username:
+        return credential_key(None, None, None, client)
+    return "u" + hashlib.sha256(f"{client or ''}|{username.strip().lower()}".encode()).hexdigest()[:20]
+
+
+async def signin_username(request: Request) -> str | None:
+    """The `username` of a JSON sign-in body, or None (other content types or a malformed body)."""
+    if not request.headers.get("content-type", "").startswith("application/json"):
+        return None
+    try:
+        body = json.loads(await request.body())
+    except ValueError:
+        return None
+    user = body.get("username") if isinstance(body, dict) else None
+    return user if isinstance(user, str) and user else None
 
 
 def client_ip(settings: object, peer: str | None, forwarded_for: str | None) -> str | None:

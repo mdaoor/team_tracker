@@ -73,7 +73,7 @@ def test_batch_schema() -> None:
     schema = client_message_json_schema(batch=True)
     Draft202012Validator(schema).validate({"workspace": "acme", "messages": SAMPLES})
     batch = ClientBatch.model_validate({"workspace": "acme", "messages": SAMPLES})
-    assert batch.client_version == "0.1" and len(batch.messages) == 3
+    assert batch.client_version == "0.2" and len(batch.messages) == 3
     assert isinstance(batch.messages[0].at, datetime) and batch.messages[0].at.tzinfo is not None
     assert batch.messages[0].at.astimezone(UTC).hour == 6
 
@@ -144,7 +144,7 @@ def test_the_generated_json_schema_lists_the_new_fields_without_refs() -> None:
     assert "calendar:microsoft" in json.dumps(props["source"])
 
 
-def test_schema_minor_is_declared_and_the_default_stays_backwards_compatible() -> None:
+def test_schema_minor_is_declared_and_is_the_default() -> None:
     from tt_schema import CLIENT_SCHEMA_MINOR
 
-    assert CLIENT_SCHEMA_MINOR == "0.2" and ClientBatch(workspace="w", messages=[]).client_version == "0.1"
+    assert CLIENT_SCHEMA_MINOR == "0.2" and ClientBatch(workspace="w", messages=[]).client_version == "0.2"

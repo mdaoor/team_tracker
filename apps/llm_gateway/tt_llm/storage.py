@@ -12,6 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
+from tt_llm.money import dec, to_scale
+
 
 @dataclass
 class Step:
@@ -32,11 +34,14 @@ class Run:
     model_alias: str
     status: str = "running"
     model: str | None = None
-    cost_usd: float = 0.0
+    cost_usd: Decimal = Decimal(0)
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     ended_at: datetime | None = None
     steps: list[Step] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.cost_usd = dec(self.cost_usd)  # callers may still hand in a float
 
 
 class Storage(Protocol):
@@ -136,7 +141,7 @@ class SqlStorage:
             "model_alias": run.model_alias,
             "model": run.model,
             "status": run.status,
-            "cost_usd": run.cost_usd,
+            "cost_usd": to_scale(run.cost_usd),
             "started_at": run.started_at,
             "ended_at": run.ended_at,
             "meta": run.meta,
@@ -182,7 +187,7 @@ class SqlStorage:
             model_alias=r["model_alias"],
             status=r["status"],
             model=r["model"],
-            cost_usd=float(r["cost_usd"]),
+            cost_usd=dec(r["cost_usd"]),
             started_at=r["started_at"],
             ended_at=r["ended_at"],
             meta=r["meta"],
@@ -227,6 +232,4 @@ class SqlStorage:
             return res.first() is not None
 
 
-def _dec(v: Decimal | float | str) -> Decimal:
-    """Money is Decimal: floats from providers are converted through their shortest repr, never summed as binary floats."""
-    return v if isinstance(v, Decimal) else Decimal(str(v))
+_dec = dec

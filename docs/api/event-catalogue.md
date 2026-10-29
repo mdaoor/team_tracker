@@ -76,6 +76,7 @@ event_types:
   - dailylog.confirmed
   - dailylog.reviewed
   - dailylog.summarised
+  - command.rejected  # Phase 14: one per refused management command (op, client_id, error codes; no arguments); carries the audit CommandLog row
   - command.applied  # Phase 14: one per applied management command (op, client_id); carries the idempotency CommandLog row
   # overlay
   - dimension.*

@@ -85,9 +85,16 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | P14 | `item.merge` / `item.split` services, direct `POST /items:merge`, merge property test | 14 | `tests/api/test_commands.py` (merge, split, property), `domain/items/merge.py`, ADR‑0050 |
 | P14 | ContextPack role context, `GET /activities?team=mine`, `GET /me` role modes | 14 | `tests/api/test_commands.py::test_context_pack_carries_role_context_and_team_now` |
 | P14 | Role presets (scrum master, coach, project manager) and the role × op authorisation matrix | 14 | `tests/api/test_commands.py` (matrix, scrum master, coach, forged capture token) |
+| P14 (leftovers) | Real role × op matrix: 6 roles × 51 ops on existing objects, equal to `ROLES` and to the pinned table | 14 | `tests/api/test_commands_matrix.py`, `tests/api/commands_world.py`; ACL: `acl/context.py` (project_manager), `acl/visibility.py` (coach habits) |
+| P14 (leftovers) | Per-op event-type snapshot and parity with the web-console endpoints | 14 | `tests/api/test_commands_events.py`, `tests/api/test_commands_console_parity.py` |
+| P14 (leftovers) | One transaction per command (mid-way failure leaves nothing), `correlation_id` on command events, scope fixes (`classify`, `risk.*`) | 14 | `tests/api/test_commands_atomic.py`, `tests/api/test_commands_scope.py`; ADR‑0056 §14–17 |
+| P14 (leftovers) | Rejected commands audited, excluded from idempotency | 14 | `tests/api/test_commands_rejected_log.py`; ADR‑0056 §13 |
+| P14 (leftovers) | Jira projection of `item.merged` | 14, 10 | `tests/api/test_jira_merge.py` (fake Jira); ADR‑0050 amendment |
+| P14 (leftovers) | Outbox chunks of ≤ 50 commands; `tt sync` exit status for unconfirmed entries | 14 | `packages/client_core/tests/test_outbox_chunks.py`, `apps/cli/tests/test_commands_cli.py::test_sync_with_only_unconfirmed_entries_exits_zero_and_prints_how_many_were_kept` |
+| P14 (leftovers) | `commit_bookkeeping` row-level guard | 1 | `tests/unit/test_commit_allowlist.py`; ADR‑0001 amendment |
 | Product req. (P14) | The client app serves employees and managers: role modes, assisted and manual management commands | P14 | `docs/client/management-commands.md`; `packages/client_core/tests/test_commands.py`, `test_sidecar_commands.py`; `apps/cli/tests/test_commands_cli.py` |
 | P14 §1 | `ClientCommand`, `ClientBatch.commands`, schema 0.2 | 14 | `packages/schema/tests/test_parity.py`; ADR‑0051 |
-| P14 §4 | Gateway `/v1/translate/command`, `/v1/agent/command`: catalogue-constrained, golden ≥ 80 lines | 14 | `apps/llm_gateway/gateway_tests/test_translate_command.py` (84 lines, op ≥ 0.85, args ≥ 0.90), `test_real_model_golden.py` (opt-in) |
+| P14 §4 | Gateway `/v1/translate/command`, `/v1/agent/command`: catalogue-constrained, golden ≥ 80 lines | 14 | `apps/llm_gateway/gateway_tests/test_translate_command.py` (84 lines answered by recorded model outputs, 12 wrong on purpose: op 0.917, args 0.932, pinned), `test_real_model_golden.py` (opt-in) |
 | P14 §5 | Catalogue cache, forms from schema, role lens, previews, confirmation policy, `on_behalf_of` | 14 | `packages/client_core/tests/test_commands.py` (every catalogue op → valid form → valid command; role matrix; `--yes`/`--force`) |
 | P14 §6 | CLI `tt role / do / cmd / preview / send / queue / team now / approve / waive / ops` | 14 | `apps/cli/tests/test_commands_cli.py` (e2e `tt do "merge WEB-101 and WEB-105"` → preview → confirm → sent) |
 | P14 §7 | Desktop role switch, chips, command card, forms, queue, team now; Slack `/tt do`, modals, approval and waive buttons | 14 | `apps/desktop/src/palette/commands/commands.test.tsx` (16, axe), `apps/slack_bot/slack_tests/test_slack_commands.py` (13) |
@@ -105,3 +112,5 @@ Keep this current. "Proof" names the test module (fill in as tests are written).
 | P15 §15.5 | CLI commands, desktop views through the sidecar | 15 | `apps/cli/tests/test_personal_cli.py`, `test_personal_bridge.py` + `contract.json` |
 | P15 §15.6 | Privacy: first run, toggles, audit, unsend, erase, tokens never in outbox/logs | 15 | `test_personal_tracker.py::test_tokens_never_*`, desktop privacy tests |
 | P2 §2.2 / P15 | Gateway translate variant for personal lines (local only, sends nothing) | 15 | `apps/llm_gateway/gateway_tests/test_translate_personal.py` |
+| P3 §3.x / P1 §1.2 | Unlink a project from a product; same-project item moves; `external_packs` and `allow_same_level_nesting` workspace switches | 3, 1, 7 | `apps/server/tests/api/test_server_gaps.py`, `apps/web/e2e/setup-editors.spec.ts`, ADR-0059 |
+

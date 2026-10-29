@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import * as govApi from "../../api/governance";
 import type {
@@ -177,16 +177,35 @@ function PolicyForm({ existing }: { existing?: string }) {
     [tpl, stages],
   );
 
+  // Fill the form from the saved policy once per saved definition. The effect used to depend on the policy *object* and on
+  // the template list, so the list arriving a moment after the policy (or a dry run touching `last_tested_at`) reset every field
+  // and threw away what the person was typing.
+  const loaded = useRef("");
+  const definition = policy
+    ? JSON.stringify([
+        policy.id,
+        policy.name,
+        policy.severity,
+        policy.grace_period,
+        policy.condition_cel,
+        policy.condition_template_id,
+        policy.template_params,
+        policy.auto_action,
+        policy.notify,
+        policy.scope_type,
+        policy.scope_ref ?? policy.scope_id,
+        policy.candidate_filter,
+      ])
+    : "";
   useEffect(() => {
-    if (!policy) return;
+    if (!policy || loaded.current === definition) return;
+    loaded.current = definition;
     setName(policy.name);
     setKey(policy.key);
     setSev(policy.severity);
     setGrace(policy.grace_period ?? "");
     setCel(policy.condition_cel);
     setMode(policy.condition_template_id ? "template" : "cel");
-    const t = (templates.data ?? []).find((x) => x.id === policy.condition_template_id);
-    if (t) setTplKey(t.key);
     setValues(
       Object.fromEntries(
         Object.entries(policy.template_params ?? {}).map(([k, v]) => [k, String(v)]),
@@ -199,7 +218,14 @@ function PolicyForm({ existing }: { existing?: string }) {
       id: policy.scope_ref ?? policy.scope_id ?? "",
     });
     setChips(chipsFromFilter(policy.candidate_filter, chipId) as Chip[]);
-  }, [policy, templates.data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `definition` is the content of `policy`; the form must not reset on a new object
+  }, [definition]);
+  // the template's key comes from the template list, which may load after the policy
+  useEffect(() => {
+    if (!policy?.condition_template_id) return;
+    const t = (templates.data ?? []).find((x) => x.id === policy.condition_template_id);
+    if (t) setTplKey((k) => k || t.key);
+  }, [policy?.condition_template_id, templates.data]);
 
   // debounce 400 ms → /policies:check (Phase 9: inline errors within 1 s of typing)
   const checkBody =
@@ -317,6 +343,10 @@ function PolicyForm({ existing }: { existing?: string }) {
   const gate = policy ? canActivate(policy, admin) : "no";
   const sample = (run?.sample_target_ids ?? []) as string[];
   const canWrite = !!can["policy.write"];
+
+  // an existing policy is shown once it has loaded: a form that fills in later would overwrite what was already typed
+  if (existing && !policy)
+    return cur.error ? <p role="alert">{(cur.error as Error).message}</p> : <p>Loading…</p>;
 
   return (
     <div className="gov policy-form">

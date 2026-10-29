@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, dayLong, hm, ymd } from "./format";
 import type { RowActions } from "./ItemRow";
+import { CalendarSettingsDialog } from "./CalendarSettings";
 import { Month } from "./Month";
 import { QuickAdd } from "./QuickAdd";
 import { EndOfDayCard, WeeklyReviewCard } from "./Reviews";
@@ -27,6 +28,7 @@ type DialogState =
   | { kind: "weekly"; data: WeeklyReview }
   | { kind: "recur" }
   | { kind: "privacy" }
+  | { kind: "calendars" }
   | { kind: "help" }
   | null;
 
@@ -369,6 +371,12 @@ export function PersonalApp({
           </button>
           <button
             type="button"
+            onClick={() => setDialog({ kind: "calendars" })}
+          >
+            Calendars
+          </button>
+          <button
+            type="button"
             onClick={() => setDialog({ kind: "help" })}
             aria-label="Keyboard shortcuts"
           >
@@ -517,6 +525,14 @@ export function PersonalApp({
           bridge={bridge}
           onClose={() => setDialog(null)}
           onSaved={setPrivacy}
+          announce={announce}
+        />
+      ) : null}
+      {dialog?.kind === "calendars" ? (
+        <CalendarSettingsDialog
+          bridge={bridge}
+          onClose={() => setDialog(null)}
+          onChanged={() => void load()}
           announce={announce}
         />
       ) : null}

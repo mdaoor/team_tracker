@@ -473,7 +473,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Daily Logs */
+        /**
+         * List Daily Logs
+         * @description One person's daily logs, optionally for one day (`day`, or `date` as the other list endpoints name it).
+         */
         get: operations["list_daily_logs_api_v1_w__ws__daily_logs_get"];
         put?: never;
         post?: never;
@@ -2720,6 +2723,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/w/{ws}/products/{ref}/links/{project}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink Product Project
+         * @description Remove the link between a product and a project (any role); moving a project is unlink + link.
+         */
+        delete: operations["unlink_product_project_api_v1_w__ws__products__ref__links__project__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/w/{ws}/products/{ref}/priority": {
         parameters: {
             query?: never;
@@ -3478,7 +3501,7 @@ export interface paths {
         head?: never;
         /**
          * Patch Settings
-         * @description Admin-only workspace switches the console needs (external sharing). One event per change.
+         * @description Admin-only workspace switches the console needs (external sharing, generation packs, same-level nesting). One event per change.
          */
         patch: operations["patch_settings_api_v1_w__ws__settings_patch"];
         trace?: never;
@@ -4398,7 +4421,10 @@ export interface components {
             comment?: string | null;
             decision: components["schemas"]["Decision"];
         };
-        /** DeliverableIn */
+        /**
+         * DeliverableIn
+         * @description Input shape of a deliverable inside a submitted plan.
+         */
         DeliverableIn: {
             /** Depends On */
             depends_on?: string[];
@@ -4942,7 +4968,10 @@ export interface components {
             /** Weight Scheme Id */
             weight_scheme_id?: string | null;
         };
-        /** PhaseIn */
+        /**
+         * PhaseIn
+         * @description Input shape of a plan phase with its deliverables.
+         */
         PhaseIn: {
             /** Deliverables */
             deliverables?: components["schemas"]["DeliverableIn"][];
@@ -4953,7 +4982,10 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** PlanIn */
+        /**
+         * PlanIn
+         * @description Input shape of a whole plan: phases and milestones.
+         */
         PlanIn: {
             /** Milestones */
             milestones?: components["schemas"]["tt_server__domain__plan__service__MilestoneIn"][];
@@ -5379,6 +5411,10 @@ export interface components {
         };
         /** SettingsPatch */
         SettingsPatch: {
+            /** Allow Same Level Nesting */
+            allow_same_level_nesting?: boolean | null;
+            /** External Packs */
+            external_packs?: boolean | null;
             /** External Share */
             external_share?: boolean | null;
             /** External Share Redaction */
@@ -5395,7 +5431,10 @@ export interface components {
             position?: number | null;
             slide: components["schemas"]["SlideIn"];
         };
-        /** SlideIn */
+        /**
+         * SlideIn
+         * @description Input shape of one slide in a presentation (kind, titles, config).
+         */
         SlideIn: {
             /** Config */
             config?: {
@@ -5924,7 +5963,10 @@ export interface components {
             /** Time Zone */
             time_zone?: string | null;
         };
-        /** MilestoneIn */
+        /**
+         * MilestoneIn
+         * @description Input shape of a plan milestone.
+         */
         tt_server__domain__plan__service__MilestoneIn: {
             /** Description */
             description?: string | null;
@@ -7108,6 +7150,8 @@ export interface operations {
         parameters: {
             query?: {
                 day?: string | null;
+                /** @description same as `day` */
+                date?: string | null;
                 person?: string | null;
             };
             header?: {
@@ -12940,6 +12984,40 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_product_project_api_v1_w__ws__products__ref__links__project__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-debug-actor"?: string | null;
+            };
+            path: {
+                ref: string;
+                project: string;
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

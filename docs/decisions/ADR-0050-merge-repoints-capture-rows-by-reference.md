@@ -19,3 +19,16 @@ agree by construction. Cross-project merges need `allow_cross_project` and `proj
 Total minutes and evidence count are invariant under merge (property test). History is reconstructable from `item.merged` plus the
 unchanged rows. The Jira projection sees the source issues as deleted locally; pushing a "merged into" comment to Jira is left to the
 Phase 10 projection when it is enabled for the project (open: not done automatically in this phase).
+
+## Amendment (PR #11 review M6): the Jira projection announces a merge
+When the source item's project has the Jira projection enabled and the source has an issue, the `jira.on_event` job reacting to the
+source's `item.merged` event (`payload.after.merged_into`) does two things, in this order: (1) it first pushes the target if it is
+opted in and has no issue yet, then links the source issue to the target's with an issue link of type `Duplicate` (the source
+"duplicates" the target; configurable per project as `jira.merge_link_type`); (2) it comments on the source issue: *"Team Tracker:
+WEB-105 was merged into WEB-101 (PROJ-7). Its time and evidence now live on WEB-101."* It does **not** transition or close the source
+issue (that is a workflow decision for the Jira owners) and it never deletes anything. If the target has no issue (not opted in) only
+the comment is posted, naming the Team Tracker key. If the link type does not exist in that Jira the comment is still posted and the
+sync log row records `link_error`. Idempotent: a successful `merge` row in `jira_sync_log` for the source marks it announced, so a
+job retry or a replayed event posts nothing twice; a Jira outage (`JiraUnavailable`) is retried by the task's backoff with nothing
+logged, a permanent `JiraError` is logged as a failed `merge` row. Projects without the projection, sources without an issue and
+instances without a connection are skipped. Tested with the fake Jira (`tests/api/test_jira_merge.py`).

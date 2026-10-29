@@ -57,7 +57,7 @@ def google_handler(state: dict[str, Any]) -> Callable[[httpx.Request], httpx.Res
         ):
             return json_response({"error": {"code": 401, "message": "Invalid Credentials"}}, 401)
         if url.path.endswith("/users/me/calendarList"):
-            return json_response(load("google/calendar_list.json"))
+            return json_response(state.get("calendar_list") or load("google/calendar_list.json"))
         if "/calendars/" in url.path and url.path.endswith("/events"):
             cal = unquote(url.path.split("/calendars/")[1].rsplit("/events", 1)[0])
             if state.get("rate_limit"):
@@ -96,6 +96,16 @@ def microsoft_handler(state: dict[str, Any]) -> Callable[[httpx.Request], httpx.
                     }
                 )
             if "deltatoken" in p.query:
+                if state.pop("delta_gone", False):  # Graph: the delta token aged out
+                    return json_response(
+                        {
+                            "error": {
+                                "code": "syncStateNotFound",
+                                "message": "The sync state generation is not found.",
+                            }
+                        },
+                        410,
+                    )
                 return json_response(load("microsoft/delta_incremental.json"))
             if "skiptoken" in p.query:
                 return json_response(load("microsoft/delta_page2.json"))

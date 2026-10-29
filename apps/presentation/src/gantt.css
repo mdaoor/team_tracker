@@ -95,3 +95,29 @@
   stroke: var(--crit, #c33);
   stroke-width: 1.5;
 }
+.legend .rm-bar-key {
+  background: var(--s2, #468);
+}
+.legend .rm-done-key {
+  background: var(--s2, #468);
+  box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.55);
+}
+.legend .rm-ms-key {
+  background: var(--s4, #a6c);
+  transform: rotate(45deg) scale(0.8);
+}
+.legend .rm-today-key {
+  background: var(--crit, #c33);
+  width: 2px;
+}
+.gantt-slide .rm-svg {
+  display: block;
+  width: 100%;
+  max-width: 900px;
+}
+.gantt-slide {
+  margin: 0;
+}
+.gantt-slide .legend {
+  margin-bottom: 12px; /* page mode keeps the prototype's section height, so the page diff stays near 0 */
+}

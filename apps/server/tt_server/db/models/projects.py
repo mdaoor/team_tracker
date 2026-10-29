@@ -9,11 +9,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
-from tt_schema.base import utcnow
 from tt_schema.enums import (
-    ApprovalPolicy,
-    ApprovalStatus,
-    Decision,
     EstimationUnit,
     ItemTypeKey,
     IterationState,
@@ -23,11 +19,7 @@ from tt_schema.enums import (
     ProjectRole,
     ProjectStatus,
     ReleaseState,
-    RiskCategory,
-    RiskResponse,
-    RiskStatus,
     StateCategory,
-    TargetType,
     Visibility,
 )
 
@@ -259,160 +251,3 @@ class Release(RowBase):
         nullable=False,
         default=ReleaseState.UNRELEASED,
     )
-
-
-class Risk(RowBase):
-    __tablename__ = "risks"
-    project_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("projects.id"), nullable=False)
-    key: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    title: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    owner_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=False)
-    target_type: Mapped[TargetType] = mapped_column(
-        sa.Enum(
-            TargetType,
-            native_enum=False,
-            length=32,
-            validate_strings=True,
-            create_constraint=False,
-            values_callable=_values,
-        ),
-        nullable=False,
-        default=TargetType.PROJECT,
-    )
-    target_id: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
-    description: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
-    category: Mapped[RiskCategory] = mapped_column(
-        sa.Enum(
-            RiskCategory,
-            native_enum=False,
-            length=32,
-            validate_strings=True,
-            create_constraint=False,
-            values_callable=_values,
-        ),
-        nullable=False,
-        default=RiskCategory.TECHNICAL,
-    )
-    probability: Mapped[int] = mapped_column(sa.Integer(), nullable=False, default=3)
-    impact: Mapped[int] = mapped_column(sa.Integer(), nullable=False, default=3)
-    status: Mapped[RiskStatus] = mapped_column(
-        sa.Enum(
-            RiskStatus,
-            native_enum=False,
-            length=32,
-            validate_strings=True,
-            create_constraint=False,
-            values_callable=_values,
-        ),
-        nullable=False,
-        default=RiskStatus.IDENTIFIED,
-    )
-    trigger: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
-    response_strategy: Mapped[RiskResponse] = mapped_column(
-        sa.Enum(
-            RiskResponse,
-            native_enum=False,
-            length=32,
-            validate_strings=True,
-            create_constraint=False,
-            values_callable=_values,
-        ),
-        nullable=False,
-        default=RiskResponse.MITIGATE,
-    )
-    review_date: Mapped[date | None] = mapped_column(sa.Date(), nullable=True)
-    __table_args__ = (sa.UniqueConstraint("project_id", "key"),)
-
-
-class RiskLink(RowBase):
-    __tablename__ = "risk_links"
-    risk_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("risks.id"), nullable=False)
-    work_item_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("work_items.id"), nullable=False)
-    inherited: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=False)
-
-
-class RiskAction(RowBase):
-    __tablename__ = "risk_actions"
-    risk_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("risks.id"), nullable=False)
-    description: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    work_item_id: Mapped[str | None] = mapped_column(sa.Text(), sa.ForeignKey("work_items.id"), nullable=True)
-    due_date: Mapped[date | None] = mapped_column(sa.Date(), nullable=True)
-    status: Mapped[str] = mapped_column(sa.Text(), nullable=False, default="open")
-
-
-class Approval(RowBase):
-    __tablename__ = "approvals"
-    project_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("projects.id"), nullable=False)
-    target_type: Mapped[TargetType] = mapped_column(
-        sa.Enum(
-            TargetType,
-            native_enum=False,
-            length=32,
-            validate_strings=True,
-            create_constraint=False,
-            values_callable=_values,
-        ),
-        nullable=False,
-    )
-    target_id: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    title: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    requested_by: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=False)
-    policy: Mapped[ApprovalPolicy] = mapped_column(
-        sa.Enum(
-            ApprovalPolicy,
-            native_enum=False,
-            length=32,
-            validate_strings=True,
-            create_constraint=False,
-            values_callable=_values,
-        ),
-        nullable=False,
-        default=ApprovalPolicy.ANY_ONE,
-    )
-    quorum_n: Mapped[int | None] = mapped_column(sa.Integer(), nullable=True)
-    status: Mapped[ApprovalStatus] = mapped_column(
-        sa.Enum(
-            ApprovalStatus,
-            native_enum=False,
-            length=32,
-            validate_strings=True,
-            create_constraint=False,
-            values_callable=_values,
-        ),
-        nullable=False,
-        default=ApprovalStatus.PENDING,
-    )
-    requested_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, default=utcnow)
-    resolved_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
-
-
-class ApprovalDecision(RowBase):
-    __tablename__ = "approval_decisions"
-    approval_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("approvals.id"), nullable=False)
-    approver_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("people.id"), nullable=False)
-    decision: Mapped[Decision] = mapped_column(
-        sa.Enum(
-            Decision,
-            native_enum=False,
-            length=32,
-            validate_strings=True,
-            create_constraint=False,
-            values_callable=_values,
-        ),
-        nullable=False,
-        default=Decision.PENDING,
-    )
-    comment: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
-    decided_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
-
-
-class RecurrenceRule(RowBase):
-    __tablename__ = "recurrence_rules"
-    project_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("projects.id"), nullable=False)
-    template_item_id: Mapped[str] = mapped_column(sa.Text(), sa.ForeignKey("work_items.id"), nullable=False)
-    rrule: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    time_zone: Mapped[str] = mapped_column(sa.Text(), nullable=False, default="UTC")
-    assign_to: Mapped[Any] = mapped_column(JSONB(), nullable=False, default=dict)
-    lead_days: Mapped[int] = mapped_column(sa.Integer(), nullable=False, default=0)
-    next_run_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
-    is_active: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, default=True)

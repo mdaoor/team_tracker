@@ -86,6 +86,12 @@ async def reparent(
 ) -> m.WorkItem:
     """Move an item (and its subtree) under `parent`, or to the top level when None."""
     if parent is not None:
+        if parent.project_id != item.project_id:
+            raise Invalid(
+                "cross_project_move",
+                "an item can only move inside its own project; its key, workflow and plan belong to it",
+                pointer="/parent",
+            )
         await items.validate_nesting(uow.session, ws, item.type_id, parent)
     await items.move_item(uow.session, item, parent)
     emit(

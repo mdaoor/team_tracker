@@ -283,12 +283,14 @@ function Builder({ id }: { id: string }) {
     )
       remove.mutate();
   };
+  const [shareLink, setShareLink] = useState<string | null>(null);
   const share = useMutation({
     mutationFn: (enabled: boolean) => presentApi.sharePresentation(ws, id, enabled),
-    onSuccess: (r) => (
-      refresh(),
-      toasts.push(r.url ? `Link: ${location.origin}${r.url}` : "Link disabled", { ms: 12000 })
-    ),
+    onSuccess: (r) => {
+      refresh();
+      setShareLink(r.url ? `${location.origin}${r.url}` : null);
+      toasts.push(r.url ? "Read-only link created" : "Link disabled");
+    },
     onError: (e) => toasts.error(e),
   });
   const download = (format: string) =>
@@ -382,6 +384,27 @@ function Builder({ id }: { id: string }) {
           >
             {p.shared_externally ? "Stop link sharing" : "Create read-only link"}
           </Button>
+          {shareLink && p.shared_externally && (
+            <span className="row grow">
+              <input
+                readOnly
+                aria-label="Share link"
+                value={shareLink}
+                onFocus={(e) => e.currentTarget.select()}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <Button
+                onClick={() =>
+                  void navigator.clipboard
+                    ?.writeText(shareLink)
+                    .then(() => toasts.push("Link copied"))
+                    .catch(() => toasts.push("Select the link and copy it"))
+                }
+              >
+                Copy link
+              </Button>
+            </span>
+          )}
           {!shareOn && !p.shared_externally && (
             <small className="hint">
               External sharing is off.{" "}

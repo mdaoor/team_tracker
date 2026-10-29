@@ -634,6 +634,7 @@
         "type": "object"
       },
       "DeliverableIn": {
+        "description": "Input shape of a deliverable inside a submitted plan.",
         "properties": {
           "depends_on": {
             "items": {
@@ -2147,6 +2148,7 @@
         "type": "object"
       },
       "PhaseIn": {
+        "description": "Input shape of a plan phase with its deliverables.",
         "properties": {
           "deliverables": {
             "items": {
@@ -2192,6 +2194,7 @@
         "type": "object"
       },
       "PlanIn": {
+        "description": "Input shape of a whole plan: phases and milestones.",
         "properties": {
           "milestones": {
             "items": {
@@ -3576,6 +3579,28 @@
       },
       "SettingsPatch": {
         "properties": {
+          "allow_same_level_nesting": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Same Level Nesting"
+          },
+          "external_packs": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Packs"
+          },
           "external_share": {
             "anyOf": [
               {
@@ -3637,6 +3662,7 @@
         "type": "object"
       },
       "SlideIn": {
+        "description": "Input shape of one slide in a presentation (kind, titles, config).",
         "properties": {
           "config": {
             "additionalProperties": true,
@@ -5145,6 +5171,7 @@
         "type": "object"
       },
       "tt_server__domain__plan__service__MilestoneIn": {
+        "description": "Input shape of a plan milestone.",
         "properties": {
           "description": {
             "anyOf": [
@@ -7816,6 +7843,7 @@
     },
     "/api/v1/w/{ws}/daily-logs": {
       "get": {
+        "description": "One person's daily logs, optionally for one day (`day`, or `date` as the other list endpoints name it).",
         "operationId": "list_daily_logs_api_v1_w__ws__daily_logs_get",
         "parameters": [
           {
@@ -7842,6 +7870,25 @@
                 }
               ],
               "title": "Day"
+            }
+          },
+          {
+            "description": "same as `day`",
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "same as `day`",
+              "title": "Date"
             }
           },
           {
@@ -21332,6 +21379,92 @@
         ]
       }
     },
+    "/api/v1/w/{ws}/products/{ref}/links/{project}": {
+      "delete": {
+        "description": "Remove the link between a product and a project (any role); moving a project is unlink + link.",
+        "operationId": "unlink_product_project_api_v1_w__ws__products__ref__links__project__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "title": "Ws",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-debug-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Debug-Actor"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink Product Project",
+        "tags": [
+          "overlay"
+        ]
+      }
+    },
     "/api/v1/w/{ws}/products/{ref}/priority": {
       "put": {
         "operationId": "set_product_priority_api_v1_w__ws__products__ref__priority_put",
@@ -26092,7 +26225,7 @@
         ]
       },
       "patch": {
-        "description": "Admin-only workspace switches the console needs (external sharing). One event per change.",
+        "description": "Admin-only workspace switches the console needs (external sharing, generation packs, same-level nesting). One event per change.",
         "operationId": "patch_settings_api_v1_w__ws__settings_patch",
         "parameters": [
           {

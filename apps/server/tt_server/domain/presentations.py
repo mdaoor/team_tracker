@@ -69,12 +69,17 @@ CONFIG: dict[str, tuple[tuple[str, ...], dict[str, Any]]] = {
     "phase_status": ((), {"project_key": None}),
     "project_overview": ((), {"project_key": None}),
 }
+# roadmap slide config keys the renderer understands (optional; the renderer defaults to phase / fit)
+ROADMAP_CHOICES: dict[str, tuple[str, ...]] = {
+    "rows": ("phase", "epic", "milestone"),
+    "zoom": ("day", "week", "month", "fit"),
+}
 EXPLORER_DIMS = {"assignee", "team", "project", "product", "stage", "priority", "epic", "tags"}
 EXPLORER_MEASURES = {"count", "hours", "wt", "viol"}
 
 
 class SlideIn(BaseModel):
-    # Input shape of one slide in a presentation (kind, titles, config).
+    """Input shape of one slide in a presentation (kind, titles, config)."""
 
     id: str | None = None
     kind: str
@@ -139,6 +144,14 @@ def normalise_slides(slides: list[SlideIn]) -> list[dict[str, Any]]:
                 "gantt rows must be epic, item or milestone",
                 pointer=f"/slides/{pos}/config/rows",
             )
+        if s.kind == "roadmap":
+            for key, allowed in ROADMAP_CHOICES.items():
+                if key in cfg and cfg[key] not in allowed:
+                    raise Invalid(
+                        "invalid_slide",
+                        f"roadmap {key} must be one of {', '.join(allowed)}",
+                        pointer=f"/slides/{pos}/config/{key}",
+                    )
         out.append(
             {
                 "id": s.id or new_id(), "kind": s.kind, "title": s.title, "subtitle": s.subtitle, "config": cfg,

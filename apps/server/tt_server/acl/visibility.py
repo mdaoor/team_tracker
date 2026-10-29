@@ -216,12 +216,14 @@ def risk_visible(ctx: AclContext) -> Any:
     return exists().where(pj.id == m.Risk.project_id, _project_pred(ctx, pj))
 
 
-def _wellbeing_scoped(ctx: AclContext, category_col: Any, subject_col: Any, project_col: Any | None) -> Any:
+def _wellbeing_scoped(
+    ctx: AclContext, category_col: Any, subject_col: Any, project_col: Any | None, *, view_all: bool = False
+) -> Any:
     from tt_schema.enums import PolicyCategory
 
     line = or_(subject_col == ctx.person_id, subject_col.in_(list(ctx.managed_ids)))
     team_view = or_(
-        true() if (ctx.is_admin or ctx.manager_all) else false(),
+        true() if (ctx.is_admin or ctx.manager_all or view_all) else false(),
         subject_col.in_(list(ctx.project_people_ids)),
         project_col.in_(list(ctx.manager_scope_projects)) if project_col is not None else false(),
     )
@@ -237,7 +239,8 @@ def violation_visible(ctx: AclContext) -> Any:
 def habit_visible(ctx: AclContext) -> Any:
     h = m.Habit
     subject = case((h.subject_type == TargetType.PERSON, h.subject_id), else_="")
-    return _wellbeing_scoped(ctx, h.category, subject, None)
+    # a coach reads every habit that is not about wellbeing (`habit.view_team` at workspace scope, Phase 14); wellbeing stays line-only
+    return _wellbeing_scoped(ctx, h.category, subject, None, view_all=ctx.can("habit.view_team"))
 
 
 def saved_view_visible(ctx: AclContext) -> Any:

@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-const API = "http://localhost:8010/api/v1/w/acme";
+import { API } from "./api";
 
 test("start from a template, reorder, and the order survives a reload", async ({ page }) => {
   await page.goto("/w/acme/present");
@@ -67,7 +66,7 @@ test("the served deck shell carries a CSP and renders with zero violations (phas
   page,
   request,
 }) => {
-  const created = await request.post("http://localhost:8010/api/v1/w/acme/presentations", {
+  const created = await request.post(`${API}/presentations`, {
     data: { title: "CSP check", slides: [{ kind: "kpis" }, { kind: "projects" }] },
   });
   const id = (await created.json()).id as string;

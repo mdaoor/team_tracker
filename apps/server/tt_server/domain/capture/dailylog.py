@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tt_schema.base import new_id, utcnow
 from tt_schema.enums import DailyLogStatus, EventSource, TargetType
 
+from tt_server.acl.context import AclContext
+from tt_server.acl.visibility import visible
 from tt_server.db import models as m
 from tt_server.db.uow import UnitOfWork
 from tt_server.domain.common import emit, system_person, zone
@@ -39,6 +41,43 @@ async def get_for(uow: UnitOfWork, ws_id: str, log_id: str) -> m.DailyLog:
     if row is None:
         raise NotFound("not_found", "daily log not found")
     return row
+
+
+async def list_visible(
+    uow: UnitOfWork,
+    ws: m.Workspace,
+    member: m.WorkspaceMember,
+    acl: AclContext,
+    me: str,
+    *,
+    person: str | None,
+    day: date | None,
+) -> tuple[list[m.DailyLog], bool]:
+    """The daily logs the viewer may see for `person` (a handle or id; default and `me` are the viewer), newest first.
+
+    Asking for your own day that has work but no draft yet drafts it now (`tt today` must not say "none" after you logged);
+    the second value says whether a draft was created, so the caller knows to commit."""
+    stmt = visible(select(m.DailyLog).where(m.DailyLog.workspace_id == ws.id), acl, m.DailyLog)
+    subject = me
+    if person not in (None, "me"):
+        subject = (
+            await uow.session.scalar(
+                select(m.WorkspaceMember.person_id).where(
+                    m.WorkspaceMember.workspace_id == ws.id,
+                    (m.WorkspaceMember.handle == person) | (m.WorkspaceMember.person_id == person),
+                )
+            )
+            or ""
+        )
+    stmt = stmt.where(m.DailyLog.person_id == subject)
+    drafted = False
+    if day:
+        stmt = stmt.where(m.DailyLog.date == day)
+        if subject == me and not (await uow.session.scalars(stmt.limit(1))).first():
+            uow.context["actor_id"] = me
+            drafted = bool(await build_for_person(uow, ws, member, day, me))
+    rows = (await uow.session.scalars(stmt.order_by(m.DailyLog.date.desc()).limit(100))).all()
+    return list(rows), drafted
 
 
 def _day_bounds(day: date, tz_name: str) -> tuple[datetime, datetime]:

@@ -35,6 +35,17 @@ must be able to take back a send for ten minutes.
    Tests: `packages/client_core/tests/test_personal_tracker.py::test_auto_sent_meetings_carry_a_neutral_title_and_no_handles_until_the_note_is_confirmed`,
    `::test_after_the_person_confirmed_the_template_auto_sends_use_it`, `::test_an_edited_manual_note_does_not_confirm_the_template`.
 
+5. **Sync never overrides the person (amended after the PR #11 review, findings 3, 4 and 8).** A deleted item records who deleted it
+   (`PersonalItem.deleted_by`: `user` or `sync`). A sync that meets a calendar occurrence whose local row the *person* deleted (or an older
+   row with no `deleted_by`) skips it and counts it as "deleted locally"; a row the *sync* dropped (declined, cancelled, calendar excluded
+   or gone) may come back when the occurrence qualifies again. When a provider cursor expires (Google `syncToken` or Graph `deltaLink`
+   answering HTTP 410) the adapter does a full window pull; a full pull also drops unsent meetings of that calendar inside the window that the
+   provider no longer lists. The list of calendars is cached with its read time and re-read after `calendar.refresh_hours` (24; 0 = only when
+   missing) or on demand; a calendar that left the list takes its unsent meetings (dropped as `sync`) with it.
+   Tests: `packages/client_core/tests/test_calendar_sync.py::test_microsoft_delta_token_expiry_410_triggers_a_full_resync_that_keeps_dedup`,
+   `::test_a_meeting_the_person_deleted_is_not_resurrected_by_a_sync`, `::test_a_meeting_dropped_by_the_sync_itself_comes_back_when_it_qualifies_again`,
+   `test_calendar_manage.py` (exclude/include, suppress, refresh).
+
 ## Consequences
 * Two devices, a retry after a lost response and the tray plus end-of-day card all converge on one time entry.
 * `time_entries` grows five nullable columns instead of a new table (no change to the 65-model parity test or the extras list).

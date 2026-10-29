@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { moveTarget } from "./tree";
+import { epicTarget, moveTarget, projectTarget } from "./tree";
 import { buildForest } from "../components/Tree";
 import { orgForest } from "../pages/setup/People";
 
@@ -46,4 +46,24 @@ test("the org tree sums weekly capacity up the reporting lines", () => {
   expect(root.id).toBe("m");
   expect(root.children.map((c) => c.id).sort()).toEqual(["a", "b"]);
   expect(String(root.meta)).toContain("team 90 h/wk");
+});
+
+test("a project moves out to the product's parent or in under the last child product", () => {
+  expect(projectTarget(prods, prods[2], "out")).toBe("b"); // c sits under b
+  expect(projectTarget(prods, prods[1], "out")).toBeUndefined(); // b is top-level
+  expect(projectTarget(prods, prods[1], "in")).toBe("c");
+  expect(projectTarget(prods, prods[0], "in")).toBeUndefined(); // a has no child product
+});
+
+test("an epic goes top-level with Alt+Left and under the previous sibling epic with Alt+Right", () => {
+  const eps = [
+    { id: "1", key: "W-1" },
+    { id: "2", key: "W-2" },
+    { id: "3", key: "W-3", parent_id: "1" },
+  ];
+  expect(epicTarget(eps, eps[1], "in")).toBe("W-1");
+  expect(epicTarget(eps, eps[0], "in")).toBeUndefined();
+  expect(epicTarget(eps, eps[2], "in")).toBeUndefined(); // only child of W-1
+  expect(epicTarget(eps, eps[2], "out")).toBeNull();
+  expect(epicTarget(eps, eps[0], "out")).toBeUndefined();
 });

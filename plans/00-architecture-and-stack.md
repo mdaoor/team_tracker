@@ -37,6 +37,9 @@ Status: **decided for this implementation**. Deviations require an ADR (appendix
 | Cloud models | Anthropic Claude (`claude-sonnet-5-5` summariser, `claude-opus-5-5` reasoner) via LiteLLM, only in `hybrid|cloud` modes | Narrative quality; swappable by config | — |
 | Desktop shell | **Tauri v2** wrapping the React palette | Small binary, global hotkey, tray | Electron (size) |
 | Chat bot | Slack Bolt (Python) first; Teams later | Reporter persona lives in Slack | — |
+| Management commands (P14) | Command registry in `apps/server/tt_server/api/commands` (JSON Schema per op from Pydantic, per-op permission, token scope and preview/destructive flags); client forms and the gateway translator are generated from `GET /commands/catalogue` (`jsonschema` validation on the client) | One contract for CLI, desktop, Slack and the LLM; ACL and events identical to the web console | A second RPC API (drift from the console) |
+| Personal tracker (P15) | Local-first store in `tt_client.personal` (Fernet-encrypted rows, key in the OS keyring via `keyring` with a 0600 file fallback), `python-dateutil` RRULE for recurrence, Google Calendar and Microsoft Graph adapters behind one interface, `cryptography` | Private by default, nothing leaves the device without a send | SQLCipher (build burden), server-side planner (privacy) |
+| Sidecar (P14/P15) | `tt-sidecar` console script (`apps/cli/tt_cli/sidecar.py`) bundled with PyInstaller for the Tauri shell | The desktop palette reuses the Python client core | Re-implementing the client core in Rust |
 | Tests | **pytest** + **testcontainers‑postgres** + **Hypothesis**; **Vitest** + **Playwright** for web | — | — |
 | Lint/format | **Ruff** (lint+format), **mypy --strict** on `packages/schema` and `apps/server`; **ESLint + Prettier** for web | — | — |
 | Packaging | **uv** workspaces (monorepo), **pnpm** workspaces for web | Fast, lockfile‑driven | poetry |

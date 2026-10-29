@@ -12,6 +12,8 @@ from typing import Any
 from pydantic import ValidationError
 from tt_schema.client import ClientBatch
 
+MAX_COMMANDS_PER_BATCH = 50  # the server rejects a ClientBatch with more `commands[]` (tt_schema.client)
+
 
 def _batch_id(batch: dict[str, Any]) -> str:
     """First message's client_id, else the first command's (a commands-only batch is a valid outbox file)."""
@@ -93,6 +95,15 @@ class Outbox:
         if len(matches) != 1:
             raise KeyError(f"{len(matches)} outbox entries match {ref!r}")
         return matches[0]
+
+    def short_ref(self, entry: Entry, minimum: int = 8) -> str:
+        """The shortest prefix of the batch id (at least `minimum` characters) that `find` resolves to this entry alone: ids are
+        time-ordered, so two entries written together can share their first eight characters."""
+        others = [e.batch_id for e in self.pending() if e.batch_id != entry.batch_id]
+        n = minimum
+        while n < len(entry.batch_id) and any(o.startswith(entry.batch_id[:n]) for o in others):
+            n += 1
+        return entry.batch_id[:n]
 
     def adopt(self, path: Path) -> Entry:
         batch = self.load_file(path)
@@ -182,13 +193,39 @@ def _stamp_confirmed(batch: dict[str, Any]) -> None:
         args.setdefault("_meta", {})["confirmed"] = True
 
 
+def _split_oversized(outbox: Outbox, entry: Entry, batch: dict[str, Any]) -> list[Entry]:
+    """A confirmed entry with more than `MAX_COMMANDS_PER_BATCH` commands keeps its first chunk (with all its messages) and the
+    rest becomes new, command-only entries that inherit the confirmation. Done on disk before sending, so a crash or a dropped
+    connection midway leaves every unsent command queued exactly once. Returns the new entries, in order."""
+    cmds = batch.get("commands", [])
+    if len(cmds) <= MAX_COMMANDS_PER_BATCH:
+        return []
+    extra: list[Entry] = []
+    base = {k: v for k, v in batch.items() if k not in ("messages", "commands")}
+    for i in range(MAX_COMMANDS_PER_BATCH, len(cmds), MAX_COMMANDS_PER_BATCH):
+        part = {**base, "messages": [], "commands": cmds[i : i + MAX_COMMANDS_PER_BATCH]}
+        e = outbox.write(part)
+        e.confirmed_at = entry.confirmed_at
+        outbox.db.execute(
+            "UPDATE pending SET confirmed_at = ? WHERE client_id = ?", (entry.confirmed_at, e.batch_id)
+        )
+        extra.append(e)
+    outbox.db.commit()
+    batch["commands"] = cmds[:MAX_COMMANDS_PER_BATCH]
+    entry.path.write_text(json.dumps(batch, indent=2, default=str))
+    return extra
+
+
 def sync(api: Any, outbox: Outbox, only: list[Entry] | None = None) -> SyncReport:
-    """Send pending batches oldest-first. Stops at the first network failure; nothing is ever dropped."""
+    """Send pending batches oldest-first, at most `MAX_COMMANDS_PER_BATCH` commands per post. Stops at the first network
+    failure; nothing is ever dropped."""
     from tt_client.api import Unreachable
 
     report = SyncReport(results=[], unconfirmed=[])
     ids = {e.batch_id for e in only} if only is not None else None
-    for entry in outbox.pending():
+    todo = outbox.pending()
+    while todo:
+        entry = todo.pop(0)
         if ids is not None and entry.batch_id not in ids:
             continue
         try:
@@ -201,6 +238,10 @@ def sync(api: Any, outbox: Outbox, only: list[Entry] | None = None) -> SyncRepor
             if entry.confirmed_at is None:
                 report.unconfirmed.append(entry)  # type: ignore[union-attr]
                 continue
+            more = _split_oversized(outbox, entry, batch)
+            if ids is not None:
+                ids.update(e.batch_id for e in more)
+            todo[0:0] = more  # the chunks go out right after this one, before any later entry
             _stamp_confirmed(batch)
         try:
             status, body = api.post_batch(batch)

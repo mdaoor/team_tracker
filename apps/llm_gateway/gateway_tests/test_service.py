@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -76,9 +77,9 @@ async def test_sql_storage_round_trips_runs_and_budgets() -> None:
         await store.save_run(run)  # upsert
         got = await store.get_run("run-1")
         assert got is not None and got.status == "error" and got.meta == {"rationale": "because"}
-        assert [(s.n, s.name) for s in got.steps] == [(1, "ollama/x"), (2, "a")] and round(
-            got.cost_usd, 4
-        ) == 0.0123
+        assert [(s.n, s.name) for s in got.steps] == [(1, "ollama/x"), (2, "a")]
+        # 13 Low: money is Decimal end to end (Numeric column), no binary-float drift
+        assert isinstance(got.cost_usd, Decimal) and got.cost_usd == Decimal("0.012300")
         assert await store.get_run("missing") is None
         day = datetime.now(UTC).date()
         await store.add_spend("acme", day, 0.5)
@@ -86,7 +87,6 @@ async def test_sql_storage_round_trips_runs_and_budgets() -> None:
         assert await store.spent("acme", day) == 0.75 and await store.spent("other", day) == 0.0
         # reservation is one statement: with 0.25 left, exactly one of four concurrent holds of 0.25 wins
         import asyncio
-        from decimal import Decimal
 
         held = await asyncio.gather(
             *(store.reserve("acme", day, Decimal("0.25"), Decimal("1.0")) for _ in range(4))
