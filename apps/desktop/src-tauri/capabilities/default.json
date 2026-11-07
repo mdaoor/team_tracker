@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Both windows: core events, and the notification and global-shortcut plugins. Sidecar calls go through the Rust commands, not the JS shell API.",
+  "windows": ["personal", "palette"],
+  "permissions": [
+    "core:default",
+    "notification:default",
+    "global-shortcut:allow-is-registered"
+  ]
+}

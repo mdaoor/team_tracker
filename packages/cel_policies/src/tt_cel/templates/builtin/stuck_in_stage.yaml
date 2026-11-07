@@ -1,0 +1,15 @@
+key: stuck_in_stage
+name: "Item stuck in a stage"
+description: "An item has been in its current stage longer than allowed. Defaults to the stage's own expected duration."
+category: process
+severity: warning
+target: stage_placement
+trigger: scheduled
+schedule: "0 * * * *"
+params:
+  - {name: days, type: int, default: null, min: 1, max: 365, help: "Allowed days in stage; empty = the stage's expected duration"}
+cel: >-
+  placement.exited_at == null && stage.expected_duration_days > 0 && item.days_in_stage() > {days|stage.expected_duration_days}
+detail: "{item.stage.key} for {item.days_in_stage()}d (expected ≤ {stage.expected_duration_days})"
+candidate_filter: {state: {category: [open, active]}}
+example: "Build for 12d (expected ≤ 10)"

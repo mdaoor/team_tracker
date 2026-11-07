@@ -1,0 +1,412 @@
+{
+  "$defs": {
+    "SlideIn": {
+      "description": "Input shape of one slide in a presentation (kind, titles, config).",
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "fit": {
+          "default": "paginate",
+          "enum": [
+            "paginate",
+            "shrink"
+          ],
+          "title": "Fit",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "layout": {
+          "default": "full",
+          "enum": [
+            "full",
+            "split",
+            "grid"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "live": {
+          "default": false,
+          "title": "Live",
+          "type": "boolean"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitle"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SlideIn",
+      "type": "object"
+    }
+  },
+  "description": "Shape of `presentation` inside `GET /presentations/{id}/data`.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "is_shared": {
+      "title": "Is Shared",
+      "type": "boolean"
+    },
+    "range_days": {
+      "title": "Range Days",
+      "type": "integer"
+    },
+    "scope": {
+      "title": "Scope",
+      "type": "string"
+    },
+    "slides": {
+      "items": {
+        "$ref": "#/$defs/SlideIn"
+      },
+      "title": "Slides",
+      "type": "array"
+    },
+    "theme": {
+      "title": "Theme",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "weight_scheme_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Weight Scheme Id"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "scope",
+    "range_days",
+    "weight_scheme_id",
+    "theme",
+    "slides",
+    "is_shared"
+  ],
+  "title": "_Presentation",
+  "type": "object",
+  "x-kind-meta": {
+    "chart": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "deliverables": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "explorer": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "gantt": {
+      "render_empty": "placeholder",
+      "requires": "both"
+    },
+    "habits": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "image": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "insight": {
+      "render_empty": "note",
+      "requires": "both"
+    },
+    "kpis": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "markdown": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "milestones": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "now": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "people": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "phase_status": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "pipeline": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "plan_vs_actual": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "project_detail": {
+      "render_empty": "placeholder",
+      "requires": "both"
+    },
+    "project_overview": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "projects": {
+      "render_empty": "placeholder",
+      "requires": "both"
+    },
+    "radar": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "roadmap": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "section_divider": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "table": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "title": {
+      "render_empty": "placeholder",
+      "requires": "plan"
+    },
+    "view": {
+      "render_empty": "note",
+      "requires": "activity"
+    },
+    "violations": {
+      "render_empty": "note",
+      "requires": "activity"
+    }
+  },
+  "x-slide-kinds": {
+    "chart": {
+      "default_config": {
+        "cols": null,
+        "filter": {},
+        "measure": "count"
+      },
+      "required_config": [
+        "rows"
+      ]
+    },
+    "deliverables": {
+      "default_config": {
+        "phase": null,
+        "project_key": null
+      },
+      "required_config": []
+    },
+    "explorer": {
+      "default_config": {
+        "dimA": "team",
+        "dimB": "stage",
+        "measure": "count"
+      },
+      "required_config": []
+    },
+    "gantt": {
+      "default_config": {
+        "baseline": null,
+        "rows": "epic"
+      },
+      "required_config": []
+    },
+    "habits": {
+      "default_config": {},
+      "required_config": []
+    },
+    "image": {
+      "default_config": {
+        "attachment_id": null,
+        "url": null
+      },
+      "required_config": []
+    },
+    "insight": {
+      "default_config": {
+        "scope": null
+      },
+      "required_config": []
+    },
+    "kpis": {
+      "default_config": {},
+      "required_config": []
+    },
+    "markdown": {
+      "default_config": {},
+      "required_config": [
+        "text"
+      ]
+    },
+    "milestones": {
+      "default_config": {
+        "project_key": null,
+        "style": "table"
+      },
+      "required_config": []
+    },
+    "now": {
+      "default_config": {},
+      "required_config": []
+    },
+    "people": {
+      "default_config": {},
+      "required_config": []
+    },
+    "phase_status": {
+      "default_config": {
+        "project_key": null
+      },
+      "required_config": []
+    },
+    "pipeline": {
+      "default_config": {
+        "process": null
+      },
+      "required_config": []
+    },
+    "plan_vs_actual": {
+      "default_config": {
+        "project_key": null
+      },
+      "required_config": []
+    },
+    "project_detail": {
+      "default_config": {},
+      "required_config": [
+        "project_key"
+      ]
+    },
+    "project_overview": {
+      "default_config": {
+        "project_key": null
+      },
+      "required_config": []
+    },
+    "projects": {
+      "default_config": {},
+      "required_config": []
+    },
+    "radar": {
+      "default_config": {
+        "days": 14
+      },
+      "required_config": []
+    },
+    "roadmap": {
+      "default_config": {
+        "project_key": null,
+        "show_baseline": true
+      },
+      "required_config": []
+    },
+    "section_divider": {
+      "default_config": {},
+      "required_config": []
+    },
+    "table": {
+      "default_config": {
+        "filter": {},
+        "limit": 50,
+        "sort": [
+          {
+            "dir": "desc",
+            "field": "priority"
+          }
+        ]
+      },
+      "required_config": []
+    },
+    "title": {
+      "default_config": {},
+      "required_config": []
+    },
+    "view": {
+      "default_config": {
+        "layout": null
+      },
+      "required_config": [
+        "saved_view_id"
+      ]
+    },
+    "violations": {
+      "default_config": {
+        "with_habits": false
+      },
+      "required_config": []
+    }
+  }
+}

@@ -117,3 +117,5 @@ Purpose: let any LLM, including ones outside the product, author a presentation 
 - [ ] ADR‑0024 "Templates are data; slide kinds are code; external LLMs author via the generation pack and import contract".
 - [ ] ADR‑0011 "Prototype renderers are the spec for sections; additive changes only"; ADR‑0021 "Presentation entity and generic slide template".
 - [ ] P9 TODO: governance screens get the "Add to presentation" menu.
+
+> **Update (Phase 2b built):** generate insight text through `LLMGatewayClient.summarise` (`/v1/summarise/*`); the gateway already flags ungrounded ids, grounding checks stay in the core server.

@@ -1,0 +1,84 @@
+# Golden set for the personal quick-add parser (Phase 15). `now` = 2026-10-23T12:00:00Z, zone Asia/Riyadh (UTC+3): Friday 15:00 local.
+# Dates: Sat 24, Sun 25, Mon 26, Tue 27, Wed 28, Thu 29, Fri 30 Oct, Mon 2 Nov.  A bare time means today; no date and no time = today, anytime (all_day).
+# Each case lists the expected drafts (only the listed fields are compared); `warnings_contain` is a substring check.
+now: "2026-10-23T12:00:00+00:00"
+tz: Asia/Riyadh
+cases:
+  # ---- times and ranges
+  - {line: "9-10 reading", expect: [{title: reading, kind: reading, category: development, start: "2026-10-23T09:00:00+03:00", end: "2026-10-23T10:00:00+03:00", duration_min: 60, all_day: false, tags: [development]}]}
+  - {line: "9–10 reading", expect: [{title: reading, kind: reading, start: "2026-10-23T09:00:00+03:00", end: "2026-10-23T10:00:00+03:00"}]}
+  - {line: "9:30-10:45 deep work", expect: [{title: deep work, kind: focus, category: work, start: "2026-10-23T09:30:00+03:00", end: "2026-10-23T10:45:00+03:00", duration_min: 75}]}
+  - {line: "14-15:30 review PRs", expect: [{title: review PRs, kind: task, category: work, start: "2026-10-23T14:00:00+03:00", duration_min: 90}]}
+  - {line: "9am-10am standup", expect: [{title: standup, kind: meeting, category: meeting, start: "2026-10-23T09:00:00+03:00", duration_min: 60}]}
+  - {line: "1-2pm lunch with sara", expect: [{title: lunch with sara, kind: other, category: personal, start: "2026-10-23T13:00:00+03:00", end: "2026-10-23T14:00:00+03:00"}]}
+  - {line: "11-1pm workshop", expect: [{title: workshop, kind: training, category: development, start: "2026-10-23T11:00:00+03:00", end: "2026-10-23T13:00:00+03:00", duration_min: 120}]}
+  - {line: "9-10pm read a novel", expect: [{kind: reading, start: "2026-10-23T21:00:00+03:00", end: "2026-10-23T22:00:00+03:00"}]}
+  - {line: "run 30m at 6pm", expect: [{title: run, kind: sport, category: personal, start: "2026-10-23T18:00:00+03:00", end: "2026-10-23T18:30:00+03:00", duration_min: 30, tags: []}]}
+  - {line: "gym 1h at 7am tomorrow", expect: [{title: gym, kind: sport, start: "2026-10-24T07:00:00+03:00", end: "2026-10-24T08:00:00+03:00", duration_min: 60}]}
+  - {line: "tomorrow 3pm call with @sara 30m", expect: [{title: "call with @sara", kind: meeting, category: meeting, start: "2026-10-24T15:00:00+03:00", end: "2026-10-24T15:30:00+03:00"}]}
+  - {line: "1h30m yoga at 6:30am", expect: [{title: yoga, kind: sport, start: "2026-10-23T06:30:00+03:00", end: "2026-10-23T08:00:00+03:00", duration_min: 90}]}
+  - {line: "at 18:00 dinner", expect: [{title: dinner, kind: other, category: personal, start: "2026-10-23T18:00:00+03:00"}]}
+  - {line: "tonight dinner with family 2h", expect: [{kind: other, category: personal, start: "2026-10-23T20:00:00+03:00", end: "2026-10-23T22:00:00+03:00", duration_min: 120}]}
+  - {line: "noon lunch 45m", expect: [{title: lunch, start: "2026-10-23T12:00:00+03:00", duration_min: 45}]}
+  - {line: "12pm standup 15m", expect: [{start: "2026-10-23T12:00:00+03:00", kind: meeting, duration_min: 15}]}
+  - {line: "buy groceries at 5pm", expect: [{title: buy groceries, kind: errand, category: personal, start: "2026-10-23T17:00:00+03:00"}]}
+  # ---- labels (category: ...)
+  - {line: "course: Rust ch.3 1h", expect: [{title: "Rust ch.3", kind: course, category: development, all_day: true, start: "2026-10-23T00:00:00+03:00", duration_min: 60, tags: [development]}]}
+  - {line: "reading: Designing Data-Intensive Apps 45m", expect: [{title: "Designing Data-Intensive Apps", kind: reading, category: development, duration_min: 45}]}
+  - {line: "training: kubernetes lab 2h tomorrow 10am", expect: [{title: kubernetes lab, kind: training, category: development, start: "2026-10-24T10:00:00+03:00", end: "2026-10-24T12:00:00+03:00", duration_min: 120}]}
+  - {line: "work: fix login 2h", expect: [{title: fix login, kind: task, category: work, all_day: true, duration_min: 120}]}
+  - {line: "meeting: roadmap review 1h at 2pm", expect: [{title: roadmap review, kind: meeting, category: meeting, start: "2026-10-23T14:00:00+03:00", end: "2026-10-23T15:00:00+03:00"}]}
+  - {line: "errand: buy milk", expect: [{title: buy milk, kind: errand, category: personal, all_day: true}]}
+  - {line: "sport: swim 40m", expect: [{title: swim, kind: sport, category: personal, duration_min: 40}]}
+  - {line: "habit: meditate 10m", expect: [{title: meditate, kind: habit, category: personal, duration_min: 10, rrule: null}]}
+  - {line: "focus: write design doc 90 min", expect: [{title: write design doc, kind: focus, category: work, duration_min: 90}]}
+  - {line: "personal: call mom 15m", expect: [{title: call mom, kind: other, category: personal, duration_min: 15}]}
+  - {line: "task: renew licence", expect: [{title: renew licence, kind: task, category: work, duration_min: null}]}
+  # ---- tags and project hints
+  - {line: "write report 2h #work", expect: [{title: write report, category: work, tags: [work], duration_min: 120}]}
+  - {line: "read paper on raft 30m #development", expect: [{title: read paper on raft, kind: reading, category: development, tags: [development]}]}
+  - {line: "stretch 10m #personal", expect: [{kind: habit, category: personal, tags: [personal]}]}
+  - {line: "#development leetcode 40m", expect: [{title: leetcode, kind: training, category: development, tags: [development], duration_min: 40}]}
+  - {line: "design review with @ali and @sara 45m at 11am p:web", expect: [{title: "design review with @ali and @sara", project_hint: WEB, start: "2026-10-23T11:00:00+03:00", duration_min: 45}]}
+  - {line: "p:DATA ingestion study 1h", expect: [{title: ingestion study, kind: training, category: development, project_hint: DATA}]}
+  - {line: "read https://example.com/raft.pdf 20m", expect: [{title: read, kind: reading, notes: "https://example.com/raft.pdf", duration_min: 20}]}
+  # ---- dates
+  - {line: "friday 4pm demo", expect: [{title: demo, kind: meeting, start: "2026-10-23T16:00:00+03:00"}]}
+  - {line: "next monday 10:00-11:00 planning", expect: [{title: planning, kind: meeting, start: "2026-10-26T10:00:00+03:00", end: "2026-10-26T11:00:00+03:00"}]}
+  - {line: "next friday 9am dentist", expect: [{title: dentist, kind: errand, category: personal, start: "2026-10-30T09:00:00+03:00"}]}
+  - {line: "oct 28 14:00 conference call 1h", expect: [{title: conference call, kind: meeting, start: "2026-10-28T14:00:00+03:00", end: "2026-10-28T15:00:00+03:00"}]}
+  - {line: "28 oct 9am lecture 90m", expect: [{title: lecture, kind: course, category: development, start: "2026-10-28T09:00:00+03:00", duration_min: 90}]}
+  - {line: "2026-11-02 10:00 exam 2h", expect: [{title: exam, kind: training, start: "2026-11-02T10:00:00+03:00", end: "2026-11-02T12:00:00+03:00"}]}
+  - {line: "in 3 days 5pm review slides 30m", expect: [{title: review slides, start: "2026-10-26T17:00:00+03:00", duration_min: 30}]}
+  - {line: "tuesday 3pm 1:1 with @ali 30m", expect: [{title: "1:1 with @ali", kind: meeting, start: "2026-10-27T15:00:00+03:00", duration_min: 30}]}
+  - {line: "book club 1h at 8pm", expect: [{title: book club, kind: reading, start: "2026-10-23T20:00:00+03:00", duration_min: 60}]}
+  # ---- recurrence phrases -> RRULE preview
+  - {line: "every weekday 7:00 run 30m", expect: [{title: run, kind: sport, rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", rrule_text: "every weekday at 07:00", start: "2026-10-26T07:00:00+03:00", end: "2026-10-26T07:30:00+03:00", duration_min: 30}]}
+  - {line: "Tue/Thu 18:00 Arabic course 1h", expect: [{title: Arabic course, kind: course, category: development, rrule: "FREQ=WEEKLY;BYDAY=TU,TH", rrule_text: "every Tuesday and Thursday at 18:00", start: "2026-10-27T18:00:00+03:00", duration_min: 60}]}
+  - {line: "read 20m daily", expect: [{title: read, kind: reading, rrule: "FREQ=DAILY", rrule_text: "every day", all_day: true, start: "2026-10-23T00:00:00+03:00", duration_min: 20}]}
+  - {line: "every Monday 10:00 team sync 30m", expect: [{title: team sync, kind: meeting, rrule: "FREQ=WEEKLY;BYDAY=MO", start: "2026-10-26T10:00:00+03:00"}]}
+  - {line: "every 2 weeks on friday 15:00 retro 1h", expect: [{title: retro, kind: meeting, rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR", start: "2026-10-23T15:00:00+03:00"}]}
+  - {line: "monthly review 1h", expect: [{title: review, rrule: "FREQ=MONTHLY", all_day: true, duration_min: 60}]}
+  - {line: "every day at 6am meditate 10m", expect: [{title: meditate, kind: habit, rrule: "FREQ=DAILY", start: "2026-10-24T06:00:00+03:00"}]}
+  - {line: "weekdays 9:00 standup 15m", expect: [{title: standup, kind: meeting, rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", start: "2026-10-26T09:00:00+03:00", duration_min: 15}]}
+  - {line: "weekends 8:00 long run 90m", expect: [{title: long run, kind: sport, rrule: "FREQ=WEEKLY;BYDAY=SA,SU", start: "2026-10-24T08:00:00+03:00", end: "2026-10-24T09:30:00+03:00"}]}
+  - {line: "daily 21:30 read 30m", expect: [{title: read, kind: reading, rrule: "FREQ=DAILY", start: "2026-10-23T21:30:00+03:00"}]}
+  - {line: "mon wed fri 12:30 gym 45m", expect: [{title: gym, kind: sport, rrule: "FREQ=WEEKLY;BYDAY=MO,WE,FR", start: "2026-10-26T12:30:00+03:00", duration_min: 45}]}
+  - {line: "every weekday 7:00 run 30m for 4 weeks", expect: [{rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20261120T235959", rrule_text: "every weekday, until 2026-11-20 at 07:00"}]}
+  - {line: "read 20m daily until dec 31", expect: [{rrule: "FREQ=DAILY;UNTIL=20261231T235959", title: read}]}
+  - {line: "every other day stretch 10m", expect: [{title: stretch, rrule: "FREQ=DAILY;INTERVAL=2", rrule_text: "every 2 days"}]}
+  - {line: "every sunday 20:00 plan the week 20m", expect: [{title: plan the week, rrule: "FREQ=WEEKLY;BYDAY=SU", start: "2026-10-25T20:00:00+03:00"}]}
+  - {line: "yoga every tue and thu 7am 45m", expect: [{title: yoga, kind: sport, rrule: "FREQ=WEEKLY;BYDAY=TU,TH", start: "2026-10-27T07:00:00+03:00"}]}
+  - {line: "every 3 days water plants 5m", expect: [{title: water plants, rrule: "FREQ=DAILY;INTERVAL=3", duration_min: 5}]}
+  - {line: "read 20m daily x10", expect: [{title: read, rrule: "FREQ=DAILY;COUNT=10"}]}
+  - {line: "run every tuesday at 6am 40m", expect: [{title: run, kind: sport, rrule: "FREQ=WEEKLY;BYDAY=TU", start: "2026-10-27T06:00:00+03:00", end: "2026-10-27T06:40:00+03:00"}]}
+  # ---- several items, warnings, nothing
+  - {line: "run 30m at 6pm; read 20m at 9pm", expect: [{title: run, kind: sport, start: "2026-10-23T18:00:00+03:00"}, {title: read, kind: reading, start: "2026-10-23T21:00:00+03:00"}]}
+  - {line: "run 30m 9-10", expect: [{title: run, duration_min: 60, warnings_contain: "ignored"}]}
+  - {line: "9-10", expect: []}
+  - {line: "   ", expect: []}
+  - {line: "reading", expect: [{title: reading, kind: reading, all_day: true}]}
+  # ---- an unrecognised line is private until something says otherwise
+  - {line: "tea with mum 20m", expect: [{title: tea with mum, kind: other, category: personal, kind_source: default, duration_min: 20}]}
+  - {line: "sort out the offsite 1h p:web", expect: [{title: sort out the offsite, kind: task, category: work, project_hint: WEB}]}
+  - {line: "course:", expect: [{title: Course, kind: course, category: development}]}

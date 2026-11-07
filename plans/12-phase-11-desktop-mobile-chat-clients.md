@@ -44,3 +44,5 @@ Jira credentials on devices (never), model hosting itself: the desktop app bundl
 ## Exit checklist
 - [ ] Installers for three desktop OSs in CI artifacts; `docs/client/desktop.md`, `docs/client/slack.md`.
 - [ ] ADR‑0016 sidecar decision; ADR‑0017 "JSON outbox file is the interchange format between shells".
+
+> **Update (Phase 2b built):** bundle `tt-llm serve --local-only` as the desktop sidecar; the Slack bot and desktop call the same gateway endpoints.

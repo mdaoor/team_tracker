@@ -135,3 +135,5 @@ Every client shell (CLI here, desktop/mobile/Slack in P11) exposes **two sending
 
 ## Handover notes
 P3 fills `stages`, `risks`, `default_stage`, `process` in the pack; P11 reuses `tt_client` unchanged. Keep `tt_client` free of any terminal‑specific code (rendering lives in `apps/cli`).
+
+> **Update (Phase 2b built):** the translator is a thin client of the gateway (`GatewayTranslator`; `tt gateway serve` runs a local sidecar). Prompts and model calls live in `apps/llm_gateway`; see `docs/llm/gateway.md`.

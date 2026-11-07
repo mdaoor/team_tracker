@@ -1,0 +1,14 @@
+key: late_daily_log
+name: "Daily log not confirmed"
+description: "A draft daily log has been waiting longer than 36 hours."
+category: collaboration
+severity: info
+target: daily_log
+trigger: scheduled
+schedule: "0 9 * * *"
+params:
+  - {name: hours, type: int, default: 36, min: 1, max: 720, help: "Hours a draft may wait"}
+cel: >-
+  daily_log.status == "draft" && now - daily_log.date > duration(string({hours}) + "h")
+detail: "draft since {daily_log.date}"
+example: "draft since 2026-10-21"

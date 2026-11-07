@@ -1,0 +1,33 @@
+# /etc/systemd/system/tt-server.service - API over HTTPS from PEM files (docs/security/tls.md). `systemctl reload` rotates certificates.
+[Unit]
+Description=Team Tracker API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=tt
+Group=tt
+EnvironmentFile=/etc/tt/tt.env
+WorkingDirectory=/opt/team-tracker
+ExecStartPre=/opt/team-tracker/.venv/bin/tt-admin migrate
+ExecStart=/opt/team-tracker/.venv/bin/tt-admin serve --port 8443 --redirect-port 8080
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+KillSignal=SIGTERM
+# hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/team-tracker
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

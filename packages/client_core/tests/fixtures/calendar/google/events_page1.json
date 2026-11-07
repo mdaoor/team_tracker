@@ -1,0 +1,183 @@
+{
+  "kind": "calendar#events",
+  "summary": "mahmoud@acme.com",
+  "timeZone": "Asia/Riyadh",
+  "nextPageToken": "PAGE2",
+  "items": [
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-1-1\"",
+      "id": "g-evt-1",
+      "status": "confirmed",
+      "summary": "Sprint planning",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-26T09:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-26T10:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-1@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "accepted",
+          "self": true
+        },
+        {
+          "email": "ali@acme.com",
+          "responseStatus": "accepted"
+        }
+      ],
+      "recurringEventId": "g-series-sprint",
+      "originalStartTime": {
+        "dateTime": "2026-10-26T09:00:00+03:00"
+      },
+      "hangoutLink": "https://meet.google.com/abc-defg-hij",
+      "conferenceData": {
+        "entryPoints": [
+          {
+            "entryPointType": "video",
+            "uri": "https://meet.google.com/abc-defg-hij"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-2-1\"",
+      "id": "g-evt-2",
+      "status": "confirmed",
+      "summary": "Client sync with Globex",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-27T16:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-27T16:30:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-2@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "accepted",
+          "self": true
+        },
+        {
+          "email": "jo@globex.com",
+          "responseStatus": "accepted"
+        }
+      ]
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-3-1\"",
+      "id": "g-evt-3",
+      "status": "confirmed",
+      "summary": "Lunch with Omar",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-27T12:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-27T13:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-3@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "declined",
+          "self": true
+        }
+      ]
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-4-1\"",
+      "id": "g-evt-4",
+      "status": "confirmed",
+      "summary": "Company holiday",
+      "start": {
+        "date": "2026-10-28"
+      },
+      "end": {
+        "date": "2026-10-29"
+      },
+      "iCalUID": "g-evt-4@google.com",
+      "organizer": {
+        "email": "hr@acme.com"
+      }
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-5-1\"",
+      "id": "g-evt-5",
+      "status": "confirmed",
+      "summary": "Dentist",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-28T10:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-28T11:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-5@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "accepted",
+          "self": true
+        }
+      ],
+      "visibility": "private"
+    }
+  ]
+}

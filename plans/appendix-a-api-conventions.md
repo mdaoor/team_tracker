@@ -27,7 +27,7 @@
 ```
 workspace.created member.added member.updated member.removed team.created team.updated membership.changed reporting_line.changed context_note.*
 project.created project.updated project.priority_changed project.visibility_changed project.process_changed project_member.added project_member.removed
-iteration.* milestone.* release.* component.* recurrence.materialised
+iteration.* milestone.* release.* component.* recurrence.* (created updated deleted materialised)
 item.created item.matched item.updated item.state_changed item.reopened item.finished item.blocked item.priority_changed item.impact_changed
 item.visibility_changed item.project_changed item.team_changed item.parent_changed item.planned_end_set item.field_conflict item.deleted
 activity.started activity.paused activity.resumed activity.ended activity.blocked

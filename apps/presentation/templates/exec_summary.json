@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "key": "exec_summary",
+  "version": 1,
+  "name": "Exec summary",
+  "description": "Key numbers, the narrative and the timeline on four slides.",
+  "scope_types": [
+    "workspace",
+    "product",
+    "project",
+    "team",
+    "person"
+  ],
+  "params": [],
+  "slides": [
+    {
+      "kind": "title",
+      "title_template": "Executive summary",
+      "config": {},
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "kpis",
+      "title_template": "Key numbers",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "insight",
+      "title_template": "Where we are",
+      "config": {},
+      "requires": "both",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "gantt",
+      "title_template": "Timeline",
+      "config": {
+        "rows": "epic"
+      },
+      "requires": "both",
+      "render_empty": "placeholder",
+      "layout": "full"
+    }
+  ]
+}
