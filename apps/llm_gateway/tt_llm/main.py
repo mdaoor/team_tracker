@@ -16,6 +16,14 @@ from tt_llm.storage import MemoryStorage, SqlStorage, Storage
 cli = typer.Typer(help="Team Tracker LLM gateway", no_args_is_help=True)
 
 
+@cli.callback()
+def _group() -> None:
+    """Keep `serve` a named subcommand (`tt-llm serve ...`, as the Dockerfile, Helm chart and systemd unit call it).
+
+    With a single command and no callback, Typer would collapse it into the root and reject `serve` as an extra argument.
+    """
+
+
 def build_app(cfg: GatewayConfig):  # type: ignore[no-untyped-def]
     storage: Storage = MemoryStorage()
     if cfg.storage.url:
