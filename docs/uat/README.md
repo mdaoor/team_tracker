@@ -1,6 +1,9 @@
 # Install locally and start UAT
 
-This is the path I verified on a clean checkout (Linux, no Docker): database, server, worker, web console, CLI. About 15 minutes.
+This is the path verified on a clean checkout (Linux, no Docker): database, server, worker, web console, CLI. About 15 minutes.
+
+> **Shortcut:** `scripts/ttctl setup --with-db && scripts/ttctl start` does sections 1-3 for you, and `scripts/ttctl client login` does the
+> token + `tt login` part of section 5. The full install / run / stop guide is [`docs/guide/`](../guide/README.md).
 
 ## 0. What you need
 | Tool | Version | Check |
@@ -15,7 +18,6 @@ Docker users can skip the database step: `make dev` starts Postgres, API (:8000)
 ## 1. Get the code and dependencies
 ```bash
 git clone https://github.com/mdaoor/team_tracker && cd team_tracker
-git checkout feat/phase-14-server         # the implementation line through Phases 13-15 (remediation, client management commands, personal tracker); after it is merged use claude/listed-plan-implementation-hygguz
 uv sync --all-packages                                        # Python workspace (server, worker, CLI, gateway, Slack bot)
 pnpm install                                                  # web console, presentation bundle, desktop palette
 make presentation                                             # builds the single-file deck viewer used by Present / PDF / PNG

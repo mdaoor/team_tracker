@@ -84,7 +84,7 @@ Set `TT_WEB_URL` to test an already running stack, `TT_VIDEO=1` to record the wa
 
 CI runs the whole suite in the `web-e2e` job (`.github/workflows/ci.yml`): Postgres service, `uv sync`, the presentation bundle, Chromium for both Playwrights (`TT_CHROMIUM` unset), then
 `playwright test`; the report and traces are uploaded on failure. `e2e/uat-walk.spec.ts` walks `docs/uat/uat-script.md` sections 2 to 14 and the review's UX items; see the Resolution table in
-`docs/reviews/2026-10-25-technical-and-ux-review.md` for what each spec verifies and what is not walked (CLI, worker, LLM gateway).
+the 2026-10-25 technical and UX review (private planning repository, `docs/reviews/`) for what each spec verifies and what is not walked (CLI, worker, LLM gateway).
 
 ## Not done
 A Lighthouse accessibility run, dragging on the milestone calendar, the allocation-% and validity editors for reporting lines, and

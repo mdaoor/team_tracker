@@ -5,7 +5,7 @@ import { API, ORIGIN } from "./api";
 /**
  * The UAT script (docs/uat/uat-script.md, sections 1-14) and the review's UX items 3, 5, 6, 8, 9, 12, 13, 14 and 15
  * walked in a browser against a freshly seeded stack. Each test names the section it verifies; sections that need a
- * CLI, a worker or an LLM gateway are listed in docs/reviews/2026-10-25-technical-and-ux-review.md as not walked here.
+ * CLI, a worker or an LLM gateway are listed in the 2026-10-25 technical and UX review (private planning repository) as not walked here.
  */
 const unique = () => Math.random().toString(36).slice(2, 7);
 const SARA = { "X-Debug-Actor": "@sara" };
