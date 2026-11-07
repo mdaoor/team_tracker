@@ -1,4 +1,4 @@
-.PHONY: dev down test lint typecheck check migrate seed openapi e2e fmt handover
+.PHONY: dev down test lint typecheck check migrate seed openapi e2e fmt setup start stop restart status logs doctor
 
 PY ?= uv run
 
@@ -48,5 +48,24 @@ presentation:   ## single-file deck bundle: apps/presentation/dist/presentation.
 
 check: lint typecheck test
 
-handover:       ## fill an appendix-D prompt: make handover ARGS="kickoff 11"
-	$(PY) python tools/handover.py $(ARGS)
+# Shortcuts to scripts/ttctl (docs/guide/06-scripts-reference.md)
+setup:          ## install dependencies, .env, deck viewer, database + demo data
+	scripts/ttctl setup --with-db
+
+start:          ## start server + worker + web in the background
+	scripts/ttctl start
+
+stop:           ## stop everything started by scripts/ttctl start
+	scripts/ttctl stop
+
+restart:
+	scripts/ttctl restart
+
+status:
+	scripts/ttctl status
+
+logs:           ## follow all logs
+	scripts/ttctl logs -f
+
+doctor:
+	scripts/ttctl doctor
