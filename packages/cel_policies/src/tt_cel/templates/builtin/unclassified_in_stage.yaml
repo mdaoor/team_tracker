@@ -1,0 +1,15 @@
+key: unclassified_in_stage
+name: "Unclassified work in a stage"
+description: "An item in the given stage has no value for the given dimension."
+category: compliance
+severity: warning
+target: work_item
+trigger: on_event
+event_types: [item.stage_changed, classification.confirmed]
+params:
+  - {name: stage, type: string, default: production, help: "Stage key"}
+  - {name: dimension, type: ident, default: product, help: "Dimension key"}
+cel: >-
+  item.stage.key == {stage} && !has(item.classification.{dimension})
+detail: "no {dimension} in {stage}"
+example: "no product in production"

@@ -1,0 +1,300 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#Collection(event)",
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/calendars/AAMkAD-cal-1/calendarView/delta?$skiptoken=PAGE2",
+  "value": [
+    {
+      "@odata.etag": "W/\"etag-ms-1-1\"",
+      "id": "ms-1",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-1",
+      "subject": "Sprint planning",
+      "type": "occurrence",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": true,
+      "sensitivity": "normal",
+      "showAs": "busy",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-26T06:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-26T07:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      },
+      "seriesMasterId": "ms-series-sprint",
+      "onlineMeetingProvider": "teamsForBusiness",
+      "onlineMeeting": {
+        "joinUrl": "https://teams.microsoft.com/l/meetup-join/19%3ameeting_ZjJh%40thread.v2/0?context=%7b%22Tid%22%3a%22t1%22%7d"
+      }
+    },
+    {
+      "@odata.etag": "W/\"etag-ms-2-1\"",
+      "id": "ms-2",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-2",
+      "subject": "Customer call",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "busy",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-27T13:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-27T13:30:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Pat",
+            "address": "pat@contoso.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    },
+    {
+      "@odata.etag": "W/\"etag-ms-3-1\"",
+      "id": "ms-3",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-3",
+      "subject": "Team lunch",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "busy",
+      "categories": [],
+      "responseStatus": {
+        "response": "declined"
+      },
+      "start": {
+        "dateTime": "2026-10-27T09:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-27T10:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    },
+    {
+      "@odata.etag": "W/\"etag-ms-4-1\"",
+      "id": "ms-4",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-4",
+      "subject": "Public holiday",
+      "type": "singleInstance",
+      "isAllDay": true,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "free",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-28T00:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-29T00:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    },
+    {
+      "@odata.etag": "W/\"etag-ms-5-1\"",
+      "id": "ms-5",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-5",
+      "subject": "Doctor",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "private",
+      "showAs": "busy",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-28T07:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-28T08:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    }
+  ]
+}

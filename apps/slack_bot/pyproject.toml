@@ -1,0 +1,19 @@
+[project]
+name = "tt-slack"
+version = "0.1.0"
+description = "Team Tracker Slack bot: DM free text -> parsed card -> Send / Edit / Discard / Manual (plan phase 11)"
+requires-python = ">=3.12"
+dependencies = ["tt-schema", "tt-client", "httpx>=0.27"]
+
+[project.optional-dependencies]
+bolt = ["slack-bolt>=1.18"]
+
+[project.scripts]
+tt-slack = "tt_slack.bolt_app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tt_slack"]

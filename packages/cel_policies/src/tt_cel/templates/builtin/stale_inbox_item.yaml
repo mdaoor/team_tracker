@@ -1,0 +1,15 @@
+key: stale_inbox_item
+name: "Provisional item left unresolved"
+description: "A provisional (inbox) item has waited longer than N days for a project."
+category: process
+severity: info
+target: work_item
+trigger: scheduled
+schedule: "0 7 * * *"
+params:
+  - {name: days, type: int, default: 7, min: 1, max: 365, help: "Days an item may stay provisional"}
+cel: >-
+  item.is_provisional && now - item.created_at > duration(string({days} * 24) + "h")
+detail: "provisional for more than {days} days"
+candidate_filter: {include_inbox: true}
+example: "provisional for more than 7 days"

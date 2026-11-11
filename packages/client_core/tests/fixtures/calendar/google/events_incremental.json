@@ -1,0 +1,133 @@
+{
+  "kind": "calendar#events",
+  "nextSyncToken": "SYNC-2",
+  "items": [
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-1-2\"",
+      "id": "g-evt-1",
+      "status": "confirmed",
+      "summary": "Sprint planning",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-26T10:00:00+03:00"
+      },
+      "end": {
+        "dateTime": "2026-10-26T11:00:00+03:00"
+      },
+      "iCalUID": "g-evt-1@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "accepted",
+          "self": true
+        },
+        {
+          "email": "ali@acme.com",
+          "responseStatus": "accepted"
+        }
+      ],
+      "recurringEventId": "g-series-sprint",
+      "originalStartTime": {
+        "dateTime": "2026-10-26T09:00:00+03:00"
+      },
+      "hangoutLink": "https://meet.google.com/abc-defg-hij",
+      "conferenceData": {
+        "entryPoints": [
+          {
+            "entryPointType": "video",
+            "uri": "https://meet.google.com/abc-defg-hij"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-11-1\"",
+      "id": "g-evt-11",
+      "status": "confirmed",
+      "summary": "1:1 with Ali",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-30T11:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-30T11:30:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-11@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "accepted",
+          "self": true
+        },
+        {
+          "email": "ali@acme.com",
+          "responseStatus": "accepted"
+        }
+      ]
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-8-2\"",
+      "id": "g-evt-8",
+      "status": "confirmed",
+      "summary": "Design review",
+      "creator": {
+        "email": "sara@acme.com"
+      },
+      "organizer": {
+        "email": "sara@acme.com"
+      },
+      "start": {
+        "dateTime": "2026-10-28T11:00:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "end": {
+        "dateTime": "2026-10-28T11:45:00+03:00",
+        "timeZone": "Asia/Riyadh"
+      },
+      "iCalUID": "g-evt-8@google.com",
+      "attendees": [
+        {
+          "email": "sara@acme.com",
+          "responseStatus": "accepted",
+          "organizer": true
+        },
+        {
+          "email": "mahmoud@acme.com",
+          "responseStatus": "declined",
+          "self": true
+        }
+      ]
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"etag-g-evt-10-2\"",
+      "id": "g-evt-10",
+      "status": "cancelled"
+    }
+  ]
+}

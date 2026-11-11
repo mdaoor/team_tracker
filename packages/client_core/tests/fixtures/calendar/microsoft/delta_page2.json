@@ -1,0 +1,232 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#Collection(event)",
+  "@odata.deltaLink": "https://graph.microsoft.com/v1.0/me/calendars/AAMkAD-cal-1/calendarView/delta?$deltatoken=DELTA-1",
+  "value": [
+    {
+      "@odata.etag": "W/\"etag-ms-6-1\"",
+      "id": "ms-6",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-6",
+      "subject": "Away",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "oof",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-30T06:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-30T14:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    },
+    {
+      "@odata.etag": "W/\"etag-ms-7-1\"",
+      "id": "ms-7",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-7",
+      "subject": "Canceled: Weekly review",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": true,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "busy",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-28T09:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-28T10:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    },
+    {
+      "@odata.etag": "W/\"etag-ms-8-1\"",
+      "id": "ms-8",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-8",
+      "subject": "Focus time",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "busy",
+      "categories": [
+        "Focus time"
+      ],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-28T10:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-28T12:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    },
+    {
+      "@odata.etag": "W/\"etag-ms-9-1\"",
+      "id": "ms-9",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-9",
+      "subject": "Architecture sync",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "busy",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-28T12:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-28T13:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    }
+  ]
+}

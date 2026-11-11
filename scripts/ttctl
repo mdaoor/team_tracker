@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# ttctl - one entry point for every Team Tracker control action.  Run "scripts/ttctl help" for the list.
+source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
+
+usage() {
+  cat <<EOF
+${C_BLD}Team Tracker control${C_OFF}   scripts/ttctl <command> [args]      (every command takes --help)
+
+${C_BLD}Install${C_OFF}
+  setup [--with-db] [--browsers]   install dependencies, write .env, build the deck viewer (and create + seed the DB)
+  doctor                           check tools, configuration, database and running processes
+
+${C_BLD}Run (dev / UAT / single host, no Docker)${C_OFF}
+  start [COMPONENT...]             start in the background: server worker web (default) | gateway desktop slack
+  stop  [COMPONENT...] [--with-db] stop (default: everything that runs)
+  restart [COMPONENT...]           stop + start
+  status [--json]                  what runs, PIDs, ports, health
+  logs [-f] [-n N] [COMPONENT...]  show / follow logs (.run/logs)
+  run COMPONENT                    run one component in the foreground (Ctrl-C stops it)
+
+${C_BLD}Database${C_OFF}
+  db start|stop|status|create|migrate|seed|setup|reset|drop|backup|restore|psql|verify
+
+${C_BLD}Docker${C_OFF}
+  docker up [--llm] [--tls] | down | stop | start | restart | ps | logs [-f] [SVC] | seed | migrate | shell | psql | reset
+
+${C_BLD}Client (tt command line)${C_OFF}
+  client install|uninstall|wheels|token|login|run|logout
+
+${C_BLD}Build and quality${C_OFF}
+  build [presentation|web|desktop|desktop-native|client|images|openapi]
+  check [all|lint|typecheck|test|quick|e2e|fmt]
+  clean [--deps]
+
+${C_BLD}Production (systemd, run as root)${C_OFF}
+  prod install --mode proxy|tls [--with-gateway] [--nginx]
+  prod start|stop|restart|status|reload|logs|health|enable|disable
+  prod upgrade [GIT_REF]
+
+${C_BLD}Repository${C_OFF}
+  repo split --repo OWNER/NAME     publish plans/reviews/handover to a private repo (docs/guide/07-repositories.md)
+
+Guide: docs/guide/README.md
+EOF
+}
+
+cmd="${1:-help}"; shift || true
+case "$cmd" in
+  setup) exec "$ROOT/scripts/setup.sh" "$@" ;;
+  doctor) exec "$ROOT/scripts/doctor.sh" "$@" ;;
+  start|up) exec "$ROOT/scripts/start.sh" "$@" ;;
+  stop|down) exec "$ROOT/scripts/stop.sh" "$@" ;;
+  restart) exec "$ROOT/scripts/restart.sh" "$@" ;;
+  status|ps) exec "$ROOT/scripts/status.sh" "$@" ;;
+  logs|log) exec "$ROOT/scripts/logs.sh" "$@" ;;
+  run) exec "$ROOT/scripts/start.sh" --foreground "$@" ;;
+  db) exec "$ROOT/scripts/db.sh" "$@" ;;
+  docker) exec "$ROOT/scripts/docker.sh" "$@" ;;
+  client|tt) exec "$ROOT/scripts/client.sh" "$@" ;;
+  build) exec "$ROOT/scripts/build.sh" "$@" ;;
+  check|test) exec "$ROOT/scripts/check.sh" "$@" ;;
+  clean) exec "$ROOT/scripts/clean.sh" "$@" ;;
+  prod)
+    sub="${1:-status}"; shift || true
+    case "$sub" in
+      install) exec "$ROOT/scripts/prod/install.sh" "$@" ;;
+      upgrade) exec "$ROOT/scripts/prod/upgrade.sh" "$@" ;;
+      *) exec "$ROOT/scripts/prod/service.sh" "$sub" "$@" ;;
+    esac ;;
+  repo)
+    sub="${1:-}"; shift || true
+    case "$sub" in split) exec "$ROOT/scripts/repo/split-internal-docs.sh" "$@" ;; *) die "usage: ttctl repo split --repo OWNER/NAME" ;; esac ;;
+  help|-h|--help) usage ;;
+  *) err "unknown command '$cmd'"; usage; exit 2 ;;
+esac

@@ -1,0 +1,30 @@
+# Copy to /etc/tt/llm_gateway.yaml (or point TT_LLM_CONFIG at it). Environment overrides:
+# TT_LLM_PRIVACY_MODE, TT_LLM_STORAGE_URL, TT_LLM_SERVER_URL; secrets: TT_LLM_GATEWAY_TOKENS (comma separated),
+# TT_LLM_ADMIN_TOKEN, and the provider keys LiteLLM reads (ANTHROPIC_API_KEY, ...).
+privacy_mode: hybrid            # local_only | hybrid | cloud
+cloud_aliases: [summariser]     # hybrid: only these aliases may leave the host
+ollama_api_base: http://localhost:11434
+aliases:
+  translator: {primary: ollama/qwen2.5:7b-instruct, fallbacks: [ollama/llama3.1:8b]}
+  agent:      {primary: ollama/qwen2.5:14b-instruct, fallbacks: [anthropic/claude-sonnet-5-5]}
+  summariser: {primary: anthropic/claude-sonnet-5-5, fallbacks: [ollama/qwen2.5:14b-instruct]}
+  reasoner:   {primary: anthropic/claude-opus-5-5}
+  embedder:   {primary: ollama/nomic-embed-text}
+budgets:
+  default_usd_per_workspace_per_day: 5
+  workspaces: {}                # slug: usd/day overrides
+limits:
+  max_steps: 8
+  max_tool_calls: 12
+  max_output_tokens: 2048
+  request_timeout_s: 20
+  translate_timeout_s: 1.5
+  num_retries: 1
+  tool_result_max_chars: 6000
+server:
+  base_url: http://server:8000
+  ca_bundle: null               # PEM of the internal CA when the core server uses one
+storage:
+  url: postgresql+psycopg://tt:tt@db:5432/tt   # tables live in schema "llm"; omit for in-memory (sidecar)
+  schema_name: llm
+log_raw_input: false            # reporter text stays out of stored traces unless you turn this on

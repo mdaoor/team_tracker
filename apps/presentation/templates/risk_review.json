@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "key": "risk_review",
+  "version": 1,
+  "name": "Risk review",
+  "description": "Where risk concentrates: projects, exposure, open violations, what is due.",
+  "scope_types": [
+    "workspace",
+    "product",
+    "project",
+    "team",
+    "person"
+  ],
+  "params": [],
+  "slides": [
+    {
+      "kind": "title",
+      "title_template": "Risk review",
+      "config": {},
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "projects",
+      "title_template": "Projects at risk",
+      "config": {},
+      "requires": "both",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "explorer",
+      "title_template": "Risk exposure by project",
+      "config": {
+        "dimA": "project",
+        "measure": "count"
+      },
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "violations",
+      "title_template": "Open violations",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "radar",
+      "title_template": "Due soon",
+      "config": {
+        "days": 14
+      },
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    }
+  ]
+}

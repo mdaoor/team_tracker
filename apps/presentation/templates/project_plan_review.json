@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "key": "project_plan_review",
+  "version": 1,
+  "name": "Project plan review",
+  "description": "A plan-first review of one project: overview, roadmap, milestones, deliverables, plan vs actual, phases, risks, next steps.",
+  "scope_types": [
+    "project"
+  ],
+  "params": [
+    {
+      "name": "project",
+      "type": "project",
+      "required": false,
+      "default": null,
+      "label": "Project (defaults to the scope)"
+    }
+  ],
+  "slides": [
+    {
+      "kind": "title",
+      "title_template": "${project.name} — plan review",
+      "config": {},
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "project_overview",
+      "title_template": "Overview",
+      "config": {
+        "project_key": "${project}"
+      },
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "roadmap",
+      "title_template": "Roadmap",
+      "config": {
+        "project_key": "${project}"
+      },
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "milestones",
+      "title_template": "Milestones",
+      "config": {
+        "project_key": "${project}"
+      },
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "deliverables",
+      "title_template": "Deliverables",
+      "config": {
+        "project_key": "${project}"
+      },
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "plan_vs_actual",
+      "title_template": "Plan vs actual",
+      "config": {
+        "project_key": "${project}"
+      },
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "phase_status",
+      "title_template": "Phases",
+      "config": {
+        "project_key": "${project}"
+      },
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    },
+    {
+      "kind": "violations",
+      "title_template": "Risks and violations",
+      "config": {},
+      "requires": "activity",
+      "render_empty": "note",
+      "layout": "full"
+    },
+    {
+      "kind": "markdown",
+      "title_template": "Next steps",
+      "config": {
+        "text": "- \n- \n- "
+      },
+      "requires": "plan",
+      "render_empty": "placeholder",
+      "layout": "full"
+    }
+  ],
+  "post_rules": [
+    {
+      "when": "scope.items == 0",
+      "action": "drop_slides",
+      "kinds": [
+        "violations"
+      ]
+    }
+  ]
+}
