@@ -1,0 +1,15 @@
+key: overrun
+name: "Finished after the planned end"
+description: "A finished item's actual end is later than its planned end (optionally by more than N hours)."
+category: time
+severity: violation
+target: work_item
+trigger: on_event
+event_types: [item.finished, item.state_changed]
+params:
+  - {name: hours, type: int, default: null, min: 0, max: 8760, help: "Tolerance in hours; empty = any lateness"}
+cel: >-
+  item.state.category == "done" && item.actual_end != null && item.planned_end != null && item.actual_end > item.planned_end<<?hours && item.actual_end - item.planned_end > duration(string({hours}) + "h")?>>
+detail: "finished {item.actual_end} vs plan {item.planned_end}"
+candidate_filter: {state: {category: [done]}}
+example: "finished 2026-10-25 vs plan 2026-10-22"

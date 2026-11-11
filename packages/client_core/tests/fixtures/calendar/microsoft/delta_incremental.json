@@ -1,0 +1,124 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#Collection(event)",
+  "@odata.deltaLink": "https://graph.microsoft.com/v1.0/me/calendars/AAMkAD-cal-1/calendarView/delta?$deltatoken=DELTA-2",
+  "value": [
+    {
+      "@odata.etag": "W/\"etag-ms-9-2\"",
+      "id": "ms-9",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-9",
+      "subject": "Architecture sync",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "busy",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-28T13:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-28T14:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    },
+    {
+      "@odata.etag": "W/\"etag-ms-10-1\"",
+      "id": "ms-10",
+      "iCalUId": "040000008200E00074C5B7101A82E008ms-10",
+      "subject": "Roadmap review",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "isOnlineMeeting": false,
+      "sensitivity": "normal",
+      "showAs": "busy",
+      "categories": [],
+      "responseStatus": {
+        "response": "accepted",
+        "time": "2026-10-20T08:00:00Z"
+      },
+      "start": {
+        "dateTime": "2026-10-29T08:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-10-29T09:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "location": {
+        "displayName": ""
+      },
+      "attendees": [
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Sara",
+            "address": "Sara@acme.com"
+          }
+        },
+        {
+          "type": "required",
+          "status": {
+            "response": "accepted"
+          },
+          "emailAddress": {
+            "name": "Mahmoud",
+            "address": "mahmoud@acme.com"
+          }
+        }
+      ],
+      "organizer": {
+        "emailAddress": {
+          "name": "Sara",
+          "address": "sara@acme.com"
+        }
+      }
+    },
+    {
+      "id": "ms-2",
+      "@removed": {
+        "reason": "deleted"
+      }
+    }
+  ]
+}

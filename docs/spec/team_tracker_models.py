@@ -1168,7 +1168,7 @@ class ClientBatch:
     """A client can send several messages at once (offline sync, 'doing 1,2,3')."""
     workspace: str
     messages: list[ClientMessage]
-    client_version: str = "0.1"
+    client_version: str = "0.2"
 
 
 # ---------------------------------------------------------------------------

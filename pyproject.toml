@@ -1,0 +1,90 @@
+[project]
+name = "team-tracker"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+# litellm declares filelock<4 but works with it; filelock <4.2.1 has three CVEs (CVE-2026-112940/-112913/-112907).
+# Remove this override when a litellm release lifts the cap.
+override-dependencies = ["filelock>=4.2.1"]
+dev-dependencies = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+  "pytest-cov>=5",
+  "pytest-timeout>=2.3",
+  "hypothesis>=6.100",
+  "factory-boy>=3.3",
+  "testcontainers[postgres]>=4",
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "httpx>=0.27",
+  "time-machine>=2.14",
+  "jsonschema>=4.26.0",
+  "types-pyyaml>=6.0.12.20260906",
+  "types-dateparser>=1.4.3.20260907",
+  "schemathesis>=4.32.4",
+  "types-python-dateutil>=2.9.0.20261021",
+  "pytest-xdist>=3.8.0",
+]
+
+[tool.uv.workspace]
+members = ["packages/*", "apps/server", "apps/cli", "apps/worker", "apps/llm_gateway", "apps/slack_bot"]
+
+[tool.uv.sources]
+tt-schema = { workspace = true }
+tt-server = { workspace = true }
+tt-client = { workspace = true }
+tt-filter = { workspace = true }
+tt-cel = { workspace = true }
+tt-llm-gateway = { workspace = true }
+tt-slack = { workspace = true }
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["docs/spec", "tools/gen_snapshot.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "DTZ005", "DTZ011"]  # DTZ: no naive/server-local "now" for business dates (use tt_server.clock)
+ignore = ["E501"]  # `ruff format` wraps code; long docstrings/strings are left to the author
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S", "E501"]
+"**/gateway_tests/**" = ["S", "E501"]
+"**/slack_tests/**" = ["S", "E501"]
+"tools/**" = ["S"]
+"packages/schema/src/tt_schema/*.py" = ["F403", "F405", "UP007", "UP042", "UP045", "S101"]
+# `token_scope` is the API-token scope an op needs ("manage" | "admin"), not a credential
+"apps/server/tt_server/api/commands/*.py" = ["S105", "S106", "S107"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+timeout = 120
+timeout_method = "thread"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+  "llm: tests that need a real model (opt-in)",
+  "contract: OpenAPI fuzzing against a live server",
+  "perf: latency/throughput budgets; run without coverage tracing (CI runs them in their own step)",
+]
+filterwarnings = ["ignore:.*is deprecated.*:DeprecationWarning:ldap3.*"]
+testpaths = ["packages", "apps"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["tt_schema.testing.*", "factory.*", "ldap3.*", "jsonschema.*", "litellm.*"]
+ignore_errors = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tt_server.exports.pptx_builder", "tt_server.exports.pptx_plan", "tt_server.exports.pptx_primitives"]
+disallow_untyped_calls = false  # python-pptx ships partial typing
+
+[tool.coverage.run]
+concurrency = ["greenlet", "thread"]

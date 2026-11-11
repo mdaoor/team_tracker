@@ -1,0 +1,7 @@
+# Paths that belong to the private planning repository, not to the product repository.
+# One path per line (file or directory, relative to the repository root). Used by scripts/repo/split-internal-docs.sh.
+plans
+docs/reviews
+docs/handover
+tools/handover.py
+apps/server/tests/unit/test_handover.py

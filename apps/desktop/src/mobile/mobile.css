@@ -1,0 +1,33 @@
+/* Mobile Lite status bar (above the personal planner). One column at 390 px, no horizontal scroll, same tokens as the planner. */
+.pt-mobilebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  color: var(--fg);
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
+}
+.pt-mobilebar .pt-online {
+  color: var(--development);
+  font-weight: 600;
+}
+.pt-mobilebar .pt-offline {
+  color: var(--personal);
+  font-weight: 600;
+}
+.pt-mobilebar .pt-error {
+  color: var(--danger);
+}
+.pt-mobilebar button {
+  min-height: 44px;
+  padding: 0 14px;
+}
+body {
+  margin: 0;
+  background: var(--bg, #fff);
+}

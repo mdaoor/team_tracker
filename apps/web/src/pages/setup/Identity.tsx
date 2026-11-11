@@ -1,0 +1,89 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { deleteIdpMapping, idpSync } from "../../api/teams";
+import type { Json } from "../../api/types";
+import { Button, Card } from "../../components/ui";
+import { useConfirm } from "../../components/Confirm";
+import { useToasts } from "../../components/Toasts";
+import { useList, useWs } from "../../lib/hooks";
+import { CreateForm, Table } from "./common";
+
+export function Identity() {
+  const ws = useWs();
+  const qc = useQueryClient();
+  const toasts = useToasts();
+  const confirm = useConfirm();
+  const maps = useList("/idp/mappings");
+  const teams = useList("/teams");
+  const [log, setLog] = useState<Json | null>(null);
+  const sync = async () => {
+    try {
+      setLog(await idpSync(ws));
+    } catch (e) {
+      toasts.error(e);
+    }
+  };
+  return (
+    <>
+      <Card
+        title="Active Directory groups → roles and teams"
+        actions={<Button onClick={sync}>Sync now</Button>}
+      >
+        <CreateForm
+          path="/idp/mappings"
+          refresh={["/idp/mappings"]}
+          label="Add mapping"
+          fields={[
+            { name: "provider", label: "Provider", options: ["ldap", "oidc"] },
+            { name: "group", label: "Group DN / id", required: true },
+            {
+              name: "role",
+              label: "Role",
+              options: ["manager", "contributor", "viewer", "project_owner"],
+            },
+            { name: "team", label: "Team", options: (teams.data ?? []).map((t) => t.slug) },
+          ]}
+        />
+        <Table
+          rows={maps.data ?? []}
+          cols={[
+            { key: "provider", label: "Provider" },
+            { key: "group", label: "Group" },
+            { key: "role_key", label: "Role" },
+            {
+              key: "id",
+              label: "",
+              render: (r) => (
+                <Button
+                  variant="ghost"
+                  aria-label="delete mapping"
+                  onClick={async () => {
+                    if (
+                      !(await confirm({
+                        title: `Delete the mapping ${r.provider} / ${r.group}?`,
+                        body: "People signing in through that group lose the role it grants at their next sync.",
+                      }))
+                    )
+                      return;
+                    try {
+                      await deleteIdpMapping(ws, r.id);
+                      await qc.invalidateQueries({ queryKey: [ws, "/idp/mappings"] });
+                    } catch (e) {
+                      toasts.error(e);
+                    }
+                  }}
+                >
+                  ✕
+                </Button>
+              ),
+            },
+          ]}
+        />
+        {log && (
+          <pre aria-label="Last sync">{`checked ${log.checked} · changed ${log.changed} · missing ${log.missing}\n${(log.log as string[]).join("\n")}`}</pre>
+        )}
+        <p className="muted">Kerberos single sign-on is not available in this build.</p>
+      </Card>
+    </>
+  );
+}
