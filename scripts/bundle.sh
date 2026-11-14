@@ -61,7 +61,7 @@ tt_init "$@"; set -- "${TT_ARGS[@]+"${TT_ARGS[@]}"}"
 SUB="${1:-}"; shift || true
 
 py_host() { have python3 && echo python3 && return; [[ -x /usr/libexec/platform-python ]] && echo /usr/libexec/platform-python && return; echo ""; }
-archive_py() {   # archive.py with zstandard when the zstd program is missing
+archive_py() {   # archive.py (pack) with zstandard when the zstd program is missing
   local f="$1"; shift
   if [[ "$f" == *.gz || "$f" == *.tgz ]] || have zstd; then "$(py_host)" "$ROOT/scripts/bundle/archive.py" "$@"
   elif have uv && [[ "${TT_OFFLINE:-0}" != 1 ]]; then uv run --quiet --no-project --with zstandard python "$ROOT/scripts/bundle/archive.py" "$@"

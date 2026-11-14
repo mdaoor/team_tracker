@@ -14,7 +14,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 paths = [
-    line.strip() for line in open(os.path.join(ROOT, "scripts/repo/internal-paths.txt"))
+    line.strip()
+    for line in open(os.path.join(ROOT, "scripts/repo/internal-paths.txt"))
     if line.strip() and not line.startswith("#")
 ]
 alt = "|".join(re.escape(p) for p in sorted(paths, key=len, reverse=True))
@@ -34,16 +35,26 @@ def label(p: str) -> str:
 def rewrite(text: str, rel_dir: str) -> str:
     def resolve(target: str) -> str:
         # make relative links comparable with the repo-relative list
-        norm = os.path.normpath(os.path.join(rel_dir, target)) if target.startswith("..") or not target.startswith(("docs/", "plans", "tools/", "apps/")) else target
+        norm = (
+            os.path.normpath(os.path.join(rel_dir, target))
+            if target.startswith("..") or not target.startswith(("docs/", "plans", "tools/", "apps/"))
+            else target
+        )
         return norm
+
     def link(m: re.Match) -> str:
         txt, target = m.group(1), m.group(2)
         t = resolve(target.split("#")[0])
         if re.fullmatch(PATH, t) or re.fullmatch(PATH, target):
             return txt if txt.strip("`") != target else label(target)
         return m.group(0)
+
     text = re.sub(r"\[([^\]]*)\]\(([^)\s]+)\)", link, text)
-    text = re.sub(rf"`({PATH})`", lambda m: f"`{label(m.group(1))}`" if "ADR-" in m.group(1) else label(m.group(1)), text)
+    text = re.sub(
+        rf"`({PATH})`",
+        lambda m: f"`{label(m.group(1))}`" if "ADR-" in m.group(1) else label(m.group(1)),
+        text,
+    )
     # bare paths only when they contain a "/" (so the English word "plans" is left alone)
     text = re.sub(rf"(?<![\w/`])(?={PATH})(?=[^\s]*/){PATH}", lambda m: label(m.group(0)), text)
     return text

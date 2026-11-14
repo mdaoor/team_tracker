@@ -84,7 +84,7 @@ check() {
     if [[ ${#missing[@]} -gt 0 ]]; then
       say ""; say "Missing or too old: ${missing[*]}"
       if [[ "${TT_OFFLINE:-0}" == 1 ]]; then say "Install from the bundle: $(tt_cmd prereqs install --from-bundle DIR)"
-      else say "Install them (user space, no root): $(tt_cmd prereqs install ${missing[*]})"; fi
+      else say "Install them (user space, no root): $(tt_cmd prereqs install "${missing[@]}")"; fi
     fi
   fi
   [[ ${#missing[@]} -eq 0 ]] || return $E_PREREQ

@@ -14,11 +14,22 @@ REQUIRED = os.environ.get("TT_PG_EXTENSIONS", "pg_trgm ltree btree_gist").split(
 
 def classify(msg: str) -> str:
     m = msg.lower()
-    if "password authentication failed" in m or "role" in m and "does not exist" in m or "no password supplied" in m:
+    if (
+        "password authentication failed" in m
+        or "role" in m
+        and "does not exist" in m
+        or "no password supplied" in m
+    ):
         return "auth"
     if "database" in m and "does not exist" in m:
         return "no_database"
-    if "connection refused" in m or "could not connect" in m or "timeout" in m or "no route" in m or "name or service" in m:
+    if (
+        "connection refused" in m
+        or "could not connect" in m
+        or "timeout" in m
+        or "no route" in m
+        or "name or service" in m
+    ):
         return "unreachable"
     return "other"
 
@@ -45,11 +56,13 @@ def main() -> None:
             row = cur.fetchone()
             out["server_version"] = row[0] if row else None
             cur.execute(
-                "SELECT name, installed_version FROM pg_available_extensions WHERE name = ANY(%s)", (REQUIRED,)
+                "SELECT name, installed_version FROM pg_available_extensions WHERE name = ANY(%s)",
+                (REQUIRED,),
             )
             found = {name: inst for name, inst in cur.fetchall()}
             out["extensions"] = {
-                e: ("installed" if found.get(e) else "available" if e in found else "missing") for e in REQUIRED
+                e: ("installed" if found.get(e) else "available" if e in found else "missing")
+                for e in REQUIRED
             }
             cur.execute("SELECT rolsuper OR rolcreatedb FROM pg_roles WHERE rolname = current_user")
             row = cur.fetchone()

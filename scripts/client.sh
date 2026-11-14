@@ -26,6 +26,7 @@ SEE ALSO
   $GUIDE/08-clients.md
 EOF2
 }
+# shellcheck disable=SC2034  # read by tt_init in lib/common.sh
 TT_PASSTHROUGH_WORDS="run"
 tt_init "$@"; set -- "${TT_ARGS[@]+"${TT_ARGS[@]}"}"
 cd "$ROOT" || exit 1

@@ -14,14 +14,14 @@ repo = Path(sys.argv[1])
 h = repo / "tools" / "handover.py"
 s = h.read_text()
 s = s.replace(
-    'ROOT = Path(__file__).resolve().parents[1]\n',
-    'ROOT = Path(__file__).resolve().parents[1]  # the planning repository\n'
-    '# The product checkout the prompts send the implementer to (the code lives there, the plans here).\n'
+    "ROOT = Path(__file__).resolve().parents[1]\n",
+    "ROOT = Path(__file__).resolve().parents[1]  # the planning repository\n"
+    "# The product checkout the prompts send the implementer to (the code lives there, the plans here).\n"
     'PRODUCT = Path(os.environ.get("TT_PRODUCT_DIR") or ROOT.parent / "team_tracker").resolve()\n',
 )
 s = s.replace("import argparse\n", "import argparse\nimport os\n", 1)
 s = re.sub(
-    r'def repo_url\(\) -> str:\n.*?\n\n\n',
+    r"def repo_url\(\) -> str:\n.*?\n\n\n",
     '''def repo_url() -> str:
     """The PRODUCT repository (TT_PRODUCT_URL, else the git remote of TT_PRODUCT_DIR, else its path)."""
     if url := os.environ.get("TT_PRODUCT_URL"):
@@ -49,12 +49,17 @@ def product_commit() -> str:
     count=1,
     flags=re.S,
 )
-s = s.replace('"path/URL": url or repo_url(),', '"path/URL": f"{url or repo_url()} (product commit {product_commit()})",')
+s = s.replace(
+    '"path/URL": url or repo_url(),',
+    '"path/URL": f"{url or repo_url()} (product commit {product_commit()})",',
+)
 h.write_text(s)
 
 old = repo / "apps" / "server" / "tests" / "unit" / "test_handover.py"
 if old.exists():
-    t = old.read_text().replace("ROOT = Path(__file__).resolve().parents[4]", "ROOT = Path(__file__).resolve().parents[1]")
+    t = old.read_text().replace(
+        "ROOT = Path(__file__).resolve().parents[4]", "ROOT = Path(__file__).resolve().parents[1]"
+    )
     (repo / "tests").mkdir(exist_ok=True)
     (repo / "tests" / "test_handover.py").write_text(t)
     old.unlink()

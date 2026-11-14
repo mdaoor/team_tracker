@@ -16,7 +16,16 @@ import urllib.parse
 
 PROXIED = ("/api/", "/auth/", "/p/")
 PROXIED_EXACT = ("/healthz", "/readyz", "/metrics")
-HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade"}
+HOP = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+}
 
 
 def make_handler(dist: str, api: str) -> type[http.server.SimpleHTTPRequestHandler]:
@@ -29,7 +38,7 @@ def make_handler(dist: str, api: str) -> type[http.server.SimpleHTTPRequestHandl
             super().__init__(*a, directory=dist, **kw)
 
         def log_message(self, fmt: str, *args: object) -> None:
-            sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+            sys.stderr.write(f"{self.address_string()} - {fmt % args}\n")
 
         def _proxied(self) -> bool:
             path = self.path.split("?", 1)[0]
@@ -38,7 +47,7 @@ def make_handler(dist: str, api: str) -> type[http.server.SimpleHTTPRequestHandl
         def _proxy(self) -> None:
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else None
-            conn = http.client.HTTPConnection(target.hostname, target.port or 80, timeout=3600)
+            conn = http.client.HTTPConnection(target.hostname or "127.0.0.1", target.port or 80, timeout=3600)
             headers = {k: v for k, v in self.headers.items() if k.lower() not in HOP and k.lower() != "host"}
             headers["Host"] = self.headers.get("Host", "")
             headers["X-Forwarded-For"] = self.client_address[0]

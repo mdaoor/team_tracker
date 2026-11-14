@@ -17,6 +17,7 @@ HOW
 EXAMPLES
   $TT_TTCTL repo secrets-scan
   $TT_TTCTL repo secrets-scan .run/internal-repo --report .run/secrets-internal.json
+  $TT_TTCTL -v repo secrets-scan /path/to/another/checkout
 
 SEE ALSO
   $GUIDE/14-repositories.md#secrets-scan

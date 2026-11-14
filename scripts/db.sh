@@ -47,6 +47,7 @@ SEE ALSO
   $GUIDE/05-database.md
 EOF
 }
+# shellcheck disable=SC2034  # read by tt_init in lib/common.sh
 TT_PASSTHROUGH_WORDS="psql"
 tt_init "$@"; set -- "${TT_ARGS[@]+"${TT_ARGS[@]}"}"
 cd "$ROOT" || exit 1
@@ -181,7 +182,7 @@ start_db() {
       run "${s[@]}" ;;
   esac
   dry_run && return 0
-  local i; for i in $(seq 1 60); do db_up && { ok "PostgreSQL up on $HOST:$PORT"; return; }; sleep 0.5; done
+  local _; for _ in $(seq 1 60); do db_up && { ok "PostgreSQL up on $HOST:$PORT"; return; }; sleep 0.5; done
   db_unreachable "started, but nothing answers on $HOST:$PORT after 30 s"
 }
 stop_db() {

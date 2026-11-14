@@ -41,8 +41,9 @@ ENVFILE=/etc/tt/tt.env
 PREFIX=""; [[ "$ROOT" == */releases/* ]] && PREFIX="${ROOT%/releases/*}"
 
 need_root() { [[ "$(id -u)" -eq 0 ]] || dry_run || fail TT-E020 "prod $VERB changes the installed release" "you are $(id -un), not root" "sudo $TT_TTCTL prod $VERB"; }
-load_prod_env() { [[ -f "$ENVFILE" ]] || fail TT-E500 "$ENVFILE is missing" "this host has no production install" "sudo $TT_TTCTL prod install --mode proxy"; set -a; source "$ENVFILE"; set +a; }
-healthy() { local i; for i in $(seq 1 60); do "$ROOT/scripts/prod/service.sh" health >/dev/null 2>&1 && return 0; sleep 1; done; return 1; }
+load_prod_env() { [[ -f "$ENVFILE" ]] || fail TT-E500 "$ENVFILE is missing" "this host has no production install" "sudo $TT_TTCTL prod install --mode proxy"; set -a; # shellcheck disable=SC1090
+  source "$ENVFILE"; set +a; }
+healthy() { local _; for _ in $(seq 1 60); do "$ROOT/scripts/prod/service.sh" health >/dev/null 2>&1 && return 0; sleep 1; done; return 1; }
 backup() {
   [[ $BACKUP -eq 1 ]] || { warn "no backup (--no-backup)"; return; }
   step "back up the database" env BACKUP_DIR=/var/backups/tt "$ROOT/deploy/backup/backup.sh"

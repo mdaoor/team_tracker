@@ -79,6 +79,12 @@ preflight() {
       if have pg_isready && ! probe pg_isready -q -h "$h" -p "$p" >/dev/null; then
         fail TT-E200 "$1 needs the database, and nothing answers on $h:$p" "PostgreSQL is not running (or TT_DATABASE_URL points elsewhere)" \
           "$(tt_cmd db start)   (new install: $(tt_cmd db setup))"
+      fi
+      # reachable but never migrated: the server would start and answer 503 on /readyz
+      local j; j="$(probe "$ROOT/.venv/bin/python" "$ROOT/scripts/lib/dbcheck.py" || true)"
+      if [[ "$j" == *'"reachable": true'* && "$j" == *'"revision": null'* ]]; then
+        fail TT-E204 "$1 needs the database schema, and the database has never been migrated" "the alembic_version table is missing in $(db_part name)" \
+          "$(tt_cmd db migrate)   (new install: $(tt_cmd db setup))"
       fi ;;
     web)
       if [[ "$(web_mode)" == vite ]]; then

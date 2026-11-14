@@ -100,7 +100,10 @@ if [[ "$MODE" == tls ]] && [[ ! -f /etc/tt/tls/cert.pem || ! -f /etc/tt/tls/key.
 fi
 
 unit() {   # copy deploy/systemd/NAME pointing at APP
-  run bash -c "sed -e 's#/opt/team-tracker#$APP#g' '$ROOT/deploy/systemd/$1' > '/etc/systemd/system/$1'"
+  local extra=""
+  # ProtectHome=true hides /home from the service: a checkout there must stay readable
+  [[ "$APP" == /home/* || "$APP" == /root/* ]] && extra="-e s#^ProtectHome=true#ProtectHome=read-only#"
+  run bash -c "sed -e 's#/opt/team-tracker#$APP#g' $extra '$ROOT/deploy/systemd/$1' > '/etc/systemd/system/$1'"
 }
 unit tt-server.service; unit tt-worker.service
 if [[ "$MODE" == proxy ]]; then
@@ -117,7 +120,7 @@ if [[ $GATEWAY -eq 1 ]]; then
 fi
 run systemctl daemon-reload
 run systemctl enable "${UNITS[@]}"
-ok "units installed and enabled: ${UNITS[*]}"
+dry_run || ok "units installed and enabled: ${UNITS[*]}"
 if [[ $NGINX -eq 1 ]]; then
   [[ -d /etc/nginx/conf.d ]] || fail TT-E100 "--nginx, but nginx is not installed" "/etc/nginx/conf.d is missing" "$(sudo_prefix)dnf -y install nginx   (or apt-get install -y nginx), then run this again"
   run bash -c "sed -e 's#/opt/team-tracker#$APP#g' '$ROOT/deploy/nginx/team-tracker.conf' > /etc/nginx/conf.d/team-tracker.conf"

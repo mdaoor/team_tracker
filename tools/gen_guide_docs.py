@@ -1,0 +1,202 @@
+"""Generate the two guide pages that must never drift from their sources.
+
+    python tools/gen_guide_docs.py           # rewrite docs/guide/09-configuration.md and 10-scripts-reference.md
+    python tools/gen_guide_docs.py --check   # exit 1 when a committed page is stale (CI, tests/ops)
+
+09-configuration.md   from tt_server.settings.Settings (via tools/gen_config_reference.render) plus the settings that
+                      only the scripts read (parsed from scripts/lib/common.sh and scripts/lib/versions.env)
+10-scripts-reference.md  the --help output of ttctl and of every command and subcommand
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+GUIDE = ROOT / "docs" / "guide"
+sys.path.insert(0, str(ROOT / "tools"))
+
+# every command whose help is documented, in guide order: (title, ttctl arguments)
+COMMANDS: list[tuple[str, list[str]]] = [
+    ("ttctl", []),
+    ("prereqs", ["prereqs"]),
+    ("setup", ["setup"]),
+    ("doctor", ["doctor"]),
+    ("start / run", ["start"]),
+    ("stop", ["stop"]),
+    ("restart", ["restart"]),
+    ("status", ["status"]),
+    ("logs", ["logs"]),
+    ("db", ["db"]),
+    ("bundle", ["bundle"]),
+    ("docker", ["docker"]),
+    ("client", ["client"]),
+    ("build", ["build"]),
+    ("check", ["check"]),
+    ("clean", ["clean"]),
+    ("prod (service control)", ["prod"]),
+    ("prod install", ["prod", "install"]),
+    ("prod upgrade / rollback / releases", ["prod", "upgrade"]),
+    ("repo split", ["repo", "split"]),
+    ("repo purge-history", ["repo", "purge-history"]),
+    ("repo secrets-scan", ["repo", "secrets-scan"]),
+    ("support-bundle", ["support-bundle"]),
+    ("version", None),  # type: ignore[list-item]
+]
+SCRIPT_SETTINGS = [
+    (
+        "TT_HOST",
+        "127.0.0.1",
+        "bind address of the API started by `ttctl start` (0.0.0.0 to reach it from other machines)",
+    ),
+    ("TT_PORT", "8000", "API port"),
+    ("TT_WEB_PORT", "5173", "web console port"),
+    ("TT_GATEWAY_PORT", "8700", "LLM gateway port"),
+    ("TT_DESKTOP_PORT", "1420", "desktop preview port (fixed by its Vite config)"),
+    ("TT_API_URL", "http://127.0.0.1:$TT_PORT", "where the web console forwards API calls"),
+    ("TT_RELOAD", "1", "1 = the API reloads on code changes (dev); ignored offline"),
+    ("TT_WEB_MODE", "auto", "`vite` (Node) or `static` (prebuilt apps/web/dist, no Node); auto picks"),
+    ("TT_GATEWAY_MODE", "local", "`local` = tt-llm serve --local-only; `config` = use TT_LLM_CONFIG"),
+    ("TT_START_TIMEOUT", "90", "seconds to wait for a component to become healthy"),
+    ("TT_STOP_TIMEOUT", "15", "seconds before a stop becomes SIGKILL"),
+    (
+        "TT_DB_MODE",
+        "native",
+        "`native` (PostgreSQL on this host), `docker` (compose db), `external` (TT_DATABASE_URL elsewhere)",
+    ),
+    ("TT_DB_ADMIN_URL", "unset", "superuser connection for `db create` on a remote/external server"),
+    (
+        "TT_PGDATA",
+        "/var/lib/pgsql/16/data",
+        "data directory when PostgreSQL is started with pg_ctl (no systemd)",
+    ),
+    (
+        "TT_NODE_MIRROR",
+        "https://nodejs.org/dist",
+        "where `prereqs install node` downloads Node.js from (internal mirror)",
+    ),
+    ("TT_PG_SOURCE", "auto", "RHEL: `module` (AppStream postgresql:16) or `pgdg` (PostgreSQL repository)"),
+    ("TT_OFFLINE", "0", "1 = refuse every network action (exit 4); set by bundle installs"),
+    (
+        "TT_VERBOSE / TT_QUIET / TT_DRY_RUN / TT_YES",
+        "0",
+        "the global flags -v / -q / --dry-run / --yes as environment",
+    ),
+    ("TT_LOG_FILE", ".run/logs/ttctl-<command>-<time>.log", "where the run log goes"),
+    ("TT_RUN_DIR", ".run", "PID files and logs"),
+    ("TT_TOOLS_DIR", ".tools", "user-space prerequisites (on PATH for every script)"),
+    ("TT_CHROMIUM", "auto", "Chromium binary used for PDF/PNG export"),
+    (
+        "TT_BROWSERS_FROM",
+        "unset",
+        "copy Chromium from this Playwright browser directory instead of downloading it",
+    ),
+    ("TT_TIME_ZONE", "system", "time zone `ttctl client login` passes to tt"),
+    ("TT_IMAGE_TAG", "latest", "tag for `ttctl build images`"),
+    (
+        "TT_CI_EXTRA_CA",
+        "unset",
+        "bundle builds / CI behind an intercepting proxy: its CA (PEM) is trusted inside build containers",
+    ),
+]
+
+
+def config_page() -> str:
+    from gen_config_reference import render  # noqa: PLC0415 - needs tt_server importable
+
+    table = render().split("\n")
+    # drop the generator's own title/intro (first 4 lines), keep tables and the environment matrix
+    body = "\n".join(table[4:]).strip()
+    vers = dict(re.findall(r"^(TT_[A-Z_]+)=(.*)$", (ROOT / "scripts/lib/versions.env").read_text(), re.M))
+    out = [
+        "# 9. Configuration",
+        "",
+        "<!-- GENERATED by tools/gen_guide_docs.py from tt_server.settings.Settings and scripts/lib - do not edit by hand. -->",
+        "",
+        "The server and worker read `TT_*` variables from the environment or from `.env` in the install directory (production:",
+        "`/etc/tt/tt.env`, loaded by systemd). Start from `.env.example`. Rows marked **secret** belong in a secret store, never in git.",
+        "",
+        "## Server settings",
+        "",
+        body,
+        "",
+        "## Settings read by the scripts",
+        "",
+        "| Variable | Default | Effect |",
+        "| --- | --- | --- |",
+    ]
+    out += [f"| `{k}` | `{d}` | {e} |" for k, d, e in SCRIPT_SETTINGS]
+    out += [
+        "",
+        "## Pinned prerequisite versions (`scripts/lib/versions.env`)",
+        "",
+        "| Variable | Value |",
+        "| --- | --- |",
+    ]
+    out += [f"| `{k}` | `{v.strip(chr(34))}` |" for k, v in vers.items()]
+    out += [
+        "",
+        "## Client settings",
+        "",
+        "The `tt` CLI keeps its settings in `~/.config/tt/config.toml` (written by `tt login`; `TT_CONFIG_DIR` moves it) and its",
+        "outbox and personal store in `~/.local/share/tt` (`TT_DATA_DIR`). `TT_CA_BUNDLE` makes clients trust an internal CA.",
+        "Workspace settings (sharing, retention, daily-log time) are set in the web console, see the [admin guide](../guides/admin.md).",
+        "",
+    ]
+    return "\n".join(out)
+
+
+def help_of(args: list[str]) -> str:
+    env = {**os.environ, "NO_COLOR": "1", "TT_TTCTL": "ttctl", "TT_LOG_FILE": "/dev/null"}
+    cmd = [str(ROOT / "scripts" / "ttctl"), *(["help", *args] if args else ["help"])]
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=ROOT, check=False)  # noqa: S603
+    if r.returncode != 0:
+        raise SystemExit(f"{' '.join(cmd)} exited {r.returncode}: {r.stderr}")
+    return r.stdout.rstrip()
+
+
+def scripts_page() -> str:
+    out = [
+        "# 10. Scripts reference",
+        "",
+        "<!-- GENERATED by tools/gen_guide_docs.py from the --help of every command - do not edit by hand. -->",
+        "",
+        "Every action is `scripts/ttctl <command>` (or the script in `scripts/` directly). Every command and subcommand",
+        "answers `--help`; this page is that output, regenerated in CI so it cannot drift. Global options and exit codes are",
+        "shown once, at the end of the first section.",
+        "",
+    ]
+    first = True
+    for title, args in COMMANDS:
+        if args is None:
+            text = "ttctl version   - versions of ttctl, the app (VERSION file or git), the OS and every tool"
+        else:
+            text = help_of(args)
+            if not first:  # global options repeat on every help; keep them once
+                text = text.split("\nGLOBAL OPTIONS")[0].rstrip()
+        first = False
+        out += [f"## {title}", "", "```text", text, "```", ""]
+    return "\n".join(out)
+
+
+def main() -> int:
+    check = "--check" in sys.argv
+    pages = {GUIDE / "09-configuration.md": config_page(), GUIDE / "10-scripts-reference.md": scripts_page()}
+    stale = []
+    for path, text in pages.items():
+        if check:
+            if not path.exists() or path.read_text() != text:
+                stale.append(path)
+        else:
+            path.write_text(text)
+    for p in stale:
+        print(f"stale: {p.relative_to(ROOT)} - run: python tools/gen_guide_docs.py")
+    return 1 if stale else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

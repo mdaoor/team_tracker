@@ -154,7 +154,12 @@ else
   [[ $PROD -eq 1 ]] && step "build the web console" pnpm --filter @tt/web build
   ok "web dependencies installed, deck viewer built"
 fi
-if [[ $BROWSERS -eq 1 ]]; then step "install Chromium" "$ROOT/scripts/prereqs.sh" install chromium; fi
+if [[ $BROWSERS -eq 1 ]]; then
+  if [[ "${TT_OFFLINE:-0}" == 1 ]]; then "$ROOT/scripts/prereqs.sh" install chromium --from-bundle "${TT_BUNDLE_DIR:-/nonexistent}"
+  else step "install Chromium into ${TOOLS_DIR#"$ROOT"/}" "$ROOT/scripts/prereqs.sh" install chromium; fi
+  # its system libraries are OS packages (root): shown, asked, never silent
+  "$ROOT/scripts/prereqs.sh" install chromium-libs --system || warn "Chromium's libraries were not installed - PDF/PNG export may fail ($(tt_cmd prereqs install chromium-libs --system))"
+fi
 
 # ---------- 5. database --------------------------------------------------------------------------------------------------
 title "5/5 Database"

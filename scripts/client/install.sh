@@ -27,6 +27,10 @@ find_uv() {
   for c in "$(command -v uv 2>/dev/null || true)" "$HOME/.local/bin/uv" "$HERE/bin/uv"; do [[ -n "$c" && -x "$c" ]] && { echo "$c"; return 0; }; done
   return 1
 }
+find_tt() {
+  for c in "$(command -v tt 2>/dev/null || true)" "$HOME/.local/bin/tt" "$HOME/.local/share/tt/venv/bin/tt"; do [[ -n "$c" && -x "$c" ]] && { echo "$c"; return 0; }; done
+  return 1
+}
 case "$CMD" in
   install)
     if UV="$(find_uv)"; then
@@ -46,16 +50,17 @@ case "$CMD" in
     fi
     if [[ -n "$CA" || -f "$HERE/ca/ca.pem" ]]; then cp "${CA:-$HERE/ca/ca.pem}" "$CONF/ca.pem"; echo "CA bundle: $CONF/ca.pem"; fi
     [[ -n "$SERVER" ]] && printf 'server_url = "%s"\nworkspace = "%s"\n' "$SERVER" "$WS" > "$CONF/kit-defaults.toml"
-    echo "installed: $(command -v tt || echo "$HOME/.local/bin/tt")"
+    TT="$(find_tt || echo "$HOME/.local/bin/tt")"; echo "installed: $TT"
+    case ":$PATH:" in *":$(dirname "$TT"):"*) ;; *) echo "add it to your PATH: export PATH=\"$(dirname "$TT"):\$PATH\" (e.g. in ~/.bashrc)" ;; esac
     echo "next: ./install.sh login --browser   (or: tt login --url ${SERVER:-https://tracker.example.com} --workspace ${WS:-acme} --browser)" ;;
   login)
-    command -v tt >/dev/null || die TT-E100 3 "tt is not installed" "run install first" "./install.sh install"
+    TT="$(find_tt)" || die TT-E100 3 "tt is not installed" "run install first" "./install.sh install"
     if [[ -z "$SERVER" && -f "$CONF/kit-defaults.toml" ]]; then SERVER="$(sed -n 's/^server_url = "\(.*\)"/\1/p' "$CONF/kit-defaults.toml")"; WS="$(sed -n 's/^workspace = "\(.*\)"/\1/p' "$CONF/kit-defaults.toml")"; fi
     [[ -n "$SERVER" && -n "$WS" ]] || die TT-E012 2 "login needs the server URL and workspace" "no --server/--workspace given and none saved by install" "./install.sh login --server https://tracker.example.com --workspace acme --browser"
     ca=(); [[ -f "$CONF/ca.pem" ]] && ca=(--ca-bundle "$CONF/ca.pem")
-    tt login --url "$SERVER" --workspace "$WS" "${ca[@]}" "${LOGIN_ARGS[@]+"${LOGIN_ARGS[@]}"}" ;;
+    "$TT" login --url "$SERVER" --workspace "$WS" "${ca[@]}" "${LOGIN_ARGS[@]+"${LOGIN_ARGS[@]}"}" ;;
   status)
-    command -v tt >/dev/null && echo "tt: $(command -v tt)" || echo "tt: not installed"
+    if TT="$(find_tt)"; then echo "tt: $TT"; else echo "tt: not installed"; fi
     [[ -f "$CONF/config.toml" ]] && grep -E '^(server_url|workspace|handle) ' "$CONF/config.toml" || echo "not signed in" ;;
   uninstall)
     if UV="$(find_uv)" && "$UV" tool list 2>/dev/null | grep -q '^tt-cli'; then "$UV" tool uninstall tt-cli; fi

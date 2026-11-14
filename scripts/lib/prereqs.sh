@@ -160,10 +160,24 @@ system_cmds() {
   esac
 }
 
+# Hosts without systemd (containers, WSL): replace service setup with initdb; "ttctl db start" then uses pg_ctl.
+no_systemd_filter() {
+  if [[ -d /run/systemd/system ]]; then cat; return; fi
+  local line
+  while IFS= read -r line; do
+    case "$line" in
+      "postgresql-setup --initdb") echo "runuser -u postgres -- initdb -D /var/lib/pgsql/data --auth-local=peer --auth-host=scram-sha-256" ;;
+      */postgresql-$TT_PG_MAJOR-setup\ initdb) echo "runuser -u postgres -- /usr/pgsql-$TT_PG_MAJOR/bin/initdb -D /var/lib/pgsql/$TT_PG_MAJOR/data --auth-local=peer --auth-host=scram-sha-256" ;;
+      "systemctl enable --now"*|"brew services"*) ;;
+      *) echo "$line" ;;
+    esac
+  done
+}
+
 # run_system TOOL: show the commands, ask, then run them with sudo when not root. Never silent.
 run_system() {
   local t="$1" cmds pre; pre="$(sudo_prefix)"
-  mapfile -t cmds < <(system_cmds "$t")
+  mapfile -t cmds < <(system_cmds "$t" | no_systemd_filter)
   if [[ ${#cmds[@]} -eq 0 ]]; then
     fail TT-E110 "no install recipe for '$t' on $(tt_os_id)" "supported: RHEL/Rocky/Alma 8 and 9, Ubuntu 22.04 and 24.04, Debian 12, macOS (development)" \
       "install it with your OS tools, then: $(tt_cmd prereqs check)"
@@ -224,7 +238,7 @@ install_python() {
 }
 node_platform() { case "$(uname -s)-$(tt_arch)" in Linux-x86_64) echo linux-x64 ;; Linux-aarch64) echo linux-arm64 ;; Darwin-x86_64) echo darwin-x64 ;; Darwin-aarch64) echo darwin-arm64 ;; esac; }
 install_node() {
-  local from="${1:-}" plat tgz sums
+  local from="${1:-}" plat tgz
   if [[ -n "$from" ]]; then
     [[ -d "$from/tools/node" ]] || fail TT-E401 "the bundle has no Node.js" "it was built without --with-dev; Node is only needed to rebuild the web console" "$(tt_cmd bundle create --target "$(bundle_target_guess)" --with-dev)"
     run rm -rf "$TOOLS_DIR/node"; run cp -a "$from/tools/node" "$TOOLS_DIR/node"; return
@@ -232,8 +246,9 @@ install_node() {
   plat="$(node_platform)"; tgz="node-v$TT_NODE_VERSION-$plat.tar.gz"
   tt_need_network "downloading Node.js $TT_NODE_VERSION" node --with-dev
   local tmp; tmp="$(mktemp -d)"
-  fetch "https://nodejs.org/dist/v$TT_NODE_VERSION/$tgz" "$tmp/$tgz"
-  fetch "https://nodejs.org/dist/v$TT_NODE_VERSION/SHASUMS256.txt" "$tmp/SHASUMS256.txt"
+  local mirror="${TT_NODE_MIRROR:-https://nodejs.org/dist}"
+  fetch "$mirror/v$TT_NODE_VERSION/$tgz" "$tmp/$tgz"
+  fetch "$mirror/v$TT_NODE_VERSION/SHASUMS256.txt" "$tmp/SHASUMS256.txt"
   if ! dry_run; then
     (cd "$tmp" && grep " $tgz\$" SHASUMS256.txt | sha256sum -c - >/dev/null) || fail TT-E120 "the Node.js download failed its checksum" "$tgz does not match SHASUMS256.txt" "retry: $(tt_cmd prereqs install node)"
   fi
@@ -260,9 +275,16 @@ install_chromium() {
     [[ -d "$from/tools/ms-playwright" ]] || fail TT-E401 "the bundle has no Chromium" "it was built without --with-browsers" "$(tt_cmd bundle create --target "$(bundle_target_guess)" --with-browsers)"
     run rm -rf "$TOOLS_DIR/ms-playwright"; run cp -a "$from/tools/ms-playwright" "$TOOLS_DIR/"; return
   fi
-  need_python_env
-  tt_need_network "downloading Chromium" chromium --with-browsers
-  run env PLAYWRIGHT_BROWSERS_PATH="$TOOLS_DIR/ms-playwright" "${PY_RUN[@]}" playwright install chromium
+  if [[ -n "${TT_BROWSERS_FROM:-}" ]]; then   # an existing Playwright browser directory (CDN blocked, internal share)
+    local src; src="$(ls -d "$TT_BROWSERS_FROM"/chromium-[0-9]* 2>/dev/null | sort -V | tail -1)"
+    [[ -n "$src" ]] || fail TT-E107 "TT_BROWSERS_FROM=$TT_BROWSERS_FROM has no chromium-NNNN directory" "expected a Playwright browser directory" \
+      "point TT_BROWSERS_FROM at a directory like ~/.cache/ms-playwright, or unset it to download"
+    run mkdir -p "$TOOLS_DIR/ms-playwright"; run cp -a "$src" "$TOOLS_DIR/ms-playwright/"
+  else
+    need_python_env
+    tt_need_network "downloading Chromium" chromium --with-browsers
+    run env PLAYWRIGHT_BROWSERS_PATH="$TOOLS_DIR/ms-playwright" "${PY_RUN[@]}" playwright install --no-shell chromium
+  fi
   say "  Chromium also needs system libraries. If PDF export fails with 'error while loading shared libraries':"
   local c; while IFS= read -r c; do say "    $(sudo_prefix)$c"; done < <(system_cmds chromium-libs)
 }

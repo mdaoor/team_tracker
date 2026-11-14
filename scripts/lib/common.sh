@@ -39,7 +39,14 @@ done
 unset _d
 export PATH
 [[ -d "$TOOLS_DIR/python" ]] && export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$TOOLS_DIR/python}"
-[[ -d "$TOOLS_DIR/ms-playwright" ]] && export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$TOOLS_DIR/ms-playwright}"
+if [[ -d "$TOOLS_DIR/ms-playwright" ]]; then
+  export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$TOOLS_DIR/ms-playwright}"
+  # the server launches exactly this browser for PDF/PNG export (TT_CHROMIUM), not Playwright's default headless shell
+  if [[ -z "${TT_CHROMIUM:-}" ]]; then
+    for _c in "$TOOLS_DIR"/ms-playwright/chromium-[0-9]*/chrome-linux*/chrome; do [[ -x "$_c" ]] && export TT_CHROMIUM="$_c"; done
+    unset _c
+  fi
+fi
 
 # ---------- output ---------------------------------------------------------------------------------------------------
 _tt_colors() {
@@ -92,6 +99,8 @@ fail() {
   } >&2
   _log "error $code what=[$what] why=[$why] fix=[$fix] docs=[$docs] exit=$rc"
   TT_FAILED=1
+  # a parent ttctl script (same run log) must not report this failure again
+  [[ -n "${TT_LOG_FILE:-}" ]] && : > "$TT_LOG_FILE.reported" 2>/dev/null
   # $$ is the main script's PID even inside $(...): tells the parent's ERR trap this was already reported
   if [[ "${BASH_SUBSHELL:-0}" -gt 0 ]]; then mkdir -p "$RUN_DIR" 2>/dev/null && : > "$RUN_DIR/.reported-$$" 2>/dev/null; fi
   exit "$rc"
@@ -106,7 +115,9 @@ _tt_on_err() {
   local rc="$1" cmd="$2" src="$3" line="$4"
   [[ "${TT_FAILED:-0}" == 1 ]] && exit "$rc"
   if [[ "${BASH_SUBSHELL:-0}" -gt 0 ]]; then exit "$rc"; fi   # fail() in a subshell already printed the report
-  if [[ -f "$RUN_DIR/.reported-$$" ]]; then rm -f "$RUN_DIR/.reported-$$"; exit "$rc"; fi   # let the parent report it with its own context
+  if [[ -f "$RUN_DIR/.reported-$$" ]]; then rm -f "$RUN_DIR/.reported-$$"; exit "$rc"; fi
+  # a child ttctl script already printed its WHAT/WHY/FIX/DOCS report: keep its exit code, add nothing
+  if [[ -n "${TT_LOG_FILE:-}" && -f "$TT_LOG_FILE.reported" ]]; then exit "$rc"; fi   # let the parent report it with its own context
   TT_FAILED=1
   {
     printf '%serror TT-E001%s  %s\n' "$C_RED" "$C_OFF" "$(_err_field TT-E001 summary)"
@@ -187,6 +198,7 @@ tt_init() {
   export TT_LOG_FILE
   if [[ -z "${TT_LOG_STARTED:-}" ]]; then
     export TT_LOG_STARTED=1
+    rm -f "$TT_LOG_FILE.reported" 2>/dev/null
     { echo "=== $(date -Is 2>/dev/null || date) $TT_INVOKED_AS ${TT_ARGS[*]+"${TT_ARGS[*]}"}"
       echo "    cwd=$PWD user=$(id -un 2>/dev/null) host=$(uname -n) os=$(tt_os_id 2>/dev/null || uname -s)"
       echo "    verbose=$TT_VERBOSE dry_run=$TT_DRY_RUN yes=$TT_YES offline=${TT_OFFLINE:-0}"; } >> "$TT_LOG_FILE" 2>/dev/null || TT_LOG_FILE=""
