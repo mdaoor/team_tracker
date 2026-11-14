@@ -3,7 +3,7 @@
 Two-layer work tracking: reporters type one line (or fill a form), a local or independent LLM gateway structures it, managers
 enrich it on the server, and everything is shown as views, slide decks and a CEL-governed policy engine.
 
-Status: release candidate `1.0.0-rc1` ([CHANGELOG](CHANGELOG.md), [known limitations](docs/uat/known-limitations.md)).
+Status: release candidate `1.0.0-rc1` ([CHANGELOG](CHANGELOG.md), [known limitations](docs/guide/15-known-limitations.md)).
 
 ## Get it running
 
@@ -30,12 +30,12 @@ Needs Python 3.12+ with [uv](https://docs.astral.sh/uv/), Node 22 with pnpm, and
 | Requirements, install (local / Docker), run and stop, production (systemd + nginx, Docker, Helm), clients, scripts, configuration, troubleshooting | [`docs/guide/`](docs/guide/README.md) |
 | Every control script (`scripts/ttctl help`) | [scripts reference](docs/guide/06-scripts-reference.md) |
 | Using the product | [reporter](docs/guides/reporter.md), [manager](docs/guides/manager.md), [admin](docs/guides/admin.md) guides |
-| Acceptance testing | [UAT guide](docs/uat/README.md), [UAT script](docs/uat/uat-script.md) |
+| Acceptance testing | UAT guide, UAT script |
 | Clients | [`tt` CLI and management commands](docs/client/management-commands.md), [desktop](docs/client/desktop.md), [personal tracker](docs/client/personal-tracker.md), [Slack](docs/client/slack.md) |
 | Operations | [configuration reference](docs/ops/config-reference.md), [Helm](docs/ops/helm.md), [runbooks](docs/runbooks/README.md), [security](docs/security/README.md) |
 | Integrations | [LLM gateway](docs/llm/gateway.md), [Jira](docs/integrations/jira.md), [presentation templates](docs/presentation/README.md) |
 | API | [`docs/api/`](docs/api), OpenAPI at `/docs` on a running server |
-| Architecture decisions and the normative spec | [`docs/decisions/`](docs/decisions), [`docs/spec/`](docs/spec) |
+| Architecture decisions and the normative spec | decisions (internal planning repository), spec (internal planning repository) |
 
 Implementation plans, reviews and handover prompts are kept in a separate private repository
 ([Repositories](docs/guide/09-repositories.md)).

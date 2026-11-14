@@ -28,4 +28,4 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow `docs/op
 * Contract fuzzing found and fixed 500s on negative/huge `limit`, NUL bytes, invalid enum filters, dangling references and an out-of-range `upcoming` filter.
 * Certificate reload validates on a scratch SSL context (a failed load into the live context would have paired a new certificate with the old key).
 ### Known gaps
-See `docs/uat/known-limitations.md` and the final review report.
+See `docs/guide/15-known-limitations.md` and the final review report.

@@ -11,10 +11,10 @@
 
 ## Performance targets
 Plan budgets: capture < 150 ms/message, `query/items` < 300 ms, snapshot < 2 s cold. Measured on the seed-sized data and on the load fixture
-(see `docs/ops/load-report.md`); the snapshot cold run does **not** meet 2 s on large data - mitigation and issue are recorded there.
+(see load-report.md (internal planning repository)); the snapshot cold run does **not** meet 2 s on large data - mitigation and issue are recorded there.
 
 ## Deviations (each has an ADR)
-`docs/decisions/ADR-0016` ... `ADR-0039`. Notable: projection rebuild is a *verification* tool, not a replay (ADR-0040); Kerberos is proxy-terminated (ADR-0036).
+`ADR-0016` ... `ADR-0039`. Notable: projection rebuild is a *verification* tool, not a replay (ADR-0040); Kerberos is proxy-terminated (ADR-0036).
 
 ## Open product questions
 1. Kerberos: is proxy-terminated SSO acceptable, or is in-process GSSAPI required? (ADR-0036)

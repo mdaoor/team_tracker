@@ -70,7 +70,7 @@ Open <http://localhost:5173/login>. Stop with `scripts/ttctl docker down`.
 
 ## Other documentation in this repository
 * Using the product: [reporter](../guides/reporter.md), [manager](../guides/manager.md), [admin](../guides/admin.md) guides.
-* Acceptance testing: [UAT guide](../uat/README.md), [UAT script](../uat/uat-script.md), [known limitations](../uat/known-limitations.md).
+* Acceptance testing: UAT guide, UAT script, [known limitations](15-known-limitations.md).
 * Operations: [configuration reference](../ops/config-reference.md), [Helm](../ops/helm.md), [runbooks](../runbooks/README.md), [security](../security/README.md).
 * Clients and integrations: [`docs/client/`](../client), [LLM gateway](../llm/gateway.md), [Jira](../integrations/jira.md).
 * API: [`docs/api/`](../api) (OpenAPI at `/docs` on a running server).

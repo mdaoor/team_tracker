@@ -4,8 +4,8 @@ The work is split over two repositories:
 
 | Repository | Visibility | Contains |
 | --- | --- | --- |
-| **`team_tracker`** (this one) | team / customers | the application code, `scripts/`, deployment files, and **how to use** documentation: this guide, user guides, UAT, operations, security, API, client and integration docs, architecture decision records (`docs/decisions/`) and the normative product spec (`docs/spec/`, which the tests check the code against) |
-| **`team_tracker-internal`** | **private**, protected `main` | everything the team plans and implements from: `plans/` (phase plans and appendices), `docs/reviews/` (implementation, technical and UX reviews with screenshots), `docs/handover/` (what is left after each pass), `tools/handover.py` (fills the handover prompts) and its test |
+| **`team_tracker`** (this one) | team / customers | the application code, `scripts/`, deployment files, and **how to use** documentation: this guide, user guides, UAT, operations, security, API, client and integration docs, architecture decision records (decisions (internal planning repository)) and the normative product spec (spec (internal planning repository), which the tests check the code against) |
+| **`team_tracker-internal`** | **private**, protected `main` | everything the team plans and implements from: plans (internal planning repository) (phase plans and appendices), reviews (internal planning repository) (implementation, technical and UX reviews with screenshots), handover (internal planning repository) (what is left after each pass), handover.py (internal planning repository) (fills the handover prompts) and its test |
 
 The list of internal paths is [`scripts/repo/internal-paths.txt`](../../scripts/repo/internal-paths.txt).
 
@@ -43,7 +43,7 @@ gh api -X PUT repos/mdaoor/team_tracker-internal/collaborators/USERNAME -f permi
 ## Working with both
 * Plan, review and write handover prompts in **team_tracker-internal**. Implement in **team_tracker** and link the plan
   section in the pull request description (the plan files name the tests that prove each acceptance criterion).
-* Handover prompts: `python tools/handover.py kickoff 11` inside the internal repository.
+* Handover prompts: `python handover.py (internal planning repository) kickoff 11` inside the internal repository.
 * Keep user-facing documentation in this repository and update it in the same pull request as the code it describes.
 
 ## Old history in this repository

@@ -1,4 +1,4 @@
-// Page mode vs the prototype (docs/spec/team_tracker_presentation.html): full-page screenshots at 1280 wide, both themes,
+// Page mode vs the prototype (apps/presentation/e2e/reference/team_tracker_presentation.html): full-page screenshots at 1280 wide, both themes,
 // compared pixel by pixel over the common height. Acceptance: <= 2 % of pixels differ.
 import { expect, test } from "@playwright/test";
 import pixelmatch from "pixelmatch";

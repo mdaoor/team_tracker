@@ -58,6 +58,7 @@ PRODUCTION (systemd, root)
 REPOSITORY AND SUPPORT
   repo split --repo OWNER/NAME      publish internal plans to a private repo ($GUIDE/14-repositories.md)
   repo purge-history                prepare (never run by default) a history rewrite
+  repo secrets-scan [DIR]           committed secrets in files and history (gitleaks or detect-secrets)
   support-bundle [FILE]             logs + doctor + versions + masked config in one tar, to send out of a closed site
   version                           versions of ttctl, the app and the tools
 
@@ -84,7 +85,7 @@ script_for() {   # script_for COMMAND -> path (relative to scripts/) or empty
     client|tt) echo client.sh ;; build) echo build.sh ;; check|test) echo check.sh ;; clean) echo clean.sh ;;
     bundle) echo bundle.sh ;; support-bundle) echo support-bundle.sh ;;
     prod) case "${2:-}" in install) echo prod/install.sh ;; upgrade|rollback|releases) echo prod/upgrade.sh ;; *) echo prod/service.sh ;; esac ;;
-    repo) case "${2:-}" in purge-history) echo repo/purge-internal-history.sh ;; *) echo repo/split-internal-docs.sh ;; esac ;;
+    repo) case "${2:-}" in purge-history) echo repo/purge-internal-history.sh ;; secrets-scan) echo repo/secrets-scan.sh ;; *) echo repo/split-internal-docs.sh ;; esac ;;
     *) echo "" ;;
   esac
 }
@@ -123,8 +124,9 @@ case "$cmd" in
     case "$sub" in
       split) exec "$ROOT/scripts/repo/split-internal-docs.sh" "$@" ;;
       purge-history) exec "$ROOT/scripts/repo/purge-internal-history.sh" "$@" ;;
-      "") fail TT-E012 "'repo' needs a subcommand" "subcommands: split, purge-history" "$TT_TTCTL repo split --repo OWNER/NAME --dry-run" ;;
-      *) fail TT-E011 "unknown repo subcommand '$sub'" "subcommands: split, purge-history" "$TT_TTCTL help repo" ;;
+      secrets-scan) exec "$ROOT/scripts/repo/secrets-scan.sh" "$@" ;;
+      "") fail TT-E012 "'repo' needs a subcommand" "subcommands: split, purge-history, secrets-scan" "$TT_TTCTL repo split --repo OWNER/NAME --dry-run" ;;
+      *) fail TT-E011 "unknown repo subcommand '$sub'" "subcommands: split, purge-history, secrets-scan" "$TT_TTCTL help repo" ;;
     esac ;;
   *)
     s="$(script_for "$cmd")"

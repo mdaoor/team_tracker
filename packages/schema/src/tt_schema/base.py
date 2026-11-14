@@ -1,4 +1,4 @@
-"""Shared base model, id and clock helpers (see docs/spec/team_tracker_models.py `Base`)."""
+"""Shared base model, id and clock helpers (see packages/schema/tests/reference/team_tracker_models.py `Base`)."""
 
 from __future__ import annotations
 

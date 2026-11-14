@@ -1,4 +1,4 @@
-"""Schema parity: the Pydantic port must match docs/spec/team_tracker_models.py exactly."""
+"""Schema parity: the Pydantic port must match packages/schema/tests/reference/team_tracker_models.py (the normative reference models) exactly."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ DOCUMENTED_ADDITIONS: dict[str, set[str]] = {
     "ClientMessage": {"corrects", "source"},  # ADR-0054 (Phase 15)
 }
 
-SPEC = Path(__file__).resolve().parents[3] / "docs" / "spec" / "team_tracker_models.py"
+SPEC = Path(__file__).resolve().parent / "reference" / "team_tracker_models.py"
 
 
 @pytest.fixture(scope="module")

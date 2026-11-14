@@ -49,7 +49,7 @@ Teams chat/presence, Apple/CalDAV (a generic CalDAV adapter would implement the 
 scope. Google Meet attendance is not read. The Microsoft focus-time detection uses the "Focus time" category or subject (Graph v1.0 has no event type).
 Provider fixtures in `packages/client_core/tests/fixtures/calendar` are hand-assembled from the API reference, **not recordings of a live account**;
 nothing has been run against real Google or Microsoft services. `tools/smoke_calendar.py` is the script that does it with a test account
-(runbook: `docs/uat/uat-personal-tracker.md`, "Live-account smoke"); it has itself only been run against fakes.
+(runbook: uat-personal-tracker.md (internal planning repository), "Live-account smoke"); it has itself only been run against fakes.
 
 ## Troubleshooting
 | symptom | cause / fix |

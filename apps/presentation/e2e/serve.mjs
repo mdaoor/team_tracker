@@ -6,7 +6,7 @@ const files = {
   "/": ["dist/presentation.html", "text/html"],
   "/golden.json": ["fixtures/golden.json", "application/json"],
   "/prototype.html": [
-    "../../docs/spec/team_tracker_presentation.html",
+    "e2e/reference/team_tracker_presentation.html",
     "text/html",
   ],
 };
