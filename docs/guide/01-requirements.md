@@ -1,73 +1,69 @@
-# 1. Requirements
+# 1. Requirements and support matrix
 
-## What you need
+## Support matrix
 
-| Tool | Version | Needed for | Check |
+| Host OS (x86_64) | Online install (`ttctl setup`) | Air-gapped bundle target | PostgreSQL 16 from | Status |
+| --- | --- | --- | --- | --- |
+| RHEL / Rocky / Alma **8** | yes | `rhel8-x86_64` | AppStream module `postgresql:16`, or PGDG | supported |
+| RHEL / Rocky / Alma **9** | yes | `rhel9-x86_64` | AppStream module `postgresql:16`, or PGDG | supported |
+| Ubuntu **22.04** | yes | `ubuntu22.04-amd64` | PGDG apt repository (22.04 ships 14) | supported |
+| Ubuntu **24.04** | yes | `ubuntu24.04-amd64` | Ubuntu archive | supported |
+| Debian **12** | yes | - (use an internal mirror, [FAQ](13-faq.md)) | PGDG apt repository | supported online |
+| macOS (Apple silicon / Intel) | development only | - | Homebrew `postgresql@16` | development |
+| Windows | use WSL 2 (Ubuntu) | - | inside WSL | development |
+| Any OS with Docker | `ttctl docker up` | `--with-docker-images` | `postgres:16` image | supported |
+
+What each row was actually tested with in CI is listed in the pull request that introduced this matrix and in
+`.github/workflows/ops.yml` (jobs `online` and `airgap`, one per target). Clients: see [Clients](08-clients.md).
+
+## What the app needs
+
+| Piece | Version | Needed for | Installed by |
 | --- | --- | --- | --- |
-| Python | 3.12 or newer | server, worker, CLI, gateway, Slack bot | `python3 --version` |
-| [uv](https://docs.astral.sh/uv/) | 0.4+ | Python dependencies and running the Python apps | `uv --version` |
-| Node.js | 22 | web console, deck viewer, desktop palette | `node --version` |
-| pnpm | 9 (the repo pins 9.15.0) | Node dependencies | `pnpm --version` |
-| PostgreSQL | 16, with `pg_trgm`, `ltree`, `btree_gist` (they ship with Postgres) | the database | `psql --version` |
-| curl, git | any | scripts, cloning | |
-| Chromium | any recent, optional | PDF/PNG export of decks, browser tests | installed by `scripts/ttctl setup --browsers` |
-| Docker + compose plugin | optional | the Docker way of running everything | `docker compose version` |
-| Ollama | optional | a local model for the LLM gateway | `ollama --version` |
-| Rust + Tauri libraries | optional | building the native desktop app only | `cargo --version` |
+| Python | 3.12+ (uv-managed, private; the system python is not touched) | server, worker, CLI, gateway | `ttctl prereqs install python` (user space) |
+| uv | 0.4+ (pinned 0.11.32) | Python dependencies, running the apps | `ttctl prereqs install uv` (user space, from PyPI) |
+| Node.js | 22 | **only** to build the web console; bundles ship it prebuilt | `ttctl prereqs install node` (user space) |
+| pnpm | 9.15.0 | same as Node | `ttctl prereqs install pnpm` (user space) |
+| PostgreSQL | **server** 16 + contrib (`pg_trgm`, `ltree`, `btree_gist`) | the database (`--db native`) | `ttctl prereqs install postgresql --system` (root) |
+| PostgreSQL client | 16, only for `db backup/restore/psql` | dumps | `ttctl prereqs install psql --system`, or a bundle's `.tools/pgsql` |
+| curl | any | downloads, health checks (the bundle's Python is used where curl is missing) | OS package |
+| python3 | any (even 3.6) | only to unpack uv the first time (`/usr/libexec/platform-python` on RHEL counts) | OS package (present on standard installs) |
+| Chromium + its libraries | any recent | PDF/PNG export of decks | `ttctl prereqs install chromium` + `chromium-libs` |
+| git | any, optional | cloning, `prod upgrade` from git | OS package |
+| Docker + compose | optional | `--db docker`, `ttctl docker`, building bundles | OS / Docker repository |
 
-`scripts/ttctl doctor` checks all of this for you and tells you what is missing.
+`ttctl prereqs check` shows all of this for the host you are on; `-v` adds every probe (path and raw version output).
 
-## Install the tools
+```bash
+scripts/ttctl prereqs check
+```
+It exits with 3 while a required tool is missing (and prints the install command), 0 when everything required is there.
 
-### Ubuntu / Debian
-```bash
-sudo apt update && sudo apt install -y curl git postgresql-16 postgresql-client-16
-```
-On older releases where `postgresql-16` is not in the default list, add the PostgreSQL apt repository first
-(<https://www.postgresql.org/download/linux/ubuntu/>).
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs
-```
-```bash
-sudo corepack enable && corepack prepare pnpm@9.15.0 --activate
-```
+### What the client psql version means
+Setup and `--with-db` check the **server**: `SHOW server_version_num` and `pg_available_extensions` over the database
+connection. An older `psql` on the host (RHEL 8 ships 10) does not matter for them. Only `ttctl db backup`, `restore` and
+`psql` run a client program, and that must be 16 or newer; they pick `.tools/pgsql`, `/usr/pgsql-16` or the `postgres:16`
+container automatically, and say so when none exists (`TT-E109`).
 
-### Fedora / RHEL
-```bash
-sudo dnf install -y curl git postgresql-server postgresql-contrib nodejs   # check: postgres --version shows 16, node --version shows 22
-```
-```bash
-sudo postgresql-setup --initdb && sudo systemctl enable --now postgresql
-```
-Then install uv and pnpm as above.
+## Root or not
+Everything the app needs in user space goes under `.tools/` in the checkout and is put on `PATH` by every script:
+uv, Python, Node, pnpm, Chromium. System packages (PostgreSQL, Chromium's libraries, curl, git, Docker) need root.
+For those, ttctl **prints the exact commands**, asks before running them (or `--yes`), uses `sudo` only when you are not
+root and never silently, and with `--dry-run` only prints.
 
-### macOS (Homebrew)
-```bash
-brew install uv node@22 postgresql@16 git
-```
-```bash
-brew services start postgresql@16 && corepack enable
-```
-
-### Windows
-Use **WSL 2** with Ubuntu and follow the Ubuntu steps inside WSL. The scripts are bash scripts; they do not run in PowerShell.
-Docker Desktop with the WSL 2 backend works for the Docker path.
-
-## Ports used
+## Ports
 
 | Port | Used by | Change with |
 | --- | --- | --- |
 | 5432 | PostgreSQL | `TT_DATABASE_URL` |
-| 8000 | API server (dev, and production behind nginx) | `TT_PORT` |
-| 8443 / 8080 | API server with its own HTTPS (production `--mode tls`) | `tt-admin serve --port/--redirect-port` |
-| 5173 | web console dev server | `TT_WEB_PORT` |
+| 8000 | API (dev; production behind nginx) | `TT_PORT` |
+| 8443 / 8080 | API with its own HTTPS (`prod install --mode tls`) | `tt-admin serve --port/--redirect-port` |
+| 5173 | web console | `TT_WEB_PORT` |
 | 8700 | LLM gateway | `TT_GATEWAY_PORT` |
-| 1420 | desktop palette preview (fixed by its Vite config) | - |
-| 11434 | Ollama (if you use it) | `ollama_api_base` in the gateway config |
+| 1420 | desktop preview | fixed |
+| 11434 | Ollama (optional) | gateway config `ollama_api_base` |
 
 ## Hardware
-A laptop is enough for development and UAT (2 CPU, 4 GB RAM free). A small team server: 2 vCPU, 4 GB RAM, 20 GB disk,
-plus whatever a local model needs if you run Ollama on the same box (7B models want about 8 GB RAM or a GPU).
+Laptop / UAT: 2 CPU, 4 GB RAM free, 5 GB disk. Team server: 2 vCPU, 4 GB RAM, 20 GB disk, plus about 8 GB RAM (or a GPU)
+if a local 7B model runs on the same host. An air-gapped bundle needs about 2 GB free (unpacked bundle plus the installed release) (sizes in
+[Install air-gapped](03-install-airgapped.md#bundle-sizes)).

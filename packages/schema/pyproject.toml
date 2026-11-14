@@ -1,7 +1,7 @@
 [project]
 name = "tt-schema"
 version = "0.1.0"
-description = "Team Tracker schema package: enums and Pydantic models ported from docs/spec/team_tracker_models.py"
+description = "Team Tracker schema package: enums and Pydantic models ported from packages/schema/tests/reference/team_tracker_models.py"
 requires-python = ">=3.12"
 dependencies = ["pydantic>=2.7", "uuid-utils>=0.9"]
 

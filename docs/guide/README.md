@@ -1,76 +1,51 @@
-# Team Tracker - Setup, Install, Run and Stop Guide
+# Team Tracker - install, operate and use
 
-This guide covers installing, running, stopping and operating Team Tracker: the **server side** (API, worker, database,
-web console, LLM gateway) and the **client side** (the `tt` command line, desktop palette, Mobile Lite, Slack bot).
-Every action has a script in [`scripts/`](../../scripts). The single entry point is **`scripts/ttctl`**.
+This guide is the one place for installing, running, stopping, upgrading and operating Team Tracker: the **server side**
+(API, worker, database, web console, LLM gateway) and the **clients** (`tt` CLI, desktop, Slack). Every action is a
+`scripts/ttctl` command; every command answers `--help`.
 
-| # | Page | Read it when you want to... |
+| # | Page | When |
 | --- | --- | --- |
-| 1 | [Requirements](01-requirements.md) | check what to install first (Linux, macOS, Windows/WSL) |
-| 2 | [Install](02-install.md) | install on a laptop or a test box, with or without Docker |
-| 3 | [Run and stop](03-run-and-stop.md) | start, stop, restart, check and read logs for each component |
-| 4 | [Production](04-production.md) | deploy on a Linux server (systemd + nginx), Docker images or Kubernetes, upgrade, back up |
-| 5 | [Clients](05-clients.md) | install and use the `tt` CLI, desktop palette, Mobile Lite, Slack bot, LLM gateway |
-| 6 | [Scripts reference](06-scripts-reference.md) | look up every `ttctl` command and option |
-| 7 | [Configuration](07-configuration.md) | understand `.env` and the important settings |
-| 8 | [Troubleshooting](08-troubleshooting.md) | fix a problem |
-| 9 | [Repositories](09-repositories.md) | understand this repo vs the private planning repo |
+| 1 | [Requirements and support matrix](01-requirements.md) | before anything: which OS, which tools, root or not |
+| 2 | [Install online](02-install-online.md) | a host with internet (or internal mirrors) |
+| 3 | [Install air-gapped](03-install-airgapped.md) | a host without network: build a bundle, carry it over, install |
+| 4 | [Run, stop, restart, status, logs](04-run-and-stop.md) | every day |
+| 5 | [Database](05-database.md) | create, migrate, seed, back up, restore, reset |
+| 6 | [Production](06-production.md) | systemd, nginx, TLS from PEM files, Active Directory |
+| 7 | [Upgrade and rollback](07-upgrade-and-rollback.md) | online or from a bundle |
+| 8 | [Clients](08-clients.md) | `tt` CLI (client kit for Windows/Linux/macOS, offline), desktop, Slack |
+| 9 | [Configuration](09-configuration.md) | every setting (generated from the code) |
+| 10 | [Scripts reference](10-scripts-reference.md) | every command's help (generated) |
+| 11 | [Troubleshooting](11-troubleshooting.md) | an error code `TT-Ennn`, or a symptom |
+| 12 | [Uninstall](12-uninstall.md) | removing it |
+| 13 | [FAQ](13-faq.md) | short answers |
+| 14 | [Repositories](14-repositories.md) | product vs private planning repository |
+| 15 | [Known limitations](15-known-limitations.md) | what is not verified yet |
 
-## Five-minute quick start (laptop, no Docker)
-
-You need Python 3.12+ with [uv](https://docs.astral.sh/uv/), Node 22 with pnpm, and PostgreSQL 16 ([details](01-requirements.md)).
-
+## Quick start (connected Linux or macOS host)
 ```bash
 git clone https://github.com/mdaoor/team_tracker && cd team_tracker
 ```
 ```bash
-scripts/ttctl setup --with-db
+scripts/ttctl setup --with-db --install-missing
 ```
 ```bash
 scripts/ttctl start
 ```
-Then open <http://localhost:5173/login> and click **Development sign-in** (workspace `acme`, handle `@mahmoud`).
-
-Check and stop:
-```bash
-scripts/ttctl status
-```
-```bash
-scripts/ttctl stop
-```
-
-## Quick start with Docker
-```bash
-scripts/ttctl docker up
-```
-```bash
-scripts/ttctl docker seed
-```
-Open <http://localhost:5173/login>. Stop with `scripts/ttctl docker down`.
+Open <http://localhost:5173/login> → **Development sign-in** (workspace `acme`, handle `@mahmoud`).
+`scripts/ttctl status` shows what runs; `scripts/ttctl stop` stops it. Air-gapped host: [page 3](03-install-airgapped.md).
 
 ## What runs where
-
 ```text
-             browser ──► web console (:5173 dev / nginx in prod) ──┐
- tt CLI / desktop / Slack ─────────────────────────────────────────┼──► API server (:8000) ──► PostgreSQL 16 (:5432)
-                         └──► LLM gateway (:8700, optional) ◄──────┘          ▲
-                                     └──► Ollama / cloud model                │
-                                                                  worker (background jobs)
+             browser ──► web console (:5173 / nginx) ──┐
+ tt CLI / desktop / Slack ──────────────────────────────┼──► API server (:8000) ──► PostgreSQL 16 (:5432)
+                         └──► LLM gateway (:8700) ◄────┘          ▲
+                                     └──► local model             │
+                                                       worker (background jobs)
 ```
 
-| Component | What it does | Dev command behind `ttctl start` | Port |
-| --- | --- | --- | --- |
-| `server` | REST API, sign-in, exports, deck viewer | `uvicorn tt_server.main:create_app --factory` | 8000 |
-| `worker` | background jobs: daily logs, governance, recurrence, Jira, exports | `python -m tt_worker` | - |
-| `web` | manager/admin web console (React + Vite) | `pnpm --filter @tt/web dev` | 5173 |
-| `gateway` | LLM gateway (optional): free-text understanding, insights, suggestions | `tt-llm serve --local-only` | 8700 |
-| `desktop` | desktop palette / personal tracker preview in a browser (optional) | `pnpm --filter @tt/desktop dev` | 1420 |
-| `slack` | Slack bot (optional) | `tt-slack` | - |
-| database | PostgreSQL 16 with `pg_trgm`, `ltree`, `btree_gist` | your OS service or the `db` container | 5432 |
-
-## Other documentation in this repository
-* Using the product: [reporter](../guides/reporter.md), [manager](../guides/manager.md), [admin](../guides/admin.md) guides.
-* Acceptance testing: [UAT guide](../uat/README.md), [UAT script](../uat/uat-script.md), [known limitations](../uat/known-limitations.md).
-* Operations: [configuration reference](../ops/config-reference.md), [Helm](../ops/helm.md), [runbooks](../runbooks/README.md), [security](../security/README.md).
-* Clients and integrations: [`docs/client/`](../client), [LLM gateway](../llm/gateway.md), [Jira](../integrations/jira.md).
-* API: [`docs/api/`](../api) (OpenAPI at `/docs` on a running server).
+## Other documentation
+Using the product: [reporter](../guides/reporter.md), [manager](../guides/manager.md), [admin](../guides/admin.md) guides.
+Operations: [runbooks](../runbooks/README.md), [security](../security/README.md), [Helm](../ops/helm.md),
+[configuration reference](../ops/config-reference.md). Clients and integrations: [`docs/client/`](../client),
+[LLM gateway](../llm/gateway.md), [Jira](../integrations/jira.md). API: [`docs/api/`](../api).

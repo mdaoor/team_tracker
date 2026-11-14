@@ -44,7 +44,7 @@ tt-slack = { workspace = true }
 [tool.ruff]
 line-length = 110
 target-version = "py312"
-extend-exclude = ["docs/spec", "tools/gen_snapshot.py"]
+extend-exclude = ["packages/schema/tests/reference", "tools/gen_snapshot.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "DTZ005", "DTZ011"]  # DTZ: no naive/server-local "now" for business dates (use tt_server.clock)

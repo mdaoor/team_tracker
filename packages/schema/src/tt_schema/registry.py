@@ -1,4 +1,4 @@
-"""ALL_MODELS in the same order as docs/spec/team_tracker_models.py."""
+"""ALL_MODELS in the same order as packages/schema/tests/reference/team_tracker_models.py."""
 
 from __future__ import annotations
 

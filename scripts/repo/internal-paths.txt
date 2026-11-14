@@ -1,7 +1,16 @@
-# Paths that belong to the private planning repository, not to the product repository.
-# One path per line (file or directory, relative to the repository root). Used by scripts/repo/split-internal-docs.sh.
+# Paths that belong to the private planning repository (default mdaoor/team_tracker-internal), not to the product
+# repository. One path per line, relative to the repository root. Used by scripts/repo/split-internal-docs.sh and
+# scripts/repo/purge-internal-history.sh. Classification table: docs/guide/14-repositories.md.
 plans
 docs/reviews
 docs/handover
+docs/decisions
+docs/spec
+docs/uat
+docs/ux
+docs/web
+docs/governance/performance.md
+docs/ops/load-report.md
+docs/security/threat-model.md
 tools/handover.py
 apps/server/tests/unit/test_handover.py

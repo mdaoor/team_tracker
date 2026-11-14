@@ -1,7 +1,7 @@
 # tt_schema
 
 The single source of field names, enum values and defaults. Pydantic v2 port of
-`docs/spec/team_tracker_models.py` (normative; do not rename or add synonyms).
+`packages/schema/tests/reference/team_tracker_models.py` (normative; do not rename or add synonyms).
 
 | module | contents |
 |---|---|

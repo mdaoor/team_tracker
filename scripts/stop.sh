@@ -1,33 +1,46 @@
 #!/usr/bin/env bash
-# Stop components started by scripts/start.sh (graceful SIGTERM, SIGKILL after TT_STOP_TIMEOUT seconds).
-#
-#   scripts/stop.sh                  stop everything that is running (all known components)
-#   scripts/stop.sh web worker       stop only those
-#   scripts/stop.sh --with-db        ...and stop the local Postgres service too
+# Stop components started by ttctl start.
 source "$(dirname "$0")/lib/common.sh"
+usage() {
+  cat <<EOF2
+ttctl stop - stop components (SIGTERM, then SIGKILL after TT_STOP_TIMEOUT=${TT_STOP_TIMEOUT}s)
+
+SYNOPSIS
+  $TT_TTCTL stop [COMPONENT...] [--with-db]
+
+OPTIONS
+  COMPONENT    server worker web gateway desktop slack (default: everything that runs; clients first, API last)
+  --with-db    also stop the database service (native: OS service; docker: the db container; external: nothing)
+
+EXAMPLES
+  $TT_TTCTL stop
+  $TT_TTCTL stop web
+  $TT_TTCTL stop --with-db
+  $TT_TTCTL --dry-run stop
+
+SEE ALSO
+  $GUIDE/04-run-and-stop.md
+EOF2
+}
+tt_init "$@"; set -- "${TT_ARGS[@]+"${TT_ARGS[@]}"}"
 
 WITH_DB=0; NAMES=()
-for a in "$@"; do
-  case "$a" in --with-db) WITH_DB=1 ;; -h|--help) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; *) NAMES+=("$a") ;; esac
-done
+for a in "$@"; do case "$a" in --with-db) WITH_DB=1 ;; -*) usage_fail "unknown option '$a' for stop" ;; *) NAMES+=("$a") ;; esac; done
 if [[ ${#NAMES[@]} -eq 0 || "${NAMES[0]}" == "all" ]]; then
-  COMPONENTS=("${OPTIONAL_COMPONENTS[@]}" web worker server)     # reverse start order: clients first, API last
+  COMPONENTS=("${OPTIONAL_COMPONENTS[@]}" web worker server); EXPLICIT=0
 else
-  mapfile -t COMPONENTS < <(resolve_components "${NAMES[@]}")
+  resolve_components "${NAMES[@]}"; EXPLICIT=1
 fi
-
 stopped=0
 for c in "${COMPONENTS[@]}"; do
   if pid="$(running_pid "$c")"; then
     info "stopping $c (pid $pid)"
-    kill_tree "$pid"
-    rm -f "$(pid_file "$c")"
+    if dry_run; then say "would stop $c (pid $pid)"; continue; fi
+    kill_tree "$pid"; rm -f "$(pid_file "$c")"
     printf '=== %s stopped\n' "$(date -Is)" >> "$(log_file "$c")" 2>/dev/null || true
     ok "$c stopped"; stopped=$((stopped + 1))
-  elif [[ ${#NAMES[@]} -gt 0 ]]; then
-    ok "$c was not running"
-  fi
+  elif [[ $EXPLICIT -eq 1 ]]; then ok "$c was not running"; fi
 done
-[[ $stopped -eq 0 && ${#NAMES[@]} -eq 0 ]] && ok "nothing was running"
-if [[ $WITH_DB -eq 1 ]]; then run_script db.sh stop; fi
+[[ $stopped -eq 0 && $EXPLICIT -eq 0 ]] && ok "nothing was running"
+[[ $WITH_DB -eq 1 ]] && "$ROOT/scripts/db.sh" stop
 exit 0

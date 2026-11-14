@@ -1,6 +1,6 @@
 """The prototype's section arithmetic in Python, for exports that cannot run the deck's JS (PPTX, CSV).
 
-Mirrors `renderKPIs`, `measureOf`/`renderExplorer`, `renderRadar` of docs/spec/team_tracker_presentation.html so a number in the
+Mirrors `renderKPIs`, `measureOf`/`renderExplorer`, `renderRadar` of apps/presentation/e2e/reference/team_tracker_presentation.html so a number in the
 deck and the same number in a PPTX come from the same formula.
 """
 

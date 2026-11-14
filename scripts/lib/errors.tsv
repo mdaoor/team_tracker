@@ -1,0 +1,42 @@
+# Error catalogue for scripts/. One line per code: CODE<TAB>EXIT<TAB>SUMMARY
+# Exit codes: 1 runtime failure, 2 usage, 3 prerequisite missing, 4 blocked because offline, 5 configuration.
+# Every code has a section "## TT-Ennn ..." in docs/guide/11-troubleshooting.md (tests/ops/test_ops_docs.py checks both ways).
+TT-E001	1	A command failed unexpectedly
+TT-E002	1	A step failed
+TT-E010	2	Unknown option or argument
+TT-E011	2	Unknown command or subcommand
+TT-E012	2	Missing or invalid argument
+TT-E013	2	Confirmation required
+TT-E020	3	Root privileges required
+TT-E030	3	Project dependencies are not installed
+TT-E100	3	A required tool is missing or too old
+TT-E104	3	pnpm is missing
+TT-E107	3	Chromium is missing
+TT-E108	3	Docker is missing or not running
+TT-E109	3	The PostgreSQL client is too old for this action
+TT-E110	3	This operating system is not supported by the installer
+TT-E120	1	Installing a prerequisite failed
+TT-E200	1	The database server is not reachable
+TT-E201	5	The database rejected the login
+TT-E202	3	The database server is older than PostgreSQL 16
+TT-E203	3	Required PostgreSQL extensions are not available
+TT-E204	1	The database schema is not migrated
+TT-E205	5	The role or database could not be created
+TT-E206	3	The database service cannot be started here
+TT-E207	1	The application is using the database
+TT-E300	1	A port is already in use
+TT-E301	1	A component did not become healthy
+TT-E303	1	A component is still running
+TT-E304	5	A required setting is missing
+TT-E305	5	Development sign-in is required
+TT-E306	1	The API is not reachable
+TT-E310	1	No log file yet
+TT-E400	4	Network access refused in offline mode
+TT-E401	4	The bundle does not contain this component
+TT-E402	1	The bundle failed verification
+TT-E403	5	The bundle was built for another platform
+TT-E404	1	Building the bundle failed
+TT-E500	5	Unsafe or invalid configuration
+TT-E502	3	systemd is required
+TT-E503	5	TLS certificate files are missing
+TT-E600	1	Repository operation refused

@@ -1,0 +1,92 @@
+# Install / run / air-gap acceptance tests and script tests (Packages 1-6 of the ops work).
+# Every container job follows the guide literally: ci/ops/online.sh and ci/ops/airgap.sh execute the guide's
+# "bash runnable" / "bash runnable-offline" blocks (tools/run_doc_blocks.py).
+name: ops
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "ci/ops/**"
+      - "tests/ops/**"
+      - "docs/guide/**"
+      - "tools/gen_guide_docs.py"
+      - "tools/run_doc_blocks.py"
+      - "deploy/**"
+      - ".github/workflows/ops.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ops-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scripts:
+    name: shellcheck, bats, help and docs consistency
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { version: "0.11.32" }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck bats
+      - run: uv sync --all-packages --frozen
+      - run: tests/ops/run.sh
+
+  regression-rhel8:
+    name: regression - RHEL 8 without pnpm, psql 10
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: ci/ops/repro-rhel8.sh
+
+  online:
+    name: online install - ${{ matrix.target }}
+    needs: scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [rhel8-x86_64, rhel9-x86_64, ubuntu22.04-amd64, ubuntu24.04-amd64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: guide pages 02, 04, 05 in a fresh container (setup --with-db --install-missing --browsers --yes, start, smoke, stop)
+        run: ci/ops/online.sh ${{ matrix.target }}
+
+  airgap:
+    name: air-gapped install - ${{ matrix.target }}
+    needs: scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: rhel8-x86_64,      db: rpm }
+          - { target: rhel9-x86_64,      db: rpm }
+          - { target: ubuntu22.04-amd64, db: deb }
+          - { target: ubuntu24.04-amd64, db: deb }
+    steps:
+      - uses: actions/checkout@v4
+      - name: free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL && df -h /
+      - name: step A - bundle create (connected runner)
+        run: scripts/ttctl bundle create --target ${{ matrix.target }} --with-db ${{ matrix.db }} --with-browsers --compress gz
+      - name: bundle sizes
+        run: |
+          f=$(ls dist/tt-bundle-*-${{ matrix.target }}.tar.gz)
+          scripts/ttctl bundle info "$f" > manifest.json
+          {
+            echo "### ${{ matrix.target }}: $(du -h "$f" | cut -f1) compressed"
+            echo '| component | MB |'; echo '| --- | --- |'
+            python3 -c 'import json;m=json.load(open("manifest.json"));[print(f"| {c[\"name\"]} | {c[\"size_bytes\"]/1e6:.1f} |") for c in m["components"]];print(f"| **total unpacked** | {m[\"total_bytes\"]/1e6:.1f} |")'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: bundle verify
+        run: scripts/ttctl bundle verify dist/tt-bundle-*-${{ matrix.target }}.tar.gz
+      - name: step B - guide page 03 in a container with --network none (install, db setup, start, smoke with PDF export, stop)
+        run: ci/ops/airgap.sh ${{ matrix.target }} $(ls dist/tt-bundle-*-${{ matrix.target }}.tar.gz)

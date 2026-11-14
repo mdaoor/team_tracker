@@ -1,4 +1,4 @@
-"""Enums ported 1:1 from docs/spec/team_tracker_models.py (names and values are normative)."""
+"""Enums ported 1:1 from packages/schema/tests/reference/team_tracker_models.py (names and values are normative)."""
 
 from __future__ import annotations
 
