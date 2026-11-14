@@ -1,75 +1,133 @@
 #!/usr/bin/env bash
-# ttctl - one entry point for every Team Tracker control action.  Run "scripts/ttctl help" for the list.
-source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
+# ttctl - one entry point for every Team Tracker control action. "ttctl help" lists them; "ttctl help COMMAND" explains one.
+_self="$(readlink -f "$0")"
+export TT_TTCTL="${TT_TTCTL:-$0}"
+
+# Find the command word (first non-flag argument) so the run log is named after it.
+_cmd=""; _skip=0
+for _a in "$@"; do
+  if [[ $_skip -eq 1 ]]; then _skip=0; continue; fi
+  case "$_a" in --log-file) _skip=1 ;; -*) ;; *) _cmd="$_a"; break ;; esac
+done
+COMMANDS="setup doctor prereqs start up stop down restart status ps logs log run db docker client tt build check test clean prod repo bundle support-bundle version help"
+export TT_COMMAND="${TT_COMMAND:-${_cmd:-help}}"
+# shellcheck source=lib/common.sh
+source "$(dirname "$_self")/lib/common.sh"
+TT_PASSTHROUGH_WORDS="$COMMANDS"
 
 usage() {
   cat <<EOF
-${C_BLD}Team Tracker control${C_OFF}   scripts/ttctl <command> [args]      (every command takes --help)
+${C_BLD}ttctl${C_OFF} - install, run, stop and operate Team Tracker
 
-${C_BLD}Install${C_OFF}
-  setup [--with-db] [--browsers]   install dependencies, write .env, build the deck viewer (and create + seed the DB)
-  doctor                           check tools, configuration, database and running processes
+SYNOPSIS
+  $TT_TTCTL [GLOBAL OPTIONS] COMMAND [ARGS]        $TT_TTCTL help COMMAND   (or: COMMAND --help)
 
-${C_BLD}Run (dev / UAT / single host, no Docker)${C_OFF}
-  start [COMPONENT...]             start in the background: server worker web (default) | gateway desktop slack
-  stop  [COMPONENT...] [--with-db] stop (default: everything that runs)
-  restart [COMPONENT...]           stop + start
-  status [--json]                  what runs, PIDs, ports, health
-  logs [-f] [-n N] [COMPONENT...]  show / follow logs (.run/logs)
-  run COMPONENT                    run one component in the foreground (Ctrl-C stops it)
+INSTALL
+  prereqs check|install [TOOL...]   detect and install prerequisites (user space first; asks before using root)
+  setup [--with-db] [--install-missing] [--db native|docker|external] [--browsers] [--prod]
+  doctor                            check tools, configuration, database and running processes
 
-${C_BLD}Database${C_OFF}
+RUN (dev / UAT / single host)
+  start [COMPONENT...]              server worker web (default) | gateway desktop slack
+  stop  [COMPONENT...] [--with-db]  stop (default: everything that runs)
+  restart [COMPONENT...]            stop + start
+  status [--json]                   what runs, PIDs, ports, health
+  logs [-f] [-n N] [COMPONENT...]   show / follow logs (.run/logs)
+  run COMPONENT                     one component in the foreground (Ctrl-C stops it)
+
+DATABASE
   db start|stop|status|create|migrate|seed|setup|reset|drop|backup|restore|psql|verify
 
-${C_BLD}Docker${C_OFF}
-  docker up [--llm] [--tls] | down | stop | start | restart | ps | logs [-f] [SVC] | seed | migrate | shell | psql | reset
+AIR-GAPPED DELIVERY
+  bundle create --target T [...]    on a connected machine: everything needed, in one file
+  bundle info|verify FILE           show / check a bundle
+  bundle install [FILE]             on the offline host (the bundle's ./install.sh does this)
 
-${C_BLD}Client (tt command line)${C_OFF}
-  client install|uninstall|wheels|token|login|run|logout
-
-${C_BLD}Build and quality${C_OFF}
+DOCKER, CLIENT, BUILD
+  docker up|down|stop|start|restart|ps|logs|seed|migrate|shell|psql|reset
+  client install|uninstall|wheels|token|login|run|logout|status
   build [presentation|web|desktop|desktop-native|client|images|openapi]
-  check [all|lint|typecheck|test|quick|e2e|fmt]
+  check [all|lint|typecheck|test|quick|e2e|fmt|ops]
   clean [--deps]
 
-${C_BLD}Production (systemd, run as root)${C_OFF}
+PRODUCTION (systemd, root)
   prod install --mode proxy|tls [--with-gateway] [--nginx]
-  prod start|stop|restart|status|reload|logs|health|enable|disable
-  prod upgrade [GIT_REF]
+  prod start|stop|restart|status|reload|logs|health|enable|disable|releases
+  prod upgrade [GIT_REF] | prod upgrade --from-bundle FILE | prod rollback
 
-${C_BLD}Repository${C_OFF}
-  repo split --repo OWNER/NAME     publish plans/reviews/handover to a private repo (docs/guide/07-repositories.md)
+REPOSITORY AND SUPPORT
+  repo split --repo OWNER/NAME      publish internal plans to a private repo ($GUIDE/14-repositories.md)
+  repo purge-history                prepare (never run by default) a history rewrite
+  support-bundle [FILE]             logs + doctor + versions + masked config in one tar, to send out of a closed site
+  version                           versions of ttctl, the app and the tools
 
-Guide: docs/guide/README.md
+EXAMPLES
+  $TT_TTCTL setup --with-db --install-missing
+  $TT_TTCTL -v start server
+  $TT_TTCTL bundle create --target rhel8-x86_64 --with-db rpm
+  $TT_TTCTL help db
+
+SEE ALSO
+  $GUIDE/README.md   (full guide)      $GUIDE/10-scripts-reference.md   (every command's help)
 EOF
 }
 
+tt_init "$@"; set -- "${TT_ARGS[@]+"${TT_ARGS[@]}"}"
 cmd="${1:-help}"; shift || true
+export TT_INVOKED_AS="${TT_INVOKED_AS:-$TT_TTCTL $cmd${1:+ $1}}"
+
+script_for() {   # script_for COMMAND -> path (relative to scripts/) or empty
+  case "$1" in
+    setup) echo setup.sh ;; doctor) echo doctor.sh ;; prereqs) echo prereqs.sh ;;
+    start|up|run) echo start.sh ;; stop|down) echo stop.sh ;; restart) echo restart.sh ;;
+    status|ps) echo status.sh ;; logs|log) echo logs.sh ;; db) echo db.sh ;; docker) echo docker.sh ;;
+    client|tt) echo client.sh ;; build) echo build.sh ;; check|test) echo check.sh ;; clean) echo clean.sh ;;
+    bundle) echo bundle.sh ;; support-bundle) echo support-bundle.sh ;;
+    prod) case "${2:-}" in install) echo prod/install.sh ;; upgrade|rollback|releases) echo prod/upgrade.sh ;; *) echo prod/service.sh ;; esac ;;
+    repo) case "${2:-}" in purge-history) echo repo/purge-internal-history.sh ;; *) echo repo/split-internal-docs.sh ;; esac ;;
+    *) echo "" ;;
+  esac
+}
+
+version() {
+  local v; v="$(cat "$ROOT/VERSION" 2>/dev/null || git -C "$ROOT" describe --tags --always --dirty 2>/dev/null || echo unknown)"
+  echo "team-tracker $v"
+  echo "ttctl        $(git -C "$ROOT" log -1 --format='%h %cs' -- scripts 2>/dev/null || echo bundled)"
+  echo "os           $(tt_os_id) $(tt_arch)"
+  local t; for t in python3 uv node pnpm psql docker git curl; do
+    printf '%-12s %s\n' "$t" "$( (command -v "$t" >/dev/null && "$t" --version 2>&1 | head -1) || echo '-')"
+  done
+  [[ "${TT_OFFLINE:-0}" == 1 ]] && echo "mode         offline (TT_OFFLINE=1)"
+  return 0
+}
+
 case "$cmd" in
-  setup) exec "$ROOT/scripts/setup.sh" "$@" ;;
-  doctor) exec "$ROOT/scripts/doctor.sh" "$@" ;;
-  start|up) exec "$ROOT/scripts/start.sh" "$@" ;;
-  stop|down) exec "$ROOT/scripts/stop.sh" "$@" ;;
-  restart) exec "$ROOT/scripts/restart.sh" "$@" ;;
-  status|ps) exec "$ROOT/scripts/status.sh" "$@" ;;
-  logs|log) exec "$ROOT/scripts/logs.sh" "$@" ;;
+  help|-h|--help)
+    if [[ -n "${1:-}" ]]; then
+      s="$(script_for "$1" "${2:-}")"
+      [[ -n "$s" ]] || fail TT-E011 "unknown command '$1'" "it is not one of: $COMMANDS" "$TT_TTCTL help"
+      export TT_COMMAND="$1"; exec "$ROOT/scripts/$s" --help
+    fi
+    usage; _tt_global_help ;;
+  version|--version) version ;;
   run) exec "$ROOT/scripts/start.sh" --foreground "$@" ;;
-  db) exec "$ROOT/scripts/db.sh" "$@" ;;
-  docker) exec "$ROOT/scripts/docker.sh" "$@" ;;
-  client|tt) exec "$ROOT/scripts/client.sh" "$@" ;;
-  build) exec "$ROOT/scripts/build.sh" "$@" ;;
-  check|test) exec "$ROOT/scripts/check.sh" "$@" ;;
-  clean) exec "$ROOT/scripts/clean.sh" "$@" ;;
   prod)
-    sub="${1:-status}"; shift || true
+    sub="${1:-status}"
     case "$sub" in
-      install) exec "$ROOT/scripts/prod/install.sh" "$@" ;;
-      upgrade) exec "$ROOT/scripts/prod/upgrade.sh" "$@" ;;
-      *) exec "$ROOT/scripts/prod/service.sh" "$sub" "$@" ;;
+      install) shift; exec "$ROOT/scripts/prod/install.sh" "$@" ;;
+      upgrade|rollback|releases) exec "$ROOT/scripts/prod/upgrade.sh" "$@" ;;
+      *) exec "$ROOT/scripts/prod/service.sh" "$@" ;;
     esac ;;
   repo)
     sub="${1:-}"; shift || true
-    case "$sub" in split) exec "$ROOT/scripts/repo/split-internal-docs.sh" "$@" ;; *) die "usage: ttctl repo split --repo OWNER/NAME" ;; esac ;;
-  help|-h|--help) usage ;;
-  *) err "unknown command '$cmd'"; usage; exit 2 ;;
+    case "$sub" in
+      split) exec "$ROOT/scripts/repo/split-internal-docs.sh" "$@" ;;
+      purge-history) exec "$ROOT/scripts/repo/purge-internal-history.sh" "$@" ;;
+      "") fail TT-E012 "'repo' needs a subcommand" "subcommands: split, purge-history" "$TT_TTCTL repo split --repo OWNER/NAME --dry-run" ;;
+      *) fail TT-E011 "unknown repo subcommand '$sub'" "subcommands: split, purge-history" "$TT_TTCTL help repo" ;;
+    esac ;;
+  *)
+    s="$(script_for "$cmd")"
+    [[ -n "$s" ]] || fail TT-E011 "unknown command '$cmd'" "it is not one of: $COMMANDS" "$TT_TTCTL help"
+    exec "$ROOT/scripts/$s" "$@" ;;
 esac

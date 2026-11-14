@@ -1,0 +1,14 @@
+
+1/5 Prerequisites
+
+Tools
+ ok python3 3.13.18
+ ok uv 0.13.8
+ ok node 22.11.0
+error pnpm missing - corepack enable && corepack prepare pnpm@9.15.0 --activate
+ ok curl 7.61.1
+warn psql 10.23 is older than 16
+warn docker not found (optional) - only needed for scripts/ttctl docker ...
+warn git not found (optional) - install git
+error fix the missing tools above, then run scripts/setup.sh again
+exit=1
